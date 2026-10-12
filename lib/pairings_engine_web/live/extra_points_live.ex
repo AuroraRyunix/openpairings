@@ -203,6 +203,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -212,14 +213,14 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - Extra points")}</p>
         </div>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:extra_points} />
-
       <div class="card">
         <h2>{gettext("Extra points")}</h2>
+
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
@@ -231,6 +232,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
             </:part>
           </.rich_text>
         </p>
+
         <form
           id="extra-points-form"
           phx-change="change_extra_points"
@@ -242,6 +244,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
                 <option value="handicap" selected={not @acceleration?}>
                   {gettext("Handicap - a head start for players below a rating")}
                 </option>
+
                 <option value="acceleration" selected={@acceleration?}>
                   {gettext("Acceleration - SWAR's extra points, for players at or above a rating")}
                 </option>
@@ -253,6 +256,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
                 "Handicap: the extra points are a head start. With counting on they are added to the player's score everywhere - the standings rank on points plus extra points, and the pairing puts players in score groups by the same total, so the leader on handicap meets the players chasing them. With counting off they do nothing. The FIDE TRF report keeps game points only; the extra points go in its 299 records."
               )}
             </p>
+
             <p :if={@acceleration?} id="extra-points-mode-hint" class="hint">
               {gettext(
                 "Acceleration (SWAR's XtraPoints): the extra points are virtual points for pairing. Every round, the pairing engine adds them to the player's score when it builds the score groups, so the strongest players meet each other from round 1. Take them off part-way with \"Remove half a point\" below; rounds already paired keep what they were paired with. Whether they also count in the standings is the switch below - on, as SWAR does; off, like Baku acceleration, the final standings are game points only."
@@ -272,7 +276,6 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
               }
               checked={@count}
             />
-
             <.setting_field
               label={gettext("Elo bands (rating:bonus, comma-separated)")}
               hint={band_hint(@acceleration?)}
@@ -294,8 +297,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
                 cannot be on with them). The pairing records the first round
                 they reach the engine - `Pairing.pairing_deviations/2`. --%>
           <div :if={@pairing?} id="extra-points-fide-warning" class="pe-modal-warn" role="note">
-            <strong>{gettext("Not part of the FIDE rules.")}</strong>
-            {gettext(
+            <strong>{gettext("Not part of the FIDE rules.")}</strong> {gettext(
               "With extra points in the pairing, the Swiss pairings will differ from what the FIDE rules pair, and a FIDE checker cannot replay the rounds they change. The first round paired while a player holds extra points is recorded as the round the tournament stopped matching the FIDE rules, and the audit trail records it. With nobody holding extra points, nothing changes."
             )}
             <p
@@ -303,15 +305,16 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
               id="extra-points-fide-homologated-warning"
               style="margin: 6px 0 0"
             >
-              <strong>{gettext("This tournament is FIDE-homologated.")}</strong>
-              {gettext(
+              <strong>{gettext("This tournament is FIDE-homologated.")}</strong> {gettext(
                 "Its FIDE record will say it stopped matching the FIDE rules from that round on. Only use extra points in the pairing if the rating officer has agreed."
               )}
             </p>
           </div>
 
           <p :if={@extra_points_error} class="error-note">{@extra_points_error}</p>
+
           <p :if={@extra_points_note} class="ok-note">{@extra_points_note}</p>
+
           <div class="actions">
             <button type="submit" class="pe-btn primary">{gettext("Save extra points settings")}</button>
             <button
@@ -324,6 +327,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
             </button>
           </div>
         </form>
+
         <p :if={@tournament.extra_points_mode != @mode} class="hint" style="margin-bottom: 0">
           {gettext(
             "Save first: \"Apply bands to players\" uses the saved kind and bands, not the ones in the form."
@@ -333,22 +337,28 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
 
       <div :if={Tournament.extra_points_acceleration?(@tournament)} class="card">
         <h2>{gettext("Remove half a point")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Winds the acceleration down, as SWAR's \"Remove\" does: every player rated in the range who still has extra points loses half a point, never going below zero. The next round is paired with what is left; rounds already paired are not changed."
           )}
         </p>
+
         <form id="reduce-extra-points-form" phx-submit="reduce_extra_points">
           <.setting_group>
             <.setting_field label={gettext("From rating")}>
               <input type="number" min="0" name="reduce[from]" value="0" />
             </.setting_field>
+
             <.setting_field label={gettext("To rating")}>
               <input type="number" min="0" name="reduce[to]" value="3000" />
             </.setting_field>
           </.setting_group>
+
           <p :if={@reduce_error} class="error-note">{@reduce_error}</p>
+
           <p :if={@reduce_note} class="ok-note">{@reduce_note}</p>
+
           <div class="actions">
             <button type="submit" class="pe-btn">{gettext("Remove half a point")}</button>
           </div>

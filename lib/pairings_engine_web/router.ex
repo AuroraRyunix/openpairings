@@ -50,6 +50,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
         PairingsEngineWeb.UpdateNotice,
+        PairingsEngineWeb.FideDownloadNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated},
         {PairingsEngineWeb.RequireRole, :support}
       ] do
@@ -63,6 +64,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
         PairingsEngineWeb.UpdateNotice,
+        PairingsEngineWeb.FideDownloadNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated},
         {PairingsEngineWeb.RequireRole, :admin}
       ] do
@@ -80,6 +82,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
         PairingsEngineWeb.UpdateNotice,
+        PairingsEngineWeb.FideDownloadNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/", TournamentsLive
@@ -226,6 +229,7 @@ defmodule PairingsEngineWeb.Router do
           PairingsEngineWeb.DeployNotice,
           PairingsEngineWeb.PublishStatusHook,
           PairingsEngineWeb.UpdateNotice,
+          PairingsEngineWeb.FideDownloadNotice,
           {PairingsEngineWeb.UserAuth, :require_authenticated},
           # Plug-ins are for administrators only (the menu, the overview and
           # every plugin page): an arbiter without the role is sent home.
@@ -325,6 +329,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
         PairingsEngineWeb.UpdateNotice,
+        PairingsEngineWeb.FideDownloadNotice,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       # The account page. Ordinary authentication for the page itself: the
@@ -427,6 +432,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
         PairingsEngineWeb.UpdateNotice,
+        PairingsEngineWeb.FideDownloadNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
       live "/changelog", ChangelogLive
@@ -451,6 +457,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.DeployNotice,
         PairingsEngineWeb.PublishStatusHook,
         PairingsEngineWeb.UpdateNotice,
+        PairingsEngineWeb.FideDownloadNotice,
         {PairingsEngineWeb.UserAuth, :mount_current_scope}
       ] do
       live "/tools/norms", ToolsNormsLive

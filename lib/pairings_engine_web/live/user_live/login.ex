@@ -10,6 +10,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -30,6 +31,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                     <stop offset="100%" stop-color="#2e5e44" />
                   </linearGradient>
                 </defs>
+
                 <path
                   d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
                   fill="#f7f3e8"
@@ -75,36 +77,45 @@ defmodule PairingsEngineWeb.UserLive.Login do
 
             <ul class="auth-features">
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Swiss (Dutch), round robin, Keizer & team tournaments, grouped per event")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "Swiss (Dutch), round robin, Keizer & team tournaments, grouped per event"
+                )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext(
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
                   "Ainalrami · our own FIDE 2026 Swiss engine, checked against billions of pairings"
                 )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("FIDE mode · warns you before anything would break the rules")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "FIDE mode · warns you before anything would break the rules"
+                )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("FIDE C.07 tie-breaks, title norms & a pairing explanation for every round")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "FIDE C.07 tie-breaks, title norms & a pairing explanation for every round"
+                )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext(
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
                   "Publish to OpenResults · live results, standings & team pages, only what you choose"
                 )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Co-arbiters, a full audit trail and a manual in English & Dutch")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "Co-arbiters, a full audit trail and a manual in English & Dutch"
+                )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("TRF-2026, TRF, SWAR & PGN import / export, plus FIDE & KBSB rating lists")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "TRF-2026, TRF, SWAR & PGN import / export, plus FIDE & KBSB rating lists"
+                )}
               </li>
             </ul>
 
@@ -122,6 +133,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <h2 class="auth-card-title">
               {if @current_scope, do: gettext("Confirm it's you"), else: gettext("Welcome back")}
             </h2>
+
             <p class="auth-card-sub">
               <%= if @current_scope do %>
                 {gettext("Re-authenticate to perform sensitive actions on your account.")}
@@ -139,6 +151,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                   </:part>
                 </.rich_text>
               </span>
+
               <span :if={console_mail_adapter?()}>
                 {gettext(
                   "Local mode - sent emails are printed in this computer's terminal, not delivered."
@@ -211,6 +224,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
                 >
                   {gettext("Log in and stay signed in")} <span aria-hidden="true">→</span>
                 </button>
+
                 <button type="submit" class="pe-btn auth-submit auth-submit-ghost">
                   {gettext("Log in only this time")}
                 </button>
@@ -220,6 +234,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
             <div :if={PairingsEngine.Keycloak.configured?()} class="auth-divider">
               <span>or</span>
             </div>
+
             <%!-- 02cloud SSO (Keycloak / AD, auth.zerotwo.cloud) - see
                   KeycloakAuthController and docs/AGENTS.md. Hidden entirely
                   rather than shown-but-disabled when unconfigured (any dev

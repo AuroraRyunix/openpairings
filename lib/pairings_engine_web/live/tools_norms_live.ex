@@ -856,6 +856,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -1284,11 +1285,13 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
             card says so instead of offering a link that would only bounce. --%>
       <section id="tools-badges" class="card" aria-labelledby="tools-badges-heading">
         <h2 id="tools-badges-heading">{gettext("Accreditation badges")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Design and print A6 badges for players, officials, press and guests, filled in from your tournament."
           )}
         </p>
+
         <.link
           :if={@current_scope}
           id="tools-badges-link"
@@ -1297,6 +1300,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
         >
           {gettext("Open the badge maker")}
         </.link>
+
         <.link
           :if={!@current_scope}
           id="tools-badges-login"

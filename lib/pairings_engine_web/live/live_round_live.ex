@@ -498,6 +498,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -507,6 +508,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">
             <%= if @round_number > 0 do %>
               {gettext("Live · Round %{n}", n: @round_number)}
@@ -617,6 +619,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             {gettext("Access level")}
             <select name="level" class="pe-select">
               <option value="helper">{gettext("Helper - fill blanks, latest round only")}</option>
+
               <option value="deputy">{gettext("Deputy - enter and correct, any round")}</option>
             </select>
           </label>
@@ -631,8 +634,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                 class="pe-input"
                 style="width: 64px"
                 placeholder={gettext("from")}
-              />
-              <span aria-hidden="true">–</span>
+              /> <span aria-hidden="true">–</span>
               <input
                 type="number"
                 min="1"
@@ -643,7 +645,6 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               />
             </span>
           </label>
-
           <button class="pe-btn primary" type="submit">{gettext("Generate a code")}</button>
         </form>
 
@@ -654,6 +655,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
               label={gettext("QR code for entering results on a phone")}
             />
           </div>
+
           <div>
             <%!-- Named FIRST here too, above the code itself - this panel is
                   what the arbiter is looking at while handing the phone
@@ -663,12 +665,15 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             <div :if={@new_enrollment.label != ""} class="enroll-name">
               {@new_enrollment.label}
             </div>
+
             <%!-- Eight, not six. `Mobile.random_code/0` draws uniformly from
                   10_000_000..99_999_999 and always has; the label said six
                   from the day it shipped, which is the number a helper on a
                   phone counts to before deciding they have mistyped. --%>
             <div class="enroll-code-label">{gettext("8-digit code")}</div>
+
             <div class="enroll-code">{@new_enrollment.code}</div>
+
             <p class="enroll-url">
               <.rich_text text={
                 gettext("Scan the QR, or open %[url] on the phone and enter the code.")
@@ -676,7 +681,9 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                 <:part name="url"><strong>{url(~p"/m")}</strong></:part>
               </.rich_text>
             </p>
+
             <p class="hint">{enrollment_scope_label(@new_enrollment)}</p>
+
             <p class="hint">
               {gettext("Expires %{when}.", when: enroll_expiry(@new_enrollment.expires_at))}
             </p>
@@ -685,6 +692,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
         <div :if={@enrollments != []} style="margin-top: 18px">
           <h3 style="margin: 0 0 8px; font-size: 14px">{gettext("Active phones")}</h3>
+
           <%!-- A list laid out in columns, not a table of data: every cell
                 already says what it is ("Code 12345678", "expires ..."), and
                 there is no header row to associate them with. --%>
@@ -692,10 +700,15 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             <tbody>
               <tr :for={e <- @enrollments}>
                 <td><strong>{enrollment_name_label(e)}</strong></td>
+
                 <td class="hint">{gettext("Code %{code}", code: e.code)}</td>
+
                 <td class="hint">{enrollment_scope_label(e)}</td>
+
                 <td class="hint">{claim_status_label(e)}</td>
+
                 <td class="hint">{gettext("expires %{when}", when: enroll_expiry(e.expires_at))}</td>
+
                 <td style="text-align: right">
                   <button class="pe-btn danger-link" phx-click="revoke_enrollment" phx-value-id={e.id}>
                     {gettext("Revoke")}
@@ -721,11 +734,13 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             {gettext("Round %{n} is paired but not published.", n: @paired_rounds)}
           </strong>
         </p>
+
         <p class="hint" style="margin: 0">
           {gettext(
             "This view shows what is public, so a round is never on a screen in the hall while it is being held back from the results site. Publish it on the pairings page to show it here."
           )}
         </p>
+
         <div class="actions" style="margin-top: 10px">
           <.link navigate={~p"/t/#{@tournament.id}/pairings"} class="pe-btn">
             {gettext("Go to pairings")}
@@ -760,20 +775,26 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <thead>
             <tr>
               <th class="num">{gettext("Board")}</th>
+
               <th class="pairing-white">{gettext("White")}</th>
+
               <th class="pairing-result">{gettext("Result")}</th>
+
               <th class="pairing-black">{gettext("Black")}</th>
             </tr>
           </thead>
+
           <tbody>
             <tr :for={
               %{pairing: pairing, board: display_board} <-
                 page_rows(assigns, display_rows(@round.pairings))
             }>
               <td class="num">{display_board}</td>
+
               <td class="pairing-white">
                 <strong>{seat_label(pairing.white_player, @scores)}</strong>
               </td>
+
               <td class="pairing-result">
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
@@ -786,6 +807,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
                     <span class="badge">{result_label(pairing.result)}</span>
                 <% end %>
               </td>
+
               <td class="pairing-black">{seat_label(pairing.black_player, @scores)}</td>
             </tr>
           </tbody>
@@ -799,9 +821,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <span class="hall-page">
             {gettext("Page %{n} of %{total}", n: @page + 1, total: page_count_for(assigns))}
           </span>
-
           <span :if={@paused?} class="hall-paused">{gettext("Paused - tap to resume")}</span>
-
           <%!-- The bar is not decoration: somebody looking for board 47 needs
                 to know their page is coming and roughly when, or a rotating
                 screen is worse than a still one. --%>
@@ -877,6 +897,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <thead>
             <tr>
               <th>{gettext("Player")}</th>
+
               <th style="text-align: center; width: 220px">Bye</th>
             </tr>
           </thead>
@@ -910,28 +931,37 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <thead>
             <tr>
               <th class="num">{gettext("Rank")}</th>
+
               <th>{gettext("Name")}</th>
+
               <th class="num">Elo</th>
+
               <th class="num">Pts</th>
+
               <th :for={code <- @tournament.tiebreaks} class="num" title={tb_name(code)}>
                 {code}
               </th>
             </tr>
           </thead>
+
           <tbody>
             <tr :for={entry <- @entries}>
               <td class="num">{Standings.shown_rank_label(entry, @tournament)}</td>
+
               <td>
                 <strong>
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
               </td>
+
               <td class="num">
                 {if PairingsEngine.Tournaments.Player.rating(entry.player) > 0,
                   do: PairingsEngine.Tournaments.Player.rating(entry.player),
                   else: "-"}
               </td>
+
               <td class="num"><strong>{entry.points}</strong></td>
+
               <td :for={code <- @tournament.tiebreaks} class="num">
                 {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
               </td>
@@ -945,28 +975,39 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           <thead>
             <tr>
               <th class="num">{gettext("Rank")}</th>
+
               <th>{gettext("Name")}</th>
+
               <th class="num">Elo</th>
+
               <th class="num">{gettext("Value")}</th>
+
               <th class="num">{gettext("Keizer pts")}</th>
+
               <th class="num">{gettext("Score")}</th>
             </tr>
           </thead>
+
           <tbody>
             <tr :for={entry <- @entries}>
               <td class="num">{entry.rank}</td>
+
               <td>
                 <strong>
                   {if entry.player.title != "", do: "#{entry.player.title} "}{entry.player.name}
                 </strong>
               </td>
+
               <td class="num">
                 {if PairingsEngine.Tournaments.Player.rating(entry.player) > 0,
                   do: PairingsEngine.Tournaments.Player.rating(entry.player),
                   else: "-"}
               </td>
+
               <td class="num">{entry.value}</td>
+
               <td class="num"><strong>{entry.points}</strong></td>
+
               <td class="num">{entry.raw_points}</td>
             </tr>
           </tbody>

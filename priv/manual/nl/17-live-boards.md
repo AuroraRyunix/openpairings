@@ -7,13 +7,12 @@ DGT-borden die de zetten leest. Het praat met twee programma's. Aan
 **OpenPairings** vraagt het wie waar zit, en het meldt terug wat de borden zagen.
 Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 
-> [!WARNING] Het kastje is een eerste versie
+> [!WARNING] De kant van het kastje komt later
 > De livepagina's op de uitslagensite werken, en alles aan deze kant van de
 > koppeling ook: de koppelcodes, de bordkolom op de pagina Paringen, de bewaarde
-> partijen en hun PGN. Alnasl zelf is een eerste versie. Het draait op
-> gesimuleerde borden en heeft één echt bord gelezen, en zijn helft van de
-> koppeling met OpenPairings moet nog gebouwd worden. Elk onderdeel hieronder is
-> als **gebouwd** of **gepland** gemarkeerd.
+> partijen en hun PGN. De kant van Alnasl van de koppeling met OpenPairings komt
+> in een latere versie van Alnasl. Elk onderdeel hieronder is als **gebouwd** of
+> **gepland** gemarkeerd.
 
 ## Stand van zaken in één oogopslag {#status-at-a-glance}
 
@@ -22,13 +21,12 @@ Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 | De livepagina's: uitzending, Alle borden, beamerweergave, stukkensets, PGN, uitzendvertraging | gebouwd |
 | De ingestroute die de zetten en klokken van een bord ontvangt, en de relaissleutels | gebouwd |
 | De koppeling in OpenPairings: koppelcodes, wat het kastje te horen krijgt, wat het meldt, de bordkolom, bewaarde partijen en PGN | gebouwd |
-| Alnasl dat borden leest: gesimuleerde borden, en één echt bord met klok | eerste versie |
-| De helft van Alnasl van de koppeling met OpenPairings | gepland |
+| De kant van Alnasl van de koppeling met OpenPairings | gepland, in een latere versie van Alnasl |
 | De koppeling van een desktopkopie naar een kastje op een andere machine | niet gebouwd, zie [Beperkingen](#limits) |
 
 ## Wat Alnasl is {#what-alnasl-is}
 
-*Eerste versie.* Alnasl is een kastje in de speelzaal. Het leest de elektronische
+Alnasl is een kastje in de speelzaal. Het leest de elektronische
 borden, zet wat ze melden om in legale zetten, en stuurt de zetten en de
 bedenktijden door terwijl de partij gespeeld wordt. Het blijft werken wanneer het
 internet van de zaal wegvalt, en een bord dat hangt of een losse kabel kan het
@@ -43,14 +41,13 @@ gebruikt om te zeggen met welke borden Alnasl praat.
 
 ## De hardware {#the-planned-hardware}
 
-*Eerste versie.* Wat de Alnasl-repository beschrijft:
+Waar het kastje mee werkt. Wat een bepaalde versie van Alnasl ondersteunt, staat
+in de eigen documentatie van Alnasl.
 
 - **Borden:** elektronische DGT-borden, in de RS232- en USB-C-modellen. Beide
-  komen neer op een seriële stroom, dus één stuurprogramma past op beide. Eén echt
-  bord met klok is gelezen; een hele partij erop is nog niet gespeeld.
+  komen neer op een seriële stroom, dus één stuurprogramma past op beide.
 - **Eén lus:** een seriële lus van tot 12 borden, elk met een eigen adres op de
-  bus, om beurten bevraagd. Het formaat op de lus is nog aangenomen, niet
-  nagekeken.
+  bus, om beurten bevraagd.
 - **Zetten:** afgeleid uit de posities die de borden melden, zodat een stuk dat
   opgetild en teruggezet wordt, een slag in twee stappen of een omgevallen stuk
   geen verkeerde zet wordt. Een zet die het kastje achteraf afleidde, of raadde,
@@ -66,8 +63,9 @@ gebruikt om te zeggen met welke borden Alnasl praat.
 
 ## Een kastje koppelen {#connecting-a-box}
 
-*Gebouwd in OpenPairings; de kant van het kastje is gepland.* In OpenPairings:
-Instellingen, **Live borden**.
+*Gebouwd in OpenPairings; de kant van Alnasl komt in een latere versie van
+Alnasl.* Een kastje wordt met een koppelcode aan OpenPairings gekoppeld. In
+OpenPairings: Instellingen, **Live borden**.
 
 ### Een code voor het toernooi {#a-code-for-the-tournament}
 

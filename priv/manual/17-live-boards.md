@@ -7,12 +7,11 @@ reads the moves. It talks to two programs. To **OpenPairings** it asks who sits
 where, and reports back what the boards saw. To **OpenResults** it sends the
 moves and clocks for the spectators.
 
-> [!WARNING] The box is a first build
+> [!WARNING] The box's side of the link comes later
 > The live pages on the results site work, and so does everything on this side
 > of the link: the connect codes, the board column on the Pairings page, the
-> stored games and their PGN. Alnasl itself is a first build. It runs on
-> simulated boards and has read one real board, and its half of the link with
-> OpenPairings is still to be built. Each part below is marked **built** or
+> stored games and their PGN. Alnasl's side of the link with OpenPairings
+> ships in a later version of Alnasl. Each part below is marked **built** or
 > **planned**.
 
 ## Status at a glance {#status-at-a-glance}
@@ -22,13 +21,12 @@ moves and clocks for the spectators.
 | The live pages: broadcast, All boards, projector view, piece sets, PGN, broadcast delay | built |
 | The ingest route that takes a board's moves and clocks, and the relay keys | built |
 | The link in OpenPairings: connect codes, what the box is told, what it reports, the board column, stored games and PGN | built |
-| Alnasl reading boards: simulated boards, and one real board and clock | first build |
-| Alnasl's half of the link with OpenPairings | planned |
+| Alnasl's side of the link with OpenPairings | planned, in a later version of Alnasl |
 | The link from a desktop copy to a box on another machine | not built, see [Limits](#limits) |
 
 ## What Alnasl is {#what-alnasl-is}
 
-*First build.* Alnasl is a box in the playing hall. It reads the electronic
+Alnasl is a box in the playing hall. It reads the electronic
 boards, turns what they report into legal moves, and sends the moves and the
 clock times on as the game is played. It keeps working when the hall's
 internet does not, and a board that hangs or a loose cable cannot touch the
@@ -42,14 +40,13 @@ say which boards Alnasl talks to.
 
 ## The hardware {#the-planned-hardware}
 
-*First build.* What the Alnasl repository describes:
+What the box works with. For what a given version of Alnasl supports, see
+Alnasl's own documentation.
 
 - **Boards:** DGT electronic boards, in their RS232 and USB-C models. Both come
-  down to a serial stream, so one driver serves both. One real board and clock
-  have been read; a whole game on it has not been played yet.
+  down to a serial stream, so one driver serves both.
 - **One loop:** a serial loop of up to 12 boards, each with its own address on
-  the bus, polled in turn. The loop's wire format is still assumed, not
-  verified.
+  the bus, polled in turn.
 - **Moves:** worked out from the positions the boards report, so a piece lifted
   and put back, a capture made in two steps, or a piece knocked over does not
   become a wrong move. A move the box worked out afterwards, or guessed, is
@@ -65,7 +62,8 @@ say which boards Alnasl talks to.
 
 ## Connecting a box {#connecting-a-box}
 
-*Built in OpenPairings; the box's side is planned.* In OpenPairings: Settings,
+*Built in OpenPairings; Alnasl's side ships in a later version of Alnasl.* A
+box is connected to OpenPairings with a connect code. In OpenPairings: Settings,
 **Live boards**.
 
 ### A code for the tournament {#a-code-for-the-tournament}

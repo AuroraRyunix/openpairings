@@ -168,12 +168,14 @@ defmodule PairingsEngineWeb.RatingListsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
       active="fide"
     >
       <h1>{gettext("Rating lists")}</h1>
+
       <p class="subtitle">
         {gettext(
           "Rating lists of your own, loaded from a CSV file, to use beside the FIDE and national lists: they turn up when a player is added, and a tournament can put them in its rating-list sequence (Settings, FIDE). They are shared by every tournament on this machine."
@@ -184,21 +186,28 @@ defmodule PairingsEngineWeb.RatingListsLive do
 
       <div class="card" id="custom-rating-lists">
         <h2>{gettext("Loaded lists")}</h2>
+
         <p :if={@lists == []} id="no-custom-lists" class="hint">
           {gettext("No list of your own has been loaded.")}
         </p>
+
         <table :if={@lists != []} class="pe-table">
           <thead>
             <tr>
               <th>{gettext("Name")}</th>
+
               <th>{gettext("Players")}</th>
+
               <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
+
           <tbody>
             <tr :for={list <- @lists} id={"custom-list-#{list.id}"}>
               <td>{list.name}</td>
+
               <td>{list.entry_count}</td>
+
               <td style="text-align: right">
                 <button
                   :if={@may_admin?}
@@ -219,11 +228,13 @@ defmodule PairingsEngineWeb.RatingListsLive do
 
       <div class="card" id="custom-list-load">
         <h2>{gettext("Load a list")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "A CSV file whose first row names the columns: id, name and rating are required; federation, title, birth_year and fide_id are optional. The id is the list's own number for the player; fide_id, when given, shows the player beside the FIDE hit. Comma, semicolon or tab separated. A rating that is empty or 0 is unrated. Nothing is loaded unless every row is valid."
           )}
         </p>
+
         <p :if={!@may_admin?} class="hint">{admin_only()}</p>
 
         <form id="custom-list-form" phx-change="validate" phx-submit="preview">
@@ -238,6 +249,7 @@ defmodule PairingsEngineWeb.RatingListsLive do
               disabled={!@may_admin?}
             />
           </label>
+
           <.live_file_input
             upload={@uploads.csv}
             id="custom-list-file"
@@ -245,6 +257,7 @@ defmodule PairingsEngineWeb.RatingListsLive do
             aria-label={gettext("Load a list")}
           />
           <p :for={msg <- UploadGuard.error_messages(@uploads.csv)} class="error-note">{msg}</p>
+
           <div class="actions">
             <button
               type="submit"
@@ -259,6 +272,7 @@ defmodule PairingsEngineWeb.RatingListsLive do
 
         <div :if={@errors != []} id="custom-list-errors" class="error-note" role="alert">
           <p style="margin: 8px 0 4px">{gettext("The list was not loaded:")}</p>
+
           <ul style="margin: 0; padding-left: 20px">
             <li :for={msg <- @errors}>{msg}</li>
           </ul>
@@ -272,38 +286,54 @@ defmodule PairingsEngineWeb.RatingListsLive do
               length(@preview.rows)
             )}
           </p>
+
           <p :if={@preview.replaces} id="custom-list-replaces" class="pe-modal-warn">
             {gettext("A list called %{name} exists (%{count} players). Loading replaces it.",
               name: @preview.replaces.name,
               count: @preview.replaces.entry_count
             )}
           </p>
+
           <div class="card-table-wrap">
             <table class="pe-table" id="custom-list-sample">
               <thead>
                 <tr>
                   <th>{gettext("Id")}</th>
+
                   <th>{gettext("Name")}</th>
+
                   <th>{gettext("Rating")}</th>
+
                   <th>{gettext("Federation")}</th>
+
                   <th>{gettext("Title")}</th>
+
                   <th>{gettext("Birth year")}</th>
+
                   <th>{gettext("FIDE ID")}</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr :for={row <- @preview.sample}>
                   <td>{row.ext_id}</td>
+
                   <td>{row.name}</td>
+
                   <td>{row.rating}</td>
+
                   <td>{row.federation}</td>
+
                   <td>{row.title}</td>
+
                   <td>{row.birth_year}</td>
+
                   <td>{row.fide_id}</td>
                 </tr>
               </tbody>
             </table>
           </div>
+
           <div class="actions">
             <button
               type="button"
@@ -313,6 +343,7 @@ defmodule PairingsEngineWeb.RatingListsLive do
             >
               {gettext("Load the list")}
             </button>
+
             <button type="button" class="pe-btn" phx-click="cancel_preview">
               {gettext("Cancel")}
             </button>

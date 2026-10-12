@@ -119,6 +119,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -128,8 +129,10 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Team tables")}</p>
         </div>
+
         <div class="actions" style="margin: 0">
           <a
             :if={@rounds_paired > 0 or @live_action == :rosters}
@@ -142,20 +145,18 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
           </a>
         </div>
       </div>
-
       <.subnav tournament={@tournament} active={@live_action} />
-
       <div
         :if={@rounds_paired == 0 and @live_action != :rosters}
         id="team-sheets-empty"
         class="card empty"
       >
         <p>
-          <strong>{gettext("No round has been paired yet.")}</strong>
-          {gettext("These tables fill in as the rounds are paired.")}
+          <strong>{gettext("No round has been paired yet.")}</strong> {gettext(
+            "These tables fill in as the rounds are paired."
+          )}
         </p>
       </div>
-
       <.cross_table :if={@live_action == :cross_table and @rounds_paired > 0} cross={@cross} />
       <.rosters :if={@live_action == :rosters} rosters={@rosters} />
       <.board_prizes
@@ -199,6 +200,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
       >
         {gettext("Standings")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/team-sheets"}
         id="team-sheets-tab-cross-table"
@@ -206,6 +208,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
       >
         {gettext("Cross table")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/team-sheets/match-sheets"}
         id="team-sheets-tab-match-sheets"
@@ -213,6 +216,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
       >
         {gettext("Match sheets")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/team-sheets/rosters"}
         id="team-sheets-tab-rosters"
@@ -220,6 +224,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
       >
         {gettext("Rosters")}
       </.link>
+
       <.link
         navigate={~p"/t/#{@tournament.id}/team-sheets/board-prizes"}
         id="team-sheets-tab-board-prizes"
@@ -240,22 +245,31 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
     <div id="team-cross-table" class="card table-card">
       <table class="pe-table team-cross">
         <caption class="sr-only">{gettext("Team cross table")}</caption>
+
         <thead>
           <tr>
             <th scope="col" class="num">{gettext("No.")}</th>
+
             <th scope="col">{gettext("Team")}</th>
+
             <th :for={col <- @cross.teams} scope="col" class="num" title={col.team.name}>
               {col.number}
             </th>
+
             <th scope="col" class="num">MP</th>
+
             <th scope="col" class="num">GP</th>
+
             <th scope="col" class="num">{gettext("Rank")}</th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={row <- @cross.teams} id={"team-cross-row-#{row.team.id}"}>
             <td class="num">{row.number}</td>
+
             <td><strong>{row.team.name}</strong></td>
+
             <td
               :for={col <- @cross.teams}
               id={"team-cross-cell-#{row.team.id}-#{col.team.id}"}
@@ -263,13 +277,17 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
             >
               <span :if={col.team.id != row.team.id}>{rr_cell(Map.get(row.cells, col.team.id, []))}</span>
             </td>
+
             <td class="num"><strong>{format_total(row.mp)}</strong></td>
+
             <td class="num"><strong>{format_total(row.gp)}</strong></td>
+
             <td class="num">{row.rank}</td>
           </tr>
         </tbody>
       </table>
     </div>
+
     <p class="hint">
       {gettext(
         "Each cell is the game points the row team scored against the column team; a dot is a match not yet played."
@@ -283,21 +301,31 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
     <div id="team-cross-table" class="card table-card">
       <table class="pe-table team-cross">
         <caption class="sr-only">{gettext("Team cross table")}</caption>
+
         <thead>
           <tr>
             <th scope="col" class="num">{gettext("Rank")}</th>
+
             <th scope="col" class="num">{gettext("No.")}</th>
+
             <th scope="col">{gettext("Team")}</th>
+
             <th :for={r <- 1..max(@cross.rounds, 1)} scope="col" class="num">R{r}</th>
+
             <th scope="col" class="num">MP</th>
+
             <th scope="col" class="num">GP</th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={row <- @cross.rows} id={"team-cross-row-#{row.team.id}"}>
             <td class="num">{row.rank}</td>
+
             <td class="num">{row.number}</td>
+
             <td><strong>{row.team.name}</strong></td>
+
             <td
               :for={{cell, r} <- Enum.with_index(row.rounds, 1)}
               id={"team-cross-cell-#{row.team.id}-r#{r}"}
@@ -305,12 +333,15 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
             >
               <.swiss_cell cell={cell} />
             </td>
+
             <td class="num"><strong>{format_total(row.mp)}</strong></td>
+
             <td class="num"><strong>{format_total(row.gp)}</strong></td>
           </tr>
         </tbody>
       </table>
     </div>
+
     <p class="hint">
       {gettext(
         "Per round: the opponent's number and the colour of board 1 (w or b), the game points of the match, and the team's running match points."
@@ -335,6 +366,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
     <div>
       <strong>{@cell.opponent_number} {if @cell.colour == :white, do: "w", else: "b"}</strong>
     </div>
+
     <div :if={@cell.gp}>{points_text(@cell.gp)}-{points_text(@cell.opp_gp)}</div>
     <small :if={@cell.mp} class="hint">MP {format_total(@cell.mp_total)}</small>
     """
@@ -370,29 +402,42 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
           · {gettext("Captain: %{name}", name: r.team.captain)}
         </small>
       </h2>
+
       <table class="pe-table">
         <thead>
           <tr>
             <th scope="col" class="num">{gettext("Bd")}</th>
+
             <th scope="col">{gettext("Title")}</th>
+
             <th scope="col">{gettext("Name")}</th>
+
             <th scope="col" class="num">Elo</th>
+
             <th scope="col" class="num">FIDE ID</th>
+
             <th scope="col">{gettext("Fed.")}</th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={%{board: k, player: p} <- r.players}>
             <td class="num">{k}</td>
+
             <td>{p.title}</td>
+
             <td>
               <strong>{p.name}</strong>
               <span :if={p.status != "active"} class="hint">({p.status})</span>
             </td>
+
             <td class="num">{rating(p)}</td>
+
             <td class="num">{p.fide_id}</td>
+
             <td>{p.federation}</td>
           </tr>
+
           <tr :if={r.players == []}>
             <td colspan="6" class="hint">{gettext("No players on this team yet.")}</td>
           </tr>
@@ -428,6 +473,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
       <label for="board-prizes-min-games" class="set-label" style="margin: 0">
         {gettext("Minimum games")}
       </label>
+
       <input
         id="board-prizes-min-games"
         type="number"
@@ -435,8 +481,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
         min="1"
         value={@min_games}
         style="width: 80px"
-      />
-      <button type="submit" class="pe-btn">{gettext("Apply")}</button>
+      /> <button type="submit" class="pe-btn">{gettext("Apply")}</button>
     </form>
 
     <div :if={@prizes == []} id="board-prizes-empty" class="card empty">
@@ -445,28 +490,42 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
 
     <div :for={b <- @prizes} id={"board-prize-#{b.board}"} class="card table-card">
       <h2 style="margin: 12px 12px 0">{gettext("Board %{n}", n: b.board)}</h2>
+
       <table class="pe-table">
         <thead>
           <tr>
             <th scope="col" class="num">#</th>
+
             <th scope="col">{gettext("Name")}</th>
+
             <th scope="col">{gettext("Team")}</th>
+
             <th scope="col" class="num">{gettext("Games")}</th>
+
             <th scope="col" class="num">Pts</th>
+
             <th scope="col" class="num">%</th>
+
             <th scope="col" class="num" title={gettext("Performance rating over games played")}>
               {gettext("Perf")}
             </th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={%{rank: rank, stat: s} <- b.rows}>
             <td class="num">{rank}</td>
+
             <td><strong>{s.player.name}</strong></td>
+
             <td>{team_name(@teams_by_id, s.team_id)}</td>
+
             <td class="num">{s.games}</td>
+
             <td class="num">{points_text(s.points)}</td>
+
             <td class="num">{if s.percentage, do: s.percentage, else: "-"}</td>
+
             <td class="num">{s.performance || "-"}</td>
           </tr>
         </tbody>
@@ -517,22 +576,29 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
         <thead>
           <tr>
             <th scope="col" class="num">{gettext("Match")}</th>
+
             <th scope="col">{gettext("Teams")}</th>
+
             <th scope="col" class="num">{gettext("Score")}</th>
+
             <th scope="col"><span class="sr-only">{gettext("Actions")}</span></th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={s <- @sheets} id={"match-sheet-row-#{s.match.match_id}"}>
             <td class="num">{s.number}</td>
+
             <td>
               <strong>{s.team_a.name}</strong> - <strong>{s.team_b.name}</strong>
             </td>
+
             <td class="num">
               <span :if={Enum.any?(s.rows, &(&1.result != ""))}>
                 {points_text(s.match.gp_a)} - {points_text(s.match.gp_b)}
               </span>
             </td>
+
             <td style="text-align: right">
               <a
                 id={"match-sheet-print-#{s.match.match_id}"}

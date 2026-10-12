@@ -3380,6 +3380,11 @@ a.pending-chip:hover {
    error: nothing here is refused, it is just not the best moment. */
 .update-notice-warn { color: var(--warn); font-weight: 600; flex-basis: 100%; }
 .update-notice .pe-btn { margin-left: auto; }
+/* The FIDE download question: three buttons, kept together at the right. */
+.fide-notice { align-items: center; }
+.fide-notice .pe-btn { margin-left: 0; }
+.fide-notice-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.fide-notice-progress { flex-basis: 100%; margin: 0; }
 
 .empty { text-align: center; color: var(--text-soft); padding: 48px 20px; }
 .empty p { margin: 4px 0; }

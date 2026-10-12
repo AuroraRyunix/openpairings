@@ -951,6 +951,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -960,13 +961,12 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - Export")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:export} />
-
       <div class="card" id="trf-export">
         <h2>
           {gettext("TRF (FIDE rating report)")}
@@ -976,8 +976,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
         <p class="hint" style="margin-top: 0">
           {gettext(
             "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or press Send. Send downloads the rating file to your computer and records its rounds as sent, so a round is never sent twice and a sent result asks for confirmation before it changes. The program delivers nothing: you send the downloaded file to your rating officer yourself."
-          )}
-          {gettext(
+          )} {gettext(
             "Only the file Send hands out is for rating. Every copy is named COPY-NOT-FOR-RATING and says so in a comment line inside."
           )}
         </p>
@@ -996,6 +995,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           <p style="margin-top: 0">
             {copy_unconfirmed_text(@tournament.send_confirmation_needed)}
           </p>
+
           <button
             type="button"
             id="trf-confirm-copy"
@@ -1016,7 +1016,6 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           step={@fide_gate && @fide_gate.step}
           reasons={(@fide_gate && @fide_gate.reasons) || []}
         />
-
         <%!-- FIDE mode, a postponed game still without a result (VCL4THP
               Q169): no TRF that holds its round goes out, copy or for
               rating, until it has a result or is recorded as not played in
@@ -1037,11 +1036,13 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             </strong>
             {Postponed.what_to_do_text()}
           </p>
+
           <ul style="margin: 0; padding-left: 20px">
             <li :for={game <- @blocking_postponed} id={"trf-open-postponed-#{game.pairing.id}"}>
               <.link navigate={~p"/t/#{@tournament.id}/pairings?round=#{game.round}"}>
                 {Postponed.game_text(game)}
               </.link>
+
               <button
                 :if={!@tournament.archived_at}
                 type="button"
@@ -1071,7 +1072,6 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             status={status}
             id={"trf-receipt-drift-#{status.receipt.id}"}
           />
-
           <div class="card-table-wrap">
             <table class="pe-table trf-rounds" id="trf-rounds">
               <thead>
@@ -1079,11 +1079,15 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   <th scope="col" class="trf-tick">
                     <span class="sr-only">{gettext("Include")}</span>
                   </th>
+
                   <th scope="col">{gettext("Round")}</th>
+
                   <th scope="col">{gettext("Boards")}</th>
+
                   <th scope="col">{gettext("State")}</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr
                   :for={r <- @trf_rounds}
@@ -1104,8 +1108,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                       aria-label={gettext("Include round %{n}", n: r.round)}
                     />
                   </td>
+
                   <td><label for={"trf-tick-#{r.round}"}>{r.round}</label></td>
+
                   <td>{r.boards}</td>
+
                   <td>
                     <span class={["trf-state", trf_state_class(r)]}>
                       <span class="trf-state-mark" aria-hidden="true"></span>
@@ -1123,7 +1130,6 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               </tbody>
             </table>
           </div>
-
           <% blocker =
             trf_send_blocker(@trf_rounds, @trf_selected, @tournament, @blocking_postponed) %>
           <div class="actions" style="align-items: center">
@@ -1183,12 +1189,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 {gettext("Send…")}
               </button>
             </.form>
-
             <span :if={blocker} id="trf-send-blocker" class="hint">{blocker}</span>
-
             <%!-- The receipt of a sent file, as JSON: one link per send. --%>
             <details :if={@receipt_files != []} id="receipt-json" class="receipt-json">
               <summary class="pe-btn">{gettext("Receipt (JSON)")}</summary>
+
               <ul class="receipt-list">
                 <li :for={receipt <- @receipt_files}>
                   <a
@@ -1201,6 +1206,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 </li>
               </ul>
             </details>
+
             <button
               :if={@receipt_files == []}
               type="button"
@@ -1250,7 +1256,6 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               rounds: Enum.join(@bye_exclusion_rounds, ", ")
             )}
           </p>
-
           <%!-- Nor are the players' bye preferences. --%>
           <p :if={@bye_preference_rounds != []} id="trf-bye-preference-note" class="hint">
             {ngettext(
@@ -1265,6 +1270,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
           </p>
         </div>
+
         <div :if={@tournament.postponed_games} id="postponed-part" class="trf-late-part">
           <h3>{gettext("Postponed games")}</h3>
 
@@ -1273,24 +1279,37 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               <thead>
                 <tr>
                   <th class="num">{gettext("Round")}</th>
+
                   <th class="num">{gettext("Board")}</th>
+
                   <th>{gettext("White")}</th>
+
                   <th>{gettext("Black")}</th>
+
                   <th>{gettext("Postponed by")}</th>
+
                   <th>{gettext("Status")}</th>
+
                   <th>{gettext("Sent")}</th>
                 </tr>
               </thead>
+
               <tbody>
                 <tr :if={@postponed_all == []}>
                   <td colspan="7" class="empty">{gettext("No game has been postponed yet.")}</td>
                 </tr>
+
                 <tr :for={%{round: round, pairing: p} <- @postponed_all} id={"postponed-row-#{p.id}"}>
                   <td class="num">{round}</td>
+
                   <td class="num">{p.display_board || p.board}</td>
+
                   <td>{late_player(p.white_player)}</td>
+
                   <td>{late_player(p.black_player)}</td>
+
                   <td>{postponed_by_text(p)}</td>
+
                   <td>
                     {postponed_status_text(p)}
                     <form
@@ -1308,10 +1327,10 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                         name="played_on"
                         value={p.played_on && Date.to_iso8601(p.played_on)}
                         aria-label={gettext("Date played")}
-                      />
-                      <button type="submit" class="pe-btn">{gettext("Save date")}</button>
+                      /> <button type="submit" class="pe-btn">{gettext("Save date")}</button>
                     </form>
                   </td>
+
                   <td>{postponed_sent_text(p)}</td>
                 </tr>
               </tbody>
@@ -1333,6 +1352,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   "The postponed-games file is reported to FIDE as a separate tournament: its own name and its own FIDE tournament ID (not this tournament's), dated from the first to the last day its games were played, with only those games, and one file per rating period."
                 )}
               </p>
+
               <.form
                 for={@postponed_report_form}
                 id="postponed-report-form"
@@ -1354,11 +1374,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   {gettext("Save")}
                 </button>
               </.form>
+
               <p id="postponed-report-summary" class="hint" style="margin: 4px 0 0">
                 {postponed_report_summary(@tournament)}
               </p>
             </div>
-
             <%!-- Every postponed-games file sent, with its receipt. --%>
             <ul :if={@receipt_postponed != []} id="postponed-receipts" class="receipt-list">
               <li :for={%{receipt: receipt} <- @receipt_postponed}>
@@ -1366,6 +1386,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 <span :if={receipt.period} class="hint">
                   · {Postponed.month_text(receipt.period)}
                 </span>
+
                 <span :if={receipt.games} class="hint">
                   · {ngettext("%{count} game", "%{count} games", length(receipt.games))}
                 </span>
@@ -1408,6 +1429,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                     </button>
                   </li>
                 </ul>
+
                 <p class="hint">
                   {gettext(
                     "FIDE rates games month by month, so a game belongs to the rating period of the month it was played in. The end of that month is shown as the date to send it by; your federation may ask for it sooner."
@@ -1432,12 +1454,10 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                       checked={MapSet.member?(@late_selected, p.id)}
                       phx-click="toggle_late_game"
                       phx-value-id={p.id}
-                    />
-                    {gettext("Round %{round}, board %{board}:",
+                    /> {gettext("Round %{round}, board %{board}:",
                       round: round,
                       board: p.display_board || p.board
-                    )}
-                    {late_player(p.white_player)} - {late_player(p.black_player)}
+                    )} {late_player(p.white_player)} - {late_player(p.black_player)}
                     <strong>{p.result}</strong>
                   </label>
                 </li>
@@ -1481,6 +1501,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 >
                   {gettext("Download a copy (not for rating)")}
                 </a>
+
                 <.form
                   for={%{}}
                   id="trf-late-send-form"
@@ -1494,8 +1515,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                     type="hidden"
                     name="period"
                     value={@late_period && Date.to_iso8601(@late_period)}
-                  />
-                  <input type="hidden" name="games" value={late_ids_param(@late_selected)} />
+                  /> <input type="hidden" name="games" value={late_ids_param(@late_selected)} />
                   <input
                     type="hidden"
                     name="dates"
@@ -1518,6 +1538,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   </button>
                 </.form>
               </div>
+
               <p id="trf-late-send-note" class="hint" style="margin: 8px 0 0">
                 {send_is_not_delivery_text()}
               </p>
@@ -1613,6 +1634,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               <.link navigate={~p"/"}>{gettext("Tournaments")}</.link>
             </:part>
           </.rich_text>
+
           <span :if={@tournament.manual_ranking}>
             {gettext(
               "Note that its rank column is the computed order, not manual ranking's hand-set one."
@@ -1689,6 +1711,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           <p style="margin: 0 0 4px">
             <strong>{gettext("What the .swar file cannot hold of this tournament:")}</strong>
           </p>
+
           <ul style="margin: 0; padding-left: 18px">
             <li :for={note <- @swar_export_notes}>{note}</li>
           </ul>
@@ -1777,7 +1800,6 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
         <div class="set-group">
           <span class="set-label">{gettext("Columns, in this order")}</span>
-
           <p :if={@csv_cols == []} class="hint">
             {gettext("Nothing chosen - the download falls back to the standard set.")}
           </p>
@@ -1799,6 +1821,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               >
                 &uarr;
               </button>
+
               <button
                 type="button"
                 class="pe-btn"
@@ -1809,6 +1832,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               >
                 &darr;
               </button>
+
               <button type="button" class="pe-btn" phx-click="csv_remove" phx-value-key={key}>
                 {gettext("Remove")}
               </button>
@@ -1852,6 +1876,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 <option value="seed" selected={@csv_sort == "seed"}>
                   {gettext("Seed - starting rank, then rating")}
                 </option>
+
                 <option value="name" selected={@csv_sort == "name"}>
                   {gettext("Name - A to Z")}
                 </option>
@@ -1868,7 +1893,6 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 )
               }
             />
-
             <.setting_toggle
               name="bom"
               label={gettext("Excel-friendly (UTF-8 marker)")}

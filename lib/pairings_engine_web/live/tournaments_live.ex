@@ -1878,8 +1878,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
     >
       <h2 id="trf-review-title">
         <%= if @pibe? do %>
-          <.icon name="hero-exclamation-triangle" class="w-5 h-5" />
-          {gettext("This file's rounds break the FIDE pairing rules")}
+          <.icon name="hero-exclamation-triangle" class="w-5 h-5" /> {gettext(
+            "This file's rounds break the FIDE pairing rules"
+          )}
         <% else %>
           {gettext("Before importing: what this file needs adjusted")}
         <% end %>
@@ -1893,6 +1894,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             "Importing it is not compliant with the pairing rules (an Import PIBE). The rounds are imported exactly as the file records them; the finding is kept with the tournament, in its audit log and as a ### line in its TRF reports. Import only if you accept this."
           )}
         </p>
+
         <ul class="trf-review-list">
           <li :for={line <- @sections.rule_breaks}>{line}</li>
         </ul>
@@ -1908,6 +1910,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
       <div :if={@sections.adjustments != []} id="trf-review-adjustments">
         <h3>{gettext("Adjustments")}</h3>
+
         <ul class="trf-review-list">
           <li :for={line <- @sections.adjustments}>{line}</li>
         </ul>
@@ -1921,11 +1924,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
             "Looks withdrawn - will be paired in the next round unless you mark them withdrawn"
           )}
         </h3>
+
         <p class="hint">
           {gettext(
             "A TRF file cannot say that a player withdrew. These players played earlier and have no game and no bye in the last round or rounds of the file. Ticked, a player is imported as withdrawn; unticked, as active, and the next round pairs them. A player with nothing in the last two rounds or more is ticked for you; one missed round is not. You can change it afterwards in the player list."
           )}
         </p>
+
         <ul class="trf-review-list trf-review-withdrawn">
           <li :for={w <- @looks_withdrawn} id={"trf-review-withdrawn-#{w.rank}"}>
             <label>
@@ -1935,11 +1940,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 phx-click="toggle_trf_withdraw"
                 phx-value-rank={w.rank}
                 checked={MapSet.member?(@review.withdraw, w.rank)}
-              />
-              {gettext("Import as withdrawn")}:
+              /> {gettext("Import as withdrawn")}:
             </label>
-            <strong>{w.name}</strong>
-            {gettext("(no. %{rank})", rank: w.rank)} - {ngettext(
+
+            <strong>{w.name}</strong> {gettext("(no. %{rank})", rank: w.rank)} - {ngettext(
               "nothing in the last round; last seen in round %{last}",
               "nothing in the last %{count} rounds; last seen in round %{last}",
               w.trailing,
@@ -1959,6 +1963,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {if @pibe?, do: gettext("Import anyway"), else: gettext("Import")}
         </button>
+
         <button type="button" id="trf-review-cancel" class="pe-btn" phx-click="cancel_trf_import">
           {gettext("Cancel")}
         </button>
@@ -2266,6 +2271,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -2303,6 +2309,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <button :if={!@importing_backup} class="pe-btn" phx-click="import_backup">
             {gettext("Import backup (JSON)")}
           </button>
+
           <%!-- Beside the other imports rather than hidden behind them: a
                 hand-off file looks exactly like a backup in a downloads
                 folder, and the two do completely different things. Naming
@@ -2312,6 +2319,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <button :if={!@receiving_handoff} class="pe-btn" phx-click="receive_handoff">
             {gettext("Receive a hand-off")}
           </button>
+
           <%!-- Absent, not disabled, when the pack's SWAR import is off. A
                 greyed-out button that explains itself is worse than a button
                 that was never in the row. --%>
@@ -2675,9 +2683,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Open %{name}", name: @swar_duplicate.existing.name)}
           </button>
+
           <button type="button" class="pe-btn" phx-click="swar_duplicate_import_anyway">
             {gettext("Import as a new tournament anyway")}
           </button>
+
           <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">{gettext("Cancel")}</button>
         </div>
       </div>
@@ -2708,6 +2718,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Import the games as an individual tournament")}
           </button>
+
           <button type="button" id="swar-team-cancel" class="pe-btn" phx-click="cancel_swar_team">
             {gettext("Cancel")}
           </button>
@@ -2745,8 +2756,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <label :for={c <- entry.candidates} class="opt-row opt-baseline">
               <input type="radio" name={"resolution[#{entry.ni}]"} value={c.fide_id} />
               <span>
-                <strong>{c.name}</strong>
-                {gettext("- FIDE %{id} - %{federation}, born %{year}",
+                <strong>{c.name}</strong> {gettext("- FIDE %{id} - %{federation}, born %{year}",
                   id: c.fide_id,
                   federation: if(c.federation == "", do: "?", else: c.federation),
                   year: c.birth_year || gettext("unknown")
@@ -2756,8 +2766,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </label>
 
             <label class="opt-row opt-baseline">
-              <input type="radio" name={"resolution[#{entry.ni}]"} value="skip" checked />
-              {gettext("Import without a FIDE id")}
+              <input type="radio" name={"resolution[#{entry.ni}]"} value="skip" checked /> {gettext(
+                "Import without a FIDE id"
+              )}
             </label>
           </div>
         </div>
@@ -2830,9 +2841,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
-
       <.trf_review :if={@trf_review} review={@trf_review} />
-
       <form
         :if={@importing_backup}
         id="backup-import-form"
@@ -2849,9 +2858,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
             )
           }>
             <:part name="ext"><code>.json</code></:part>
+
             <:part name="settings_export">
               <em>{gettext("Settings → Export / backup")}</em>
             </:part>
+
             <:part name="export_all"><em>{gettext("Export all (JSON)")}</em></:part>
           </.rich_text>
         </p>
@@ -3029,6 +3040,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Unlock this copy")}
           </button>
+
           <button type="button" class="pe-btn tonal" phx-click="return_cancel">
             {gettext("Cancel")}
           </button>
@@ -3049,7 +3061,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
         confirm_text={@force_unlock_text}
         error={@force_unlock_error}
       />
-
       <div
         :if={
           @tournaments == [] && !@creating && !@importing && !@importing_trf && !@importing_backup &&
@@ -3064,6 +3075,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <p :if={@bel_swar_import?}>
           {gettext("Create your first tournament, or import one from SWAR, TRF, or a backup.")}
         </p>
+
         <p :if={!@bel_swar_import?}>
           {gettext("Create your first tournament, or import one from TRF or a backup.")}
         </p>
@@ -3121,14 +3133,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
                               else: "hero-chevron-down"
                           }
                           class="size-4"
-                        />
-                        <strong>{group.name}</strong>
+                        /> <strong>{group.name}</strong>
                         <span class="home-group-count">
                           {ngettext("%{count} tournament", "%{count} tournaments", length(group.rows))}
                         </span>
                       </button>
                     </td>
                   </tr>
+
                   <%= unless MapSet.member?(@collapsed_groups, group.id) do %>
                     <.tournament_row
                       :for={{t, player_count, owned?} <- group.rows}
@@ -3159,8 +3171,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <thead>
               <tr>
                 <th>{gettext("Name")}</th>
+
                 <th>{gettext("Archived")}</th>
+
                 <th>{gettext("Status")}</th>
+
                 <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
@@ -3187,7 +3202,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     target="_blank"
                     title={export_key_warning(t)}
                   >{gettext("Export")}</a>
-
                   <button class="pe-btn" phx-click="unarchive_tournament" phx-value-id={t.id}>
                     {gettext("Unarchive")}
                   </button>
@@ -3200,6 +3214,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   >
                     {gettext("Delete")}
                   </button>
+
                   <button
                     :if={!owned?}
                     class="pe-btn danger-link"
@@ -3257,15 +3272,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </table>
         </div>
       </div>
-
       <.handoff_modal :if={@handoff_target} tournament={@handoff_target} />
-
       <.delete_tournament_modal
         :if={@delete_target}
         tournament={@delete_target}
         confirm_text={@delete_confirm_text}
       />
-
       <.purge_tournament_modal
         :if={@purge_target}
         tournament={@purge_target}
@@ -3358,6 +3370,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <button type="submit" class="pe-btn primary">
               {gettext("Give it back to %{place}", place: Handoff.origin_label(@tournament))}
             </button>
+
             <button type="button" class="pe-btn tonal" phx-click="handoff_cancel">
               {gettext("Cancel")}
             </button>
@@ -3395,6 +3408,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             >
               {gettext("Hand off and download the file")}
             </button>
+
             <button
               :if={!Handoff.received?(@tournament)}
               type="button"
@@ -3562,6 +3576,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {PairingsEngineWeb.Postponed.pending_text(Map.get(@postponed_counts, @t.id))}
         </.link>
+
         <%!-- Two badges, never one that has to mean either. A copy can
               be both at once: received from A, and since handed on to
               C. See `PairingsEngine.Handoff`. --%>
@@ -3594,6 +3609,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         <button class="pe-btn" phx-click="duplicate" phx-value-id={@t.id}>
           {gettext("Copy")}
         </button>
+
         <%!-- Exactly one of these renders, because they are the two
               directions of the same lock. A row that offered both
               would be offering to hand off a tournament that is
@@ -3606,6 +3622,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {if Handoff.received?(@t), do: gettext("Give back"), else: gettext("Hand off")}
         </button>
+
         <button
           :if={Handoff.handed_away?(@t)}
           class="pe-btn tonal"
@@ -3614,6 +3631,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {gettext("Bring it back")}
         </button>
+
         <button
           :if={!Handoff.handed_away?(@t)}
           class="pe-btn"
@@ -3624,6 +3642,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {gettext("Archive")}
         </button>
+
         <button
           :if={@owned?}
           class="pe-btn danger-link"
@@ -3632,6 +3651,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {gettext("Delete")}
         </button>
+
         <button
           :if={!@owned?}
           class="pe-btn danger-link"

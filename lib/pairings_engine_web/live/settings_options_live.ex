@@ -410,6 +410,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -471,6 +472,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
               <p id="swiss-engine-name">
                 <strong>Ainalrami</strong>
               </p>
+
               <span class="hint">
                 <.rich_text text={
                   gettext(

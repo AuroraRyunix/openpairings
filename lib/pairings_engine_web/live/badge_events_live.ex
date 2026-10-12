@@ -83,6 +83,7 @@ defmodule PairingsEngineWeb.BadgeEventsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -91,12 +92,14 @@ defmodule PairingsEngineWeb.BadgeEventsLive do
       <div class="page-header">
         <div>
           <h1>{gettext("Accreditation badges")}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext(
               "A6 badges for players, officials, press and guests, printed two to an A4 sheet."
             )}
           </p>
         </div>
+
         <button
           :if={!@show_form?}
           id="new-badge-event-button"
@@ -110,6 +113,7 @@ defmodule PairingsEngineWeb.BadgeEventsLive do
 
       <section :if={@show_form?} class="card mb-6" aria-labelledby="new-badge-event-heading">
         <h2 id="new-badge-event-heading">{gettext("New badge event")}</h2>
+
         <.form
           for={@form}
           id="badge-event-form"
@@ -132,10 +136,12 @@ defmodule PairingsEngineWeb.BadgeEventsLive do
               "A linked event can import the tournament's players and officials; press, VIP and staff badges are added by hand either way."
             )}
           </p>
+
           <div class="flex gap-2 md:col-span-2">
             <button type="submit" id="create-badge-event" class="pe-btn primary">
               {gettext("Create event")}
             </button>
+
             <button
               :if={!@events_empty?}
               type="button"
@@ -153,15 +159,20 @@ defmodule PairingsEngineWeb.BadgeEventsLive do
           <thead>
             <tr>
               <th>{gettext("Event")}</th>
+
               <th>{gettext("Tournament")}</th>
+
               <th class="num">{gettext("Badges")}</th>
+
               <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
+
           <tbody id="badge-events" phx-update="stream">
             <tr id="badge-events-empty" class="hidden only:table-row">
               <td colspan="4" class="hint">{gettext("No badge events yet.")}</td>
             </tr>
+
             <tr :for={{dom_id, event} <- @streams.events} id={dom_id}>
               <td>
                 <.link navigate={~p"/badges/#{event.id}"} class="font-semibold">{event.name}</.link>
@@ -169,11 +180,14 @@ defmodule PairingsEngineWeb.BadgeEventsLive do
                   {[event.city, event.year] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join(" · ")}
                 </div>
               </td>
+
               <td>
                 <span :if={event.tournament}>{event.tournament.name}</span>
                 <span :if={!event.tournament} class="hint">{gettext("Stand-alone")}</span>
               </td>
+
               <td class="num">{event.badge_count}</td>
+
               <td style="text-align: right">
                 <.link navigate={~p"/badges/#{event.id}"} class="pe-btn">{gettext("Open")}</.link>
               </td>
