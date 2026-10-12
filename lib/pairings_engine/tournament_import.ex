@@ -310,6 +310,12 @@ defmodule PairingsEngine.TournamentImport do
     player_map = import_players!(tournament, records!(entry, "players"), team_map)
     remap_team_withdrawals!(records!(entry, "teams"), team_map, player_map)
     import_rounds!(tournament, records!(entry, "rounds"), player_map, team_map)
+    # The games the boards reported. They are keyed by `game_uid`, which the
+    # rounds just rebuilt carry again, so the ones already here are still
+    # attached and are left alone - a game a board finished after the
+    # restore point was taken is not un-played by going back to it. Only a
+    # game this tournament no longer holds is put back from the entry.
+    PairingsEngine.BoardLink.import_games(tournament.id, list(entry, "board_games"))
     import_byes!(tournament, records!(entry, "byes"), player_map)
     import_forbidden_pairings!(tournament, records!(entry, "forbidden_pairings"), player_map)
     import_pairing_rules!(tournament, entry, t_attrs, player_map)
@@ -595,6 +601,11 @@ defmodule PairingsEngine.TournamentImport do
     )
 
     PairingsEngine.PostponedGames.reapply_sent_marks(tournament.id)
+
+    # The games the boards in the hall reported, by the `game_uid` the
+    # pairings above were restored with. An envelope from before the board
+    # link has no such block.
+    PairingsEngine.BoardLink.import_games(tournament.id, list(t_data, "board_games"))
 
     # And the receipts of those sends; a send the file has no receipt for
     # (a backup older than receipts) gets one marked as sent before them.

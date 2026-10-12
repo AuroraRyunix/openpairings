@@ -38,6 +38,9 @@ defmodule PairingsEngine.RateLimit do
       and its change-of-address mail, keyed by USER id. Signed-in only, but
       one is real work and the other mails somebody's inbox; see the
       buckets themselves.
+    * `:board_link`, `:board_link_auth` - a hall box's requests, keyed by
+      its link, and refused codes on the same routes, keyed by CLIENT
+      address.
 
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
   `conn.remote_ip` - behind a proxy the latter is the same value for
@@ -85,7 +88,18 @@ defmodule PairingsEngine.RateLimit do
     # confirmation link to an address the person typed - somebody else's
     # inbox, if a stolen session is doing the typing - so it is rationed the
     # way the log-in links are rationed per recipient.
-    email_change: %{max: 5, window_ms: :timer.minutes(60)}
+    email_change: %{max: 5, window_ms: :timer.minutes(60)},
+    # The board link (`PairingsEngine.BoardLink`), keyed by LINK id: every
+    # request a hall box makes with a code that was accepted. A box asks
+    # "anything new?" every few seconds and reports a board per move, twelve
+    # boards to a loop - a few dozen requests a minute on a busy afternoon.
+    # Twenty a second is a box that has lost its mind, not a tournament.
+    board_link: %{max: 1200, window_ms: :timer.minutes(1)},
+    # The same route, for a code that was NOT accepted, keyed by client
+    # address. The secret is 256 bits, so this is not what stands between a
+    # guesser and a tournament; it is what keeps a guesser from costing a
+    # hash and a query per try for as long as they like.
+    board_link_auth: %{max: 30, window_ms: :timer.minutes(10)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."
@@ -99,6 +113,8 @@ defmodule PairingsEngine.RateLimit do
           | :fide_photo
           | :account_export
           | :email_change
+          | :board_link
+          | :board_link_auth
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 

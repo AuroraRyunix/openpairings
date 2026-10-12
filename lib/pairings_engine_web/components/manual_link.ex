@@ -23,7 +23,8 @@ defmodule PairingsEngineWeb.Components.ManualLink do
     trf_import: {"import-export", "trf-file"},
     trf_export: {"fide-report", "the-export-page"},
     teams: {"teams", "setting-up"},
-    live_boards: {"live-boards", "turning-live-boards-on"}
+    live_boards: {"live-boards", "turning-live-boards-on"},
+    board_link: {"live-boards", "connecting-a-box"}
   }
 
   @doc "Every topic, as `topic => {chapter slug, heading id}`."

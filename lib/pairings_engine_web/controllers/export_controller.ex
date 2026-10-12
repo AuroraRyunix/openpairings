@@ -283,6 +283,22 @@ defmodule PairingsEngineWeb.ExportController do
 
   defp pgn_boards(_value), do: nil
 
+  # `source=box&game=<id>`: the PGN the hall box itself wrote for that game,
+  # byte for byte, for comparing with ours. Nothing of the tournament's is in
+  # it - not the headers and not the result.
+  defp pgn_from_box(tournament, %{"source" => "box", "game" => game}) do
+    case PairingsEngine.BoardLink.get_game(tournament.id, game) do
+      %{pgn: pgn} when is_binary(pgn) -> pgn
+      _none -> nil
+    end
+  end
+
+  defp pgn_from_box(_tournament, _params), do: nil
+
+  # One game, by its `game_uid`.
+  defp pgn_game(game) when is_binary(game) and byte_size(game) in 1..64, do: game
+  defp pgn_game(_none), do: nil
+
   # Who sends, for the receipt (`PairingsEngine.SentReceipts`): the label
   # the audit trail shows, and the account.
   defp sender(conn) do
@@ -523,10 +539,15 @@ defmodule PairingsEngineWeb.ExportController do
     round_number = parse_round_param(params["round"])
 
     text =
-      PgnExport.export(tournament, round_number,
-        board: params["board"] == "1",
-        boards: pgn_boards(params["boards"])
-      )
+      pgn_from_box(tournament, params) ||
+        PgnExport.export(tournament, round_number,
+          board: params["board"] == "1",
+          boards: pgn_boards(params["boards"]),
+          # `moves=1`: with what the boards in the hall reported
+          # (`PairingsEngine.BoardLink`). `game=<id>`: that one game.
+          moves: params["moves"] == "1",
+          game: pgn_game(params["game"])
+        )
 
     conn
     |> put_resp_content_type("application/x-chess-pgn")

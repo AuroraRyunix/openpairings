@@ -591,6 +591,14 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # cast: a stray form field must not be able to flip it.
     field :public_live_boards, :boolean, default: false
 
+    # The results site's relay key for this tournament (`orrk_...`), typed in
+    # by the arbiter so the hall box receives it over the board link and
+    # nobody has to type it a second time on a touch screen. Readable on
+    # purpose: it is handed on to the box, not checked here, and a hash
+    # cannot be handed on. Written by `PairingsEngine.BoardLink.set_relay_key/2`,
+    # never cast, in no export and never shown again once saved.
+    field :openresults_relay_key, :string
+
     # Default false. It used to sit beside `public_pages_enabled`, which
     # answered the separate question "may anyone with the link read this
     # HERE" - that field was dropped on 2026-08-29 with the local public

@@ -1626,6 +1626,71 @@ h1 .manual-help-link, h2 .manual-help-link { transform: translateY(-2px); }
 .pairing-result { text-align: center; width: 220px; }
 .pairing-black { text-align: left; width: 40%; }
 
+/* What a board in the hall reported, beside the result the arbiter entered
+   (PairingsEngine.BoardLink). Quiet until the two disagree. */
+.pairing-boardlink { text-align: center; width: 120px; white-space: nowrap; }
+.board-report {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  color: var(--text-soft);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+a.board-report:hover { text-decoration: underline; }
+.board-report.pending { color: var(--text); font-weight: 600; }
+.board-report.mismatch {
+  background: var(--danger);
+  color: var(--danger-ink);
+  font-weight: 700;
+}
+.board-report-note { font-weight: 600; }
+.board-mismatch-text { color: var(--danger); font-weight: 700; }
+
+/* Settings, Live boards: the code that is shown once, and a game's page. */
+.board-code-fresh {
+  margin: 12px 0 16px;
+  padding: 14px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+}
+.board-code {
+  display: block;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  word-break: break-all;
+  user-select: all;
+}
+.board-links { margin-bottom: 12px; }
+.board-game-facts { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 0; }
+.board-game-facts dt { color: var(--text-soft); }
+.board-game-facts dd { margin: 0; font-weight: 600; }
+.board-game-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-variant-numeric: tabular-nums;
+}
+.board-game-no { color: var(--text-soft); }
+.board-game-move { margin-left: 4px; }
+.board-game-pgn {
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 /* The projector view is read from across a room, not a desk, and its
    type scales with the viewport (see "Projector view" below) - 220px of
    fixed Result column is disproportionate there, so it keeps its own
@@ -7488,6 +7553,19 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
 
   .pairings-board-table .pairing-white { grid-area: white; }
   .pairings-board-table .pairing-black { grid-area: black; }
+
+  /* The board's report gets a line of its own under the result buttons,
+     and only on a tournament that has the column. */
+  .pairings-board-table tbody tr:has(> td.pairing-boardlink) {
+    grid-template-areas:
+      "board white"
+      "board black"
+      "result result"
+      "report report";
+  }
+
+  .pairings-board-table .pairing-boardlink { grid-area: report; }
+  .pairings-board-table .pairing-boardlink .board-report.none { display: none; }
 
   .pairings-board-table .pairing-result {
     grid-area: result;

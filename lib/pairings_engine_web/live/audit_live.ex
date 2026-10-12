@@ -131,6 +131,8 @@ defmodule PairingsEngineWeb.AuditLive do
         categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
         openresults.toggled openresults.listed openresults.display openresults.hall
         openresults.live_boards
+        boards.code_created boards.group_code_created boards.code_revoked
+        boards.relay_key_saved boards.relay_key_cleared boards.box_connected
         openresults.taken_down
         openresults.auto_publish
         openresults.kept_withdrawn
@@ -1868,6 +1870,48 @@ defmodule PairingsEngineWeb.AuditLive do
       )
     ])
   end
+
+  # The board link (`PairingsEngine.BoardLink`): connect codes for a hall
+  # box, the relay key it is handed, and the first time a box used a code.
+  def describe("boards.code_created", d),
+    do:
+      gettext("Made a connect code for a board box (ends in %{hint}).",
+        hint: d["hint"] || "?"
+      )
+
+  def describe("boards.group_code_created", d),
+    do:
+      gettext(
+        "Made a connect code for a board box for the whole group %{group} (ends in %{hint}).",
+        group: d["group"] || "?",
+        hint: d["hint"] || "?"
+      )
+
+  def describe("boards.code_revoked", d) do
+    if truthy?(d["group"]),
+      do:
+        gettext("Withdrew a group connect code for a board box (ended in %{hint}).",
+          hint: d["hint"] || "?"
+        ),
+      else:
+        gettext("Withdrew a connect code for a board box (ended in %{hint}).",
+          hint: d["hint"] || "?"
+        )
+  end
+
+  def describe("boards.relay_key_saved", _d),
+    do: gettext("Saved the results site's relay key, to be handed to the board box.")
+
+  def describe("boards.relay_key_cleared", _d),
+    do: gettext("Removed the results site's relay key.")
+
+  def describe("boards.box_connected", d),
+    do:
+      gettext(
+        "A board box used its connect code for the first time: %{box} (code ending in %{hint}).",
+        box: [d["box"], d["version"]] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join(" "),
+        hint: d["hint"] || "?"
+      )
 
   # The "Live boards" switch on Settings -> Results site.
   def describe("openresults.live_boards", d) do

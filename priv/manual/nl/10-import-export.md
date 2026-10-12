@@ -108,12 +108,14 @@ dat *Versturen…* maakt, bevat alleen records en geen zo'n regel.)
 **Een OpenPairings-back-up importeren** leest een bestand dat is gemaakt met **Volledige
 back-up exporteren (JSON)** (hieronder), tot 10 MB. Het geeft een nieuw toernooi, dat
 van u is, met de instellingen, officials, ploegen, elk spelerveld, rondes, resultaten,
-byes, verboden paringen, paringsregels en de registratie van wat er naar het ratingkantoor is
-verzonden. Het origineel wordt nooit aangeraakt, ook niet wanneer u uw eigen bestand
+byes, verboden paringen, paringsregels, de registratie van wat er naar het ratingkantoor is
+verzonden en de partijen die live borden meldden
+([Live borden](17-live-boards.md#games-and-pgn)). Het origineel wordt nooit aangeraakt, ook niet wanneer u uw eigen bestand
 opnieuw importeert. Gaat er iets mis, dan blijft er niets achter.
 
 Wat niet meereist: herstelpunten, het logo, de telefoons die zijn ingeschreven voor het
-invoeren van resultaten, de vergrendeling van een overdracht, en alles wat vanzelf zou
+invoeren van resultaten, de koppelcodes en de relaissleutel van een bordkastje, de
+vergrendeling van een overdracht, en alles wat vanzelf zou
 werken: de publicatieschakelaar en het adres en het open inschrijfformulier (publiceren
 moet voor de kopie opnieuw worden ingeschakeld, [Publiceren](14-publishing.md)). Het
 auditlogboek en de medewerkers reizen alleen mee in een overdrachtsbestand, en de
@@ -212,6 +214,9 @@ deze ronde of alle rondes, met of zonder bordnummers, of een bereik van borden. 
 programma slaat geen zetten op; elke partij in het PGN-bestand heeft de spelers, de
 ronde, de datum, het resultaat en een resultaatteken als zettekst. Het is een geldig
 PGN-bestand, maar een partij die niet opnieuw kan worden afgespeeld.
+
+Een toernooi met live borden heeft ook de partijen die de borden meldden, met hun zetten:
+zie [Partijen en PGN](17-live-boards.md#games-and-pgn).
 
 ### De FIDE-formulieren {#the-fide-forms}
 
