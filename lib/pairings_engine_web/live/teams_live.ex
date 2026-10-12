@@ -501,6 +501,7 @@ defmodule PairingsEngineWeb.TeamsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -510,6 +511,7 @@ defmodule PairingsEngineWeb.TeamsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext("Teams")} <PairingsEngineWeb.Components.ManualLink.manual_link topic={:teams} />
           </p>
@@ -517,10 +519,12 @@ defmodule PairingsEngineWeb.TeamsLive do
       </div>
 
       <p role="status" aria-live="polite" class={@note && "ok-note"}>{@note}</p>
+
       <p :if={@error} role="alert" class="error-note">{@error}</p>
 
       <div :if={!Tournament.team?(@tournament)} class="card">
         <h2>{gettext("Not a team tournament")}</h2>
+
         <p class="hint">
           {gettext(
             "Teams are for team tournaments. This tournament pairs players individually; choose a team format when creating a tournament to use this page."
@@ -537,6 +541,7 @@ defmodule PairingsEngineWeb.TeamsLive do
           class="card"
         >
           <h2>{gettext("This team Swiss pairs player by player")}</h2>
+
           <p class="hint">
             {gettext(
               "Its rounds were paired player by player before team pairing (FIDE C.04.6) was available, so it carries on that way: switching mid-event would pair teams from a history the team rules never saw. Unpair every round and it pairs team against team from round 1."
@@ -552,6 +557,7 @@ defmodule PairingsEngineWeb.TeamsLive do
           class="card"
         >
           <h2>{gettext("Not paired by team")}</h2>
+
           <p class="hint">
             {gettext(
               "Teams and board orders can be set up here, but this tournament pairs players one by one. A team round robin or a team Swiss pairs team against team."
@@ -561,6 +567,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
         <div class="card">
           <h2>{gettext("Matches")}</h2>
+
           <form id="team-boards-form" phx-submit="save_boards">
             <label class="field">
               <span>{gettext("Boards per match")}</span>
@@ -573,6 +580,7 @@ defmodule PairingsEngineWeb.TeamsLive do
                 disabled={@boards_locked? or !@writable?}
               />
             </label>
+
             <label class="field">
               <span>{gettext("Board colours")}</span>
               <select
@@ -583,16 +591,19 @@ defmodule PairingsEngineWeb.TeamsLive do
                 <option value="fide" selected={@tournament.team_board_colours == "fide"}>
                   {gettext("FIDE: the team named first has White on the odd boards")}
                 </option>
+
                 <option value="home" selected={@tournament.team_board_colours == "home"}>
                   {gettext("League: the home team has White on the odd boards")}
                 </option>
               </select>
             </label>
+
             <p class="hint">
               {gettext(
                 "Board 1 of the first-named team plays White, and colours alternate down the boards - the rule of FIDE team events. With league colours the first-named team is the home team, and home and away can be swapped on a match's page before it starts. Match points for a won, drawn and lost match are set under Settings - Scoring."
               )}
             </p>
+
             <button
               :if={!(@boards_locked? and @colours_locked?) and @writable?}
               type="submit"
@@ -600,6 +611,7 @@ defmodule PairingsEngineWeb.TeamsLive do
             >
               {gettext("Save match settings")}
             </button>
+
             <p :if={@boards_locked?} class="hint">
               {gettext("Locked: round 1 has been paired.")}
             </p>
@@ -608,19 +620,23 @@ defmodule PairingsEngineWeb.TeamsLive do
 
         <div :if={@writable?} class="card">
           <h2>{gettext("Add a team")}</h2>
+
           <form id="create-team-form" phx-submit="create_team" class="form-grid">
             <label class="field">
               <span>{gettext("Team name")}</span>
               <input type="text" name="team[name]" required maxlength="100" />
             </label>
+
             <label class="field">
               <span>{gettext("Short name")}</span>
               <input type="text" name="team[short_name]" maxlength="12" />
             </label>
+
             <label class="field">
               <span>{gettext("Captain")}</span>
               <input type="text" name="team[captain]" maxlength="100" />
             </label>
+
             <div class="actions">
               <button type="submit" class="pe-btn primary">{gettext("Add team")}</button>
             </div>
@@ -629,6 +645,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
         <div :if={@roster_locked?} id="roster-locked-note" class="card">
           <h2>{gettext("Rosters are fixed")}</h2>
+
           <p class="hint">
             {gettext(
               "FIDE mode: round 1 is paired, so each team's board order is fixed, as FIDE team events require. Players cannot move up or down, change team or leave a team they have played for. A new player can still be added at the bottom of a team, as a reserve."
@@ -638,6 +655,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
         <div :if={@roster_warning?} id="roster-change-warning" class="card" role="note">
           <h2 class="pe-modal-warn">{gettext("Round 1 is paired")}</h2>
+
           <p class="hint">
             {gettext(
               "Rosters and board orders can still change, because this tournament is not in FIDE mode - but FIDE team events fix them before the start. A change affects the line-ups of rounds paired from now on; rounds already played keep who played for whom. The TRF report lists one board order per team, so a reordered team's earlier rounds may not rebuild as matches when the file is imported again."
@@ -647,6 +665,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
         <div class="card">
           <h2>{gettext("Order of the teams")}</h2>
+
           <p class="hint">
             {if @frozen?,
               do:
@@ -658,9 +677,11 @@ defmodule PairingsEngineWeb.TeamsLive do
                   "The order below becomes the teams' pairing numbers when round 1 is paired. Set it by your competition's rules with the arrows, or order the teams by rating. Teams nobody has moved by hand are ordered by rating when round 1 is paired."
                 )}
           </p>
+
           <p id="team-rating-method" class="hint">
             {team_rating_method_text(@tournament.team_rating_method)}
           </p>
+
           <button
             :if={!@frozen? and @writable? and length(@teams) > 1}
             type="button"
@@ -669,6 +690,7 @@ defmodule PairingsEngineWeb.TeamsLive do
           >
             {gettext("Order by rating")}
           </button>
+
           <p :if={@teams == []} class="hint">{gettext("No teams yet.")}</p>
         </div>
 
@@ -682,9 +704,11 @@ defmodule PairingsEngineWeb.TeamsLive do
             {team.pairing_number || index}. {team.name}
             <span :if={team.short_name != ""} class="hint">({team.short_name})</span>
           </h2>
+
           <p :if={team.captain != ""} class="hint">
             {gettext("Captain: %{name}", name: team.captain)}
           </p>
+
           <p id={"team-rating-#{team.id}"} class="hint">
             <%= case @ratings[team.id] do %>
               <% nil -> %>
@@ -692,6 +716,7 @@ defmodule PairingsEngineWeb.TeamsLive do
               <% rating -> %>
                 {gettext("Team rating: %{rating}", rating: rating)}
             <% end %>
+
             <span :if={is_integer(team.rating_override)}>
               {gettext("(typed in)")}
             </span>
@@ -723,6 +748,7 @@ defmodule PairingsEngineWeb.TeamsLive do
               {r}
             </button>
           </div>
+
           <%!-- The buttons above are coloured for every round still to pair;
                 this line only lists the absences in rounds already paired,
                 which have no button any more. --%>
@@ -751,6 +777,7 @@ defmodule PairingsEngineWeb.TeamsLive do
             <span class="badge">
               {gettext("Withdrawn from round %{round}", round: team.withdrawn_from_round)}
             </span>
+
             <button
               :if={@writable?}
               id={"reinstate-team-#{team.id}"}
@@ -791,6 +818,7 @@ defmodule PairingsEngineWeb.TeamsLive do
                 </option>
               </select>
             </label>
+
             <button
               type="submit"
               class="pe-btn danger"
@@ -818,6 +846,7 @@ defmodule PairingsEngineWeb.TeamsLive do
             >
               ↑
             </button>
+
             <button
               :if={!@frozen?}
               type="button"
@@ -830,6 +859,7 @@ defmodule PairingsEngineWeb.TeamsLive do
             >
               ↓
             </button>
+
             <%!-- Offered on every team. One that has played (or a round robin's
                  scheduled team) cannot go: its click skips the confirmation
                  and the status line says why, and what to do instead. --%>
@@ -853,6 +883,7 @@ defmodule PairingsEngineWeb.TeamsLive do
             <summary>
               {gettext("Rename")}<span class="sr-only">{gettext(" %{team}", team: team.name)}</span>
             </summary>
+
             <form
               id={"edit-team-#{team.id}"}
               phx-submit="update_team"
@@ -863,14 +894,17 @@ defmodule PairingsEngineWeb.TeamsLive do
                 <span>{gettext("Team name")}</span>
                 <input type="text" name="team[name]" value={team.name} required maxlength="100" />
               </label>
+
               <label class="field">
                 <span>{gettext("Short name")}</span>
                 <input type="text" name="team[short_name]" value={team.short_name} maxlength="12" />
               </label>
+
               <label class="field">
                 <span>{gettext("Captain")}</span>
                 <input type="text" name="team[captain]" value={team.captain} maxlength="100" />
               </label>
+
               <label class="field">
                 <span>{gettext("Team rating (blank: worked out from the players)")}</span>
                 <input
@@ -882,36 +916,45 @@ defmodule PairingsEngineWeb.TeamsLive do
                   value={team.rating_override}
                 />
               </label>
+
               <div class="actions">
                 <button type="submit" class="pe-btn primary">{gettext("Save team")}</button>
               </div>
             </form>
           </details>
-
           <% roster = Map.get(@rosters, team.id, []) %>
           <p :if={roster == []} class="hint">{gettext("No players on this team yet.")}</p>
+
           <table :if={roster != []} class="pe-table">
             <caption class="sr-only">{gettext("Board order of %{team}", team: team.name)}</caption>
+
             <thead>
               <tr>
                 <th scope="col" class="num">{gettext("Board")}</th>
+
                 <th scope="col">{gettext("Name")}</th>
+
                 <th scope="col" class="num">Elo</th>
+
                 <th :if={@writable?} scope="col">
                   <span class="sr-only">{gettext("Actions")}</span>
                 </th>
               </tr>
             </thead>
+
             <tbody>
               <tr :for={{player, board} <- Enum.with_index(roster, 1)}>
                 <td class="num">{board}</td>
+
                 <td>
                   <strong>{player.name}</strong>
                   <span :if={board > @tournament.team_boards} class="hint">
                     {gettext("reserve")}
                   </span>
                 </td>
+
                 <td class="num">{rating(player)}</td>
+
                 <td :if={@writable?} style="text-align: right; white-space: nowrap">
                   <button
                     :if={!@roster_locked?}
@@ -926,6 +969,7 @@ defmodule PairingsEngineWeb.TeamsLive do
                   >
                     ↑
                   </button>
+
                   <button
                     :if={!@roster_locked?}
                     type="button"
@@ -939,6 +983,7 @@ defmodule PairingsEngineWeb.TeamsLive do
                   >
                     ↓
                   </button>
+
                   <button
                     :if={!@roster_locked? or !MapSet.member?(@seated, player.id)}
                     type="button"
@@ -994,6 +1039,7 @@ defmodule PairingsEngineWeb.TeamsLive do
                 source: label
               )}
             </button>
+
             <span class="hint">
               {gettext("At the bottom of the roster, in the order %{source} gives.", source: label)}
             </span>
@@ -1002,9 +1048,11 @@ defmodule PairingsEngineWeb.TeamsLive do
 
         <div :if={@unassigned != [] and @teams != []} class="card">
           <h2>{gettext("Players without a team")}</h2>
+
           <p class="hint">
             {gettext("These players are not on any team and are not paired in a team match.")}
           </p>
+
           <ul>
             <li :for={p <- @unassigned}>{p.name}</li>
           </ul>

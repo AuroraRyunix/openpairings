@@ -89,6 +89,13 @@ defmodule PairingsEngineWeb.Layouts do
         "database query and a filesystem check, so a page that omits this attribute " <>
         "gets nothing rather than that cost paid on every single render."
 
+  attr :fide_notice, :any,
+    default: nil,
+    doc:
+      "from `PairingsEngineWeb.FideDownloadNotice` - nil everywhere but a desktop " <>
+        "install that is waiting to be asked about the FIDE list. Threaded like " <>
+        "update_notice, and for the same reason: a page that forgets it shows nothing."
+
   attr :group_switcher, :any,
     default: :auto,
     doc:
@@ -343,6 +350,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Plug-ins")}
           </summary>
+
           <div class="topbar-menu-panel">
             <.link
               :for={plugin <- @installed_plugins}
@@ -355,6 +363,7 @@ defmodule PairingsEngineWeb.Layouts do
               </span>
               <span class="plugin-menu-description">{plugin.description}</span>
             </.link>
+
             <.link id="plugin-menu-installed" href="/plugins" class="topbar-menu-item">
               {gettext("Installed plug-ins")}
             </.link>
@@ -395,6 +404,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {gettext("Help")}
         </.link>
+
         <.link
           :if={@active != "help"}
           id="topbar-help"
@@ -523,7 +533,6 @@ defmodule PairingsEngineWeb.Layouts do
           moves focus here as well as the scroll position. --%>
     <main class="page" id="main-content" tabindex="-1">
       <.group_switcher switcher={@group_switcher} current_path={@current_path} />
-
       <%!-- Non-modal, machine-wide, desktop-only - see
             `PairingsEngineWeb.UpdateNotice` and `PairingsEngine.Updates`.
             Notify, and the arbiter applies it - never a timer. A
@@ -576,6 +585,78 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Dismiss")}
           </button>
+        <% end %>
+      </div>
+
+      <%!-- The question before the 41 MB: desktop only, administrators only,
+            and the buttons are caught by `PairingsEngineWeb.FideDownloadNotice`
+            like the update notice's. Nothing downloads until one is pressed. --%>
+      <div
+        :if={
+          @fide_notice && @current_scope && PairingsEngine.Authz.may_administer?(@current_scope.user)
+        }
+        id="fide-download-notice"
+        class="update-notice fide-notice"
+        role="status"
+      >
+        <.icon name="hero-arrow-down-tray" class="size-4" />
+        <strong class="update-notice-lead">{gettext("FIDE rating list")}</strong>
+        <span class="update-notice-text">
+          {if @fide_notice.kind == :missing,
+            do: gettext("No list downloaded yet. The download is about 41 MB."),
+            else: gettext("A newer list is available. The download is about 41 MB.")}
+        </span>
+
+        <%= if @fide_notice.busy? do %>
+          <div id="fide-download-progress" class="progress-block fide-notice-progress">
+            <div class="progress-track">
+              <div class="progress-fill indeterminate"></div>
+            </div>
+
+            <span class="update-notice-hint">
+              {if @fide_notice.status.progress != "",
+                do: @fide_notice.status.progress,
+                else: gettext("Working…")}
+            </span>
+          </div>
+        <% else %>
+          <span :if={@fide_notice.status.status == :error} class="update-notice-warn">
+            {gettext("Update failed:")} {@fide_notice.status.error}
+          </span>
+
+          <span class="fide-notice-actions">
+            <button
+              id="fide-download-now"
+              type="button"
+              class="pe-btn primary"
+              phx-click="fide_download_now"
+            >
+              {gettext("Download now")}
+            </button>
+
+            <button
+              id="fide-download-later"
+              type="button"
+              class="pe-btn"
+              phx-click="fide_download_later"
+            >
+              {gettext("Later")}
+            </button>
+
+            <button
+              id="fide-download-never"
+              type="button"
+              class="pe-btn"
+              phx-click="fide_download_never"
+              title={
+                gettext(
+                  "You can still download the list by hand, or switch this back on, on the Connections page."
+                )
+              }
+            >
+              {gettext("Don't ask again")}
+            </button>
+          </span>
         <% end %>
       </div>
 

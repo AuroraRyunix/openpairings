@@ -161,6 +161,7 @@ defmodule PairingsEngineWeb.HelpLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -178,6 +179,7 @@ defmodule PairingsEngineWeb.HelpLive do
               <span class="manual-brand-mark" aria-hidden="true">
                 <.icon name="hero-book-open" class="size-5" />
               </span>
+
               <span>
                 <span class="manual-brand-title">{gettext("User manual")}</span>
                 <span class="manual-brand-sub">OpenPairings</span>
@@ -204,8 +206,7 @@ defmodule PairingsEngineWeb.HelpLive do
                 aria-label={gettext("Search the manual")}
                 autocomplete="off"
                 phx-debounce="200"
-              />
-              <span class="manual-search-key" aria-hidden="true"><kbd>/</kbd></span>
+              /> <span class="manual-search-key" aria-hidden="true"><kbd>/</kbd></span>
             </.form>
 
             <button
@@ -231,6 +232,7 @@ defmodule PairingsEngineWeb.HelpLive do
             <nav id="manual-toc" class="manual-toc" aria-label={gettext("Manual contents")}>
               <div :for={{id, name, list} <- parts(@chapters)} class="manual-part" id={id}>
                 <h2 class="manual-part-title">{name}</h2>
+
                 <ol class="manual-toc-list">
                   <li :for={c <- list}>
                     <.link
@@ -259,12 +261,15 @@ defmodule PairingsEngineWeb.HelpLive do
               <nav class="manual-breadcrumb" aria-label={gettext("Breadcrumb")}>
                 <ol>
                   <li><.link navigate={~p"/help"}>{gettext("Help")}</.link></li>
+
                   <li aria-current="page">{gettext("Search")}</li>
                 </ol>
               </nav>
+
               <h1 id="manual-results-title" class="manual-title">
                 {gettext("Search results")}
               </h1>
+
               <p class="manual-results-count" role="status" aria-live="polite">
                 {ngettext(
                   "One section matches \"%{query}\".",
@@ -310,7 +315,9 @@ defmodule PairingsEngineWeb.HelpLive do
               <nav class="manual-breadcrumb" aria-label={gettext("Breadcrumb")}>
                 <ol>
                   <li><.link navigate={~p"/help"}>{gettext("Help")}</.link></li>
+
                   <li>{part_name(@chapters, @chapter)}</li>
+
                   <li aria-current="page">{@chapter.title}</li>
                 </ol>
               </nav>
@@ -320,10 +327,12 @@ defmodule PairingsEngineWeb.HelpLive do
                   <span class="manual-chapter-number">
                     {gettext("Chapter %{n}", n: @chapter.number)}
                   </span>
+
                   <span class="manual-reading-time">
                     {ngettext("1 minute read", "%{count} minutes read", reading_minutes(@chapter))}
                   </span>
                 </p>
+
                 <h1 id="manual-chapter-title" class="manual-title manual-chapter-title" lang="en">
                   {@chapter.title}
                 </h1>
@@ -346,15 +355,17 @@ defmodule PairingsEngineWeb.HelpLive do
                     |> JS.toggle_attribute({"aria-expanded", "true", "false"})
                   }
                 >
-                  {gettext("On this page")}
-                  <.icon name="hero-chevron-down" class="size-4" />
+                  {gettext("On this page")} <.icon name="hero-chevron-down" class="size-4" />
                 </button>
+
                 <p class="manual-outline-title" aria-hidden="true">{gettext("On this page")}</p>
+
                 <ul id="manual-outline-list" class="manual-outline-list" lang="en">
                   <li :for={h <- @chapter.toc} class={"level-#{h.level}"}>
                     <a href={"##{h.id}"} data-outline={h.id}>{h.text}</a>
                   </li>
                 </ul>
+
                 <a href="#main-content" class="manual-outline-top">
                   <.icon name="hero-arrow-up" class="size-3.5" /> {gettext("Back to top")}
                 </a>
@@ -377,6 +388,7 @@ defmodule PairingsEngineWeb.HelpLive do
                   </span>
                   <span class="manual-pager-title">{@previous.number}. {@previous.title}</span>
                 </.link>
+
                 <.link
                   :if={@next}
                   id="manual-next"
@@ -399,18 +411,22 @@ defmodule PairingsEngineWeb.HelpLive do
             >
               <header class="manual-hero">
                 <p class="manual-eyebrow">{gettext("Help")}</p>
+
                 <h1 id="manual-index-title" class="manual-title">
                   {gettext("The OpenPairings user manual")}
                 </h1>
+
                 <p class="manual-lede">
                   {gettext(
                     "Everything the program does, from the first player to the FIDE report, written for the arbiter at the board. New here? Start with Getting started."
                   )}
                 </p>
+
                 <p class="manual-hero-actions">
                   <.link navigate={~p"/help/getting-started"} class="pe-btn primary" id="manual-start">
                     {gettext("Getting started")} <.icon name="hero-arrow-right" class="size-4" />
                   </.link>
+
                   <span class="manual-hint">
                     {gettext("Press")} <kbd>/</kbd> {gettext("to search")}
                   </span>
@@ -423,6 +439,7 @@ defmodule PairingsEngineWeb.HelpLive do
                 aria-labelledby={"#{id}-index"}
               >
                 <h2 id={"#{id}-index"} class="manual-index-part-title">{name}</h2>
+
                 <ol class="manual-index-list" lang="en">
                   <li :for={c <- list}>
                     <.link

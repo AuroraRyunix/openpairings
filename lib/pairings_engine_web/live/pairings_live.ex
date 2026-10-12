@@ -5492,6 +5492,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -5781,9 +5782,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           </li>
         </ul>
       </details>
-
       <LateEntryNotice.notice show={@late_entry_notice} />
-
       <%!-- The round bar: which round, how it stands, and everything to do
             with it. The picker and the status on the left, the round's
             actions on the right; below about 900px the actions wrap onto a
@@ -6687,6 +6686,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   "The rules (C.05:6.7.4) allow a player only one half-point bye in a tournament."
                 )}
               </p>
+
               <label style="display: flex; align-items: center; gap: 6px; margin-top: 6px; font-weight: 400">
                 <input
                   type="checkbox"

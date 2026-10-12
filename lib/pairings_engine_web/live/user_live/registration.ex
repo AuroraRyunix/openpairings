@@ -11,6 +11,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -31,6 +32,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
                     <stop offset="100%" stop-color="#2e5e44" />
                   </linearGradient>
                 </defs>
+
                 <path
                   d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
                   fill="#f7f3e8"
@@ -69,32 +71,39 @@ defmodule PairingsEngineWeb.UserLive.Registration do
 
             <ul class="auth-features">
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Swiss (Dutch), round robin, Keizer & team tournaments")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "Swiss (Dutch), round robin, Keizer & team tournaments"
+                )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext(
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
                   "Ainalrami · our own FIDE 2026 Swiss engine, validated against 2.5 billion pairings"
                 )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("FIDE C.07 tie-breaks, title norms & a pairing explanation for every round")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "FIDE C.07 tie-breaks, title norms & a pairing explanation for every round"
+                )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext(
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
                   "Publish to OpenResults · live results, standings & team pages, only what you choose"
                 )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("Invite co-arbiters · run a tournament together, with a full audit trail")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "Invite co-arbiters · run a tournament together, with a full audit trail"
+                )}
               </li>
+
               <li>
-                <.icon name="hero-check-circle-mini" class="size-5" />
-                {gettext("TRF-2026, TRF, SWAR & PGN import / export, plus FIDE & KBSB rating lists")}
+                <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
+                  "TRF-2026, TRF, SWAR & PGN import / export, plus FIDE & KBSB rating lists"
+                )}
               </li>
             </ul>
 
@@ -110,6 +119,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
         <div class="auth-panel">
           <div class="auth-card">
             <h2 class="auth-card-title">{gettext("Create an account")}</h2>
+
             <p class="auth-card-sub">
               {gettext("Enter your email and we'll send a magic link to confirm it.")}
             </p>

@@ -52,6 +52,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -61,14 +62,14 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - About")}</p>
         </div>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:about} />
-
       <div class="card">
         <h2>OpenPairings</h2>
+
         <p>
           {gettext(
             "A FIDE Swiss / round-robin / Keizer tournament manager - pairing, results, standings, tiebreaks and FIDE reporting in one place."
@@ -92,6 +93,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
 
       <div class="card">
         <h2>{gettext("Pairing engine")}</h2>
+
         <p>
           <.rich_text text={gettext("This tournament is paired using %[engine].")}>
             <:part name="engine">
@@ -103,6 +105,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
 
       <div class="card">
         <h2>{gettext("Credits")}</h2>
+
         <p>
           <.rich_text text={
             gettext("Many thanks to %[who] for his valuable feedback in the making of OpenPairings.")

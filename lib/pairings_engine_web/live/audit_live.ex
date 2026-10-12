@@ -142,7 +142,8 @@ defmodule PairingsEngineWeb.AuditLive do
         standings.extra_points_applied standings.extra_points_reduced
         standings.published standings.unpublished
         standings.starting_rank_toggled)},
-    {"imports", ~w(import.swar import.trf pibe.import import.json trf.finalised trf.postponed_sent
+    {"imports",
+     ~w(import.swar import.trf pibe.import import.json trf.finalised trf.postponed_sent
         trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
@@ -2553,6 +2554,7 @@ defmodule PairingsEngineWeb.AuditLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -2594,6 +2596,7 @@ defmodule PairingsEngineWeb.AuditLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}

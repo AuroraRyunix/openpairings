@@ -9,6 +9,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -17,6 +18,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
         <div class="auth-panel">
           <div class="auth-card">
             <h2 class="auth-card-title">{gettext("Welcome back")}</h2>
+
             <p class="auth-card-sub">
               <.rich_text text={gettext("Signing in as %[email].")}>
                 <:part name="email"><strong>{@user.email}</strong></:part>
@@ -43,6 +45,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
               >
                 {gettext("Confirm and stay signed in")} <span aria-hidden="true">→</span>
               </button>
+
               <button
                 type="submit"
                 phx-disable-with={gettext("Confirming...")}
@@ -81,6 +84,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
                 >
                   {gettext("Keep me signed in on this device")} <span aria-hidden="true">→</span>
                 </button>
+
                 <button
                   type="submit"
                   phx-disable-with={gettext("Signing in...")}

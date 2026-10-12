@@ -151,6 +151,7 @@ defmodule PairingsEngineWeb.RegistrationsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -160,6 +161,7 @@ defmodule PairingsEngineWeb.RegistrationsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Entries from the results site")}</p>
         </div>
       </div>
@@ -168,11 +170,13 @@ defmodule PairingsEngineWeb.RegistrationsLive do
         <p>
           <strong>{gettext("This tournament is not published to the results site.")}</strong>
         </p>
+
         <p class="hint">
           {gettext(
             "The public entry form lives on that site, so there is nothing to collect until this tournament is published there. Turn it on in Settings."
           )}
         </p>
+
         <div class="actions">
           <.link class="pe-btn" navigate={~p"/t/#{@tournament.id}/settings"}>
             {gettext("Open Settings")}
@@ -197,12 +201,14 @@ defmodule PairingsEngineWeb.RegistrationsLive do
           <button type="button" class="pe-btn primary" phx-click="pull" disabled={not @configured?}>
             {gettext("Fetch entries")}
           </button>
+
           <span :if={@last_pull} class="hint">
             {gettext("Last checked")} {received_label(@last_pull)}
           </span>
         </div>
 
         <p :if={@error} class="error-note" role="alert">{@error}</p>
+
         <p :if={@note} class="ok-note">{@note}</p>
       </div>
 
@@ -214,10 +220,9 @@ defmodule PairingsEngineWeb.RegistrationsLive do
         </p>
 
         <p :if={@queue_error} class="error-note" role="alert">{@queue_error}</p>
+
         <p :if={@queue_note} class="ok-note">{@queue_note}</p>
-
         <RegistrationQueue.pending_list queue={@queue} />
-
         <p :if={@queue != []} class="hint" style="margin-bottom: 0">
           {gettext(
             "Accepting adds the player marked not yet arrived, exactly as the form on this machine does. Filling in a web form is an intention to play, not an arrival - clear the flag on the Players page when they turn up."

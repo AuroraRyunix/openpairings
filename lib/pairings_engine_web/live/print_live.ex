@@ -156,6 +156,7 @@ defmodule PairingsEngineWeb.PrintLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -165,6 +166,7 @@ defmodule PairingsEngineWeb.PrintLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Print documents")}</p>
         </div>
       </div>
@@ -179,20 +181,24 @@ defmodule PairingsEngineWeb.PrintLive do
           )
         }
       />
-
       <div class="card table-card">
         <table class="pe-table">
           <thead>
             <tr>
               <th>{gettext("Document")}</th>
+
               <th>{gettext("Description")}</th>
+
               <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
+
           <tbody>
             <tr :for={doc <- documents(@tournament, @postponed_open)} id={doc[:id]}>
               <td><strong>{doc.name}</strong></td>
+
               <td class="hint">{doc.desc}</td>
+
               <td style="text-align: right">
                 <a :if={doc.href} class="pe-btn primary" href={doc.href} target="_blank">{gettext(
                   "Print…"
@@ -220,6 +226,7 @@ defmodule PairingsEngineWeb.PrintLive do
             )}
           </p>
         </div>
+
         <.link href={~p"/t/#{@tournament.id}/badges"} class="pe-btn" id="print-badges-link">
           {gettext("Badges…")}
         </.link>

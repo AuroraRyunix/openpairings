@@ -725,6 +725,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -740,8 +741,7 @@ defmodule PairingsEngineWeb.StandingsLive do
               @selected_category -> category_header_text(@tournament, @selected_category)
               @rounds_paired > 0 -> gettext("Standings after round %{n}", n: @rounds_paired)
               true -> gettext("Standings")
-            end}
-            <PairingsEngineWeb.Components.ManualLink.manual_link topic={:standings} />
+            end} <PairingsEngineWeb.Components.ManualLink.manual_link topic={:standings} />
           </p>
 
           <%!-- Once the standings are after a real round, what spectators see
@@ -1047,8 +1047,7 @@ defmodule PairingsEngineWeb.StandingsLive do
           <tbody>
             <tr :for={entry <- display_entries}>
               <% place =
-                Map.get(entry, :category_place) || Standings.shown_rank_label(entry, @tournament) %>
-              <% prize? =
+                Map.get(entry, :category_place) || Standings.shown_rank_label(entry, @tournament) %> <% prize? =
                 !Map.get(entry, :c05_uncounted) && @selected_category &&
                   Categories.prize_place?(@tournament, @selected_category, place) %>
               <td class={["num", prize? && "pe-cat-place is-prize"]}>
@@ -1121,6 +1120,7 @@ defmodule PairingsEngineWeb.StandingsLive do
                     aria-label={gettext("External value for %{name}", name: entry.player.name)}
                   />
                 </form>
+
                 <span :if={code != "EXT" or @tournament.archived_at}>
                   {format_tb(Map.get(entry.tiebreaks, code, 0.0))}
                 </span>

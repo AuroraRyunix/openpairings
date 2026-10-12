@@ -245,6 +245,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -432,6 +433,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                   >
                     {gettext("One per board it seated")}
                   </option>
+
                   <option value="full" selected={@tournament.team_forfeit_board_points == "full"}>
                     {gettext("The full board count (%{boards}-0)",
                       boards: max(@tournament.team_boards || 1, 1)

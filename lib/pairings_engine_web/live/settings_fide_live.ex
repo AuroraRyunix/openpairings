@@ -370,6 +370,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -566,11 +567,13 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
       <div id="rating-lists-card" class="card">
         <h2>{gettext("Rating lists")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "The lists a player's rating is taken from when the player is added or the ratings are refreshed, in order. The first is the main list: its rating is entered automatically, and the ratings the player has in the other lists are offered to pick instead. A FIDE list fills the FIDE rating; the national list and your own lists fill the national rating."
           )}
         </p>
+
         <p
           :if={!RatingLists.custom_sequence?(@tournament)}
           id="rating-sequence-default"
@@ -589,6 +592,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
               {entry_label(entry, @custom_names)}
               <span :if={i == 0} class="badge muted">{gettext("main list")}</span>
             </span>
+
             <button
               type="button"
               class="pe-btn"
@@ -601,6 +605,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             >
               <.icon name="hero-arrow-up" class="w-4 h-4" />
             </button>
+
             <button
               type="button"
               class="pe-btn"
@@ -613,6 +618,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             >
               <.icon name="hero-arrow-down" class="w-4 h-4" />
             </button>
+
             <button
               type="button"
               class="pe-btn danger-link"
@@ -643,6 +649,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
               {entry_label(entry, @custom_names)}
             </option>
           </select>
+
           <button type="submit" class="pe-btn" id="rating-sequence-add">
             {gettext("Add to the sequence")}
           </button>
@@ -658,12 +665,14 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           >
             {gettext("Back to the default sequence")}
           </button>
+
           <.link :if={@may_load_lists?} navigate={~p"/rating-lists"} id="rating-lists-manage">
             {gettext("Load your own rating list")}
           </.link>
         </div>
 
         <h3 style="margin-bottom: 4px">{gettext("Consistency checks")}</h3>
+
         <form id="rating-checks-form" phx-change="set_rating_checks">
           <input type="hidden" name="enabled" value="false" />
           <label style="display: flex; gap: 8px; align-items: center">
@@ -679,6 +688,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             </span>
           </label>
         </form>
+
         <p class="hint" style="margin-bottom: 0">
           {gettext(
             "Switched off, nothing is checked on its own. The Refresh ratings button on the Players page still compares the ratings on file with the list when you ask."

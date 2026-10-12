@@ -558,6 +558,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -568,10 +569,12 @@ defmodule PairingsEngineWeb.UserLive.Settings do
           <span class="acct-avatar" aria-hidden="true">{initials(@user)}</span>
           <div class="acct-identity">
             <h1>{gettext("Account")}</h1>
+
             <p class="acct-who">
               <span :if={@user.display_name} class="acct-who-name">{@user.display_name}</span>
               <span class="acct-who-email">{@user.email}</span>
             </p>
+
             <div class="acct-tags">
               <span :if={@linked_sso?} class="badge" id="acct-sso-badge">
                 {gettext("Signed in with 02cloud")}
@@ -588,18 +591,23 @@ defmodule PairingsEngineWeb.UserLive.Settings do
             <a :if={!@local?} href="#security">
               <.icon name="hero-shield-check-micro" class="size-4" /> {gettext("Sign-in & security")}
             </a>
+
             <a href="#preferences">
               <.icon name="hero-swatch-micro" class="size-4" /> {gettext("Preferences")}
             </a>
+
             <a href="#new-tournaments">
               <.icon name="hero-plus-circle-micro" class="size-4" /> {gettext("New tournaments")}
             </a>
+
             <a href="#features">
               <.icon name="hero-flag-micro" class="size-4" /> {gettext("Federation features")}
             </a>
+
             <a href="#your-data">
               <.icon name="hero-arrow-down-tray-micro" class="size-4" /> {gettext("Your data")}
             </a>
+
             <a :if={!@local?} href="#delete-account" class="acct-nav-danger">
               <.icon name="hero-trash-micro" class="size-4" /> {gettext("Delete account")}
             </a>
@@ -611,6 +619,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <div class="acct-section-head">
                 <div>
                   <h2 id="profile-title">{gettext("Profile")}</h2>
+
                   <p class="hint">
                     {gettext(
                       "How you appear to the people you share tournaments with: in the audit log, the history, the sharing list and the invitations you send."
@@ -636,6 +645,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 <p class="hint acct-field-hint">
                   {gettext("Leave it empty to show your email address instead.")}
                 </p>
+
                 <div class="acct-actions">
                   <button type="submit" class="pe-btn primary" phx-disable-with={gettext("Saving...")}>
                     {gettext("Save profile")}
@@ -644,7 +654,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 </div>
               </.form>
             </section>
-
             <%!-- ============ Sign-in & security ============ --%>
             <section
               :if={!@local?}
@@ -655,6 +664,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <div class="acct-section-head">
                 <div>
                   <h2 id="security-title">{gettext("Sign-in & security")}</h2>
+
                   <p class="hint">
                     {gettext(
                       "Your address, your password, and every browser that is signed in to this account."
@@ -672,7 +682,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   )
                 }
               />
-
               <%= if @sso_only? do %>
                 <div class="acct-sso" id="acct-sso-managed">
                   <.icon name="hero-building-office-2" class="size-5 acct-sso-icon" />
@@ -689,12 +698,14 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <% else %>
                 <div class="acct-sub acct-sub-first">
                   <h3>{gettext("Email address")}</h3>
+
                   <p class="hint">
                     <.rich_text text={gettext("You sign in as %[email].")}>
                       <:part name="email"><strong>{@user.email}</strong></:part>
                     </.rich_text>
                     {gettext("A new address takes effect once you click the link we send to it.")}
                   </p>
+
                   <p :if={@linked_sso?} class="hint">
                     {gettext("This account is also linked to 02cloud sign-in, which keeps working.")}
                   </p>
@@ -731,6 +742,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   <h3>
                     {if @has_password?, do: gettext("Password"), else: gettext("Set a password")}
                   </h3>
+
                   <p class="hint">
                     {if @has_password?,
                       do:
@@ -777,6 +789,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                         spellcheck="false"
                       />
                     </div>
+
                     <div class="acct-actions">
                       <button
                         type="submit"
@@ -794,12 +807,14 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 <div class="acct-sub-head">
                   <div>
                     <h3>{gettext("Where you're signed in")}</h3>
+
                     <p class="hint">
                       {gettext(
                         "Every browser that can open this account without signing in again. Sign out any you don't recognise, or a computer you have finished with."
                       )}
                     </p>
                   </div>
+
                   <button
                     :if={@sudo? and @other_sessions?}
                     type="button"
@@ -830,6 +845,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                         {signed_in_label(s.authenticated_at || s.inserted_at)}
                       </span>
                     </div>
+
                     <span :if={current?(s, @current_token)} class="badge">{gettext("This browser")}</span>
                     <button
                       :if={@sudo? and not current?(s, @current_token)}
@@ -846,7 +862,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 <.saved :if={@saved == :sessions} id="sessions-saved" />
               </div>
             </section>
-
             <%!-- ============ Preferences ============ --%>
             <section
               id="preferences"
@@ -856,6 +871,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <div class="acct-section-head">
                 <div>
                   <h2 id="preferences-title">{gettext("Preferences")}</h2>
+
                   <p class="hint">
                     {gettext(
                       "Stored on your account, so they follow you to every computer you sign in on. Saved as you choose."
@@ -881,6 +897,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
 
                 <fieldset class="acct-choice-group" id="theme-choices">
                   <legend>{gettext("Colour theme")}</legend>
+
                   <div class="acct-choices">
                     <label :for={{value, label} <- theme_options()} class="acct-choice">
                       <input
@@ -888,14 +905,14 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                         name="prefs[theme]"
                         value={value}
                         checked={(@user.theme || "") == value}
-                      />
-                      <span>{label}</span>
+                      /> <span>{label}</span>
                     </label>
                   </div>
                 </fieldset>
 
                 <fieldset class="acct-choice-group" id="accent-choices">
                   <legend>{gettext("Accent colour")}</legend>
+
                   <div class="acct-choices">
                     <label :for={{value, label} <- accent_options()} class="acct-choice">
                       <input
@@ -909,8 +926,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                         class="acct-swatch"
                         style={"--swatch: #{Map.fetch!(accent_swatches(), value)}"}
                         aria-hidden="true"
-                      ></span>
-                      <span>{label}</span>
+                      ></span> <span>{label}</span>
                     </label>
                   </div>
                 </fieldset>
@@ -922,7 +938,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 </p>
               </.form>
             </section>
-
             <%!-- ============ New tournaments ============ --%>
             <section
               id="new-tournaments"
@@ -932,6 +947,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <div class="acct-section-head">
                 <div>
                   <h2 id="new-tournaments-title">{gettext("New tournaments")}</h2>
+
                   <p class="hint">
                     {gettext(
                       "What \"New tournament\" starts with, so a club that runs the same event every week doesn't type it every week. Leave a field empty to keep the usual default. Existing tournaments and imports are not affected."
@@ -1020,8 +1036,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   :if={@defaults_form[:publish_mode].value in ~w(pairings results standings)}
                   class="error-note"
                 >
-                  <strong>{gettext("Rounds go public without you pressing anything.")}</strong>
-                  {gettext(
+                  <strong>{gettext("Rounds go public without you pressing anything.")}</strong> {gettext(
                     "With no delay the field sees a pairing at the same moment you do. You can always take a round back down on the Pairings page."
                   )}
                 </p>
@@ -1030,6 +1045,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   <button type="submit" class="pe-btn primary" phx-disable-with={gettext("Saving...")}>
                     {gettext("Save defaults")}
                   </button>
+
                   <button
                     :if={TournamentDefaults.any?(@user.tournament_defaults)}
                     type="button"
@@ -1043,7 +1059,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 </div>
               </.form>
             </section>
-
             <%!-- ============ Federation features ============ --%>
             <section
               id="features"
@@ -1055,6 +1070,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <div class="acct-section-head">
                 <div>
                   <h2 id="features-title">{gettext("Federation features")}</h2>
+
                   <p class="hint">
                     {gettext(
                       "Some national federations have their own member list, their own file format, and their own habits. Switch on the ones you work with; leave the rest off and they stay out of your way."
@@ -1079,6 +1095,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   <div class="fed-head">
                     <div class="fed-title">
                       <h3>{gettext("Optional tools")}</h3>
+
                       <p class="hint">
                         {gettext(
                           "Extra tools for any federation, none of which changes how a tournament is paired or scored. Off until you switch them on."
@@ -1103,8 +1120,10 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                     <span class="fed-code">{federation.code}</span>
                     <div class="fed-title">
                       <h3>{federation.name}</h3>
+
                       <p class="hint">{federation.summary}</p>
                     </div>
+
                     <span class="fed-count">{on_count(
                       federation.code,
                       @enabled_features,
@@ -1136,12 +1155,12 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 )}
               </p>
             </section>
-
             <%!-- ============ Your data ============ --%>
             <section id="your-data" class="set-card acct-section" aria-labelledby="your-data-title">
               <div class="acct-section-head">
                 <div>
                   <h2 id="your-data-title">{gettext("Your data")}</h2>
+
                   <p class="hint">
                     {gettext(
                       "One zip with your account settings and a backup of every tournament you can open. Each backup is the same file a tournament's Settings - Export gives you, and goes back in with \"Import backup (JSON)\" on the Tournaments page."
@@ -1153,14 +1172,19 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <dl class="acct-counts" id="data-counts">
                 <div>
                   <dt>{gettext("Tournaments")}</dt>
+
                   <dd>{@data_counts.active}</dd>
                 </div>
+
                 <div>
                   <dt>{gettext("Archived")}</dt>
+
                   <dd>{@data_counts.archived}</dd>
                 </div>
+
                 <div>
                   <dt>{gettext("In the recycle bin")}</dt>
+
                   <dd>{@data_counts.binned}</dd>
                 </div>
               </dl>
@@ -1176,7 +1200,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 id="data-locked"
                 text={gettext("Downloading everything asks you to confirm it's you first.")}
               />
-
               <div :if={@local? or @sudo?} class="acct-actions">
                 <a href={~p"/users/settings/export"} class="pe-btn primary" id="download-data">
                   <.icon name="hero-arrow-down-tray-micro" class="size-4" /> {gettext(
@@ -1185,7 +1208,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 </a>
               </div>
             </section>
-
             <%!-- ============ Delete account ============ --%>
             <section
               :if={!@local?}
@@ -1196,6 +1218,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <div class="acct-section-head">
                 <div>
                   <h2 id="delete-title">{gettext("Delete account")}</h2>
+
                   <p class="hint">
                     {gettext(
                       "Deletes this account for good. There is no undo, so download your data first."
@@ -1207,14 +1230,15 @@ defmodule PairingsEngineWeb.UserLive.Settings do
               <%= if @blockers != [] do %>
                 <div class="acct-blocked" id="delete-blocked">
                   <p>
-                    <strong>{gettext("This account can't be deleted yet.")}</strong>
-                    {gettext(
+                    <strong>{gettext("This account can't be deleted yet.")}</strong> {gettext(
                       "Deleting it would delete everything it owns with it, so it has to own nothing first:"
                     )}
                   </p>
+
                   <ul>
                     <li :for={{reason, count} <- @blockers}>{blocker_text(reason, count)}</li>
                   </ul>
+
                   <p class="hint">
                     {gettext(
                       "Delete the tournaments you no longer need and empty the recycle bin on the Tournaments page, or ask a collaborator to keep a copy from a backup first."
@@ -1227,16 +1251,19 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   <li>
                     {gettext("You are signed out everywhere, and this address can register again.")}
                   </li>
+
                   <li>
                     {gettext(
                       "Tournaments shared with you stay with their owners; you are removed from them, and each one's audit log says you left."
                     )}
                   </li>
+
                   <li>
                     {gettext(
                       "What you changed in other people's tournaments stays in their audit logs under your address - it is their record of who did what."
                     )}
                   </li>
+
                   <li>{gettext("Your badge events are deleted with the account.")}</li>
                 </ul>
 
@@ -1245,7 +1272,6 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   id="delete-locked"
                   text={gettext("Deleting the account asks you to confirm it's you first.")}
                 />
-
                 <.form
                   :if={@sudo?}
                   for={@delete_form}

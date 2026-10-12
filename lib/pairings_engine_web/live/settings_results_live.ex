@@ -1019,6 +1019,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
       <input type="hidden" id={@field.id} name={@field.name} value={utc_value(@field.value)} />
       <p :for={msg <- Enum.map(@field.errors, &translate_error/1)} class="text-error">{msg}</p>
     </div>
+
     <script :type={Phoenix.LiveView.ColocatedHook} name=".UtcDateTime">
       export default {
         mounted() {
@@ -1119,8 +1120,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         name={"display[#{@field.key}]"}
         value="true"
         checked={show?(@tournament, @field.key)}
-      />
-      <span>{@field.label}</span>
+      /> <span>{@field.label}</span>
     </label>
     """
   end
@@ -1158,6 +1158,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     <Layouts.app
       publish_status={assigns[:publish_status]}
       update_notice={assigns[:update_notice]}
+      fide_notice={assigns[:fide_notice]}
       flash={@flash}
       current_path={assigns[:current_path]}
       current_scope={@current_scope}
@@ -1167,19 +1168,19 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("OpenResults")}</p>
         </div>
         <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:results} />
-
       <div
         :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)}
         id="team-publish-note"
         class="card"
       >
         <h2>{gettext("Team tournament")}</h2>
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Publishing sends the team standings, matches and board statistics OpenPairings computed - OpenResults never works out a team result on its own."
@@ -1227,7 +1228,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             level={presence_level(@tournament)}
             stops={presence_stops(@tournament)}
           />
-
           <p id="site-presence-about" class="pe-level-about">
             <%= case presence(@tournament) do %>
               <% :off -> %>
@@ -1246,8 +1246,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           </p>
 
           <p :if={presence(@tournament) != :listed} class="pe-level-about">
-            <strong>{gettext("Link only is not privacy.")}</strong>
-            {gettext(
+            <strong>{gettext("Link only is not privacy.")}</strong> {gettext(
               "An unlisted tournament is still readable by anyone who has its address, and addresses get forwarded. It hides the event from someone browsing the site, not from someone who was sent the link."
             )}
           </p>
@@ -1306,7 +1305,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           level={Tournament.auto_publish_level(@tournament)}
           stops={auto_publish_stops(@tournament)}
         />
-
         <%!-- The pairings step's optional delay, inline and autosaved. Kept
               when the automation is by hand, so switching back finds it. --%>
         <form
@@ -1328,8 +1326,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             step="1"
             inputmode="numeric"
             phx-debounce="600"
-          />
-          <span>{gettext("minutes (0: as soon as the round is paired)")}</span>
+          /> <span>{gettext("minutes (0: as soon as the round is paired)")}</span>
         </form>
 
         <p id="auto-publish-about" class="pe-level-about">
@@ -1432,6 +1429,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         >
           <.icon name="hero-eye-slash-micro" />
           <p>{legacy_page_text(key)}</p>
+
           <button
             type="button"
             id={"show-legacy-page-#{key}"}
@@ -1453,8 +1451,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         <form id="display-settings-form" phx-change="save_display">
           <div :for={{group, heading, about} <- PublicDisplay.groups()} class="display-group">
             <div class="display-group-head">
-              <strong>{heading}</strong>
-              <span class="hint">{about}</span>
+              <strong>{heading}</strong> <span class="hint">{about}</span>
             </div>
 
             <%!-- A sub-option ("Federation flags" under "Federations") sits
@@ -1552,6 +1549,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           <p style="margin: 6px 0 0">
             <code id="hall-display-url">{PublicLink.url(@tournament, :hall)}</code>
           </p>
+
           <div class="actions" style="margin-top: 6px">
             <a
               id="hall-display-open"
@@ -1573,14 +1571,14 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           <div class="display-group-head">
             <strong>{gettext("What it cycles through")}</strong>
           </div>
+
           <div class="hall-views">
             <.input field={@hall_form[:pairings]} type="checkbox" label={gettext("Pairings")} />
             <.input
               field={@hall_form[:names]}
               type="checkbox"
               label={gettext("Find your board")}
-            />
-            <.input field={@hall_form[:results]} type="checkbox" label={gettext("Results")} />
+            /> <.input field={@hall_form[:results]} type="checkbox" label={gettext("Results")} />
             <.input field={@hall_form[:standings]} type="checkbox" label={gettext("Standings")} />
           </div>
 
@@ -1610,7 +1608,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             type="checkbox"
             label={gettext("Hold on the pairings until the first result of a new round is in")}
           />
-
           <.input
             field={@hall_form[:announcement]}
             type="textarea"
@@ -1756,9 +1753,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               host: PublicLink.host(@tournament)
             )}
           </p>
+
           <p style="margin: 6px 0 0">
             <code>{PublicLink.url(@tournament, :standings)}</code>
           </p>
+
           <div class="actions" style="margin-top: 6px; gap: 10px; flex-wrap: wrap">
             <a class="pe-btn" href={PublicLink.url(@tournament, :standings)} target="_blank">
               {gettext("Open it")}
@@ -1800,6 +1799,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               "A copy of this tournament is on the results site. Turning publishing off stops sending updates; it does not take that copy down."
             )}
           </p>
+
           <div class="actions" style="margin-top: 6px">
             <button
               type="button"
@@ -1869,9 +1869,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           </button>
         </div>
       </div>
-
       <PublicConsent.consent_dialog consent={@consent} />
-
       <script :type={Phoenix.LiveView.ColocatedHook} name=".SettingSlider">
         // "On the results site" and "Automatically" (`setting_slider/1`) - the
         // Pairings page's ".PublishLevel" keyboard model: one tab stop, the
