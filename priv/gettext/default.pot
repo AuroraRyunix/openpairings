@@ -47,9 +47,9 @@ msgstr ""
 msgid "Birth year"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1151
-#: lib/pairings_engine_web/components/layouts.ex:1152
-#: lib/pairings_engine_web/components/layouts.ex:1157
+#: lib/pairings_engine_web/components/layouts.ex:1153
+#: lib/pairings_engine_web/components/layouts.ex:1154
+#: lib/pairings_engine_web/components/layouts.ex:1159
 #: lib/pairings_engine_web/live/user_live/settings.ex:889
 #, elixir-autogen, elixir-format
 msgid "Language"
@@ -387,9 +387,9 @@ msgstr ""
 msgid "Colour balance (real games)"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1188
-#: lib/pairings_engine_web/components/layouts.ex:1189
-#: lib/pairings_engine_web/components/layouts.ex:1194
+#: lib/pairings_engine_web/components/layouts.ex:1190
+#: lib/pairings_engine_web/components/layouts.ex:1191
+#: lib/pairings_engine_web/components/layouts.ex:1196
 #: lib/pairings_engine_web/live/user_live/settings.ex:899
 #, elixir-autogen, elixir-format
 msgid "Colour theme"
@@ -2684,7 +2684,7 @@ msgstr ""
 msgid "Black"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1108
+#: lib/pairings_engine_web/components/layouts.ex:1109
 #: lib/pairings_engine_web/controllers/print_controller.ex:719
 #: lib/pairings_engine_web/controllers/print_controller.ex:812
 #: lib/pairings_engine_web/controllers/print_controller.ex:972
@@ -3149,11 +3149,6 @@ msgstr ""
 msgid "MANUAL RANKING IS ON."
 msgstr ""
 
-#: lib/pairings_engine_web/live/settings_about_live.ex:111
-#, elixir-autogen, elixir-format
-msgid "Many thanks to %[who] for his valuable feedback in the making of OpenPairings."
-msgstr ""
-
 #: lib/pairings_engine_web/live/tools_norms_live.ex:964
 #, elixir-autogen, elixir-format
 msgid "Master"
@@ -3285,11 +3280,6 @@ msgstr ""
 #: lib/pairings_engine_web/live/players_live.ex:4873
 #, elixir-autogen, elixir-format
 msgid "Paid"
-msgstr ""
-
-#: lib/pairings_engine_web/controllers/print_controller.ex:2210
-#, elixir-autogen, elixir-format
-msgid "Paired by OpenPairings using %{engine} · many thanks to Tom Wuyts for his valuable feedback."
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:439
@@ -3747,7 +3737,7 @@ msgstr ""
 msgid "Syncing…"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1202
+#: lib/pairings_engine_web/components/layouts.ex:1204
 #: lib/pairings_engine_web/live/audit_live.ex:2559
 #: lib/pairings_engine_web/live/tournaments_live.ex:3090
 #: lib/pairings_engine_web/live/user_live/settings.ex:1392
@@ -5504,7 +5494,7 @@ msgstr ""
 msgid "Turning a feature off never changes your tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1492
+#: lib/pairings_engine_web/live/user_live/settings.ex:1493
 #, elixir-autogen, elixir-format
 msgid "%{on} of %{total} on"
 msgstr ""
@@ -8538,7 +8528,7 @@ msgid "Account and display"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1042
-#: lib/pairings_engine_web/live/user_live/settings.ex:1402
+#: lib/pairings_engine_web/live/user_live/settings.ex:1403
 #, elixir-autogen, elixir-format
 msgid "Blue"
 msgstr ""
@@ -8560,42 +8550,42 @@ msgid "Clear the result"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1048
-#: lib/pairings_engine_web/live/user_live/settings.ex:1408
+#: lib/pairings_engine_web/live/user_live/settings.ex:1409
 #, elixir-autogen, elixir-format
 msgid "Cyan"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1105
+#: lib/pairings_engine_web/components/layouts.ex:1106
 #: lib/pairings_engine_web/live/user_live/settings.ex:1394
 #, elixir-autogen, elixir-format
 msgid "Dark"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1049
-#: lib/pairings_engine_web/live/user_live/settings.ex:1409
+#: lib/pairings_engine_web/live/user_live/settings.ex:1410
 #, elixir-autogen, elixir-format
 msgid "Fuchsia"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1041
-#: lib/pairings_engine_web/live/user_live/settings.ex:1401
+#: lib/pairings_engine_web/live/user_live/settings.ex:1402
 #, elixir-autogen, elixir-format
 msgid "Green"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1110
-#: lib/pairings_engine_web/live/user_live/settings.ex:1399
+#: lib/pairings_engine_web/components/layouts.ex:1112
+#: lib/pairings_engine_web/live/user_live/settings.ex:1400
 #, elixir-autogen, elixir-format
 msgid "High Contrast"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1047
-#: lib/pairings_engine_web/live/user_live/settings.ex:1407
+#: lib/pairings_engine_web/live/user_live/settings.ex:1408
 #, elixir-autogen, elixir-format
 msgid "Indigo"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1104
+#: lib/pairings_engine_web/components/layouts.ex:1105
 #: lib/pairings_engine_web/live/user_live/settings.ex:1393
 #, elixir-autogen, elixir-format
 msgid "Light"
@@ -8616,7 +8606,7 @@ msgstr ""
 msgid "Move %{tiebreak} up"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1107
+#: lib/pairings_engine_web/components/layouts.ex:1108
 #: lib/pairings_engine_web/live/user_live/settings.ex:1396
 #, elixir-autogen, elixir-format
 msgid "Paper"
@@ -8649,7 +8639,7 @@ msgid "Resume cycling"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1045
-#: lib/pairings_engine_web/live/user_live/settings.ex:1405
+#: lib/pairings_engine_web/live/user_live/settings.ex:1406
 #, elixir-autogen, elixir-format
 msgid "Rose"
 msgstr ""
@@ -8660,15 +8650,15 @@ msgid "Skip to content"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1046
-#: lib/pairings_engine_web/components/layouts.ex:1106
+#: lib/pairings_engine_web/components/layouts.ex:1107
 #: lib/pairings_engine_web/live/user_live/settings.ex:1395
-#: lib/pairings_engine_web/live/user_live/settings.ex:1406
+#: lib/pairings_engine_web/live/user_live/settings.ex:1407
 #, elixir-autogen, elixir-format
 msgid "Slate"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1043
-#: lib/pairings_engine_web/live/user_live/settings.ex:1403
+#: lib/pairings_engine_web/live/user_live/settings.ex:1404
 #, elixir-autogen, elixir-format
 msgid "Teal"
 msgstr ""
@@ -8679,7 +8669,7 @@ msgid "Type RESTORE to confirm"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1044
-#: lib/pairings_engine_web/live/user_live/settings.ex:1404
+#: lib/pairings_engine_web/live/user_live/settings.ex:1405
 #, elixir-autogen, elixir-format
 msgid "Violet"
 msgstr ""
@@ -12646,12 +12636,12 @@ msgstr ""
 msgid "\"This device decides\" leaves each browser with the theme and accent picked in its own top bar. Choose one here to use it everywhere; the top-bar pickers then change it everywhere too."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1437
+#: lib/pairings_engine_web/live/user_live/settings.ex:1438
 #, elixir-autogen, elixir-format
 msgid "%{browser} on %{system}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1463
+#: lib/pairings_engine_web/live/user_live/settings.ex:1464
 #, elixir-autogen, elixir-format
 msgid "%{count} of its tournaments is in the recycle bin, where it can still be restored."
 msgid_plural "%{count} of its tournaments are in the recycle bin, where they can still be restored."
@@ -12791,12 +12781,12 @@ msgstr ""
 msgid "In the recycle bin"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1471
+#: lib/pairings_engine_web/live/user_live/settings.ex:1472
 #, elixir-autogen, elixir-format
 msgid "It is the only administrator. Make somebody else an administrator on the Admin page first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1455
+#: lib/pairings_engine_web/live/user_live/settings.ex:1456
 #, elixir-autogen, elixir-format
 msgid "It owns %{count} tournament (archived ones included)."
 msgid_plural "It owns %{count} tournaments (archived ones included)."
@@ -12824,7 +12814,7 @@ msgstr ""
 msgid "New tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1423
+#: lib/pairings_engine_web/live/user_live/settings.ex:1424
 #, elixir-autogen, elixir-format
 msgid "No default"
 msgstr ""
@@ -12887,14 +12877,14 @@ msgstr ""
 msgid "Sign-in & security"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1449
+#: lib/pairings_engine_web/live/user_live/settings.ex:1450
 #, elixir-autogen, elixir-format
 msgid "Signed in %{count} day ago"
 msgid_plural "Signed in %{count} days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1447
+#: lib/pairings_engine_web/live/user_live/settings.ex:1448
 #, elixir-autogen, elixir-format
 msgid "Signed in today"
 msgstr ""
@@ -12905,7 +12895,7 @@ msgstr ""
 msgid "Signed in with 02cloud"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1448
+#: lib/pairings_engine_web/live/user_live/settings.ex:1449
 #, elixir-autogen, elixir-format
 msgid "Signed in yesterday"
 msgstr ""
@@ -12999,7 +12989,7 @@ msgstr ""
 msgid "Type your email address exactly to delete the account."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1434
+#: lib/pairings_engine_web/live/user_live/settings.ex:1435
 #, elixir-autogen, elixir-format
 msgid "Unknown browser"
 msgstr ""
@@ -18059,7 +18049,7 @@ msgstr ""
 msgid "Round %{round} of the Berger table pairs %{a} and %{b}, who already met in round %{met} of this cycle - the rounds paired by hand have left the table behind. Pair round %{round} by hand."
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts.ex:1109
+#: lib/pairings_engine_web/components/layouts.ex:1110
 #: lib/pairings_engine_web/live/user_live/settings.ex:1398
 #, elixir-autogen, elixir-format
 msgid "Tom W"
@@ -20189,4 +20179,20 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_boards_live.ex:249
 #, elixir-autogen, elixir-format
 msgid "this copy's access to the results site is suspended"
+msgstr ""
+
+#: lib/pairings_engine_web/components/layouts.ex:1111
+#: lib/pairings_engine_web/live/user_live/settings.ex:1399
+#, elixir-autogen, elixir-format
+msgid "Jorian"
+msgstr ""
+
+#: lib/pairings_engine_web/live/settings_about_live.ex:111
+#, elixir-autogen, elixir-format
+msgid "Many thanks to %[first] and %[second] for their valuable feedback in the making of OpenPairings."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/print_controller.ex:2210
+#, elixir-autogen, elixir-format
+msgid "Paired by OpenPairings using %{engine} · many thanks to Tom Wuyts and Steven Bellens for their valuable feedback."
 msgstr ""

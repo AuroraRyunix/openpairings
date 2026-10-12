@@ -2208,7 +2208,7 @@ defmodule PairingsEngineWeb.PrintController do
 
     ~s(<p class="pf-credit">) <>
       gettext(
-        "Paired by OpenPairings using %{engine} · many thanks to Tom Wuyts for his valuable feedback.",
+        "Paired by OpenPairings using %{engine} · many thanks to Tom Wuyts and Steven Bellens for their valuable feedback.",
         engine: esc(engine)
       ) <> ~s(</p>)
   end

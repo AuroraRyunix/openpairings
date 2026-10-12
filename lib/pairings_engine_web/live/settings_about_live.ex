@@ -106,11 +106,14 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
       <div class="card">
         <h2>{gettext("Credits")}</h2>
 
-        <p>
+        <p id="about-credits">
           <.rich_text text={
-            gettext("Many thanks to %[who] for his valuable feedback in the making of OpenPairings.")
+            gettext(
+              "Many thanks to %[first] and %[second] for their valuable feedback in the making of OpenPairings."
+            )
           }>
-            <:part name="who"><strong>Tom Wuyts</strong></:part>
+            <:part name="first"><strong>Tom Wuyts</strong></:part>
+            <:part name="second"><strong>Steven Bellens</strong></:part>
           </.rich_text>
         </p>
       </div>

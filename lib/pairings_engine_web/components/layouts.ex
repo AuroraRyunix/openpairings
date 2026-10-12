@@ -1096,6 +1096,7 @@ defmodule PairingsEngineWeb.Layouts do
     {"paper", "hero-document-micro"},
     {"board", "hero-squares-2x2-micro"},
     {"tomw", "hero-swatch-micro"},
+    {"jorian", "hero-star-micro"},
     {"contrast", "hero-eye-micro"}
   ]
 
@@ -1107,6 +1108,7 @@ defmodule PairingsEngineWeb.Layouts do
   defp theme_label("paper"), do: gettext("Paper")
   defp theme_label("board"), do: gettext("Board")
   defp theme_label("tomw"), do: gettext("Tom W")
+  defp theme_label("jorian"), do: gettext("Jorian")
   defp theme_label("contrast"), do: gettext("High Contrast")
 
   @doc """

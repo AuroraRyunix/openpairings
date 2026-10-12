@@ -116,7 +116,7 @@ The bar at the top of every page has:
 - **Help** - this manual. Inside a tournament it opens at the chapter that
   matches the page you are on.
 - The colour accent, the language picker (English and Dutch) and the theme
-  (System, Light, Dark, Slate, Paper, Board, Tom W, High Contrast).
+  (System, Light, Dark, Slate, Paper, Board, Tom W, Jorian, High Contrast).
 - The account menu, with *Settings* (online), *Features* and *Log out* (online),
   and the version number.
 
@@ -175,5 +175,6 @@ adds a player, the arrow keys move between the cells, <kbd>Space</kbd> or
 
 The program follows the colour scheme you choose: *System* follows the
 computer's light or dark setting, and the theme picker also offers Light, Dark,
-Slate, Paper, Board, Tom W (royal blue with a sky-blue accent) and High
-Contrast. The live page has a high-contrast mode of its own.
+Slate, Paper, Board, Tom W (royal blue with a sky-blue accent), Jorian (the
+project website's blueprint look: pale paper, dark navy ink, royal-blue accent)
+and High Contrast. The live page has a high-contrast mode of its own.

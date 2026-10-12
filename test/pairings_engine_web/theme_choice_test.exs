@@ -20,7 +20,7 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   went with Mocha.
 
   A list is only a safety net while it is true, which is what these check:
-  the bootstrap, the stylesheet and the picker have to name the same seven
+  the bootstrap, the stylesheet and the picker have to name the same eight
   themes, and nothing may refer to one that is gone.
   """
 
@@ -59,8 +59,8 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   end
 
   test "the bootstrap accepts exactly the themes the stylesheet defines" do
-    assert MapSet.size(accepted()) == 7,
-           "expected seven themes, the bootstrap accepts " <>
+    assert MapSet.size(accepted()) == 8,
+           "expected eight themes, the bootstrap accepts " <>
              "#{inspect(Enum.sort(accepted()))}"
 
     assert MapSet.equal?(accepted(), styled_or_root()),

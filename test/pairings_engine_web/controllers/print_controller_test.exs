@@ -1486,7 +1486,7 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ "Registered players (4)"
     end
 
-    test "every printed document credits the pairing engine and Tom Wuyts",
+    test "every printed document credits the pairing engine and the people thanked",
          %{conn: conn, scope: scope} do
       {tournament, _players} = fixture(scope)
 
@@ -1502,8 +1502,9 @@ defmodule PairingsEngineWeb.PrintControllerTest do
         assert html =~ "Paired by OpenPairings using Ainalrami",
                "expected the engine credit on #{path}"
 
-        assert html =~ "many thanks to Tom Wuyts for his valuable feedback.",
-               "expected the Tom Wuyts credit on #{path}"
+        assert html =~
+                 ~r/<p class="pf-credit">[^<]*· many thanks to [^<]+ and [^<]+ for their valuable feedback\.<\/p>/,
+               "expected the thanks, to two people, on #{path}"
       end
     end
 

@@ -117,7 +117,7 @@ De balk bovenaan elke pagina bevat:
 - **Help** - deze handleiding. Binnen een toernooi opent ze bij het hoofdstuk
   dat past bij de pagina waarop u bent.
 - De kleuraccent, de taalkeuze (Engels en Nederlands) en het thema (Systeem,
-  Licht, Donker, Leisteen, Papier, Bord, Tom W, Hoog contrast).
+  Licht, Donker, Leisteen, Papier, Bord, Tom W, Jorian, Hoog contrast).
 - Het accountmenu, met *Instellingen* (online), *Functies* en *Afmelden*
   (online), en het versienummer.
 
@@ -179,5 +179,6 @@ inschrijfformulier.
 
 Het programma volgt het kleurenschema dat u kiest: *Systeem* volgt de lichte of
 donkere instelling van de computer, en de themakeuze biedt daarnaast Licht,
-Donker, Leisteen, Papier, Bord, Tom W (koningsblauw met een hemelsblauw accent)
-en Hoog contrast. De live pagina heeft een eigen modus met hoog contrast.
+Donker, Leisteen, Papier, Bord, Tom W (koningsblauw met een hemelsblauw accent),
+Jorian (de blauwdruk-look van de projectwebsite: lichtblauw papier, donkere
+marineblauwe inkt, koningsblauw accent) en Hoog contrast. De live pagina heeft een eigen modus met hoog contrast.

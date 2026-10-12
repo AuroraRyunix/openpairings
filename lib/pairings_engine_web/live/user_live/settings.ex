@@ -1396,6 +1396,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
   defp theme_label("paper"), do: gettext("Paper")
   defp theme_label("board"), do: gettext("Board")
   defp theme_label("tomw"), do: gettext("Tom W")
+  defp theme_label("jorian"), do: gettext("Jorian")
   defp theme_label("contrast"), do: gettext("High Contrast")
 
   defp accent_label("green"), do: gettext("Green")

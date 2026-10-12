@@ -3,9 +3,9 @@ defmodule PairingsEngineWeb.ContrastTest do
   Colour contrast in the arbiter's app, computed from `assets/css/app.css`
   with the WCAG 2.2 formula - not judged by eye.
 
-  Every colour is a token. Seven themes (`:root` is Light, then one
+  Every colour is a token. Eight themes (`:root` is Light, then one
   `[data-theme]` block each) and nine accents, each of which replaces the
-  accent tokens on top of whichever theme is on: 63 palettes, and two checks
+  accent tokens on top of whichever theme is on: 72 palettes, and two checks
   run over every one of them -
 
     * the pairings the design system is built from: text on each ground, the
@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.ContrastTest do
   @css Path.expand("../../assets/css/app.css", __DIR__)
   @layouts Path.expand("../../lib/pairings_engine_web/components/layouts.ex", __DIR__)
 
-  @themes ~w(light dark slate paper board tomw contrast)
+  @themes ~w(light dark slate paper board tomw jorian contrast)
   @accents ~w(green blue teal violet rose slate indigo cyan fuchsia)
 
   # {what it is, foreground, ground, the ratio it needs}. A ground is a token,

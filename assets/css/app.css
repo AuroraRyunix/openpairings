@@ -432,6 +432,51 @@
 }
 
 
+/* JORIAN. The look of the project's own website, carried into the program:
+   the star-atlas paper (#f7f9fe) with its blueprint ink (#0a1747), the
+   website's royal blue (#1a3fc0) as the accent, and its yellow kept for the
+   one place it is still a highlighter, the text selection. The website opens
+   in its light variant, so this is a light theme; its night variant is what
+   Dark and Slate are for. Two pairings were nudged from the website's own:
+   its third ink (#5a6898) is under 4.5:1 on the tinted rows, so secondary text
+   takes its second (#3a497b), and its stamp red (#c9341f) is a shade heavier
+   (#bf2f1b) so a red button's hover still has room to darken. */
+[data-theme="jorian"] {
+  --bg: #f7f9fe;
+  --surface: #ffffff;
+  --border: #c6d3f0;
+  --text: #0a1747;
+  --text-soft: #3a497b;
+  --accent: #1a3fc0;
+  --accent-hover: #12309a;
+  --accent-soft: #eaf0fc;
+  --accent-ink: #f6f9ff;
+  --accent-lift: #10151b;
+  --danger: #bf2f1b;
+  --danger-hover: #9d2515;
+  --danger-ink: #ffffff;
+  --success: #1c6e3f;
+  --success-soft: #e2f1e8;
+  --warn: #75500a;
+  --warn-soft: #fbf0cf;
+  --info: #1a5f95;
+  --info-soft: #dfedf8;
+  --shadow: 0 1px 2px rgba(10, 23, 71, 0.10), 0 12px 24px -16px rgba(10, 23, 71, 0.35);
+
+  --surface-alt: #eaf0fc;
+  --surface-hover: #dbe5fa;
+  --scrim: rgba(8, 21, 66, 0.5);
+  --pe-bg-alt: var(--surface-alt);
+
+  color-scheme: light;
+  --color-base-100: #ffffff;
+  --color-base-200: #f7f9fe;
+  --color-base-300: #dbe5fa;
+  --color-base-content: #0a1747;
+}
+[data-theme="jorian"] ::selection { background: #ffd22e; color: #081542; }
+
+
 /* ---------- accent colour (independent of light/dark) ----------
    The default (green) lives in the token blocks above. Each alternative sets
    its own --accent / --accent-hover / --accent-soft, with a brighter variant
@@ -750,7 +795,7 @@ html[data-accent="fuchsia"] .accent-swatch[data-accent-opt="fuchsia"] {
 }
 
 /* ---------- theme picker (System / Light / Dark / Slate / Paper / Board /
-   Tom W / High Contrast) ----------
+   Tom W / Jorian / High Contrast) ----------
    A popover, not an inline button row, once there are more than a
    handful of themes - matches the accent-picker's own <details>/<summary>
    pattern, and the .topbar-menu-panel/.topbar-menu-item vertical-list
@@ -815,6 +860,7 @@ html[data-theme-source="user"][data-theme="slate"] .theme-picker-item[data-theme
 html[data-theme-source="user"][data-theme="paper"] .theme-picker-item[data-theme-opt="paper"],
 html[data-theme-source="user"][data-theme="board"] .theme-picker-item[data-theme-opt="board"],
 html[data-theme-source="user"][data-theme="tomw"] .theme-picker-item[data-theme-opt="tomw"],
+html[data-theme-source="user"][data-theme="jorian"] .theme-picker-item[data-theme-opt="jorian"],
 html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-theme-opt="contrast"] {
   background: var(--accent-soft);
   color: var(--accent);
