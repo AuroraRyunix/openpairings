@@ -103,6 +103,9 @@ everything the app does and what is planned next.
   a "board;result" CSV on the Pairings page; all-or-nothing with per-line
   errors, boards not mentioned keep their result.
 - [PGN export](pgn-export.md) - metadata-only PGN (Seven Tag Roster, no moves)
+- [The board link](board-link-api.md) - the API a hall box that reads
+  electronic boards (Alnasl) speaks: connect codes, the tournament document,
+  game reports. The contract for the box's half
   per round or for the whole tournament, from the Pairings page or
   `/t/:id/export/pgn?round=N`.
 - [Extra points](extra-points.md) - administrative bonus points (SWAR XtPts):

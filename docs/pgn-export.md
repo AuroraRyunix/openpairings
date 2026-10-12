@@ -90,3 +90,29 @@ the four PGN downloads under a "PGN" heading: this round (`?round=<selected
 round>`), this round with board numbers, every round, and every round with
 board numbers - plain `GET`/`<a target="_blank">` links, so they open in a
 new tab without routing through the LiveView socket.
+
+## With the moves a board reported
+
+`?moves=1` on the same route (`PgnExport.export(t, round, moves: true)`) is
+the export for a tournament with live boards (`docs/board-link-api.md`,
+`PairingsEngine.BoardLink`). It differs from the above in four ways, and in
+nothing else:
+
+- a game a board reported carries its moves, and `{[%clk h:mm:ss]}` after
+  each move the box gave a clock time for; a game no board reported keeps the
+  bare result token;
+- `Round` is `"<round>.<board>"` (the real `pairing.board`), the PGN
+  convention for a round of many games;
+- a `TimeControl` tag is added when the rate of play can be written as one
+  (`PairingsEngine.BoardLink.TimeControl.pgn/1`), and `SetUp`/`FEN` when the
+  box reported a start position;
+- `&game=<game_uid>` keeps one game.
+
+`Result` is still the arbiter's, by the table above: a board that saw `1-0`
+on a game nobody has entered exports as `*`.
+
+`?source=box&game=<game_uid>` returns the PGN the box itself sent for that
+game, byte for byte, for comparison.
+
+The links are on Settings, Live boards (round and tournament) and on a game's
+own page. The "More" menu's downloads are unchanged.
