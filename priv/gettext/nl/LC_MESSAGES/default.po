@@ -17541,7 +17541,7 @@ msgstr "Hoofdstukken"
 #: lib/pairings_engine_web/live/help_live.ex:406
 #, elixir-autogen, elixir-format
 msgid "Everything the program does, from the first player to the FIDE report, written for the arbiter at the board. New here? Start with Getting started."
-msgstr "Alles wat het programma doet, van de eerste speler tot het FIDE-rapport, geschreven voor de arbiter aan het bord. Nieuw? Begin met Aan de slag. De handleiding zelf is in het Engels."
+msgstr "Alles wat het programma doet, van de eerste speler tot het FIDE-rapport, geschreven voor de arbiter aan het bord. Nieuw? Begin met Aan de slag."
 
 #: lib/pairings_engine_web/live/help_live.ex:412
 #, elixir-autogen, elixir-format
@@ -17561,7 +17561,7 @@ msgstr "Volgende"
 #: lib/pairings_engine_web/live/help_live.ex:298
 #, elixir-autogen, elixir-format
 msgid "Nothing in the manual matches every word. Try fewer or shorter words, or browse the chapters."
-msgstr "Niets in de handleiding bevat alle woorden. Probeer minder of kortere woorden, of blader door de hoofdstukken. De handleiding is in het Engels."
+msgstr "Niets in de handleiding bevat alle woorden. Probeer minder of kortere woorden, of blader door de hoofdstukken."
 
 #: lib/pairings_engine_web/live/help_live.ex:269
 #, elixir-autogen, elixir-format
