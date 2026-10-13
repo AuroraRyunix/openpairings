@@ -7,30 +7,51 @@ vereniging beheert) en één voor de **desktopversie** op uw eigen pc. Wat live
 borden zijn en wat elke pagina ervan toont, staat in
 [Live borden en Alnasl](17-live-boards.md).
 
-> [!WARNING] Een eerste versie
-> Alnasl, het programma dat de borden leest, is een eerste versie. Het is
-> gedraaid op gesimuleerde borden en heeft één echt DGT-bord met klok gelezen;
-> een hele partij op een echt bord en een lus met meerdere borden zijn nog niet
-> bewezen. De README van Alnasl zegt dat zelf, onder "What is not done". Probeer
-> de hele opstelling vóór het evenement uit in uw eigen ruimte, met de borden
-> die u gaat gebruiken.
+> [!WARNING] Een eerste uitgave
+> Alnasl, het programma dat de borden leest, is in zijn eerste uitgave. Het is
+> gedraaid op gesimuleerde borden. Op echte apparatuur is het geprobeerd met
+> losse DGT-borden van twee firmwaregeneraties (één met een DGT-klok) en met
+> twee borden op één kabel, een lus. Op een echt bord zijn enkele zetten gespeeld,
+> nog geen hele partij, en er is nog geen toernooi mee gespeeld. Niet geprobeerd:
+> een hele partij op een echt bord, een zet of klok op een lus, meer dan twee
+> borden op een lus en een Raspberry Pi. Het installatieprogramma is gepubliceerd,
+> maar nog niemand heeft Alnasl ermee geïnstalleerd, bijgewerkt of verwijderd. De
+> README van Alnasl zegt zelf wat nog niet af is. Probeer de hele opstelling vóór
+> het evenement uit in uw eigen ruimte, met de borden die u gaat gebruiken.
 
 ## Wat u nodig hebt {#what-you-need}
 
 - **De borden.** Elektronische DGT-borden, elk met zijn kabel naar de computer.
-  Alnasl leest ze als seriële poorten. Een DGT-klok op het bord geeft de
-  kloktijden.
-- **Een computer in de zaal voor Alnasl.** De README beschrijft een Raspberry Pi
-  met scherm, toetsenbord en muis voor de arbiter; een pc kan ook. Hij heeft een
-  C-compiler en `make` nodig om de seriële bibliotheek te bouwen (op Windows
-  staat die bibliotheek uit tenzij u erom vraagt, en ze struikelt over mappen
-  met een spatie in de naam: zie "Serial ports" in de README).
-- **Alnasl zelf.** Het is een apart, gratis programma. Haal het uit zijn
-  repository, `github.com/AuroraRyunix/Alnasl`, en installeer het zoals de README
-  zegt. **Er is nog geen installatieprogramma, geen kant-en-klaar image en geen
-  systeemdienst**: u bouwt het uit de broncode met Elixir en start het met
-  `mix phx.server`. Is dat meer dan u wilt doen, vraag het dan aan wie uw
-  computers beheert, of lees de README samen met die persoon.
+  Alnasl leest ze als seriële poorten: een DGT-USB-bord rechtstreeks, of een
+  serieel bord via een USB-serieel-adapter. Een DGT-klok op één bord is gelezen;
+  klokken op een lus zijn nog niet geprobeerd.
+- **Meerdere borden op één kabel (een lus).** Voeg de poort toe in Alnasl en het
+  vindt de borden op die poort vanzelf, elk met een eigen rij. Twee borden op
+  één kabel zijn zo gelezen. Zetten en klokken op een lus, en meer dan twee
+  borden, zijn op echte apparatuur nog niet gezien.
+- **Een computer in de zaal voor Alnasl.** Alnasl draait op een pc met Windows 10
+  of 11 (64-bit), of op een Linux-kastje: 64-bit Debian 12, Ubuntu 22.04, of
+  Raspberry Pi OS "Bookworm" 64-bit of nieuwer. Er is geen 32-bit versie. De
+  README beschrijft een Raspberry Pi met scherm, toetsenbord en muis voor de
+  arbiter, maar nog geen Pi heeft Alnasl gedraaid.
+- **Alnasl zelf.** Een apart, gratis programma. Installeer het met het
+  installatieprogramma voor uw systeem:
+- **Windows.** Download **Alnasl-Setup.exe** via
+  `https://github.com/AuroraRyunix/Alnasl/releases/latest/download/Alnasl-Setup.exe`
+  en start het. Het installeert voor u alleen, zonder beheerdersrechten, en start
+  een klein venster en uw browser op `http://localhost:4040`. Windows waarschuwt
+  de eerste keer, omdat Alnasl niet ondertekend is: klik op **Meer informatie**
+  en dan op **Toch uitvoeren**.
+- **Linux en Raspberry Pi (64-bit).** Op het kastje, in een terminal:
+  `curl -fsSL https://github.com/AuroraRyunix/Alnasl/releases/latest/download/install.sh | sudo sh`.
+  Dat installeert Alnasl en start het samen met het kastje; de beheersite staat
+  dan op `http://localhost:4040` op het kastje. Een zaal zonder internet kan het
+  archief vooraf downloaden: de sectie Install van de README zegt hoe.
+- **Updates.** Alnasl zoekt naar een nieuwere versie en zegt dat op zijn
+  pagina's. Het installeert er pas een als u ja zegt (Instellingen, bij de
+  updates), en nooit terwijl er een partij op een bord bezig is.
+- **Zelf bouwen uit de broncode** kan nog steeds; zie de README op
+  `https://github.com/AuroraRyunix/Alnasl`.
 - **Het netwerk van de zaal**, bij een gehoste OpenPairings: de computer met
   Alnasl moet het internet bereiken. Voor de desktopversie is geen netwerk nodig
   (zie [Installeren met de desktopversie](#set-up-desktop)).
@@ -266,8 +287,14 @@ ronde en eigen uitslagenpagina.
    koppelcodes en de toestemming van het kastje voor de uitslagensite niet: een
    kopie elders maakt haar eigen codes en haalt haar eigen toestemming op. Op het
    kastje staan de partijen, de wachtrij en de instellingen op schijf in de
-   gegevensmap van Alnasl (`~/.alnasl` in productie), met een PGN-bestand per
-   partij.
+   gegevensmap van Alnasl, met een PGN-bestand per partij. Die map is
+   `%LOCALAPPDATA%\AlnaslData` op Windows (geïnstalleerd of als zip),
+   `/var/lib/alnasl` op een geïnstalleerd Linux-kastje, en `~/.alnasl` voor een
+   kopie die vanuit de broncode in productie draait. Het scherm Instellingen
+   toont de map in gebruik. Een update of een herinstallatie raakt die map niet
+   aan, en verwijderen laat hem ook staan; wist u hem zelf wanneer u dat wilt.
+   Een kopie die op een andere manier op dezelfde computer is gestart, bijvoorbeeld
+   uit de broncode, heeft een eigen gegevensmap met eigen borden en partijen.
 5. **Trek de codes in** als het evenement voorbij is: Instellingen, Live borden,
    **Intrekken**, en in Alnasl **Verwijderen** bij Instellingen, Toernooien. Een
    toernooi van het kastje halen laat het de partijen daar vergeten (de al
@@ -315,7 +342,8 @@ ronde en eigen uitslagenpagina.
   gebruiken.**
 - **De koppelcode is op het kastje alleen te plakken.** Scan de QR-code met de
   eigen camera van de telefoon, kopieer de link, plak hem.
-- **Geen installatieprogramma of Pi-image voor Alnasl**; zie
+- **Geen Raspberry Pi-image en geen 32-bit versie.** De Linux-installatie vraagt
+  een 64-bit systeem, en nog geen Pi heeft Alnasl gedraaid; zie
   [Wat u nodig hebt](#what-you-need).
 - Meer beperkingen van de koppeling zelf staan in
   [Beperkingen](17-live-boards.md#limits).

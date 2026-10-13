@@ -7,29 +7,51 @@ association runs) and one for the **desktop** edition on your own PC. What the
 live boards are, and what each page of them shows, is in
 [Live boards and Alnasl](17-live-boards.md).
 
-> [!WARNING] A first build
-> Alnasl, the program that reads the boards, is a first build. It has run on
-> simulated boards and has read one real DGT board and clock; a whole game on
-> a real board, and a loop of several boards, are not yet proven. Its own
-> README says so under "What is not done". Try the whole set-up in your own
-> room, with the boards you will use, before the event.
+> [!WARNING] A first release
+> Alnasl, the program that reads the boards, is in its first release. It has
+> run on simulated boards. On real hardware it has read single DGT boards of
+> two firmware generations (one with a DGT clock) and two boards on one cable,
+> a loop. Some moves have been played on a real board, not a whole game, and
+> no tournament has been played through it. Not yet tried: a whole game on a
+> real board, a move or a clock on a loop, more than two boards on a loop, and
+> a Raspberry Pi. The installers are published, but nobody has yet installed,
+> updated or uninstalled Alnasl with them. Its own README lists what is not
+> done. Try the whole set-up in your own room, with the boards you will use,
+> before the event.
 
 ## What you need {#what-you-need}
 
 - **The boards.** DGT electronic boards, each with its cable to the computer.
-  Alnasl reads them as serial ports. A DGT clock on the board gives the clock
-  times.
-- **A computer in the hall for Alnasl.** The README describes a Raspberry Pi
-  with a screen, keyboard and mouse for the arbiter; a PC works too. It needs a
-  C compiler and `make` to build the serial library (on Windows the serial
-  library is off unless you ask for it, and has a quirk with folders that
-  contain a space: see "Serial ports" in the README).
-- **Alnasl itself.** It is a separate, free program. Get it from its
-  repository, `github.com/AuroraRyunix/Alnasl`, and install it as its README
-  says. **There is no installer, no ready-made image and no system service
-  yet**: you build it from the source with Elixir and start it with
-  `mix phx.server`. If that is more than you want to do, ask whoever
-  looks after your computers, or read the README with them.
+  Alnasl reads them as serial ports: a DGT USB board directly, or a serial
+  board through a USB-serial adapter. A DGT clock on a single board has been
+  read; clocks on a loop have not been tried.
+- **Several boards on one cable (a loop).** Add the port in Alnasl and it finds
+  the boards on that port by itself, each with its own row. Two boards on one
+  cable have been read this way. Moves and clocks on a loop, and more than two
+  boards, have not been seen on real hardware yet.
+- **A computer in the hall for Alnasl.** Alnasl runs on a PC with Windows 10 or
+  11 (64-bit), or on a Linux box: 64-bit Debian 12, Ubuntu 22.04, or Raspberry
+  Pi OS "Bookworm" 64-bit or newer. There is no 32-bit build. The README
+  describes a Raspberry Pi with a screen, keyboard and mouse for the arbiter,
+  but no Pi has run Alnasl yet.
+- **Alnasl itself.** A separate, free program. Install it with the installer for
+  your system:
+- **Windows.** Download **Alnasl-Setup.exe** from
+  `https://github.com/AuroraRyunix/Alnasl/releases/latest/download/Alnasl-Setup.exe`
+  and run it. It installs for you alone, without administrator rights, and
+  starts a small window and your browser on `http://localhost:4040`. Windows
+  warns the first time, because Alnasl is not signed: click **More info**, then
+  **Run anyway**.
+- **Linux and Raspberry Pi (64-bit).** On the box, in a terminal:
+  `curl -fsSL https://github.com/AuroraRyunix/Alnasl/releases/latest/download/install.sh | sudo sh`.
+  It installs Alnasl and starts it with the box; the management site is then
+  `http://localhost:4040` on the box. A hall without internet can download the
+  archive beforehand: the Install section of the README says how.
+- **Updates.** Alnasl looks for a newer version and says so on its pages. It
+  installs one only when you say yes (Setup, Updates), and never while a game
+  is on a board.
+- **Building from source** is still possible; see the README at
+  `https://github.com/AuroraRyunix/Alnasl`.
 - **The hall's network**, for a hosted OpenPairings: the computer with Alnasl
   must reach the internet. For the desktop edition, no network is needed (see
   [Set-up with the desktop edition](#set-up-desktop)).
@@ -250,8 +272,14 @@ page.
    OpenPairings and are in its JSON export and its restore points. The connect
    codes and the box's permission for the results site are not: a copy
    elsewhere makes its own codes and fetches its own permission. On the box,
-   the games, the queue and the settings are on disk in Alnasl's data folder
-   (`~/.alnasl` in production), with a PGN file per game.
+   the games, the queue and the settings are on disk in Alnasl's data folder,
+   with a PGN file per game. That folder is `%LOCALAPPDATA%\AlnaslData` on
+   Windows (installed or portable), `/var/lib/alnasl` on an installed Linux
+   box, and `~/.alnasl` for a copy run from source in production. Setup, **This
+   copy of Alnasl**, shows the one in use. An update or a reinstall does not
+   touch that folder, and uninstalling keeps it too; delete it yourself when
+   you mean to. A copy started another way on the same computer, from source
+   for instance, has a data folder of its own, with its own boards and games.
 5. **Withdraw the codes** when the event is over: Settings, Live boards,
    **Withdraw**, and in Alnasl **Remove** under Setup, Tournaments. Removing a
    tournament from the box forgets its games there (the PGN files already
@@ -297,5 +325,6 @@ page.
 - **A box on another machine cannot use a desktop OpenPairings.**
 - **The connect code is paste-only on the box.** Scan the QR code with the
   phone's own camera, copy the link, paste it.
-- **No installer or Pi image for Alnasl**; see [What you need](#what-you-need).
+- **No Raspberry Pi image, and no 32-bit build.** The Linux install needs a
+  64-bit system, and no Pi has run Alnasl yet; see [What you need](#what-you-need).
 - More limits of the link itself are in [Limits](17-live-boards.md#limits).
