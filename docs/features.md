@@ -40,6 +40,12 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
     explanation, under the boards, in the audit trail, on the FIDE record
     and in the TRF export's notes. See
     [`pairing-systems.md`](pairing-systems.md), "Bye preferences".
+  - **Pairing-allocated bye** on the player dialog is one list, not a tick
+    beside a select: **FIDE rules decide**, **Never gets it**, **Not in
+    certain rounds**, and, with the bye preferences switch on, **Rather
+    not**, **Rather gets it**, **Must get it, if a legal pairing allows**.
+    Only the choices whose switch is on are offered; a stored value whose
+    switch is off stays shown. Manual chapters 4, 5 and 8.
   - Robust against real-world rosters: absent and round-specific-absent
     players anywhere in the field (including mid-ranking gaps that crash a
     naive TRF invocation) are handled via contiguous rank remapping.
@@ -66,6 +72,12 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 - **Team match actions** (both team systems) - forfeit a match to one team by
   decision, and withdraw the decision; a board added by hand joins its teams'
   match when it fits, and is marked as counting for no team when it does not.
+- **Team match forfeit scoring** - Settings, Scoring, *A match forfeited as a
+  whole*: **One per board it seated** (the default) or **The full board
+  count** (8-0 on eight boards, whatever was seated). A match forfeited after
+  play keeps the sum of its boards. Standings, tie-breaks, the results site
+  and the TRF team totals all read the same figure. In FIDE mode the setting
+  is locked once round 1 is paired. Manual chapters 3 and 12.
 - **Team Swiss pairing rationale** - each round stores the team engine's
   account (bye, brackets, upfloaters, [C8]-[C10], colours) and the rationale
   page shows it.
@@ -211,7 +223,9 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
   Settings - Results site, in the "About each player" group: `display.flags`
   in the snapshot, on by default, resolved like every other key. The results
   site draws a flag beside the federation code only when the key is `true`
-  (absent means off there), and nothing where "Federations" is off.
+  (absent means off there), and nothing where "Federations" is off. It is a
+  sub-option of **Federations**: shown only while Federations is ticked, and
+  its choice is kept underneath when Federations is off.
 - **Manual standings order** - an explicit arbiter override with a visible
   banner everywhere and a staleness flag raised the moment any result changes.
   Display-only; never touches points, tiebreaks, or the TRF.
@@ -234,9 +248,20 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 ## Players & rating data
 
 - **FIDE rating list** - synced from ratings.fide.com into a local database
-  (~1.9M players) with autofill on player entry.
+  (~1.9M players) with autofill on player entry. The desktop edition asks
+  before the ~41 MB download: Connections, **Download it automatically**,
+  **Ask me first (about 41 MB)** (the desktop default) or **Never; I update
+  it by hand**. A missing or newer list raises a banner on every arbiter
+  page (**Download now**, **Later**, **Don't ask again**); the Players page
+  raises the same question instead of starting the download.
 - **KBSB (Belgian) rating list** - CSV import with encoding/delimiter
-  auto-detection, national-id autofill.
+  auto-detection, national-id autofill. The member file's `Fed` column is a
+  wing inside Belgium (V, F or D), not a country: the federation is taken from
+  the FIDE list through the member's FIDE ID, or left blank.
+- **Player dialog status ticks** - **Absent**, **No half-point byes for this
+  player**, **Withdrawn from the tournament** and **Expelled by the arbiter**,
+  each with a line saying what it does. Combinations that mean nothing are
+  greyed out: Expelled outranks Withdrawn, which outranks Absent.
 - **Bulk rating refresh** - one-click re-rating of a whole tournament from the
   local FIDE/KBSB databases, with a dry-run diff preview.
 - **SWAR-style player grid** - every column sortable, plain-language tooltips
@@ -393,8 +418,58 @@ press, VIP and staff badges are added by hand. See [`badges.md`](badges.md).
   and nothing else - every tournament already imported keeps its players,
   clubs, scoring settings and standings exactly as they are.
 
+## Live boards
+
+Electronic boards in the playing hall, read by Alnasl, a separate program on a
+box beside them. Set-up: manual chapters 17 and 18 (the question mark on
+Settings, **Live boards** opens them). The contract the box builds against is
+[`board-link-api.md`](board-link-api.md).
+
+- **Connect codes** - Settings, **Live boards**, **New code**: one line of text
+  and its QR code per box, shown once and stored only as a fingerprint. The
+  list shows each code by its last four characters, the box, its version,
+  when it last called and its boards; **Withdraw** ends one. Up to 8 per
+  tournament.
+- **Group codes** - a tournament in a group shows **Codes for the group**. One
+  scan covers every tournament of the group its maker may open, including one
+  added later.
+- **Boxes elsewhere on this network** - desktop edition only, Settings,
+  **Live boards**, card of that name, off by default. The switch **Let boards
+  on this network connect** opens a second listener on a network address you
+  pick (port 4747 unless changed). It serves the board link and nothing else,
+  takes only codes made "for a box on the network", and is plain http. It is
+  closed whenever no such code exists. Windows asks permission the first time
+  something listens; the card says what to tick. An address that changed is
+  reported (in the log and on the card), never followed by itself.
+- **What the box is told** - the rounds, who sits where with which colour, the
+  rate of play, which round is on, and, when the tournament is on the results
+  site and a relay key is held, where to send the moves. A new pairing reaches
+  the box in about five seconds. The box never enters a result.
+- **Board saw** - a column on the Pairings page, to the right of the pairings:
+  quiet when the board agrees or said nothing, red when it does not. Red blocks
+  nothing; the arbiter decides.
+- **Games and PGN** - each reported game has a page (reached from the Board saw
+  column) showing the moves the box worked out, guessed and rewrote, with
+  **Download PGN**. Settings, **Live boards** offers a PGN per round and
+  **PGN, whole tournament**, with the tournament's headers and your result
+  (`*` until one is entered). Games travel in exports and restore points; codes
+  and the relay key do not.
+- **The results site's permission for the box** - no pasting. The card **The
+  results site** on Settings, **Live boards** says *Getting permission from the
+  results site…*, *Yes. The box may send moves there.* or *Not yet*, with
+  **Try again**. **Replace the box's permission** fetches a new one. A **Relay
+  key** field appears only when the results site is too old to hand a key out.
+  The key is redacted from logs.
+- **Reported games follow their pairing** - unpairing a round, deleting a
+  board, or a team line-up or import that rewrites the boards removes the games
+  reported for the pairings that went. The audit trail gets one line with the
+  count.
+
 ## Platform
 
+- **Tom W theme** - in the theme picker, a pale blue-white paper with navy ink
+  and a royal-blue accent, for every edition and every account. Manual
+  chapter 1.
 - Elixir/Phoenix LiveView + SQLite; runs locally with `mix phx.server` and
   deploys unchanged to a server (systemd, SMTP e-mail, production hardening).
 - Responsive layout for tablet/phone; desktop stays full-width.
