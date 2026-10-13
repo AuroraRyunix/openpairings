@@ -28,7 +28,7 @@ Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 | De ingestroute die de zetten en klokken van een bord ontvangt, en de toestemming van het kastje om ze te gebruiken (door OpenPairings opgehaald, niets te kopiëren) | gebouwd |
 | De koppeling in OpenPairings: koppelcodes, wat het kastje te horen krijgt, wat het meldt, de bordkolom, bewaarde partijen en PGN | gebouwd |
 | De kant van Alnasl van de koppeling met OpenPairings | gebouwd, in Alnasl; met gesimuleerde borden doorlopen, nog niet in een zaal |
-| De koppeling van een desktopkopie naar een kastje op een andere machine | niet gebouwd, zie [Beperkingen](#limits) |
+| De koppeling van een desktopkopie naar een kastje op een andere machine in de zaal | gebouwd, uit tot u ze aanzet; zie [Een kastje elders op het netwerk](#boxes-on-the-network) |
 
 ## Wat Alnasl is {#what-alnasl-is}
 
@@ -100,6 +100,77 @@ bereikt het kastje zonder nieuwe scan.
 Een groepscode geeft toegang tot de toernooien van de groep die **de persoon die
 de code maakte** mag openen, en tot geen andere. Een afdeling van een andere
 arbiter, die u niet kunt openen, gaat ook niet naar uw kastje.
+
+### Een kastje elders op het netwerk {#boxes-on-the-network}
+
+*Gebouwd, alleen in de desktopeditie. Uit tot u het aanzet.* De desktopeditie
+antwoordt op haar eigen computer en nergens anders, en dat verandert niet. Een
+kastje dat niet op die computer staat (een kleine computer naast de borden, een
+tweede laptop) heeft een ingang nodig, en die kunt u geven: Instellingen,
+**Live borden**, kaart **Kastjes elders op dit netwerk**, schakelaar **Laat
+borden op dit netwerk verbinden**.
+
+Wat de schakelaar doet:
+
+- Hij opent **één extra deur** op uw computer, op het netwerkadres dat u kiest,
+  voor het kastje van de borden en voor niets anders. Uw toernooien, de
+  pagina's van OpenPairings en al het andere blijven alleen vanaf uw eigen
+  computer bereikbaar, precies zoals voorheen. Wie die deur in een browser
+  opent, krijgt "niets hier".
+- De pagina biedt daarna **twee soorten code** aan: *Nieuwe code voor een
+  kastje op deze computer* (zoals voorheen, `http://127.0.0.1`) en *Nieuwe code
+  voor een kastje op het netwerk*, die het adres van uw computer op het netwerk
+  van de zaal bevat. De pagina zegt in woorden waar elke code heen leidt, naast
+  de QR-code.
+- De deur antwoordt alleen op een code die voor het netwerk is gemaakt, alleen
+  aan machines op een lokaal netwerk, en ze is **dicht zolang er geen zo'n code
+  bestaat**: trek de laatste in en ze sluit. Een netwerkcode werkt **30
+  dagen**; maak daarna een nieuwe.
+- Het is een instelling van uw computer, voor alle toernooien, en ze wordt
+  onthouden: na een herstart is de deur er vanzelf weer. Verbindingen toont hoe
+  het ervoor staat en heeft een knop **Uitzetten**.
+
+> [!WARNING] De code reist leesbaar
+> De deur spreekt gewoon http. De code van een kastje gaat onbeschermd over het
+> netwerk, om de paar seconden. Over **een kabel tussen de twee machines**, of
+> **een eigen netwerk** (uw eigen kleine router, niemand anders erop), is dat
+> prima. Op **een wifi waar ook de spelers op zitten** kan wie weet hoe, de code
+> lezen, en dan de paringen zien en zetten insturen alsof hij een bord was. Een
+> uitslag invoeren kan hij niet (dat doet een bord nooit), een paring wijzigen
+> evenmin, en iets anders zien ook niet. Neem liever een kabel of een eigen
+> netwerk, en trek de code in na het evenement.
+
+> [!IMPORTANT] Windows stelt een vraag
+> De eerste keer toont Windows *Windows-beveiliging: wilt u toestaan dat deze
+> app communiceert op deze netwerken?* Vink **Particuliere netwerken** aan en
+> kies **Toestaan**. OpenPairings kan die vraag niet voor u beantwoorden. Koos
+> u Annuleren, of zag u de vraag nooit, dan krijgt het kastje geen antwoord:
+> open Windows-beveiliging, Firewall en netwerkbeveiliging, **Een app door de
+> firewall toestaan**, en sta OpenPairings toe op particuliere netwerken.
+
+**Welk adres.** Zit uw computer op één lokaal netwerk, dan neemt de pagina dat
+adres. Zit hij op meerdere (een kabel naar het kastje en de wifi van de zaal),
+kies dan dat waar het kastje op zit: alleen dat ene wordt geopend. De poort is
+`4747` tenzij u ze wijzigt; gebruikt een ander programma ze al, dan zegt de
+pagina dat en kiest u een andere. Verder verandert daar niets door.
+
+**Als het adres verandert.** De meeste netwerken delen zelf adressen uit, en
+morgen kan het uwe een ander zijn. De code van vandaag wijst dan naar een adres
+waar niets is. OpenPairings merkt het, bij het opstarten en op deze pagina:
+*Het adres van deze computer is veranderd van … naar …: kastjes met de oude
+code vinden hem niet meer.* Het verhuist de deur **niet** vanzelf naar het
+nieuwe adres, want een laptop die plots op een ander netwerk zit, is precies
+het moment waarop u eerst gevraagd wilt worden. Kies het nieuwe adres, maak een
+nieuwe code en geef ze aan het kastje. Om het te voorkomen geeft u de computer
+een **vast adres** (in de router, of in de netwerkinstellingen van Windows), of
+gebruikt u een kabel tussen de twee machines en niets anders. De lijst met
+codes toont bij elke netwerkcode het adres waarvoor ze gemaakt is, en zegt het
+in het rood wanneer de computer daar niet meer antwoordt.
+
+Op een computer met één netwerk kan de pagina dezelfde code ook tonen met de
+**naam** van de computer in plaats van zijn adres. Een naam overleeft een
+veranderd adres, maar werkt alleen als het kastje de naam kan opzoeken, en dat
+hangt van het netwerk af. Probeer eerst het adres.
 
 ### Wie mag {#who-may}
 
@@ -219,6 +290,19 @@ precies zoals het kastje het schreef, ter vergelijking.
 
 De PGN-export op de pagina Paringen (**Meer**, PGN) is ongewijzigd en bevat nog
 steeds geen zetten.
+
+**Een partij gaat mee met haar paring.** Wanneer u een ronde ontpaart en
+opnieuw paart, worden de partijen die de borden voor de oude paringen hadden
+gemeld op dat moment uit OpenPairings verwijderd: ze horen bij partijen die
+niet meer bestaan. Hetzelfde geldt voor een bord dat u verwijdert, een
+ploegopstelling die een bord laat vallen, en een herstelpunt dat de paring niet
+heeft. Het auditlogboek krijgt één regel met het aantal verwijderde partijen.
+Het kastje houdt zijn eigen kopie en zijn eigen PGN. Een partij waarvan de
+paring alleen naar een ander bord verhuisde, of een andere speler kreeg, blijft
+bewaard. Gaat u terug naar een herstelpunt van vóór het opnieuw paren, dan
+komen de oude paringen terug met hun partijen zoals ze stonden toen het punt
+werd genomen; het kastje stuurt de latere zetten niet vanzelf opnieuw, maar u
+kunt een partij vanaf het kastje opnieuw laten sturen.
 
 ## Relaissleutels {#relay-keys}
 
@@ -394,11 +478,14 @@ auditlogboek.
 
 ## Beperkingen {#limits}
 
-- **Een desktopkopie bereikt alleen een kastje op dezelfde computer.** De desktopeditie
-  antwoordt op haar eigen computer en nergens anders, dus haar koppelcode zegt
-  `http://127.0.0.1` en werkt voor een kastjesprogramma dat op die computer draait. Een
-  kastje elders op het netwerk van de zaal kan een desktopkopie niet bereiken. De gehoste
-  editie heeft die beperking niet.
+- **Een desktopkopie bereikt een kastje op een andere machine alleen als u dat toelaat.**
+  De desktopeditie antwoordt op haar eigen computer en nergens anders. Een
+  kastjesprogramma op die computer heeft niets meer nodig. Een kastje elders in de zaal
+  heeft de schakelaar **Laat borden op dit netwerk verbinden** nodig, een code die voor
+  het netwerk is gemaakt, en een netwerk waar beide machines op zitten; zie
+  [Een kastje elders op het netwerk](#boxes-on-the-network). Die verbinding is gewoon
+  http, alleen IPv4, en haar codes gelden 30 dagen. De gehoste editie heeft geen van die
+  beperkingen, en ook die schakelaar niet.
 - **OpenPairings controleert de zetten niet.** Het heeft zelf geen schaakregels. Een zet
   wordt bewaard zoals het kastje hem schreef, mits hij de vorm van een zet heeft. Het
   kastje controleert de wettigheid, en de uitslagensite ook.

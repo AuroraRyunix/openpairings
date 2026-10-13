@@ -49,6 +49,9 @@ defmodule PairingsEngineWeb.FideLive do
        fide_auto_sync: PairingsEngine.Fide.AutoSync.enabled?(),
        fide_auto_mode: PairingsEngine.Fide.AutoSync.mode(),
        desktop?: PairingsEngine.Authz.local_mode?(),
+       # A desktop copy's listener for hall boxes on the network: shown
+       # here, switched on where its warning is (Settings, Live boards).
+       board_lan: PairingsEngineWeb.BoardLan.status(),
        kbsb?: kbsb?,
        kbsb_status: kbsb? && KbsbSync.status(),
        kbsb_query: "",
@@ -194,6 +197,16 @@ defmodule PairingsEngineWeb.FideLive do
   # administrator turned on either. Local mode makes everyone an
   # administrator (`PairingsEngine.Authz`), so on the one install type that
   # actually reaches GitHub, the one person there can always flip it.
+  def handle_event("board_lan_off", _params, socket) do
+    if socket.assigns.may_admin? and PairingsEngineWeb.BoardLan.available?() do
+      {:ok, _status} = PairingsEngineWeb.BoardLan.switch(false)
+
+      PairingsEngine.Audit.log_system(socket.assigns.current_scope, "boards.lan_off", %{})
+    end
+
+    {:noreply, assign(socket, board_lan: PairingsEngineWeb.BoardLan.status())}
+  end
+
   def handle_event("toggle_update_check", _params, socket) do
     if socket.assigns.may_admin? do
       Updates.put_enabled(!socket.assigns.updates_enabled?)
@@ -1030,6 +1043,51 @@ defmodule PairingsEngineWeb.FideLive do
               disabled={!@may_admin?}
             >
               {if @updates_enabled?, do: gettext("Turn off"), else: gettext("Turn on")}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <%!-- Desktop only, like Updates above: a hosted server has no such
+            listener (`PairingsEngineWeb.BoardLan.available?/0`). It is
+            switched on from a tournament's Live boards page, where the
+            warning is; here it is shown, and can be switched off without
+            first finding the tournament it was switched on from. --%>
+      <div :if={@board_lan.available?} class="card" id="connections-board-lan">
+        <h2>{gettext("Board boxes on this network")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "A box that reads electronic boards and is not on this computer can connect to it over the hall's network, if you let it. That opens one extra door for the board box only; these pages stay reachable from this computer only. Switch it on under a tournament's Settings, Live boards, which says what it does."
+          )}
+        </p>
+
+        <div class="set-field solo">
+          <span class="set-label">{gettext("Status")}</span>
+          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+            <span id="connections-board-lan-state">
+              <%= cond do %>
+                <% not @board_lan.enabled? -> %>
+                  {gettext("Off")}
+                <% @board_lan.state == :listening -> %>
+                  {gettext("On, answering boxes at %{address}", address: @board_lan.base_url)}
+                <% @board_lan.state == :idle -> %>
+                  {gettext("On, closed until a code for a box on the network exists (%{address})",
+                    address: @board_lan.base_url
+                  )}
+                <% true -> %>
+                  {gettext("On, but not answering: see a tournament's Settings, Live boards")}
+              <% end %>
+            </span>
+            <button
+              :if={@board_lan.enabled?}
+              type="button"
+              id="connections-board-lan-off"
+              class="pe-btn"
+              phx-click="board_lan_off"
+              disabled={!@may_admin?}
+            >
+              {gettext("Turn off")}
             </button>
           </div>
         </div>

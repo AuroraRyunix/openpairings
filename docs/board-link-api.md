@@ -60,10 +60,20 @@ https://pairings.example.org/api/boards/v1#oplt_Zq3...43 characters...
 Parsing: split at the first `#`; trim whitespace; the root has no trailing
 slash. Reject a code without a `#` or with an empty secret.
 
-A desktop copy of OpenPairings answers on loopback only. Its code reads
-`http://127.0.0.1:<port>/api/boards/v1#...` and works only for a box program
-on the same computer (see [Out of scope](#out-of-scope)). A box must not
-rewrite the host.
+A desktop copy of OpenPairings makes two kinds of code, and each says where it
+leads:
+
+- `http://127.0.0.1:<port>/api/boards/v1#...` for a box program on the same
+  computer. It works there and nowhere else.
+- `http://<the PC's address on the hall network>:<port>/api/boards/v1#...` for
+  a box on another machine, only when the arbiter has switched on *Let boards
+  on this network connect* (see
+  [A desktop copy on the hall's network](#a-desktop-copy-on-the-halls-network)).
+  The page may also show the same code with the PC's name in place of its
+  address.
+
+A box must not rewrite the host. It uses the address as written, including a
+host name, and resolves it the way its operating system does.
 
 The code can be withdrawn in OpenPairings at any time; from then on every
 request with it is `401`. OpenPairings keeps only a SHA-256 of the secret and
@@ -504,9 +514,20 @@ On `pairing_changed` or `pairing_gone`: stop sending that report, fetch
 the box does with the moves it had recorded is its own decision (and the
 arbiter's); OpenPairings will not file them under another pairing.
 
-A game that was stored and whose pairing later disappears stays in
-OpenPairings' database, is shown nowhere and is not exported. If a restore
-point brings the pairing back, the game is attached again.
+A game that was stored and whose pairing later disappears is **removed** from
+OpenPairings at that moment: the round unpaired, the board deleted, a team
+line-up that drops the board, a restore point or a returning hand-off file
+that does not have the pairing. The tournament's audit trail gets one line
+with the number of games removed. The box keeps its own copy and its own
+recording; OpenPairings does not ask for either.
+
+If a restore point brings the pairing back, it brings back the game **as the
+restore point held it**: the moves up to the moment the point was taken, not
+the ones reported after it. `game` is the same id as before, so a box that
+still holds the game may report it again under that id, and a report with a
+higher `seq` (or `replace: true`) is taken as always. OpenPairings does not
+ask for it: after `409 pairing_gone` the box has stopped sending that game,
+and sending it again is the box's decision, or its operator's.
 
 ## Team events
 
@@ -555,15 +576,43 @@ seat filled is listed with `kind: "bye"` until the other is.
 - Writes the code's first use to the tournament's audit trail, with the box's
   name and version.
 
+## A desktop copy on the hall's network
+
+The desktop edition binds to loopback, and that is a safety property of having
+no login, not a default. It stays so. A box on another machine reaches a
+desktop copy through a **second listener** that the arbiter switches on
+(Settings, Live boards: *Let boards on this network connect*), which serves
+this API and nothing else.
+
+What a box can rely on:
+
+| | |
+|---|---|
+| address | `http://<one private IPv4 address of the PC>:<port>`, default port `4747`. The arbiter picks the address when the PC has several, and may change the port |
+| what answers there | the four requests of this document. Every other method and path is `404 {"error": "not_found"}`: no pages, no websocket, no static files |
+| who may call | addresses of a local network only (10/8, 172.16/12, 192.168/16, 169.254/16, loopback, and their IPv6 counterparts). Anybody else is `403 {"error": "forbidden"}` |
+| which codes | only a code made *for a box on the network*. A code made for a box on the same PC is `401` there |
+| how long | a network code works for 30 days from the moment it was made, then `401` like a withdrawn one |
+| when it is open | while the switch is on, the chosen address is still the PC's, and at least one network code exists. Otherwise the port is closed: a box sees a refused connection or a timeout, not an HTTP answer |
+| transport | plain http. No TLS, no certificate. The secret is readable on the wire |
+| rate limits | the same two as everywhere. Refused codes are counted against the address the connection came from; `X-Forwarded-For` and similar headers are ignored on this listener |
+
+The PC's address can change (DHCP). The code then points at an address where
+nothing listens; OpenPairings says so on its page and does not move the
+listener by itself. The box sees `No answer` and needs a new code, or the PC
+needs a fixed address.
+
+A hosted OpenPairings has none of this: no switch, no second listener, and a
+code that carries its public address.
+
 ## Out of scope
 
 Said here so nobody builds against something that is not there.
 
-- **A desktop copy and a box on another machine.** The desktop edition binds
-  to loopback, and that is a safety property of having no login, not a
-  default. Same-PC works. Reaching a desktop copy over the hall's LAN needs a
-  decision by the owner and a separate listener that serves this API and
-  nothing else; it is not built, and no setting turns it on.
+- **TLS on a desktop copy's network listener.** No certificate, no https.
+- **IPv6 addresses in a desktop copy's network code.** IPv4 only.
+- **Finding the PC by itself.** No discovery, no broadcast: the box is given
+  an address in a code.
 - **Push.** No WebSocket, no long poll, no callback URL. Poll.
 - **Entering results from a board.** By design, not by omission.
 - **Legality and canonical SAN.** Not checked here.

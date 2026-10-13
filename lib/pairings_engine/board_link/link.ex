@@ -13,6 +13,12 @@ defmodule PairingsEngine.BoardLink.Link do
   a record: the code reaches the members of the group its maker may open,
   and no others (see `PairingsEngine.BoardLink.covered/1`).
 
+  `reach` is `"lan"` for a code a desktop copy made for a box elsewhere on
+  the hall network (`PairingsEngineWeb.BoardLan`), nil for every other code.
+  Such a code carries the `address` it was made with and an `expires_at`:
+  its secret crosses the hall in plain http, so it does not live for ever.
+  Only a `"lan"` code is accepted on the network listener.
+
   `last_seen_at`, `box_name`, `box_version` and `box_boards` are what the box
   said about itself the last time it called. Nothing here trusts them; they
   are for the arbiter looking at the settings page.
@@ -26,6 +32,9 @@ defmodule PairingsEngine.BoardLink.Link do
     field :box_name, :string
     field :box_version, :string
     field :box_boards, :map
+    field :reach, :string
+    field :address, :string
+    field :expires_at, :utc_datetime
 
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :group, PairingsEngine.TournamentGroups.Group

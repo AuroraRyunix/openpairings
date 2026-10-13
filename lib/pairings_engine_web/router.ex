@@ -299,8 +299,11 @@ defmodule PairingsEngineWeb.Router do
   # secret and both rate limits are in the controller's own plug, so a route
   # added to this scope cannot be added without them.
   #
-  # Core, not a plug-in: the desktop edition speaks it too, to a box on the
-  # same PC.
+  # Core, not a plug-in: the desktop edition speaks it too - to a box on the
+  # same PC through this router, and to a box elsewhere in the hall through
+  # `PairingsEngineWeb.BoardLan.Router`, which has these four routes and no
+  # others. A route added here must be added there, or a network box does
+  # not get it; `PairingsEngineWeb.BoardLanTest` compares the two.
   scope "/api/boards/v1", PairingsEngineWeb do
     pipe_through [:api]
 

@@ -53,7 +53,9 @@ borden zijn en wat elke pagina ervan toont, staat in
 - **Zelf bouwen uit de broncode** kan nog steeds; zie de README op
   `https://github.com/AuroraRyunix/Alnasl`.
 - **Het netwerk van de zaal**, bij een gehoste OpenPairings: de computer met
-  Alnasl moet het internet bereiken. Voor de desktopversie is geen netwerk nodig
+  Alnasl moet het internet bereiken. Voor de desktopversie is geen internet
+  nodig: met Alnasl op dezelfde pc helemaal geen netwerk, en met Alnasl op een
+  andere machine een kabel of een klein eigen netwerk tussen de twee
   (zie [Installeren met de desktopversie](#set-up-desktop)).
 - **Tafelnummers op de borden.** Stickers met het nummer van elke tafel. Alnasl
   drukt een vel etiketten af (Borden, **Etiketten**).
@@ -167,24 +169,27 @@ toestemming voor de uitslagensite volgt zodra het toernooi daar is aangekomen.
 
 ## Installeren met de desktopversie {#set-up-desktop}
 
-OpenPairings draait op uw eigen pc (de desktopversie) en Alnasl draait **op
-dezelfde pc**.
+OpenPairings draait op uw eigen pc (de desktopversie). Alnasl draait **op
+dezelfde pc**, of **op een andere machine in de zaal** die op hetzelfde lokale
+netwerk zit.
 
-> [!IMPORTANT] Dezelfde computer
-> De desktopversie antwoordt op zijn eigen computer en nergens anders. De
-> koppelcode zegt daarom `http://127.0.0.1:<poort>` en werkt alleen voor een
-> Alnasl op die computer. **Een Alnasl op een andere machine in de zaal kan een
-> desktop-OpenPairings vandaag niet bereiken.** Dat is een bekende beperking.
-> Moet het kastje een aparte kleine computer zijn, gebruik dan de gehoste
-> versie.
+> [!IMPORTANT] Twee manieren, twee codes
+> De desktopversie antwoordt op zijn eigen computer en nergens anders. Voor een
+> Alnasl op dezelfde computer volstaat dat, en de koppelcode zegt
+> `http://127.0.0.1:<poort>`. Een Alnasl op een andere machine kan hem pas
+> bereiken nadat u **Laat borden op dit netwerk verbinden** hebt aangezet; de
+> code daarvoor bevat in de plaats het adres van uw computer op het netwerk.
+> Een code is voor het ene of voor het andere, en de pagina zegt welk.
 
 Stap 2 tot en met 13 hierboven zijn hetzelfde, met deze verschillen:
 
-- **De code.** Instellingen, **Live borden** zegt in plaats van een
-  serveradres: *Deze kopie antwoordt alleen op deze computer, dus het
-  kastjesprogramma moet ook op deze computer draaien*. Maak de code (stap 2) en
-  plak ze in de Alnasl op dezelfde pc (stap 4). Verbinding testen werkt zonder
+- **De code, Alnasl op dezelfde pc.** Instellingen, **Live borden** zegt in
+  plaats van een serveradres: *Deze kopie antwoordt alleen op deze computer*.
+  Druk op **Nieuwe code voor een kastje op deze computer** (stap 2) en plak ze
+  in de Alnasl op dezelfde pc (stap 4). Verbinding testen werkt zonder
   internet.
+- **De code, Alnasl op een andere machine.** Zie
+  [Alnasl op een andere machine](#desktop-on-the-network) hieronder.
 - **De uitslagensite is optioneel.** Met internet doet u stap 1 als bij de
   gehoste installatie, en dan gaan de zetten ook naar de uitslagensite. Zonder
   internet doet u dat niet: Alnasl en OpenPairings werken nog steeds samen.
@@ -197,11 +202,51 @@ Stap 2 tot en met 13 hierboven zijn hetzelfde, met deze verschillen:
   bij de uitslagensite opgehaald…* zeggen en probeert ze het vanzelf opnieuw
   zodra er verbinding is.
 
+### Alnasl op een andere machine {#desktop-on-the-network}
+
+Voor een kastje naast de borden en OpenPairings op uw laptop aan de
+arbiterstafel. Internet is niet nodig, alleen een netwerk dat de twee machines
+delen.
+
+1. **Verbind de twee machines.** Het best: één netwerkkabel ertussen, of een
+   kleine eigen router waar niemand anders op zit. Een wifi die de spelers
+   gebruiken werkt ook, en is die om te vermijden: lees de waarschuwing op de
+   pagina.
+2. In OpenPairings, Instellingen, **Live borden**, kaart **Kastjes elders op
+   dit netwerk**: zet **Laat borden op dit netwerk verbinden** aan. Lees wat er
+   staat; het is kort.
+3. **Windows vraagt** of het programma op het netwerk mag. Vink **Particuliere
+   netwerken** aan, kies **Toestaan**. Zag u de vraag nooit en krijgt het
+   kastje geen antwoord, sta OpenPairings dan met de hand toe:
+   Windows-beveiliging, Firewall en netwerkbeveiliging, Een app door de
+   firewall toestaan.
+4. De kaart toont het adres dat uw computer op dat netwerk heeft, bijvoorbeeld
+   `http://192.168.1.20:4747`. Zit de computer op meerdere netwerken, kies dan
+   dat waar het kastje op zit en druk op **Gebruik deze**.
+5. Druk op **Nieuwe code voor een kastje op het netwerk**. De pagina zegt waar
+   de code heen leidt. Plak ze in Alnasl op de andere machine (stap 4 van de
+   gehoste installatie) en druk op Verbinding testen.
+6. Vanaf hier is het hetzelfde als elke andere installatie.
+
+Wat u moet weten:
+
+- De deur die dit opent, antwoordt het kastje van de borden en **niets
+  anders**. Uw toernooien en de pagina's van OpenPairings blijven op uw eigen
+  computer.
+- Een netwerkcode werkt **30 dagen**. De lijst toont tot wanneer.
+- **Verandert het adres van uw computer** (een andere dag, een ander netwerk,
+  de router herstart), dan zegt het kastje *Geen antwoord* en zegt de pagina in
+  OpenPairings *Het adres van deze computer is veranderd van … naar …*. Kies
+  het nieuwe adres, maak een nieuwe code, geef ze aan het kastje. Een vast
+  adres voor uw computer, of een kabel tussen de twee machines, voorkomt het.
+- Na het evenement: trek de code in. Zonder netwerkcode sluit de deur vanzelf;
+  u kunt ze ook uitzetten, op dezelfde kaart of onder Verbindingen.
+
 ### Wat zonder internet werkt {#what-works-offline}
 
 | | Met internet | Zonder internet |
 | --- | --- | --- |
-| Namen, borden, kleuren en rondes van OpenPairings naar Alnasl | werkt | werkt (op dezelfde pc) |
+| Namen, borden, kleuren en rondes van OpenPairings naar Alnasl | werkt | werkt (op dezelfde pc, of over een eigen netwerk naar een andere machine) |
 | De ronde die vanzelf start als u ze paart | werkt | werkt |
 | Zetten, klokken, PGN en de uitslag die het bord zag, terug naar OpenPairings | werkt | werkt |
 | De kolom **Bord zag**, de partijpagina en de PGN met zetten | werkt | werkt |
@@ -310,7 +355,11 @@ ronde en eigen uitslagenpagina.
 | Alnasl: *Dat is geen volledige koppelcode: het deel na de # ontbreekt.* | De regel is bij het kopiëren afgebroken. | Kopieer de hele regel, van `https://` tot het einde. |
 | Alnasl: *OpenPairings kent deze code niet* of *OpenPairings weigert de koppelcode*; de koppeling zegt *Code geweigerd* | Verkeerd getypt, of in OpenPairings **ingetrokken**. Het kastje vraagt niet meer. | Maak een nieuwe code (Instellingen, Live borden), voeg ze toe in Alnasl, verwijder de oude. |
 | Alnasl: *OpenPairings is niet bereikbaar*; de koppeling zegt *Geen antwoord* | De server of het zaalnetwerk ligt eruit. Er gaat niets verloren: de borden gaan door met de paringen die ze hebben en het kastje vraagt vanzelf opnieuw. | Controleer het netwerk. Een ronde die intussen gepaard is: **Ronde N starten**. |
-| *Geen antwoord. Deze code is voor een OpenPairings op deze zelfde computer: draait het?* | Een desktopcode wordt gebruikt op een computer die niet die van OpenPairings is, of OpenPairings draait niet. | Draai Alnasl op dezelfde pc als de desktop-OpenPairings, en start OpenPairings. |
+| *Geen antwoord. Deze code is voor een OpenPairings op deze zelfde computer: draait het?* | Een code *voor een kastje op deze computer* wordt gebruikt op een computer die niet die van OpenPairings is, of OpenPairings draait niet. | Draai Alnasl op dezelfde pc als de desktop-OpenPairings en start OpenPairings; of maak een code *voor een kastje op het netwerk* (zie [Alnasl op een andere machine](#desktop-on-the-network)). |
+| Alnasl op een andere machine: *OpenPairings is niet bereikbaar*, bij een desktop-OpenPairings | Een van: de schakelaar staat uit; de firewall van Windows liet het niet toe; de twee machines zitten niet op hetzelfde netwerk; het adres van uw computer is veranderd; er bestaat geen netwerkcode meer, dus de deur is dicht. | Instellingen, Live borden, kaart **Kastjes elders op dit netwerk** zegt welke. Adres veranderd: kies het nieuwe, maak een nieuwe code. Firewall: sta OpenPairings toe op particuliere netwerken in Windows-beveiliging. |
+| OpenPairings: *Poort 4747 is in gebruik door een ander programma op deze computer* | Een ander programma heeft die poort. | Kies op dezelfde kaart een andere poort en druk op **Gebruik deze**, maak daarna een nieuwe code. Verder verandert er niets. |
+| Alnasl: *Code geweigerd*, met een netwerkcode die eerder werkte | De code is 30 dagen oud, of ze is ingetrokken, of het is een code *voor een kastje op deze computer* die vanaf een andere machine wordt gebruikt. | Maak een nieuwe code *voor een kastje op het netwerk*. |
+| De kolom **Bord zag** is leeg nadat u een ronde opnieuw paarde | De partijen van de oude paringen zijn samen met die paringen verwijderd. | Niets: het kastje begint de nieuwe partijen. De oude staan nog op het kastje. |
 | *Er antwoordt iets op dat adres, maar niet als de bordkoppeling van OpenPairings* | Een aanmeldpagina van het zaalnetwerk, of een ander programma op die poort. | Meld u aan op het zaalnetwerk, of controleer het adres. |
 | *… het is niet gepubliceerd op een uitslagensite, dus de zetten gaan alleen naar OpenPairings* | Het toernooi staat niet op de uitslagensite. | Publiceer het (stap 1). Het adres en de toestemming komen daarna vanzelf. |
 | *… het staat op een uitslagensite, maar in OpenPairings is geen relaysleutel opgeslagen* | OpenPairings heeft de toestemming van het kastje (nog) niet van de uitslagensite gekregen. Meestal is dat een kwestie van seconden; anders is de uitslagensite niet bereikbaar, zei ze nee, of is ze een oudere versie. | Open Instellingen, Live borden, kaart **De uitslagensite**: die zegt welke. *Toestemming wordt … opgehaald…*: wacht, het wordt vanzelf opnieuw geprobeerd. *Nog niet … : reden*: lees de reden, dan **Opnieuw proberen**. *Oudere versie*: zie de volgende rij. |
@@ -338,8 +387,13 @@ ronde en eigen uitslagenpagina.
   op het kastje en in zijn PGN; de uitslagensite, Lichess en OpenPairings kennen
   één partij per bord en ronde.
 - **Chess960** wordt niet ondersteund.
-- **Een kastje op een andere machine kan een desktop-OpenPairings niet
-  gebruiken.**
+- **Een kastje op een andere machine gebruikt een desktop-OpenPairings over
+  gewoon http.** Het werkt op het eigen netwerk van de zaal nadat u het hebt
+  aangezet, de code gaat leesbaar over dat netwerk, en een veranderd adres
+  betekent een nieuwe code; zie
+  [Alnasl op een andere machine](#desktop-on-the-network). Het is uitgevoerd op
+  één computer die met zijn eigen netwerkadres praat, nog niet tussen twee
+  machines in een zaal.
 - **De koppelcode is op het kastje alleen te plakken.** Scan de QR-code met de
   eigen camera van de telefoon, kopieer de link, plak hem.
 - **Geen Raspberry Pi-image en geen 32-bit versie.** De Linux-installatie vraagt

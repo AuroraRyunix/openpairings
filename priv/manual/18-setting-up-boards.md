@@ -53,7 +53,9 @@ live boards are, and what each page of them shows, is in
 - **Building from source** is still possible; see the README at
   `https://github.com/AuroraRyunix/Alnasl`.
 - **The hall's network**, for a hosted OpenPairings: the computer with Alnasl
-  must reach the internet. For the desktop edition, no network is needed (see
+  must reach the internet. For the desktop edition, no internet is needed: with
+  Alnasl on the same PC no network at all, and with Alnasl on another machine
+  a cable or a small network of your own between the two (see
   [Set-up with the desktop edition](#set-up-desktop)).
 - **Table numbers on the boards.** Stickers with the number of each table.
   Alnasl prints a sheet of labels (Boards, **Labels**).
@@ -160,22 +162,26 @@ the results site follows as soon as the tournament has arrived there.
 
 ## Set-up with the desktop edition {#set-up-desktop}
 
-OpenPairings runs on your own PC (the desktop edition) and Alnasl runs **on the
-same PC**.
+OpenPairings runs on your own PC (the desktop edition). Alnasl runs **on the
+same PC**, or **on another machine in the hall** that is on the same local
+network.
 
-> [!IMPORTANT] Same computer
-> The desktop edition answers on its own computer and nowhere else. The connect
-> code therefore says `http://127.0.0.1:<port>` and works only for an Alnasl on
-> that computer. **An Alnasl on another machine in the hall cannot reach a
-> desktop OpenPairings today.** That is a known limit. If the box must be a
-> separate small computer, use the hosted edition.
+> [!IMPORTANT] Two ways, two codes
+> The desktop edition answers on its own computer and nowhere else. For an
+> Alnasl on the same computer that is enough, and the connect code says
+> `http://127.0.0.1:<port>`. An Alnasl on another machine can reach it only
+> after you switch on **Let boards on this network connect**; the code for it
+> carries your computer's address on the network instead. A code is for one or
+> the other, and the page says which.
 
 Steps 2 to 13 above are the same, with these differences:
 
-- **The code.** Settings, **Live boards** says, instead of a server address:
-  *This copy answers on this computer only, so the box program has to run on
-  this computer too*. Make the code (step 2) and paste it in the Alnasl on the
+- **The code, Alnasl on the same PC.** Settings, **Live boards** says, instead
+  of a server address: *This copy answers on this computer only*. Press **New
+  code for a box on this computer** (step 2) and paste it in the Alnasl on the
   same PC (step 4). Test connection works with no internet.
+- **The code, Alnasl on another machine.** See
+  [Alnasl on another machine](#desktop-on-the-network) below.
 - **The results site is optional.** With internet, do step 1 as in the
   hosted set-up, and the moves also go to the results site. Without internet at
   all, skip it: Alnasl and OpenPairings still work together.
@@ -187,11 +193,48 @@ Steps 2 to 13 above are the same, with these differences:
   card keeps saying *Getting permission from the results site…* and tries
   again by itself when there is a connection.
 
+### Alnasl on another machine {#desktop-on-the-network}
+
+For a box beside the boards and OpenPairings on your laptop at the arbiter's
+table. No internet is needed, only a network the two machines share.
+
+1. **Join the two machines.** Best: one network cable between them, or a small
+   router of your own with nobody else on it. A wifi the players use works
+   too, and is the one to avoid: read the warning on the page.
+2. In OpenPairings, Settings, **Live boards**, card **Boxes elsewhere on this
+   network**: switch on **Let boards on this network connect**. Read what it
+   says; it is short.
+3. **Windows asks** whether to allow the program on the network. Tick
+   **Private networks**, choose **Allow**. If you never saw the question and
+   the box gets no answer, allow OpenPairings by hand: Windows Security,
+   Firewall and network protection, Allow an app through firewall.
+4. The card shows the address your computer has on that network, for example
+   `http://192.168.1.20:4747`. If the computer is on several networks, pick the
+   one the box is on and press **Use these**.
+5. Press **New code for a box on the network**. The page says where the code
+   leads. Paste it in Alnasl on the other machine (step 4 of the hosted
+   set-up) and press Test connection.
+6. From here on it is the same as any other set-up.
+
+What to know:
+
+- The door that this opens answers the board box and **nothing else**. Your
+  tournaments and the pages of OpenPairings stay on your own computer.
+- A network code works for **30 days**. The list shows until when.
+- **If your computer's address changes** (another day, another network, the
+  router restarted), the box says *No answer* and the page in OpenPairings
+  says *This computer's address changed from … to …*. Pick the new address,
+  make a new code, give it to the box. A fixed address for your computer, or
+  a cable between the two machines, prevents it.
+- After the event: withdraw the code. With no network code left the door
+  closes by itself; you can also switch it off, on the same card or under
+  Connections.
+
 ### What works without internet {#what-works-offline}
 
 | | With internet | Without internet |
 | --- | --- | --- |
-| Names, boards, colours and rounds from OpenPairings to Alnasl | works | works (on the same PC) |
+| Names, boards, colours and rounds from OpenPairings to Alnasl | works | works (on the same PC, or over a network of your own to another machine) |
 | The round starting by itself when you pair it | works | works |
 | Moves, clocks, PGN and the result the board saw, back to OpenPairings | works | works |
 | The **Board saw** column, the game page and the PGN with moves | works | works |
@@ -294,7 +337,11 @@ page.
 | Alnasl: *That is not a whole connect code: the part after the # is missing.* | The line was cut when copied. | Copy the whole line, from `https://` to the end. |
 | Alnasl: *OpenPairings does not know this code* or *OpenPairings refuses the connect code*; link says *Code refused* | Mistyped, or **withdrawn** in OpenPairings. The box has stopped asking. | Make a new code (Settings, Live boards), add it in Alnasl, remove the old one. |
 | Alnasl: *OpenPairings cannot be reached*; link says *No answer* | The server or the hall's network is down. Nothing is lost: the boards go on with the pairings they have and the box asks again by itself. | Check the network. A round paired meanwhile: **Start round N**. |
-| *No answer. This code is for an OpenPairings on this same computer: is it running?* | A desktop code is used on a computer that is not the one OpenPairings is on, or OpenPairings is not running. | Run Alnasl on the same PC as the desktop OpenPairings, and start OpenPairings. |
+| *No answer. This code is for an OpenPairings on this same computer: is it running?* | A code *for a box on this computer* is used on a computer that is not the one OpenPairings is on, or OpenPairings is not running. | Run Alnasl on the same PC as the desktop OpenPairings and start OpenPairings; or make a code *for a box on the network* (see [Alnasl on another machine](#desktop-on-the-network)). |
+| Alnasl on another machine: *OpenPairings cannot be reached*, with a desktop OpenPairings | One of: the switch is off; Windows' firewall did not allow it; the two machines are not on the same network; your computer's address changed; no network code exists any more, so the door is closed. | Settings, Live boards, card **Boxes elsewhere on this network** says which. Address changed: pick the new one, make a new code. Firewall: allow OpenPairings on private networks in Windows Security. |
+| OpenPairings: *Port 4747 is in use by another program on this computer* | Another program has that port. | Pick another port on the same card and press **Use these**, then make a new code. Nothing else is affected. |
+| Alnasl: *Code refused*, with a network code that worked before | The code is 30 days old, or it was withdrawn, or it is a code *for a box on this computer* used from another machine. | Make a new code *for a box on the network*. |
+| The **Board saw** column is empty after you paired a round again | The games of the old pairings were removed with them. | Nothing: the box starts the new games. The old ones are still on the box. |
 | *Something answers at that address, but not as OpenPairings' board link* | A login page of the hall's network, or another program on that port. | Log in to the hall's network, or check the address. |
 | *… is not published on a results site, so its moves go to OpenPairings only* | The tournament is not on the results site. | Publish it (step 1). The address and the permission come by themselves afterwards. |
 | *… it is on a results site, but no relay key is saved in OpenPairings* | OpenPairings has not got the box's permission from the results site (yet). Usually it is seconds away; otherwise the results site cannot be reached, said no, or is an older version. | Open Settings, Live boards, card **The results site**: it says which. *Getting permission…*: wait, it is tried again by itself. *Not yet … : reason*: read the reason, then **Try again**. *Older version*: see the next row. |
@@ -322,7 +369,12 @@ page.
   PGN; the results site, Lichess and OpenPairings know one game per board and
   round.
 - **Chess960** is not supported.
-- **A box on another machine cannot use a desktop OpenPairings.**
+- **A box on another machine uses a desktop OpenPairings over plain http.**
+  It works on the hall's own network after you switch it on, the code crosses
+  that network readable, and a changed address means a new code; see
+  [Alnasl on another machine](#desktop-on-the-network). It has been run on one
+  computer talking to its own network address, not yet between two machines
+  in a hall.
 - **The connect code is paste-only on the box.** Scan the QR code with the
   phone's own camera, copy the link, paste it.
 - **No Raspberry Pi image, and no 32-bit build.** The Linux install needs a

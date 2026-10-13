@@ -7078,8 +7078,18 @@ defmodule PairingsEngine.Tournaments do
         {:error, :not_last_board}
 
       true ->
-        pairing
-        |> Repo.delete()
+        # A vacant board can still hold what a box reported while it was a
+        # game. It goes with the board, in one transaction.
+        Repo.transaction(fn ->
+          case Repo.delete(pairing) do
+            {:ok, deleted} ->
+              PairingsEngine.BoardLink.prune_games(round.tournament_id)
+              deleted
+
+            {:error, changeset} ->
+              Repo.rollback(changeset)
+          end
+        end)
         |> finish_round_write(round.tournament_id)
     end
   end

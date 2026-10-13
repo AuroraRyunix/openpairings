@@ -686,6 +686,9 @@ defmodule PairingsEngine.Handoff do
           # is lifted below, after the contents are already correct.
           Snapshots.wipe_contents(tournament.id)
           restored = TournamentImport.restore_into!(tournament, entry)
+          # The returning file's pairings are the tournament's now; a game a
+          # board reported here for one it does not have goes with it.
+          PairingsEngine.BoardLink.prune_games(tournament.id, actor)
           # What went to the federation from either machine stays on record
           # and on the boards: the other machine's record of what it sent
           # joins this one's (`PostponedGames.merge_records/3`), then the

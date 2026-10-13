@@ -588,6 +588,10 @@ defmodule PairingsEngine.Pairing do
             where: b.id not in ^kept
         )
 
+        # The games a board reported for these pairings go with them - see
+        # `PairingsEngine.BoardLink.prune_games/2`.
+        PairingsEngine.BoardLink.prune_games(tournament_id)
+
         reopen_prohibitions(tournament_id, Enum.min(numbers))
 
         # A team event's draw order is only frozen while a round exists.

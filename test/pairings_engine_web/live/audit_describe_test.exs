@@ -701,6 +701,13 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     ],
     "boards.relay_key_refused" => [%{"reason" => "not_owner"}],
     "boards.relay_key_replace" => [%{}],
+    "boards.games_removed" => [%{"count" => 1}, %{"count" => 5}],
+    "boards.lan_switched" => [
+      %{"enabled" => true, "address" => "192.168.1.20", "port" => 4747},
+      %{"enabled" => false, "address" => "192.168.1.20", "port" => 4747},
+      %{"enabled" => true, "address" => "192.168.1.21", "port" => 4747, "moved" => true}
+    ],
+    "boards.lan_off" => [%{}],
     "boards.box_connected" => [%{"box" => "Zaal A", "version" => "0.4.0", "hint" => "x7Qa"}],
     "openresults.taken_down" => [%{"slug" => "k3v9x2"}],
     "openresults.kept_withdrawn" => [

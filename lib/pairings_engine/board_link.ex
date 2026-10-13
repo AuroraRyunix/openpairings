@@ -28,6 +28,12 @@ defmodule PairingsEngine.BoardLink do
   click (`create_link/2` again); having it in a readable column would cost
   more. Several codes may exist side by side, one per box.
 
+  A desktop copy that lets boxes on the hall network connect
+  (`PairingsEngineWeb.BoardLan`) makes a second kind, `reach: "lan"`: it
+  carries the PC's network address, it is the only kind the network
+  listener accepts, and it stops working thirty days after it was made,
+  because its secret crosses the hall in plain http.
+
   ## Who may
 
   Whoever may edit the tournament - its owner or an accepted collaborator,
@@ -64,6 +70,11 @@ defmodule PairingsEngine.BoardLink do
   # "New code" button cannot fill a table.
   @max_links 8
 
+  # How long a code for a box on the network lives. Long enough for a
+  # tournament and the weekend around it; short enough that a secret
+  # somebody read off the hall's wifi is not a secret for the season.
+  @lan_days 30
+
   # A row is touched at most this often for "last contact". The box polls
   # every few seconds, and a write per poll would be a SQLite write lock per
   # poll, to keep a timestamp nobody reads to the second.
@@ -82,13 +93,21 @@ defmodule PairingsEngine.BoardLink do
   Makes a connect code for `tournament`. `{:ok, link, secret}` - the secret
   is in the caller's hands and nowhere else from here on.
   """
-  @spec create_link(Scope.t(), Tournament.t()) ::
+  @spec create_link(Scope.t(), Tournament.t(), keyword()) ::
           {:ok, Link.t(), String.t()} | {:error, atom()}
-  def create_link(%Scope{} = scope, %Tournament{} = tournament) do
+  def create_link(%Scope{} = scope, %Tournament{} = tournament, opts \\ []) do
     with {:ok, tournament} <- editable(scope, tournament),
          :ok <- room(from(l in Link, where: l.tournament_id == ^tournament.id)) do
-      {link, secret} = insert_link(scope, @tournament_prefix, tournament_id: tournament.id)
-      Audit.log(tournament.id, scope, "boards.code_created", %{hint: link.secret_hint})
+      {link, secret} =
+        insert_link(scope, @tournament_prefix, [tournament_id: tournament.id] ++ reach(opts))
+
+      Audit.log(
+        tournament.id,
+        scope,
+        "boards.code_created",
+        Map.merge(%{hint: link.secret_hint}, lan_details(link))
+      )
+
       notify(tournament.id)
       # A box is coming: have its permission for the results site waiting.
       Publishing.Drain.nudge()
@@ -100,19 +119,22 @@ defmodule PairingsEngine.BoardLink do
   Makes a connect code for the group `tournament` is in. See the moduledoc
   for what it reaches.
   """
-  @spec create_group_link(Scope.t(), Tournament.t()) ::
+  @spec create_group_link(Scope.t(), Tournament.t(), keyword()) ::
           {:ok, Link.t(), String.t()} | {:error, atom()}
-  def create_group_link(%Scope{} = scope, %Tournament{} = tournament) do
+  def create_group_link(%Scope{} = scope, %Tournament{} = tournament, opts \\ []) do
     with {:ok, tournament} <- editable(scope, tournament),
          %Member{} = member <-
            TournamentGroups.membership(tournament.id) || {:error, :not_grouped},
          :ok <- room(from(l in Link, where: l.group_id == ^member.group_id)) do
-      {link, secret} = insert_link(scope, @group_prefix, group_id: member.group_id)
+      {link, secret} =
+        insert_link(scope, @group_prefix, [group_id: member.group_id] ++ reach(opts))
 
-      Audit.log(tournament.id, scope, "boards.group_code_created", %{
-        hint: link.secret_hint,
-        group: member.group.name
-      })
+      Audit.log(
+        tournament.id,
+        scope,
+        "boards.group_code_created",
+        Map.merge(%{hint: link.secret_hint, group: member.group.name}, lan_details(link))
+      )
 
       notify(tournament.id)
       # For every member that is on the results site, not only this one -
@@ -214,6 +236,60 @@ defmodule PairingsEngine.BoardLink do
     {link, secret}
   end
 
+  # `lan: "http://192.168.1.20:4747"` makes a code for a box on the network.
+  # Only a desktop copy has such a thing; anywhere else the option is not
+  # an option and the code is an ordinary one.
+  defp reach(opts) do
+    case Keyword.get(opts, :lan) do
+      address when is_binary(address) and address != "" ->
+        if PairingsEngine.Authz.local_mode?() do
+          now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+          [
+            reach: "lan",
+            address: address,
+            expires_at: DateTime.add(now, @lan_days * 86_400, :second)
+          ]
+        else
+          []
+        end
+
+      _none ->
+        []
+    end
+  end
+
+  defp lan_details(%Link{reach: "lan", address: address}), do: %{lan: true, address: address}
+  defp lan_details(%Link{}), do: %{}
+
+  @doc "How many days a code for a box on the network works."
+  def lan_days, do: @lan_days
+
+  @doc "Whether `link` has run out. Only a network code ever does."
+  def expired?(link, now \\ DateTime.utc_now())
+  def expired?(%Link{expires_at: nil}, _now), do: false
+  def expired?(%Link{expires_at: at}, now), do: DateTime.compare(at, now) != :gt
+
+  @doc """
+  Whether a code for a box on the network exists that can still open
+  something: not run out, and not for a tournament that is deleted, archived
+  or handed off. The network listener is up while this is true and down
+  while it is not (`PairingsEngineWeb.BoardLan`).
+  """
+  def lan_codes? do
+    now = DateTime.utc_now()
+
+    Repo.exists?(
+      from l in Link,
+        left_join: t in Tournament,
+        on: t.id == l.tournament_id,
+        where: l.reach == "lan" and (is_nil(l.expires_at) or l.expires_at > ^now),
+        where:
+          not is_nil(l.group_id) or
+            (is_nil(t.deleted_at) and is_nil(t.archived_at) and is_nil(t.handed_off_at))
+    )
+  end
+
   defp hash(secret), do: :crypto.hash(:sha256, secret) |> Base.encode16(case: :lower)
 
   # The page loaded the tournament through `get_authorized_tournament!/2`;
@@ -231,16 +307,33 @@ defmodule PairingsEngine.BoardLink do
 
   ## ---------- the box's side ----------
 
-  @doc "The link `secret` opens, or `:error`. A secret is looked up by its hash."
-  @spec authenticate(term()) :: {:ok, Link.t()} | :error
-  def authenticate(secret) when is_binary(secret) and byte_size(secret) in 20..200 do
+  @doc """
+  The link `secret` opens, or `:error`. A secret is looked up by its hash.
+
+  A code that has run out opens nothing. With `lan: true` - the request came
+  in on the network listener - only a code that was made for the network
+  does: a code for a box on this PC never crossed a wire, and is not
+  accepted from one. Every refusal is the same `:error`; the caller is told
+  that the code does not work, not which rule it broke.
+  """
+  @spec authenticate(term(), keyword()) :: {:ok, Link.t()} | :error
+  def authenticate(secret, opts \\ [])
+
+  def authenticate(secret, opts) when is_binary(secret) and byte_size(secret) in 20..200 do
     case Repo.get_by(Link, secret_hash: hash(secret)) do
-      %Link{} = link -> {:ok, link}
-      nil -> :error
+      %Link{} = link ->
+        cond do
+          expired?(link) -> :error
+          Keyword.get(opts, :lan, false) and link.reach != "lan" -> :error
+          true -> {:ok, link}
+        end
+
+      nil ->
+        :error
     end
   end
 
-  def authenticate(_other), do: :error
+  def authenticate(_other, _opts), do: :error
 
   @doc """
   Notes that the box called, and what it calls itself. Written at most every
@@ -834,6 +927,56 @@ defmodule PairingsEngine.BoardLink do
   defp over_the_board(code) do
     if code in [nil, ""] or Results.postponed?(code), do: :unentered, else: :other
   end
+
+  ## ---------- games of pairings that are gone ----------
+
+  @doc """
+  Removes the reported games of `tournament_id` whose `game_uid` names no
+  pairing any more, and returns how many went.
+
+  Called wherever a pairing disappears - a round unpaired, a board deleted,
+  a team line-up or a team import that rewrites the boards, a restore point
+  or a returning hand-off put over the tournament - by the code that made it
+  disappear and inside its transaction where it has one. The box has its own
+  copy and its own recording; what is removed here is this side's copy of a
+  game that no page could show and no export carried.
+
+  A game whose pairing is still there is not touched, whatever happened to
+  the board's number or to the players on it: the key is the game, and a
+  swap keeps it.
+
+  One audit line with the count when something went. Never the moves: the
+  trail says what was done, it is not a second place to keep the game.
+  """
+  @spec prune_games(integer(), term()) :: non_neg_integer()
+  def prune_games(tournament_id, actor \\ nil) when is_integer(tournament_id) do
+    live =
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id and not is_nil(p.game_uid),
+        select: p.game_uid
+
+    {count, _} =
+      Repo.delete_all(
+        from g in Game,
+          where: g.tournament_id == ^tournament_id and g.game_uid not in subquery(live)
+      )
+
+    if count > 0 do
+      # No announcement from here: this runs inside the caller's
+      # transaction, and a page that read again now would read what is
+      # about to stop being true. The caller announces the change it made.
+      Audit.log(tournament_id, audit_actor(actor), "boards.games_removed", %{count: count})
+    end
+
+    count
+  end
+
+  defp audit_actor(%Scope{} = scope), do: scope
+  defp audit_actor(%User{id: id}), do: id
+  defp audit_actor(id) when is_integer(id), do: id
+  defp audit_actor(_other), do: nil
 
   ## ---------- export and import ----------
 

@@ -26,7 +26,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
 
   alias PairingsEngine.{Audit, BoardLink, Mobile, TournamentGroups, Tournaments}
   alias PairingsEngine.BoardLink.RelayKeys
-  alias PairingsEngineWeb.BoardLinkAddress
+  alias PairingsEngineWeb.{BoardLan, BoardLinkAddress}
 
   # Often enough that "connected" on this page is not a memory.
   @tick_ms 15_000
@@ -65,6 +65,10 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
       group: TournamentGroups.membership(tournament.id),
       target: BoardLink.openresults_target(tournament),
       relay: RelayKeys.status(tournament),
+      # A desktop copy's listener for boxes on the network. Asking is also
+      # what makes it look again: a code made or withdrawn a moment ago has
+      # opened or closed the port by the time this returns.
+      lan: BoardLan.status(),
       game_count: map_size(games),
       rounds: Tournaments.list_rounds(tournament.id),
       now: DateTime.utc_now()
@@ -109,25 +113,93 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
   def handle_info(_message, socket), do: {:noreply, socket}
 
   @impl true
-  def handle_event("new_code", %{"scope" => scope}, socket) when scope in ~w(tournament group) do
+  def handle_event("new_code", %{"scope" => scope} = params, socket)
+      when scope in ~w(tournament group) do
     %{current_scope: user, tournament: tournament} = socket.assigns
 
-    result =
-      if scope == "group",
-        do: BoardLink.create_group_link(user, tournament),
-        else: BoardLink.create_link(user, tournament)
+    # "For a box on the network" is asked of the listener now, not read off
+    # the page: the button was drawn a while ago, and a code with an address
+    # nothing answers on is the one thing this page must not hand out.
+    lan = if params["where"] == "lan", do: BoardLan.status()
 
-    case result do
-      {:ok, link, secret} ->
+    cond do
+      lan && not BoardLan.usable?(lan) ->
         {:noreply,
          socket
-         |> assign(
-           fresh: %{id: link.id, scope: scope, code: BoardLinkAddress.connect_code(secret)}
-         )
+         |> put_flash(:error, gettext("Boxes on the network cannot connect right now."))
          |> load()}
 
-      {:error, reason} ->
-        {:noreply, put_flash(socket, :error, refusal(reason))}
+      true ->
+        opts = if lan, do: [lan: lan.base_url], else: []
+
+        result =
+          if scope == "group",
+            do: BoardLink.create_group_link(user, tournament, opts),
+            else: BoardLink.create_link(user, tournament, opts)
+
+        case result do
+          {:ok, link, secret} ->
+            {:noreply,
+             socket
+             |> assign(
+               fresh: %{
+                 id: link.id,
+                 scope: scope,
+                 where: if(lan, do: :lan, else: :here),
+                 address: (lan && lan.base_url) || BoardLinkAddress.base_url(),
+                 code: BoardLinkAddress.connect_code(secret, lan && lan.base_url),
+                 name_code:
+                   lan && lan.name_url && BoardLinkAddress.connect_code(secret, lan.name_url)
+               }
+             )
+             |> load()}
+
+          {:error, reason} ->
+            {:noreply, put_flash(socket, :error, refusal(reason))}
+        end
+    end
+  end
+
+  # "Let boards on this network connect", and the address and port it
+  # answers on. A desktop copy only: the card is not drawn anywhere else,
+  # and a click that arrives anyway is asked the same question again here,
+  # because a `phx-click` is whatever the browser cares to send.
+  def handle_event("lan_switch", _params, socket) do
+    %{current_scope: user, tournament: tournament, lan: lan} = socket.assigns
+
+    with true <- BoardLan.available?(),
+         {:ok, tournament} <- writable(user, tournament),
+         {:ok, status} <- BoardLan.switch(not lan.enabled?) do
+      Audit.log(tournament.id, user, "boards.lan_switched", %{
+        enabled: status.enabled?,
+        address: status.address,
+        port: status.port
+      })
+
+      {:noreply, load(socket)}
+    else
+      {:error, reason} -> {:noreply, put_flash(socket, :error, refusal(reason))}
+      false -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("lan_choose", %{"lan" => %{"address" => address, "port" => port}}, socket) do
+    %{current_scope: user, tournament: tournament} = socket.assigns
+
+    with true <- BoardLan.available?(),
+         {:ok, tournament} <- writable(user, tournament),
+         {:ok, status} <- BoardLan.choose(address, port) do
+      Audit.log(tournament.id, user, "boards.lan_switched", %{
+        enabled: status.enabled?,
+        address: status.address,
+        port: status.port,
+        moved: true
+      })
+
+      {:noreply, load(socket)}
+    else
+      {:error, reason} -> {:noreply, put_flash(socket, :error, refusal(reason))}
+      false -> {:noreply, socket}
     end
   end
 
@@ -215,6 +287,16 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
     end
   end
 
+  # The switch is the installation's, but it is pressed on a tournament's
+  # page and written to that tournament's trail: whoever presses it must be
+  # somebody who may open this tournament at all.
+  defp writable(user, tournament) do
+    case Tournaments.get_authorized_tournament(user, tournament.id) do
+      nil -> {:error, :not_found}
+      tournament -> {:ok, tournament}
+    end
+  end
+
   defp refusal(:archived), do: error_text(:archived)
   defp refusal(:handed_off), do: error_text(:handed_off)
 
@@ -229,7 +311,95 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
   defp refusal(:relay_key_shape),
     do: gettext("That does not look like a relay key: 16 to 200 characters, no spaces.")
 
+  defp refusal(:not_an_address),
+    do: gettext("That is not one of this computer's network addresses any more. Pick another.")
+
+  defp refusal(:bad_port),
+    do:
+      gettext(
+        "That port cannot be used: a number from 1024 to 65535, and not the one this program itself is on."
+      )
+
   defp refusal(_other), do: gettext("Could not change this")
+
+  # What the network listener is doing, in a sentence.
+  defp lan_state(%{state: :listening} = lan),
+    do: gettext("Answering boxes at %{address}.", address: lan.base_url)
+
+  defp lan_state(%{state: :idle} = lan),
+    do:
+      gettext(
+        "Ready at %{address}, and closed until there is a code for a box on the network: no code, no open port. Make one below.",
+        address: lan.base_url
+      )
+
+  defp lan_state(%{state: :port_taken} = lan),
+    do:
+      gettext(
+        "Port %{port} is in use by another program on this computer, so boxes cannot connect. Pick another port below. Nothing else is affected.",
+        port: lan.port
+      )
+
+  defp lan_state(%{state: :address_gone, addresses: []} = lan),
+    do:
+      gettext(
+        "This computer no longer has the address %{old}, and has no network address at all right now. Boxes cannot find it. Connect the network; if it comes back with another address, pick it below and make new codes.",
+        old: lan.address
+      )
+
+  defp lan_state(%{state: :address_gone} = lan),
+    do:
+      gettext(
+        "This computer's address changed from %{old} to %{new}: boxes with the old code cannot find it. Pick the new address below and make a new code, or give this computer a fixed address so that it does not happen again.",
+        old: lan.address,
+        new: Enum.join(lan.addresses, ", ")
+      )
+
+  defp lan_state(%{state: :no_address}),
+    do:
+      gettext(
+        "This computer has no address on a local network right now, so there is nothing for a box to connect to. Plug in the cable or join the hall's network; this page looks again by itself."
+      )
+
+  defp lan_state(%{state: :failed} = lan),
+    do:
+      gettext(
+        "Could not start answering on %{address}, port %{port}. Try another port; if Windows asked whether to allow this program on the network and the answer was no, allow it in Windows' firewall settings.",
+        address: lan.address,
+        port: lan.port
+      )
+
+  defp lan_state(_off), do: nil
+
+  # A network code whose address is no longer the one this computer answers
+  # on, or nil. The box holding it is calling an address where nothing is.
+  defp stranded(%{reach: "lan"} = link, lan, now) do
+    cond do
+      BoardLink.expired?(link, now) ->
+        nil
+
+      not lan.enabled? ->
+        gettext("The switch above is off, so the box with this code cannot connect.")
+
+      is_nil(lan.base_url) ->
+        gettext(
+          "Made for %{address}, where this computer is not answering right now. See above.",
+          address: link.address
+        )
+
+      link.address == lan.base_url ->
+        nil
+
+      true ->
+        gettext(
+          "Made for %{old}; this computer now answers at %{new}. The box with this code cannot find it: make a new code.",
+          old: link.address,
+          new: lan.base_url
+        )
+    end
+  end
+
+  defp stranded(_link, _lan, _now), do: nil
 
   # Why the results site said no, in the arbiter's language. The site's own
   # code is the fallback: a new one should read as a code, not as nothing.
@@ -331,12 +501,114 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
               address: BoardLinkAddress.base_url()
             )}
           <% else %>
-            {gettext(
-              "This copy answers on this computer only, so the box program has to run on this computer too: it calls %{address}. A box elsewhere on the network cannot reach it.",
-              address: BoardLinkAddress.base_url()
-            )}
+            <%= if BoardLan.usable?(@lan) do %>
+              {gettext(
+                "A box program on this computer calls %{address}. A box elsewhere on the hall's network calls %{lan}, which answers the boards and nothing else.",
+                address: BoardLinkAddress.base_url(),
+                lan: @lan.base_url
+              )}
+            <% else %>
+              {gettext(
+                "This copy answers on this computer only: a box program on this computer calls %{address}. A box elsewhere on the network cannot reach it until you switch on \"Let boards on this network connect\" below.",
+                address: BoardLinkAddress.base_url()
+              )}
+            <% end %>
           <% end %>
         </p>
+      </div>
+
+      <div :if={@lan.available?} class="card" id="boards-lan" data-state={@lan.state}>
+        <h2>{gettext("Boxes elsewhere on this network")}</h2>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "For a box that is not on this computer: a Raspberry Pi beside the boards, a second laptop. This is a setting of this computer, for every tournament on it."
+          )}
+        </p>
+
+        <div class="set-field solo">
+          <.publish_toggle
+            id="boards-lan-toggle"
+            label={gettext("Let boards on this network connect")}
+            state={if @lan.enabled?, do: :public, else: :not_public}
+            on_text={gettext("On")}
+            off_text={gettext("Off")}
+            phx-click="lan_switch"
+            confirm={
+              gettext(
+                "Switch this off? Boxes on the network are disconnected at once. Their codes are kept and work again when you switch it back on."
+              )
+            }
+          />
+        </div>
+
+        <p id="boards-lan-warning">
+          <.icon name="hero-exclamation-triangle" class="size-4" />
+          {gettext(
+            "What this does: it opens one extra door on this computer, on the network address you choose, that answers the board box and nothing else. Your tournaments, these pages and everything else stay reachable from this computer only, as before. The door is plain http: the code of a box travels over the network readable. On a cable between two machines, or a network of your own, that is fine. On a wifi the players are on too, anybody who knows how can read the code and then see the pairings and send in moves as if they were a board. They cannot enter a result; a board never does. Prefer a cable or your own network, and withdraw the code after the event."
+          )}
+        </p>
+
+        <%= if @lan.enabled? do %>
+          <p
+            id="boards-lan-state"
+            role={if @lan.state in [:idle, :listening], do: "status", else: "alert"}
+            class={@lan.state not in [:idle, :listening] && "board-mismatch-text"}
+          >
+            {lan_state(@lan)}
+          </p>
+
+          <.form
+            :if={@lan.addresses != []}
+            for={to_form(%{"address" => @lan.address, "port" => @lan.port}, as: :lan)}
+            id="boards-lan-form"
+            phx-submit="lan_choose"
+            class="group-inline-form"
+          >
+            <.input
+              type="select"
+              name="lan[address]"
+              id="boards-lan-address"
+              label={gettext("This computer's address for boxes")}
+              options={@lan.addresses}
+              value={if @lan.address in @lan.addresses, do: @lan.address, else: hd(@lan.addresses)}
+            />
+            <.input
+              type="number"
+              name="lan[port]"
+              id="boards-lan-port"
+              label={gettext("Port")}
+              value={@lan.port}
+              min="1024"
+              max="65535"
+            />
+            <button type="submit" class="pe-btn" id="boards-lan-save">{gettext("Use these")}</button>
+          </.form>
+
+          <p class="hint" id="boards-lan-addresses">
+            {ngettext(
+              "This computer has one address on a local network. A code for a box on the network carries it.",
+              "This computer is on %{count} local networks. Pick the address of the one the box is on: only that one is opened, and a code for a box on the network carries it.",
+              length(@lan.addresses)
+            )}
+            {gettext(
+              "If the network gives this computer another address tomorrow, the codes made today point nowhere; this page says so when it happens. A fixed address for this computer, set in the router or in Windows, prevents it."
+            )}
+          </p>
+
+          <p class="hint" id="boards-lan-firewall">
+            {gettext(
+              "Windows will ask. The first time this is used, Windows shows \"Windows Security: do you want to allow this app to communicate on these networks?\". Tick Private networks and choose Allow. This program cannot answer that for you. If you chose Cancel, or never saw the question, boxes get no answer: allow OpenPairings under Windows Security, Firewall, Allow an app through firewall."
+            )}
+          </p>
+
+          <p class="hint" id="boards-lan-limits" style="margin-bottom: 0">
+            {gettext(
+              "It answers addresses on a local network only, accepts only codes made for a box on the network, and closes by itself when no such code exists. Such a code works for %{days} days.",
+              days: BoardLink.lan_days()
+            )}
+          </p>
+        <% end %>
       </div>
 
       <.codes_card
@@ -348,6 +620,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         fresh={@fresh}
         now={@now}
         tournament={@tournament}
+        lan={@lan}
       />
 
       <.codes_card
@@ -364,6 +637,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         fresh={@fresh}
         now={@now}
         tournament={@tournament}
+        lan={@lan}
       />
 
       <div class="card" id="boards-results-site">
@@ -609,6 +883,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
   attr :fresh, :any, required: true
   attr :now, :any, required: true
   attr :tournament, :map, required: true
+  attr :lan, :map, required: true
 
   defp codes_card(assigns) do
     ~H"""
@@ -644,9 +919,45 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
           </div>
         </div>
 
+        <p id={"#{@id}-where"}>
+          <strong>
+            <%= cond do %>
+              <% @fresh.where == :lan -> %>
+                {gettext(
+                  "For a box on the network. It leads to %{address}: this computer, from any machine on the same local network.",
+                  address: @fresh.address
+                )}
+              <% @lan.available? -> %>
+                {gettext(
+                  "For a box program on this computer. It leads to %{address}, which no other machine can reach.",
+                  address: @fresh.address
+                )}
+              <% true -> %>
+                {gettext("It leads to %{address}.", address: @fresh.address)}
+            <% end %>
+          </strong>
+          <span :if={@fresh.where == :lan}>
+            {gettext(
+              "It works for %{days} days, and only while \"Let boards on this network connect\" is on.",
+              days: BoardLink.lan_days()
+            )}
+          </span>
+        </p>
+
         <p>
           <code id={"#{@id}-code"} class="board-code">{@fresh.code}</code>
         </p>
+
+        <div :if={@fresh.name_code} id={"#{@id}-name-code"}>
+          <p class="hint">
+            {gettext(
+              "The same code with this computer's name instead of its address. A name still works after the network gives this computer another address, but only if the box can look the name up, which depends on the network and on the box. Try the code above first; use this one if the address keeps changing."
+            )}
+          </p>
+          <p>
+            <code class="board-code">{@fresh.name_code}</code>
+          </p>
+        </div>
 
         <button type="button" class="pe-btn" id={"#{@id}-hide"} phx-click="hide_code">
           {gettext("Done, hide it")}
@@ -668,6 +979,29 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
             <td>
               <code>…{link.secret_hint}</code>
               <span class="hint">{Calendar.strftime(link.inserted_at, "%d-%m-%Y %H:%M")} UTC</span>
+              <%= if link.reach == "lan" do %>
+                <span class="badge" id={"board-link-reach-#{link.id}"}>{gettext("Network")}</span>
+                <span class="hint" id={"board-link-expiry-#{link.id}"}>
+                  <%= if BoardLink.expired?(link, @now) do %>
+                    <span class="board-mismatch-text">
+                      {gettext("Expired. Withdraw it and make a new one.")}
+                    </span>
+                  <% else %>
+                    {gettext("%{address}, until %{date}",
+                      address: link.address,
+                      date: Calendar.strftime(link.expires_at, "%d-%m-%Y")
+                    )}
+                  <% end %>
+                </span>
+                <span
+                  :if={stranded(link, @lan, @now)}
+                  class="board-mismatch-text"
+                  id={"board-link-stranded-#{link.id}"}
+                  role="alert"
+                >
+                  {stranded(link, @lan, @now)}
+                </span>
+              <% end %>
             </td>
             <td id={"board-link-box-#{link.id}"}>
               <%= if link.box_name || link.box_version do %>
@@ -721,7 +1055,24 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         phx-value-scope={@scope}
         disabled={!is_nil(@tournament.archived_at)}
       >
-        {gettext("New code")}
+        <%= if @lan.available? do %>
+          {gettext("New code for a box on this computer")}
+        <% else %>
+          {gettext("New code")}
+        <% end %>
+      </button>
+
+      <button
+        :if={BoardLan.usable?(@lan)}
+        type="button"
+        id={"#{@id}-new-lan"}
+        class="pe-btn primary"
+        phx-click="new_code"
+        phx-value-scope={@scope}
+        phx-value-where="lan"
+        disabled={!is_nil(@tournament.archived_at)}
+      >
+        {gettext("New code for a box on the network")}
       </button>
     </div>
     """

@@ -28,7 +28,7 @@ moves and clocks for the spectators.
 | The ingest route that takes a board's moves and clocks, and the box's permission to use it (fetched by OpenPairings, nothing to copy) | built |
 | The link in OpenPairings: connect codes, what the box is told, what it reports, the board column, stored games and PGN | built |
 | Alnasl's side of the link with OpenPairings | built, in Alnasl; run with simulated boards, not yet in a hall |
-| The link from a desktop copy to a box on another machine | not built, see [Limits](#limits) |
+| The link from a desktop copy to a box on another machine in the hall | built, off until you switch it on; see [A box elsewhere on the network](#boxes-on-the-network) |
 
 ## What Alnasl is {#what-alnasl-is}
 
@@ -99,6 +99,76 @@ scan.
 A group code reaches the tournaments of the group that **the person who made
 the code** may open, and no others. A section run by another arbiter, which you
 cannot open, is not handed to your box either.
+
+### A box elsewhere on the network {#boxes-on-the-network}
+
+*Built, desktop edition only. Off until you switch it on.* The desktop edition
+answers on its own computer and nowhere else, and that does not change. A box
+that is not on that computer (a small computer beside the boards, a second
+laptop) needs a way in, and you can give it one: Settings, **Live boards**,
+card **Boxes elsewhere on this network**, switch **Let boards on this network
+connect**.
+
+What the switch does:
+
+- It opens **one extra door** on your computer, on the network address you
+  choose, for the board box and nothing else. Your tournaments, the pages of
+  OpenPairings and everything else stay reachable from your own computer only,
+  exactly as before. Somebody who opens that door in a browser gets "nothing
+  here".
+- The page then offers **two kinds of code**: *New code for a box on this
+  computer* (as before, `http://127.0.0.1`) and *New code for a box on the
+  network*, which carries your computer's address on the hall's network. The
+  page says in words where each code leads, next to the QR code.
+- The door only answers a code made for the network, only to machines on a
+  local network, and it is **closed whenever no such code exists**: withdraw
+  the last one and it shuts. A network code works for **30 days**; after that,
+  make a new one.
+- It is a setting of your computer, for all tournaments, and it is remembered:
+  after a restart the door is back by itself. Connections shows where it
+  stands and has a **Turn off** button.
+
+> [!WARNING] The code travels readable
+> The door speaks plain http. The code of a box crosses the network unprotected,
+> every few seconds. On **a cable between the two machines**, or **a network of
+> your own** (your own small router, nobody else on it), that is fine. On **a
+> wifi that the players are on too**, anybody who knows how can read the code,
+> and then see the pairings and send in moves as if they were a board. They
+> cannot enter a result (a board never does), change a pairing, or see
+> anything else. Prefer a cable or your own network, and withdraw the code
+> after the event.
+
+> [!IMPORTANT] Windows will ask
+> The first time, Windows shows *Windows Security: do you want to allow this
+> app to communicate on these networks?* Tick **Private networks** and choose
+> **Allow**. OpenPairings cannot answer that for you. If you chose Cancel, or
+> never saw the question, the box gets no answer: open Windows Security,
+> Firewall and network protection, **Allow an app through firewall**, and
+> allow OpenPairings on private networks.
+
+**Which address.** If your computer is on one local network, the page takes
+that address. If it is on several (a cable to the box and the venue's wifi),
+pick the one the box is on: only that one is opened. The port is `4747` unless
+you change it; if another program already uses it the page says so and you
+pick another. Nothing else is affected by that.
+
+**If the address changes.** Most networks hand out addresses themselves, and
+tomorrow yours may be another one. The code made today then points at an
+address where nothing is. OpenPairings notices, when it starts and on this
+page: *This computer's address changed from … to …: boxes with the old code
+cannot find it.* It does **not** move the door to the new address by itself,
+because a laptop that is suddenly on another network is exactly when you want
+to be asked first. Pick the new address, make a new code and give it to the
+box. To stop it happening, give the computer a **fixed address** (in the
+router, or in Windows' network settings), or use a cable between the two
+machines and nothing else. The list of codes marks each network code with the
+address it was made for, and says so in red when that is no longer where the
+computer answers.
+
+On a computer with one network, the page may also show the same code with the
+computer's **name** instead of its address. A name survives a changed address,
+but only works if the box can look the name up, which depends on the network.
+Try the address first.
 
 ### Who may {#who-may}
 
@@ -212,6 +282,18 @@ wrote it, for comparison.
 
 The PGN export on the Pairings page (**More**, PGN) is unchanged and still
 carries no moves.
+
+**A game goes with its pairing.** When you unpair a round and pair it again,
+the games the boards had reported for the old pairings are removed from
+OpenPairings at that moment: they belong to games that no longer exist. The
+same holds for a board you delete, a team line-up that drops a board, and a
+restore point that does not have the pairing. The audit trail gets one line
+with how many games were removed. The box keeps its own copy and its own PGN.
+A game whose pairing merely moved to another board, or changed a player, is
+kept. If you go back to a restore point from before the re-pairing, the old
+pairings return with their games as they stood when the point was taken; the
+box does not send the later moves again by itself, but you can send a game
+again from the box.
 
 ## Relay keys {#relay-keys}
 
@@ -384,11 +466,14 @@ is in a JSON backup and is written to the audit log.
 
 ## Limits {#limits}
 
-- **A desktop copy reaches a box on the same computer only.** The desktop
-  edition answers on its own computer and nowhere else, so its connect code
-  says `http://127.0.0.1` and works for a box program running on that
-  computer. A box elsewhere on the hall's network cannot reach a desktop copy.
-  The hosted edition has no such limit.
+- **A desktop copy reaches a box on another machine only if you let it.** The
+  desktop edition answers on its own computer and nowhere else. A box program
+  on that computer needs nothing more. A box elsewhere in the hall needs the
+  switch **Let boards on this network connect**, a code made for the network,
+  and a network both machines are on; see
+  [A box elsewhere on the network](#boxes-on-the-network). That link is plain
+  http, IPv4 only, and its codes last 30 days. The hosted edition has none of
+  these limits, and no such switch.
 - **OpenPairings does not check the moves.** It has no chess rules of its own.
   A move is stored as the box wrote it, provided it is shaped like a move. The
   box checks legality, and so does the results site.

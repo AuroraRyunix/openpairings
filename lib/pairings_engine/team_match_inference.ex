@@ -685,6 +685,10 @@ defmodule PairingsEngine.TeamMatchInference do
       Tournaments.freeze_round_display_boards!(round.id)
     end
 
+    # Every board above is a new row with a new identity, so a game a hall
+    # box reported for one of the old ones names nothing any more.
+    PairingsEngine.BoardLink.prune_games(t.id)
+
     Repo.reload!(t)
   end
 

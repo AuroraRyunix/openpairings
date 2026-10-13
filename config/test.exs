@@ -140,3 +140,9 @@ config :pairings_engine, :fide_auto_sync, false
 # The check before a requested rating comparison asks FIDE with a HEAD request;
 # no test reaches the network - those that need an answer stub this plug.
 config :pairings_engine, :fide_req_options, plug: {Req.Test, PairingsEngine.Fide.FreshnessTest}
+
+# The network listener for hall boxes (`PairingsEngineWeb.BoardLan`) looks
+# again every thirty seconds. Not in a test: a timer that reads the database
+# from another process, between two tests, is a failure with no test to
+# blame.
+config :pairings_engine, :board_lan_tick_ms, false

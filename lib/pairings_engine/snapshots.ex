@@ -431,6 +431,9 @@ defmodule PairingsEngine.Snapshots do
           wipe_contents(tournament.id)
           restored = TournamentImport.restore_into!(tournament, entry)
           PostponedGames.reapply_sent_marks(tournament.id)
+          # The pairings are the restore point's now. A game a board reported
+          # for one that did not come back has nothing to belong to.
+          PairingsEngine.BoardLink.prune_games(tournament.id, actor)
           restored
         end)
       end)

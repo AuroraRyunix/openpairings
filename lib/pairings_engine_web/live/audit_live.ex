@@ -134,6 +134,7 @@ defmodule PairingsEngineWeb.AuditLive do
         boards.code_created boards.group_code_created boards.code_revoked
         boards.relay_key_saved boards.relay_key_cleared boards.box_connected
         boards.relay_key_fetched boards.relay_key_refused boards.relay_key_replace
+        boards.games_removed boards.lan_switched
         openresults.taken_down
         openresults.auto_publish
         openresults.kept_withdrawn
@@ -1937,6 +1938,45 @@ defmodule PairingsEngineWeb.AuditLive do
         box: [d["box"], d["version"]] |> Enum.reject(&(&1 in [nil, ""])) |> Enum.join(" "),
         hint: d["hint"] || "?"
       )
+
+  # "Let boards on this network connect" on a desktop copy
+  # (`PairingsEngineWeb.BoardLan`). The switch is the computer's; the line
+  # is in the trail of the tournament whose page it was pressed on.
+  def describe("boards.lan_switched", d) do
+    where = "#{d["address"] || "?"}:#{d["port"] || "?"}"
+
+    cond do
+      truthy?(d["moved"]) ->
+        gettext(
+          "Set the address on which this computer answers board boxes on the network to %{where}.",
+          where: where
+        )
+
+      truthy?(d["enabled"]) ->
+        gettext(
+          "Switched on \"Let boards on this network connect\": this computer answers board boxes at %{where}, and nothing else there.",
+          where: where
+        )
+
+      true ->
+        gettext("Switched off \"Let boards on this network connect\".")
+    end
+  end
+
+  # The same switch, switched off from Connections: no tournament's page, so
+  # no tournament's trail.
+  def describe("boards.lan_off", _d),
+    do: gettext("Switched off \"Let boards on this network connect\".")
+
+  def describe("boards.games_removed", d) do
+    count = if is_integer(d["count"]), do: d["count"], else: 0
+
+    ngettext(
+      "Removed %{count} game reported by a board, because its pairing no longer exists. The board box keeps its own copy.",
+      "Removed %{count} games reported by the boards, because their pairings no longer exist. The board box keeps its own copy.",
+      count
+    )
+  end
 
   # The "Live boards" switch on Settings -> Results site.
   def describe("openresults.live_boards", d) do

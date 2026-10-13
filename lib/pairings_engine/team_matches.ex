@@ -677,6 +677,9 @@ defmodule PairingsEngine.TeamMatches do
       end
     end
 
+    # A board the new line-up no longer has takes its reported game with it.
+    PairingsEngine.BoardLink.prune_games(t.id)
+
     Repo.reload!(match)
   end
 

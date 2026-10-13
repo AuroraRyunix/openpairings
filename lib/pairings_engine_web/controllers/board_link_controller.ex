@@ -194,7 +194,7 @@ defmodule PairingsEngineWeb.BoardLinkController do
     address = PairingsEngineWeb.ClientIp.get(conn)
 
     with {:ok, secret} <- bearer(conn),
-         {:ok, link} <- BoardLink.authenticate(secret),
+         {:ok, link} <- BoardLink.authenticate(secret, lan: on_network_listener?(conn)),
          :ok <- allowed(:board_link, Integer.to_string(link.id)) do
       RateLimit.record(:board_link, Integer.to_string(link.id))
 
@@ -228,6 +228,11 @@ defmodule PairingsEngineWeb.BoardLinkController do
         end
     end
   end
+
+  # Set by `PairingsEngineWeb.BoardLan.Plug` and by nothing else: the
+  # request came in on a desktop copy's network listener, where only a code
+  # made for the network is good.
+  defp on_network_listener?(conn), do: conn.private[:board_lan] == true
 
   defp allowed(bucket, key),
     do: if(RateLimit.allow?(bucket, key), do: :ok, else: :rate_limited)

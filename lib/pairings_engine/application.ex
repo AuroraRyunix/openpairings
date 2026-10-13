@@ -121,7 +121,15 @@ defmodule PairingsEngine.Application do
       # does not exist yet is an exit rather than a retry.
       PairingsEngine.Publishing.Monitor,
       # Start to serve requests, typically the last entry
-      PairingsEngineWeb.Endpoint
+      PairingsEngineWeb.Endpoint,
+      # A desktop copy's second listener, for a hall box on another machine
+      # (`PairingsEngineWeb.BoardLan`): the board link and nothing else, off
+      # until the arbiter switches it on. After the endpoint, which it
+      # neither replaces nor touches. On a hosted server both sit idle for
+      # the life of the node - the supervisor has no children and the server
+      # never reads its switch.
+      {DynamicSupervisor, name: PairingsEngineWeb.BoardLan.Supervisor, strategy: :one_for_one},
+      PairingsEngineWeb.BoardLan
     ]
 
     # See https://elixir.hexdocs.pm/Supervisor.html
