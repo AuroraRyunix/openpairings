@@ -467,12 +467,11 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
+
           <p class="subtitle" style="margin: 0">{gettext("Settings - Live boards")}</p>
         </div>
       </div>
-
       <.settings_subnav tournament={@tournament} active={:boards} />
-
       <div class="card" id="boards-intro">
         <h2>{gettext("Live boards")}</h2>
 
@@ -543,8 +542,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         </div>
 
         <p id="boards-lan-warning">
-          <.icon name="hero-exclamation-triangle" class="size-4" />
-          {gettext(
+          <.icon name="hero-exclamation-triangle" class="size-4" /> {gettext(
             "What this does: it opens one extra door on this computer, on the network address you choose, that answers the board box and nothing else. Your tournaments, these pages and everything else stay reachable from this computer only, as before. The door is plain http: the code of a box travels over the network readable. On a cable between two machines, or a network of your own, that is fine. On a wifi the players are on too, anybody who knows how can read the code and then see the pairings and send in moves as if they were a board. They cannot enter a result; a board never does. Prefer a cable or your own network, and withdraw the code after the event."
           )}
         </p>
@@ -590,8 +588,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
               "This computer has one address on a local network. A code for a box on the network carries it.",
               "This computer is on %{count} local networks. Pick the address of the one the box is on: only that one is opened, and a code for a box on the network carries it.",
               length(@lan.addresses)
-            )}
-            {gettext(
+            )} {gettext(
               "If the network gives this computer another address tomorrow, the codes made today point nowhere; this page says so when it happens. A fixed address for this computer, set in the router or in Windows, prevents it."
             )}
           </p>
@@ -604,8 +601,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
 
           <p class="hint" id="boards-lan-limits" style="margin-bottom: 0">
             {gettext(
-              "It answers addresses on a local network only, accepts only codes made for a box on the network, and closes by itself when no such code exists. Such a code works for %{days} days.",
-              days: BoardLink.lan_days()
+              "It answers addresses on a local network only, accepts only codes made for a box on the network, and closes by itself when no such code exists. Such a code works until it is withdrawn."
             )}
           </p>
         <% end %>
@@ -622,7 +618,6 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         tournament={@tournament}
         lan={@lan}
       />
-
       <.codes_card
         :if={@group}
         id="group-codes"
@@ -639,7 +634,6 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         tournament={@tournament}
         lan={@lan}
       />
-
       <div class="card" id="boards-results-site">
         <h2>{gettext("The results site")}</h2>
 
@@ -674,8 +668,9 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
             <%= case @relay.state do %>
               <% :held -> %>
                 <p id="relay-key-held" style="margin-top: 0">
-                  <.icon name="hero-check-circle" class="size-4" />
-                  {gettext("Yes. The box may send moves there.")}
+                  <.icon name="hero-check-circle" class="size-4" /> {gettext(
+                    "Yes. The box may send moves there."
+                  )}
                 </p>
 
                 <p class="hint" id="relay-key-origin">
@@ -722,8 +717,9 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
                 </button>
               <% :fetching -> %>
                 <p id="relay-key-fetching" style="margin-top: 0" role="status">
-                  <.icon name="hero-arrow-path" class="size-4" />
-                  {gettext("Getting permission from the results site…")}
+                  <.icon name="hero-arrow-path" class="size-4" /> {gettext(
+                    "Getting permission from the results site…"
+                  )}
                 </p>
 
                 <p :if={relay_waiting(@relay.reason)} class="hint" id="relay-key-waiting">
@@ -737,8 +733,8 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
                 </p>
               <% :refused -> %>
                 <p id="relay-key-refused" style="margin-top: 0" role="alert">
-                  <.icon name="hero-exclamation-triangle" class="size-4" />
-                  {gettext("Not yet. The results site did not give permission: %{reason}.",
+                  <.icon name="hero-exclamation-triangle" class="size-4" /> {gettext(
+                    "Not yet. The results site did not give permission: %{reason}.",
                     reason: relay_reason(@relay.reason)
                   )}
                 </p>
@@ -839,8 +835,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
           </p>
         <% else %>
           <p style="margin-top: 0" id="boards-game-count">
-            {ngettext("%{count} game.", "%{count} games.", @game_count)}
-            {gettext(
+            {ngettext("%{count} game.", "%{count} games.", @game_count)} {gettext(
               "Each is kept with the tournament and is in its export. Open one from its row on the Pairings page."
             )}
           </p>
@@ -889,6 +884,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
     ~H"""
     <div class="card" id={@id}>
       <h2>{@title}</h2>
+
       <p class="hint" style="margin-top: 0">{@hint}</p>
 
       <div
@@ -898,8 +894,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         role="status"
       >
         <p style="margin-top: 0">
-          <strong>{gettext("The new code. It is shown this once.")}</strong>
-          {gettext(
+          <strong>{gettext("The new code. It is shown this once.")}</strong> {gettext(
             "Scan it with the box, or copy the line into the box's setup page. Once you leave this page it cannot be shown again - make another if you lose it."
           )}
         </p>
@@ -936,10 +931,10 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
                 {gettext("It leads to %{address}.", address: @fresh.address)}
             <% end %>
           </strong>
+
           <span :if={@fresh.where == :lan}>
             {gettext(
-              "It works for %{days} days, and only while \"Let boards on this network connect\" is on.",
-              days: BoardLink.lan_days()
+              "It works until it is withdrawn, and only while \"Let boards on this network connect\" is on."
             )}
           </span>
         </p>
@@ -954,6 +949,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
               "The same code with this computer's name instead of its address. A name still works after the network gives this computer another address, but only if the box can look the name up, which depends on the network and on the box. Try the code above first; use this one if the address keeps changing."
             )}
           </p>
+
           <p>
             <code class="board-code">{@fresh.name_code}</code>
           </p>
@@ -968,12 +964,17 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         <thead>
           <tr>
             <th scope="col">{gettext("Code")}</th>
+
             <th scope="col">{gettext("Box")}</th>
+
             <th scope="col">{gettext("Last contact")}</th>
+
             <th scope="col" class="num">{gettext("Boards")}</th>
+
             <th scope="col" aria-label={gettext("Actions")}></th>
           </tr>
         </thead>
+
         <tbody>
           <tr :for={link <- @links} id={"board-link-#{link.id}"}>
             <td>
@@ -987,12 +988,17 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
                       {gettext("Expired. Withdraw it and make a new one.")}
                     </span>
                   <% else %>
-                    {gettext("%{address}, until %{date}",
-                      address: link.address,
-                      date: Calendar.strftime(link.expires_at, "%d-%m-%Y")
-                    )}
+                    <%= if link.expires_at do %>
+                      {gettext("%{address}, until %{date}",
+                        address: link.address,
+                        date: Calendar.strftime(link.expires_at, "%d-%m-%Y")
+                      )}
+                    <% else %>
+                      {link.address}
+                    <% end %>
                   <% end %>
                 </span>
+
                 <span
                   :if={stranded(link, @lan, @now)}
                   class="board-mismatch-text"
@@ -1003,6 +1009,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
                 </span>
               <% end %>
             </td>
+
             <td id={"board-link-box-#{link.id}"}>
               <%= if link.box_name || link.box_version do %>
                 {link.box_name || gettext("A box")}
@@ -1011,6 +1018,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
                 <span class="hint">-</span>
               <% end %>
             </td>
+
             <td id={"board-link-seen-#{link.id}"}>
               <%= cond do %>
                 <% is_nil(link.last_seen_at) -> %>
@@ -1021,9 +1029,11 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
                   {ago(link.last_seen_at, @now)}
               <% end %>
             </td>
+
             <td class="num" id={"board-link-boards-#{link.id}"}>
               {boards_here(link, @tournament)}
             </td>
+
             <td>
               <button
                 type="button"

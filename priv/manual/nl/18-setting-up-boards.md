@@ -233,7 +233,7 @@ Wat u moet weten:
 - De deur die dit opent, antwoordt het kastje van de borden en **niets
   anders**. Uw toernooien en de pagina's van OpenPairings blijven op uw eigen
   computer.
-- Een netwerkcode werkt **30 dagen**. De lijst toont tot wanneer.
+- Een netwerkcode werkt tot ze wordt ingetrokken. Trek ze in als het evenement voorbij is.
 - **Verandert het adres van uw computer** (een andere dag, een ander netwerk,
   de router herstart), dan zegt het kastje *Geen antwoord* en zegt de pagina in
   OpenPairings *Het adres van deze computer is veranderd van … naar …*. Kies
@@ -358,7 +358,7 @@ ronde en eigen uitslagenpagina.
 | *Geen antwoord. Deze code is voor een OpenPairings op deze zelfde computer: draait het?* | Een code *voor een kastje op deze computer* wordt gebruikt op een computer die niet die van OpenPairings is, of OpenPairings draait niet. | Draai Alnasl op dezelfde pc als de desktop-OpenPairings en start OpenPairings; of maak een code *voor een kastje op het netwerk* (zie [Alnasl op een andere machine](#desktop-on-the-network)). |
 | Alnasl op een andere machine: *OpenPairings is niet bereikbaar*, bij een desktop-OpenPairings | Een van: de schakelaar staat uit; de firewall van Windows liet het niet toe; de twee machines zitten niet op hetzelfde netwerk; het adres van uw computer is veranderd; er bestaat geen netwerkcode meer, dus de deur is dicht. | Instellingen, Live borden, kaart **Kastjes elders op dit netwerk** zegt welke. Adres veranderd: kies het nieuwe, maak een nieuwe code. Firewall: sta OpenPairings toe op particuliere netwerken in Windows-beveiliging. |
 | OpenPairings: *Poort 4747 is in gebruik door een ander programma op deze computer* | Een ander programma heeft die poort. | Kies op dezelfde kaart een andere poort en druk op **Gebruik deze**, maak daarna een nieuwe code. Verder verandert er niets. |
-| Alnasl: *Code geweigerd*, met een netwerkcode die eerder werkte | De code is 30 dagen oud, of ze is ingetrokken, of het is een code *voor een kastje op deze computer* die vanaf een andere machine wordt gebruikt. | Maak een nieuwe code *voor een kastje op het netwerk*. |
+| Alnasl: *Code geweigerd*, met een netwerkcode die eerder werkte | De code is ingetrokken, of het is een code *voor een kastje op deze computer* die vanaf een andere machine wordt gebruikt. | Maak een nieuwe code *voor een kastje op het netwerk*. |
 | De kolom **Bord zag** is leeg nadat u een ronde opnieuw paarde | De partijen van de oude paringen zijn samen met die paringen verwijderd. | Niets: het kastje begint de nieuwe partijen. De oude staan nog op het kastje. |
 | *Er antwoordt iets op dat adres, maar niet als de bordkoppeling van OpenPairings* | Een aanmeldpagina van het zaalnetwerk, of een ander programma op die poort. | Meld u aan op het zaalnetwerk, of controleer het adres. |
 | *… het is niet gepubliceerd op een uitslagensite, dus de zetten gaan alleen naar OpenPairings* | Het toernooi staat niet op de uitslagensite. | Publiceer het (stap 1). Het adres en de toestemming komen daarna vanzelf. |

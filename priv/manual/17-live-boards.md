@@ -122,8 +122,7 @@ What the switch does:
   page says in words where each code leads, next to the QR code.
 - The door only answers a code made for the network, only to machines on a
   local network, and it is **closed whenever no such code exists**: withdraw
-  the last one and it shuts. A network code works for **30 days**; after that,
-  make a new one.
+  the last one and it shuts. A network code works until it is withdrawn; withdraw it when the event is over.
 - It is a setting of your computer, for all tournaments, and it is remembered:
   after a restart the door is back by itself. Connections shows where it
   stands and has a **Turn off** button.
@@ -472,7 +471,7 @@ is in a JSON backup and is written to the audit log.
   switch **Let boards on this network connect**, a code made for the network,
   and a network both machines are on; see
   [A box elsewhere on the network](#boxes-on-the-network). That link is plain
-  http, IPv4 only, and its codes last 30 days. The hosted edition has none of
+  http, IPv4 only, and its codes work until they are withdrawn. The hosted edition has none of
   these limits, and no such switch.
 - **OpenPairings does not check the moves.** It has no chess rules of its own.
   A move is stored as the box wrote it, provided it is shaped like a move. The

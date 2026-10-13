@@ -220,7 +220,7 @@ What to know:
 
 - The door that this opens answers the board box and **nothing else**. Your
   tournaments and the pages of OpenPairings stay on your own computer.
-- A network code works for **30 days**. The list shows until when.
+- A network code works until it is withdrawn. Withdraw it when the event is over.
 - **If your computer's address changes** (another day, another network, the
   router restarted), the box says *No answer* and the page in OpenPairings
   says *This computer's address changed from … to …*. Pick the new address,
@@ -340,7 +340,7 @@ page.
 | *No answer. This code is for an OpenPairings on this same computer: is it running?* | A code *for a box on this computer* is used on a computer that is not the one OpenPairings is on, or OpenPairings is not running. | Run Alnasl on the same PC as the desktop OpenPairings and start OpenPairings; or make a code *for a box on the network* (see [Alnasl on another machine](#desktop-on-the-network)). |
 | Alnasl on another machine: *OpenPairings cannot be reached*, with a desktop OpenPairings | One of: the switch is off; Windows' firewall did not allow it; the two machines are not on the same network; your computer's address changed; no network code exists any more, so the door is closed. | Settings, Live boards, card **Boxes elsewhere on this network** says which. Address changed: pick the new one, make a new code. Firewall: allow OpenPairings on private networks in Windows Security. |
 | OpenPairings: *Port 4747 is in use by another program on this computer* | Another program has that port. | Pick another port on the same card and press **Use these**, then make a new code. Nothing else is affected. |
-| Alnasl: *Code refused*, with a network code that worked before | The code is 30 days old, or it was withdrawn, or it is a code *for a box on this computer* used from another machine. | Make a new code *for a box on the network*. |
+| Alnasl: *Code refused*, with a network code that worked before | The code was withdrawn, or it is a code *for a box on this computer* used from another machine. | Make a new code *for a box on the network*. |
 | The **Board saw** column is empty after you paired a round again | The games of the old pairings were removed with them. | Nothing: the box starts the new games. The old ones are still on the box. |
 | *Something answers at that address, but not as OpenPairings' board link* | A login page of the hall's network, or another program on that port. | Log in to the hall's network, or check the address. |
 | *… is not published on a results site, so its moves go to OpenPairings only* | The tournament is not on the results site. | Publish it (step 1). The address and the permission come by themselves afterwards. |

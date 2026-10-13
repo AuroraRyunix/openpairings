@@ -15,8 +15,9 @@ defmodule PairingsEngine.BoardLink.Link do
 
   `reach` is `"lan"` for a code a desktop copy made for a box elsewhere on
   the hall network (`PairingsEngineWeb.BoardLan`), nil for every other code.
-  Such a code carries the `address` it was made with and an `expires_at`:
-  its secret crosses the hall in plain http, so it does not live for ever.
+  Such a code carries the `address` it was made with and an `expires_at`
+  that is nil for a new code: it works until it is withdrawn. A row that has
+  a date is still refused after it.
   Only a `"lan"` code is accepted on the network listener.
 
   `last_seen_at`, `box_name`, `box_version` and `box_boards` are what the box

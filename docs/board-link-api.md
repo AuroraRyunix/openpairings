@@ -592,7 +592,7 @@ What a box can rely on:
 | what answers there | the four requests of this document. Every other method and path is `404 {"error": "not_found"}`: no pages, no websocket, no static files |
 | who may call | addresses of a local network only (10/8, 172.16/12, 192.168/16, 169.254/16, loopback, and their IPv6 counterparts). Anybody else is `403 {"error": "forbidden"}` |
 | which codes | only a code made *for a box on the network*. A code made for a box on the same PC is `401` there |
-| how long | a network code works for 30 days from the moment it was made, then `401` like a withdrawn one |
+| how long | a network code has no expiry: it works until it is withdrawn, then `401` |
 | when it is open | while the switch is on, the chosen address is still the PC's, and at least one network code exists. Otherwise the port is closed: a box sees a refused connection or a timeout, not an HTTP answer |
 | transport | plain http. No TLS, no certificate. The secret is readable on the wire |
 | rate limits | the same two as everywhere. Refused codes are counted against the address the connection came from; `X-Forwarded-For` and similar headers are ignored on this listener |

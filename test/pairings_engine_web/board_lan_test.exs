@@ -160,7 +160,10 @@ defmodule PairingsEngineWeb.BoardLanTest do
       assert listeners() == 1
       assert link.reach == "lan"
       assert link.address == "http://127.0.0.1:#{port}"
-      assert DateTime.diff(link.expires_at, DateTime.utc_now(), :day) in 29..30
+      # A network code has no date: it works until it is withdrawn.
+      assert link.expires_at == nil
+      later = DateTime.add(DateTime.utc_now(), 400 * 86_400, :second)
+      refute BoardLink.expired?(link, later)
 
       assert {:ok, %{status: 200, body: %{"api" => 1, "kind" => "tournament"}}} =
                ask(port, "/api/boards/v1/link", secret: secret)

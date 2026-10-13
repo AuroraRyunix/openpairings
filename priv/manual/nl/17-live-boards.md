@@ -124,8 +124,7 @@ Wat de schakelaar doet:
   de QR-code.
 - De deur antwoordt alleen op een code die voor het netwerk is gemaakt, alleen
   aan machines op een lokaal netwerk, en ze is **dicht zolang er geen zo'n code
-  bestaat**: trek de laatste in en ze sluit. Een netwerkcode werkt **30
-  dagen**; maak daarna een nieuwe.
+  bestaat**: trek de laatste in en ze sluit. Een netwerkcode werkt tot ze wordt ingetrokken; trek ze in als het evenement voorbij is.
 - Het is een instelling van uw computer, voor alle toernooien, en ze wordt
   onthouden: na een herstart is de deur er vanzelf weer. Verbindingen toont hoe
   het ervoor staat en heeft een knop **Uitzetten**.
@@ -484,7 +483,7 @@ auditlogboek.
   heeft de schakelaar **Laat borden op dit netwerk verbinden** nodig, een code die voor
   het netwerk is gemaakt, en een netwerk waar beide machines op zitten; zie
   [Een kastje elders op het netwerk](#boxes-on-the-network). Die verbinding is gewoon
-  http, alleen IPv4, en haar codes gelden 30 dagen. De gehoste editie heeft geen van die
+  http, alleen IPv4, en haar codes werken tot ze worden ingetrokken. De gehoste editie heeft geen van die
   beperkingen, en ook die schakelaar niet.
 - **OpenPairings controleert de zetten niet.** Het heeft zelf geen schaakregels. Een zet
   wordt bewaard zoals het kastje hem schreef, mits hij de vorm van een zet heeft. Het

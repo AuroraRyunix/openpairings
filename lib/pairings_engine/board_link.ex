@@ -70,11 +70,6 @@ defmodule PairingsEngine.BoardLink do
   # "New code" button cannot fill a table.
   @max_links 8
 
-  # How long a code for a box on the network lives. Long enough for a
-  # tournament and the weekend around it; short enough that a secret
-  # somebody read off the hall's wifi is not a secret for the season.
-  @lan_days 30
-
   # A row is touched at most this often for "last contact". The box polls
   # every few seconds, and a write per poll would be a SQLite write lock per
   # poll, to keep a timestamp nobody reads to the second.
@@ -243,13 +238,9 @@ defmodule PairingsEngine.BoardLink do
     case Keyword.get(opts, :lan) do
       address when is_binary(address) and address != "" ->
         if PairingsEngine.Authz.local_mode?() do
-          now = DateTime.utc_now() |> DateTime.truncate(:second)
-
-          [
-            reach: "lan",
-            address: address,
-            expires_at: DateTime.add(now, @lan_days * 86_400, :second)
-          ]
+          # No date: a weekly club competition must not be cut off
+          # mid-season. The owner withdraws the code when the event is over.
+          [reach: "lan", address: address, expires_at: nil]
         else
           []
         end
@@ -262,10 +253,7 @@ defmodule PairingsEngine.BoardLink do
   defp lan_details(%Link{reach: "lan", address: address}), do: %{lan: true, address: address}
   defp lan_details(%Link{}), do: %{}
 
-  @doc "How many days a code for a box on the network works."
-  def lan_days, do: @lan_days
-
-  @doc "Whether `link` has run out. Only a network code ever does."
+  @doc "Whether `link` has run out. Only a row that carries a date ever does."
   def expired?(link, now \\ DateTime.utc_now())
   def expired?(%Link{expires_at: nil}, _now), do: false
   def expired?(%Link{expires_at: at}, now), do: DateTime.compare(at, now) != :gt
