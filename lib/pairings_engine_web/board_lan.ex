@@ -439,13 +439,26 @@ defmodule PairingsEngineWeb.BoardLan do
   # Windows lets a second program bind one address of a port a first program
   # holds on all of them, and "it started, and the other program gets half
   # the requests" is not a state anybody should have to debug in a hall.
-  defp probe({address, port}) do
+  defp probe(target), do: probe(target, 10)
+
+  # A port this program closed a moment ago can still read as taken (the
+  # probe refuses to share it, on purpose, and the system keeps a closed
+  # port's last connections around for a little while): off and on again
+  # within the second said "port in use" about its own port. Ask again for
+  # up to a second before believing it; another program's port is still
+  # taken after that.
+  defp probe({address, port} = target, tries) do
     with {:ok, ip} <- :inet.parse_ipv4strict_address(String.to_charlist(address)),
          :ok <- try_listen(ip, port),
          :ok <- try_listen({0, 0, 0, 0}, port) do
       :ok
     else
-      failure -> failure_name(failure)
+      {:error, :eaddrinuse} when tries > 1 ->
+        Process.sleep(100)
+        probe(target, tries - 1)
+
+      failure ->
+        failure_name(failure)
     end
   end
 
