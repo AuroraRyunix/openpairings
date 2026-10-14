@@ -183,5 +183,5 @@ adds a player, the arrow keys move between the cells, <kbd>Space</kbd> or
 The program follows the colour scheme you choose: *System* follows the
 computer's light or dark setting, and the theme picker also offers Light, Dark,
 Slate, Paper, Board, Tom W (royal blue with a sky-blue accent), Jorian (the
-project website's blueprint look: pale paper, dark navy ink, royal-blue accent)
+project website's look: a royal-blue page with white type and yellow buttons)
 and High Contrast. The live page has a high-contrast mode of its own.

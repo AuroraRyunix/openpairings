@@ -244,8 +244,10 @@ defmodule PairingsEngineWeb.ContrastTest do
 ")
 
     # The point of the exercise: on a light theme the panel starts as the very
-    # colour of the primary button, so the two never disagree.
-    for {{theme, accent}, palette} <- palettes, theme not in ["dark", "slate"] do
+    # colour of the primary button, so the two never disagree. Jorian is not a
+    # light theme with a blue page: its accent is a yellow nobody can put white
+    # type on, so its panel is the website's navy instead.
+    for {{theme, accent}, palette} <- palettes, theme not in ["dark", "slate", "jorian"] do
       assert hero_palette(css, theme, palette)["hero-a"] == palette["accent"],
              "#{theme} theme, #{accent} accent: the panel is not the accent"
     end

@@ -188,5 +188,5 @@ inschrijfformulier.
 Het programma volgt het kleurenschema dat je kiest: *Systeem* volgt de lichte of
 donkere instelling van de computer, en de themakeuze biedt daarnaast Licht,
 Donker, Leisteen, Papier, Bord, Tom W (koningsblauw met een hemelsblauw accent),
-Jorian (de blauwdruk-look van de projectwebsite: lichtblauw papier, donkere
-marineblauwe inkt, koningsblauw accent) en Hoog contrast. De live pagina heeft een eigen modus met hoog contrast.
+Jorian (de look van de projectwebsite: een koningsblauwe pagina met witte
+tekst en gele knoppen) en Hoog contrast. De live pagina heeft een eigen modus met hoog contrast.

@@ -454,49 +454,74 @@
 }
 
 
-/* JORIAN. The look of the project's own website, carried into the program:
-   the star-atlas paper (#f7f9fe) with its blueprint ink (#0a1747), the
-   website's royal blue (#1a3fc0) as the accent, and its yellow kept for the
-   one place it is still a highlighter, the text selection. The website opens
-   in its light variant, so this is a light theme; its night variant is what
-   Dark and Slate are for. Two pairings were nudged from the website's own:
-   its third ink (#5a6898) is under 4.5:1 on the tinted rows, so secondary text
-   takes its second (#3a497b), and its stamp red (#c9341f) is a shade heavier
-   (#bf2f1b) so a red button's hover still has room to darken. */
+/* JORIAN. The project's website, carried into the program - the website as
+   it actually looks, not its footnotes: a royal-blue page (#1a39b8, a shade
+   under the website's #1d40c8 so the pale accents still read) under a
+   faint chart grid, white type, and the yellow (#ffd22e) of its "Launch"
+   button as the accent, with blueprint ink (#0a1747) on it. The first draft
+   took the website's pale reading variant instead, and came out a twin of
+   Tom W; nobody could tell which one they had picked, which rather defeats
+   the point of a name. Cards sit a shade deeper than the page, the way the
+   website's diagram panel does. Red cannot be red on royal blue and stay
+   readable, so the danger colour is a salmon, with ink on its buttons. */
 [data-theme="jorian"] {
-  --bg: #f7f9fe;
-  --surface: #ffffff;
-  --border: #c6d3f0;
-  --text: #0a1747;
-  --text-soft: #3a497b;
-  --accent: #1a3fc0;
-  --accent-hover: #12309a;
-  --accent-soft: #eaf0fc;
-  --accent-ink: #f6f9ff;
-  --accent-lift: #10151b;
-  --danger: #bf2f1b;
-  --danger-hover: #9d2515;
-  --danger-ink: #ffffff;
-  --success: #1c6e3f;
-  --success-soft: #e2f1e8;
-  --warn: #75500a;
-  --warn-soft: #fbf0cf;
-  --info: #1a5f95;
-  --info-soft: #dfedf8;
-  --shadow: 0 1px 2px rgba(10, 23, 71, 0.10), 0 12px 24px -16px rgba(10, 23, 71, 0.35);
+  --bg: #1a39b8;
+  --surface: #16319f;
+  --border: #4a66d6;
+  --text: #ffffff;
+  --text-soft: #d3ddff;
+  --accent: #ffd22e;
+  --accent-hover: #ffdc5c;
+  --accent-soft: rgba(255, 210, 46, 0.12);
+  --accent-ink: #0a1747;
+  --accent-lift: #ffffff;
+  --hero-a: #13287e;
+  --hero-b: #0f2068;
+  --hero-c: #0a1747;
+  --hero-ink: #ffffff;
+  --hero-pole: #ffd22e;
+  --danger: #ffc2b8;
+  --danger-hover: #ffd6cf;
+  --danger-ink: #0a1747;
+  --success: #8ef0b4;
+  --success-soft: rgba(142, 240, 180, 0.18);
+  --warn: #ffd8a8;
+  --warn-soft: rgba(255, 216, 168, 0.14);
+  --info: #cce8ff;
+  --info-soft: rgba(204, 232, 255, 0.12);
+  --shadow: 0 1px 2px rgba(5, 12, 45, 0.35), 0 12px 24px -16px rgba(5, 12, 45, 0.6);
 
-  --surface-alt: #eaf0fc;
-  --surface-hover: #dbe5fa;
-  --scrim: rgba(8, 21, 66, 0.5);
+  --surface-alt: #1935aa;
+  --surface-hover: #1f40c2;
+  --scrim: rgba(5, 12, 45, 0.6);
   --pe-bg-alt: var(--surface-alt);
 
-  color-scheme: light;
-  --color-base-100: #ffffff;
-  --color-base-200: #f7f9fe;
-  --color-base-300: #dbe5fa;
-  --color-base-content: #0a1747;
+  color-scheme: dark;
+  --color-base-100: #16319f;
+  --color-base-200: #1a39b8;
+  --color-base-300: #2546c8;
+  --color-base-content: #ffffff;
 }
-[data-theme="jorian"] ::selection { background: #ffd22e; color: #081542; }
+[data-theme="jorian"] ::selection { background: #ffd22e; color: #0a1747; }
+[data-theme="jorian"] body {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+  background-size: 96px 96px;
+  background-attachment: fixed;
+}
+
+/* Jorian's own accent choices: royal blue is a middle tone, so an accent has
+   to be a pastel to stay readable on it - the dark themes' accents read as
+   mud there. Ink on the buttons, like the yellow. */
+[data-accent="blue"]:where([data-theme="jorian"]) { --accent: #cfe0ff; --accent-hover: #e2ecff; --accent-soft: rgba(207, 224, 255, 0.1); --accent-ink: #0a1747; }
+[data-accent="teal"]:where([data-theme="jorian"]) { --accent: #9ff0e3; --accent-hover: #bdf5ec; --accent-soft: rgba(159, 240, 227, 0.1); --accent-ink: #0a1747; }
+[data-accent="violet"]:where([data-theme="jorian"]) { --accent: #e2d8ff; --accent-hover: #ece5ff; --accent-soft: rgba(226, 216, 255, 0.1); --accent-ink: #0a1747; }
+[data-accent="rose"]:where([data-theme="jorian"]) { --accent: #ffccd5; --accent-hover: #ffdde3; --accent-soft: rgba(255, 204, 213, 0.1); --accent-ink: #0a1747; }
+[data-accent="slate"]:where([data-theme="jorian"]) { --accent: #dfe6f0; --accent-hover: #ebf0f6; --accent-soft: rgba(223, 230, 240, 0.1); --accent-ink: #0a1747; }
+[data-accent="indigo"]:where([data-theme="jorian"]) { --accent: #d9dcff; --accent-hover: #e6e8ff; --accent-soft: rgba(217, 220, 255, 0.1); --accent-ink: #0a1747; }
+[data-accent="cyan"]:where([data-theme="jorian"]) { --accent: #a5f0fb; --accent-hover: #c2f5fc; --accent-soft: rgba(165, 240, 251, 0.1); --accent-ink: #0a1747; }
+[data-accent="fuchsia"]:where([data-theme="jorian"]) { --accent: #f7ccff; --accent-hover: #fadcff; --accent-soft: rgba(247, 204, 255, 0.1); --accent-ink: #0a1747; }
 
 
 /* ---------- accent colour (independent of light/dark) ----------
@@ -6398,8 +6423,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    one they read muddy, so lift them. Repeated for the explicit dark toggle
    and for system-dark, since those are separate states (see the theme
    handling at the top of this file). */
-:root[data-theme="dark"] .tl-tag,
-:root[data-theme="dark"] .tl-dot { filter: brightness(1.3); }
+:root:where([data-theme="dark"], [data-theme="jorian"]) .tl-tag,
+:root:where([data-theme="dark"], [data-theme="jorian"]) .tl-dot { filter: brightness(1.3); }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .tl-tag,
   :root:not([data-theme="light"]) .tl-dot { filter: brightness(1.3); }
@@ -7833,11 +7858,11 @@ input[type="checkbox"]:not(.acct-choice input):indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%23ffffff' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
 }
 
-:where([data-theme="dark"], [data-theme="slate"]) input[type="checkbox"]:not(.acct-choice input):checked {
+:where([data-theme="dark"], [data-theme="slate"], [data-theme="jorian"]) input[type="checkbox"]:not(.acct-choice input):checked {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2310151b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 8.5l3 3 6-7'/%3E%3C/svg%3E");
 }
 
-:where([data-theme="dark"], [data-theme="slate"]) input[type="checkbox"]:not(.acct-choice input):indeterminate {
+:where([data-theme="dark"], [data-theme="slate"], [data-theme="jorian"]) input[type="checkbox"]:not(.acct-choice input):indeterminate {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2310151b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='M4 8h8'/%3E%3C/svg%3E");
 }
 
