@@ -71,6 +71,9 @@ by hand, and it stays where you put it.
 
 **Before round 1, spectators see the starting ranking** (off by default).
 Without it the public sees only the list of players once a round is public.
+Once a round is public the setting no longer applies and the page says so;
+what spectators see from then on is each round's level on the Pairings page.
+If it was switched on after a round went public, it can still be switched off.
 
 **Live boards** (off by default, and offered only while the tournament is
 published). Switch it on when a relay in the hall is sending the moves of the

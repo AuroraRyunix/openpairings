@@ -462,7 +462,16 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     tournament = socket.assigns.tournament
     on? = not Tournaments.initial_standings_public?(tournament)
 
-    case Tournaments.set_initial_standings_public(tournament, on?) do
+    # Switching it ON after a round is public changes nothing a spectator
+    # needs and hides nothing either - except the real standings, behind a
+    # starting ranking. The switch is not drawn then; this is for the page
+    # that was open before the round went public.
+    result =
+      if on? and rounds_public?(tournament),
+        do: {:error, :rounds_public},
+        else: Tournaments.set_initial_standings_public(tournament, on?)
+
+    case result do
       {:ok, tournament} ->
         scope = socket.assigns.current_scope
 
@@ -1337,7 +1346,31 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
               Moved here from the Standings page on 2026-09-28: it is a
               setting about the time before the tournament starts, not a
               round to publish. --%>
-        <div class="set-field solo" style="margin-top: 20px">
+        <div
+          :if={rounds_public?(@tournament) and @tournament.standings_through != 0}
+          id="initial-standings-na"
+          class="set-field solo"
+          style="margin-top: 20px"
+        >
+          <p class="set-label" style="margin: 0">
+            {gettext("Before round 1, spectators see the starting ranking")}
+          </p>
+          <p class="hint" style="margin: 6px 0 0">
+            {gettext(
+              "Not applicable any more: a round is public, so spectators see its pairings and the standings its level allows."
+            )}
+          </p>
+        </div>
+
+        <%!-- Still drawn once a round is public when it is ON (a stored 0):
+              that is the one case where switching it off still means
+              something, and a locked "On" nobody can move is how this
+              confused somebody on 2026-10-14. --%>
+        <div
+          :if={not rounds_public?(@tournament) or @tournament.standings_through == 0}
+          class="set-field solo"
+          style="margin-top: 20px"
+        >
           <.publish_toggle
             id="initial-standings-toggle"
             label={gettext("Before round 1, spectators see the starting ranking")}
@@ -1348,12 +1381,6 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             }
             on_text={gettext("On")}
             off_text={gettext("Off")}
-            disabled={rounds_public?(@tournament)}
-            reason={
-              gettext(
-                "A round is public, so the players are too - the starting ranking only matters before that."
-              )
-            }
             confirm={gettext("Hide the starting ranking from spectators until round 1 is public?")}
             phx-click="toggle_initial_standings"
           />

@@ -362,19 +362,42 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
                Snapshot.build(Tournaments.get_tournament!(tournament.id))["players"]
     end
 
-    test "cannot be changed once a round is public", %{conn: conn, scope: scope} do
-      tournament = create_tournament(scope)
-
+    defp publish_round_one(tournament) do
       Repo.insert!(%PairingsEngine.Tournaments.Round{
         tournament_id: tournament.id,
         number: 1,
         status: "playing",
         published_at: DateTime.utc_now() |> DateTime.truncate(:second)
       })
+    end
+
+    test "says it no longer applies once a round is public", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      publish_round_one(tournament)
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
 
-      assert has_element?(lv, "#initial-standings-toggle[disabled]")
+      assert has_element?(lv, "#initial-standings-na")
+      refute has_element?(lv, "#initial-standings-toggle")
+
+      # A page opened before the round went public cannot switch it on either.
+      render_click(lv, "toggle_initial_standings", %{})
+      assert Tournaments.get_tournament!(tournament.id).standings_through == nil
+    end
+
+    test "switched on after a round went public, it can still be switched off",
+         %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, _} = Tournaments.set_initial_standings_public(tournament, true)
+      publish_round_one(tournament)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      refute has_element?(lv, "#initial-standings-toggle[disabled]")
+      lv |> element("#initial-standings-toggle") |> render_click()
+
+      assert Tournaments.get_tournament!(tournament.id).standings_through == nil
+      assert has_element?(lv, "#initial-standings-na")
     end
   end
 
