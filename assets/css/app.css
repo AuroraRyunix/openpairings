@@ -4950,7 +4950,10 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
    ============================================================ */
 
 /* ---- summary stat strip ---- */
-.pe-summary { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: baseline; }
+/* Two classes, because it sits on a `.card`, which is a column, and a tally
+   of four numbers read one per line is a list nobody asked for. */
+.card.pe-summary,
+.pe-summary { display: flex; flex-direction: row; flex-wrap: wrap; gap: 10px 22px; align-items: baseline; }
 .pe-stat { display: inline-flex; align-items: baseline; gap: 6px; color: var(--text-soft); font-size: 13px; }
 .pe-stat-n { font-size: 20px; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
 .pe-stat.is-warm .pe-stat-n { color: var(--warn); }
@@ -7674,6 +7677,11 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
     white-space: normal;
   }
 }
+
+/* Tailwind's reset gives every element `margin: 0`, and the browser centres
+   a modal <dialog> with nothing but `margin: auto` - so every one of them
+   opened in the top-left corner and nobody's stylesheet said otherwise. */
+dialog:modal { margin: auto; }
 
 /* The themed data-confirm box (assets/js/app.js, "data-confirm in the app's
    own look") - the same card as .pe-modal-card, sized for one question. */
