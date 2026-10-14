@@ -367,9 +367,40 @@ defmodule PairingsEngine.Trf26RoundTripTest do
     # accelerates.
     text = text <> "250       1.0   1   1    6    6\r\n"
 
-    assert {:ok, imported, warnings} = TrfImport.import_text(text, user_scope())
+    assert {:ok, imported, report} = TrfImport.import_with_report(text, user_scope())
     assert imported.acceleration == "none"
-    assert Enum.any?(warnings, &(&1[:kind] == :note and &1.text =~ "Baku method does not"))
+
+    # Not Baku, and not thrown away either: the point is acceleration
+    # mode's, and round 1 remembers it was paired with it. Round 2 gives
+    # nobody anything, so nobody holds any now.
+    imported = Repo.reload!(imported)
+    assert imported.extra_points_mode == "acceleration"
+    assert Enum.any?(report.adjustments, &(&1.code == :extra_points_acceleration))
+
+    frank = Enum.find(imported_players(imported), &(&1.name == "Frank"))
+    assert frank.extra_points == 0.0
+
+    round_one = Repo.get_by!(Round, tournament_id: imported.id, number: 1)
+    assert round_one.virtual_points == %{to_string(frank.id) => 1.0}
+  end
+
+  test "Baku in a file that does not say so in a 192 is still Baku" do
+    # TRF16 has no `192`, so the numbers are all there is - and the
+    # tournament they come into has a round already, which the FIDE-mode
+    # lock on `acceleration` used to refuse, silently.
+    {tournament, _} = configured(%{acceleration: "baku"})
+    {:ok, text} = TrfExport.export(tournament, nil, dialect: :engine)
+
+    text =
+      text
+      |> String.split("\r\n")
+      |> Enum.reject(&String.starts_with?(&1, "192"))
+      |> Enum.join("\r\n")
+
+    assert text =~ "\r\nXXA"
+
+    assert {:ok, imported, _warnings} = TrfImport.import_text(text, user_scope())
+    assert Repo.reload!(imported).acceleration == "baku"
   end
 
   test "a plain tournament round-trips with nothing to say" do

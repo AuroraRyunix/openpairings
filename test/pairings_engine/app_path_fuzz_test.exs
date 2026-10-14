@@ -995,10 +995,11 @@ defmodule PairingsEngine.AppPathFuzzTest do
             lost = MapSet.difference(roster(original), roster(other))
             gained = MapSet.difference(roster(other), roster(original))
 
-            # Nor for the players' extra points: the rounds paired with them
-            # are in the file (`XXA`/`250`), what the next round would be
-            # paired with is not.
-            extra? = PairingsEngine.Tournaments.Tournament.extra_points_pairing?(tournament(acc))
+            # The players' extra points used to be on this list (F6's second
+            # half): the rounds paired with them were in the file, what the
+            # next round is paired with was not. The file carries that now
+            # (`TrfExport`'s forward `250`/`XXA`), so a copy that pairs
+            # differently with them is a failure like any other.
 
             # Nor for what a postponed game counts as while it waits: the
             # file says `?`, worth the draw its own `X` declares, and the
@@ -1006,10 +1007,8 @@ defmodule PairingsEngine.AppPathFuzzTest do
             # the loss the tournament gave the board.
             waiting? = kind == :trf and MapSet.size(waiting_on_non_draw(acc)) > 0
 
-            if (kind == :trf and extra? and roster(original) == roster(other)) or waiting? do
-              if waiting?,
-                do: bump(acc, :round_trip_trf_postponed_valuation_left_behind),
-                else: bump(acc, :round_trip_trf_extra_points_left_behind)
+            if waiting? do
+              bump(acc, :round_trip_trf_postponed_valuation_left_behind)
             else
               if kind == :trf and roster(original) != roster(other) and
                    MapSet.subset?(lost, unnumbered) and MapSet.subset?(gained, withdrawn) do

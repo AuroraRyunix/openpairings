@@ -53,7 +53,10 @@ follows the choice of the file:
   cycles reduced to what the program plays, tie-breaks that were not in the
   file or that the program does not compute, a number of rounds taken from the
   rounds the file holds, deputy arbiters beyond the fourth, team forfeit and
-  bye points, extra points outside the scoring, games without an opponent that
+  bye points, extra points outside the scoring, virtual points that are not
+  FIDE's Baku method (imported as extra points in acceleration mode: each round
+  keeps the virtual points it was paired with, and each player holds the
+  points the file gives for the next round), games without an opponent that
   were imported as byes, and rounds that were not checked because only a
   Dutch-system Swiss can be.
 - *Result symbols that are not result codes.* A symbol in a result column that
@@ -164,12 +167,24 @@ colour (152), the point system if it is not 1, ½, 0 (162), the program (182),
 the type of tournament (192, for example `FIDE_DUTCH_2025` for a Swiss,
 `_BAKU` with acceleration, `BERGER_ROUNDROBIN_Gn`, `FIDE_TEAM_TYPEA_MP_GP`, or
 `CUSTOM_SWISS` for Keizer), the tie-breaks (202), the rate of play (222), the
-Baku virtual points (250), the prohibited pairings (260), a bye granted for a
+virtual points (250), the prohibited pairings (260), a bye granted for a
 round that is not yet paired (240) and the administrative extra points (299).
 Notes the program wants a human reader of the file to see are written as `###`
 comment lines in copies. Each paired round can also be selected by
 `?rounds=1-5` in the address of the download (ranges and single rounds, such
 as `1-3,6`).
+
+**Extra points in the file.** Extra points that count in the standings are
+written as record 299: a handicap from before round 1 (round `000`), points
+kept in the final standings in acceleration mode at round `999`. Extra points
+in acceleration mode are also virtual points (250): the points each round was
+paired with, and, while rounds remain, the points the next round will be
+paired with. A tournament imported from the file has them all back and pairs
+its next round as this one does. Extra points that neither count in the
+standings nor reach the pairing (a handicap that is not counted, or a negative
+value in acceleration mode when the points are not kept) have no record in a
+TRF: a line under the downloads says how many players hold such points, and a
+tournament imported from the file has none.
 
 The older TRF16 spelling of the extension lines, which TRF pairing programs
 such as bbpPairings read, is available by adding `?dialect=engine` to the

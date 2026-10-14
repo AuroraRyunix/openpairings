@@ -38,6 +38,8 @@ defmodule PairingsEngine.TrfImport do
   alias PairingsEngine.Tournaments.{ForbiddenPairing, Tournament, Player, Round, Pairing}
   alias PairingsEngine.Pairing, as: PairingCtx
 
+  import Ecto.Query, only: [from: 2]
+
   # The app's one TRF16 implementation. This module already read files with
   # it in effect - the app serialized with a local `PairingsEngine.Trf` and
   # handed the text to Ainalrami's parser on the pairing path - so the only
@@ -701,7 +703,8 @@ defmodule PairingsEngine.TrfImport do
           import_extra_points(tournament, data, players_by_rank) ++
           team_notes
 
-      {tournament, acceleration_notes} = import_acceleration(tournament, data, players_by_rank)
+      {tournament, acceleration_notes} =
+        import_acceleration(tournament, data, players_by_rank, paired)
 
       tournament = import_initial_colour(tournament, data)
       tournament = allow_postponed_if_any(tournament, data)
@@ -1958,7 +1961,22 @@ defmodule PairingsEngine.TrfImport do
   # accelerated; if it does not, the file used something else and the
   # import says so rather than mislabelling it Baku and pairing the rest of
   # the event differently from the way it started.
-  defp import_acceleration(tournament, data, players_by_rank) do
+  #
+  # Not Baku is not nothing, though. This app's own acceleration mode - the
+  # players' extra points as SWAR uses them (docs/extra-points.md) - leaves
+  # in exactly these records: each round's virtual points as that round was
+  # paired, and, while rounds remain, the points the next round is to be
+  # paired with (`TrfExport`'s forward column). Dropping them was the second
+  # half of the 2026-10 audit's F6: the copy paired its next round as if
+  # nobody had ever held a point. So a Swiss whose virtual points are not
+  # Baku's comes in in acceleration mode instead (`import_virtual_points/4`).
+  #
+  # And a `192` that names the Dutch system WITHOUT `_BAKU` has answered the
+  # question before the numbers are asked: a file that says it was not
+  # Baku is not made Baku because its first rounds happen to look like it
+  # (the top half on a point each, early on, is also what a band gives).
+  # A file with no `192` - TRF16 - has only its numbers to go by.
+  defp import_acceleration(tournament, data, players_by_rank, paired) do
     given =
       data.players
       |> Enum.reject(&(&1[:accelerations] in [nil, []]))
@@ -1970,16 +1988,34 @@ defmodule PairingsEngine.TrfImport do
       given == %{} ->
         {tournament, []}
 
-      baku_reproduces?(tournament, players_by_rank, given, data.players) ->
-        case Tournaments.update_tournament(tournament, %{"acceleration" => "baku"}) do
+      baku_candidate?(tournament, data) and
+          baku_reproduces?(tournament, players_by_rank, given, data.players) ->
+        # Through the changeset and not `update_tournament/2`: the tournament
+        # is being built, and a FIDE-mode lock on `acceleration` once a round
+        # exists (which the import has just written) refused this silently -
+        # a TRF16 Baku file came in with no acceleration and no word of it.
+        tournament
+        |> Tournament.changeset(%{"acceleration" => "baku"})
+        |> Repo.update()
+        |> case do
           {:ok, updated} ->
             {updated
              |> Ecto.Changeset.change(baku_group_a_last: group_a_last(players_by_rank, given))
              |> Repo.update!(), []}
 
           {:error, _changeset} ->
-            {tournament, []}
+            {tournament,
+             [
+               note(
+                 "The file's virtual points are FIDE's Baku method, but Baku could not be " <>
+                   "switched on with this tournament's other settings, so it was imported " <>
+                   "without acceleration."
+               )
+             ]}
         end
+
+      virtual_points_as_extra_points?(tournament) ->
+        {import_virtual_points(tournament, data, players_by_rank, paired), []}
 
       true ->
         {tournament,
@@ -1990,6 +2026,79 @@ defmodule PairingsEngine.TrfImport do
            )
          ]}
     end
+  end
+
+  # Baku is asked of the numbers unless the `192` already said "Dutch, and
+  # not Baku". One that says `_BAKU` made the tournament Baku on creation
+  # (`system_attrs/1`) and is still checked, for its Group A.
+  defp baku_candidate?(tournament, data) do
+    case data.tournament[:type_code] do
+      nil -> true
+      _code -> tournament.acceleration == "baku" or not dutch_swiss?(data)
+    end
+  end
+
+  # Acceleration mode feeds an individual Swiss, and only one that is not
+  # Baku already: the two are one `XXA` value each and the changeset will
+  # not have both (`Tournament.validate_extra_points_excludes_baku/1`).
+  defp virtual_points_as_extra_points?(tournament),
+    do:
+      tournament.pairing_system == "swiss" and tournament.acceleration != "baku" and
+        not Tournament.team?(tournament)
+
+  # The file's virtual points as acceleration mode's extra points:
+  #
+  #   * every round in the file records the points it was paired with
+  #     (`rounds.virtual_points`, as `create_round/6` does when this app
+  #     pairs one) - an empty map too, which says "nobody had any"; a round
+  #     with nothing recorded would read the players' points of today
+  #     (`Pairing.accelerations/3`) and rewrite the history the floats are
+  #     judged on;
+  #   * each player holds the points the file gives for the round after its
+  #     last paired one - none when it gives none - and the rounds after
+  #     that are paired with them until somebody changes them. A player the
+  #     file's `299` already gave extra points (`import_extra_points/3`)
+  #     keeps those: they are the standings' figure and may be negative,
+  #     where a virtual point never is.
+  defp import_virtual_points(tournament, data, players_by_rank, paired) do
+    # A plain change: the one rule the changeset has about this column -
+    # not with Baku - is `virtual_points_as_extra_points?/1`'s to keep, and
+    # an import that raises over a settings validation helps nobody.
+    tournament =
+      tournament
+      |> Ecto.Changeset.change(extra_points_mode: "acceleration")
+      |> Repo.update!()
+
+    by_rank = Map.new(data.players, &{&1.rank, &1[:accelerations] || []})
+
+    rounds =
+      Repo.all(from r in Round, where: r.tournament_id == ^tournament.id and r.number <= ^paired)
+
+    for round <- rounds do
+      recorded =
+        for {rank, points} <- by_rank,
+            value = Enum.at(points, round.number - 1),
+            is_number(value) and value != 0,
+            player = players_by_rank[rank],
+            not is_nil(player),
+            into: %{},
+            do: {to_string(player.id), value * 1.0}
+
+      round |> Ecto.Changeset.change(virtual_points: recorded) |> Repo.update!()
+    end
+
+    from_299 = (data.tournament[:free_points] || []) |> Enum.flat_map(& &1.ranks) |> MapSet.new()
+
+    for {rank, points} <- by_rank,
+        rank not in from_299,
+        value = Enum.at(points, paired),
+        is_number(value) and value != 0,
+        player = players_by_rank[rank],
+        not is_nil(player) do
+      player |> Ecto.Changeset.change(extra_points: value * 1.0) |> Repo.update!()
+    end
+
+    tournament
   end
 
   # Group A is the file's own: the players its virtual points went to, up
@@ -2633,6 +2742,7 @@ defmodule PairingsEngine.TrfImport do
       deputy_adjustment(t),
       team_point_adjustments(t, tournament),
       extra_points_adjustment(t, tournament),
+      acceleration_mode_adjustment(data, tournament),
       round_entry_adjustments(data, paired),
       unrecognised_result_adjustments(data),
       future_bye_adjustments(data, tournament, paired),
@@ -2773,9 +2883,36 @@ defmodule PairingsEngine.TrfImport do
       |> Enum.flat_map(& &1.ranks)
       |> Enum.uniq()
 
-    if players != [] and tournament.count_extra_points,
-      do: adjustment(:extra_points_counted, players: length(players)),
-      else: []
+    if players != [] and tournament.count_extra_points and
+         tournament.extra_points_mode != "acceleration",
+       do: adjustment(:extra_points_counted, players: length(players)),
+       else: []
+  end
+
+  # `import_virtual_points/4` put the file's virtual points in acceleration
+  # mode. Said, with how many players go into the next round holding some
+  # and whether the standings keep them (a `299` came with them) - the
+  # counting toggle means something else in this mode, so the
+  # `:extra_points_counted` line above does not speak for it.
+  defp acceleration_mode_adjustment(data, tournament) do
+    given? = Enum.any?(data.players, &Enum.any?(&1[:accelerations] || [], fn v -> v != 0 end))
+
+    if given? and tournament.extra_points_mode == "acceleration" do
+      holding =
+        Repo.aggregate(
+          from(p in Player,
+            where: p.tournament_id == ^tournament.id and p.extra_points != 0.0
+          ),
+          :count
+        )
+
+      adjustment(:extra_points_acceleration,
+        holding: holding,
+        kept: tournament.count_extra_points == true
+      )
+    else
+      []
+    end
   end
 
   # What `build_round/1` and `single_sided/2` did to a round entry that is

@@ -17,7 +17,7 @@ app is measured against:
 | Pairing | on points + extra points, **while counted** | on points + extra points, **always** |
 | Standings | points + extra points **while counted** | points + extra points only if "Keep acceleration points in the final standings" |
 | The toggle (`count_extra_points`) | "Count extra points (standings and pairing)" | "Keep acceleration points in the final standings" |
-| FIDE TRF report | game points in `001`, the points in `299`; **no** `250`/`XXA` | game points in `001`, `250` records (and `299` while kept) |
+| FIDE TRF report | game points in `001`, the points in `299`; **no** `250`/`XXA` | game points in `001`, `250` records - every round's, and the next round's while rounds remain - and `299` while kept |
 | SWAR export | `ExtraPts` only while counted; bands not written | `ExtraPts` always; bands written as SWAR's table; each round's `XtraPts` |
 
 Both modes use one column, `count_extra_points`, and it keeps one meaning in
@@ -244,6 +244,39 @@ writes a `tournament.fide_compliance_lost` audit row with setting
 recorded while nobody holds any. Baku is FIDE's own (C.04.7) and is never
 marked. The Extra points page shows the warning whenever the form puts
 extra points in the pairing.
+
+## Out to a TRF and back
+
+A TRF of the tournament and the tournament imported from it pair the next
+round alike (audit 2026-10, F6's second half; tested both ways in
+`app_path_audit_test.exs`, both dialects):
+
+- **A counted handicap** is the `299` at round `000`, and comes back as the
+  players' extra points with counting on.
+- **Acceleration mode** is the `250` (`XXA`) history, one value per round as
+  the round was paired, plus - on a file of every round paired so far, with
+  rounds still to pair - one more round: the points the next round will be
+  paired with, which are the players' extra points as they stand
+  (`TrfExport`'s `virtual_point_rounds/4`). Not in the file sent for rating,
+  nor in a round slice. On import, virtual points that are not Baku's -
+  either the numbers do not reproduce Baku, or the file's `192` names the
+  Dutch system without `_BAKU` - come in as acceleration mode: each round
+  keeps its values in `rounds.virtual_points` (an empty map for a round
+  nobody had any in, so the history is the file's and not today's), each
+  player holds the file's value for the round after its last, and a `299`
+  (at `999`, "kept") turns counting on with them. Before, they were dropped
+  as "not Baku" and the copy paired as though the acceleration had been
+  switched off.
+- **Points that do nothing** - a handicap not counted, a negative value in
+  acceleration mode that is not kept (which goes to the engine as zero) -
+  have no record in a TRF and do not come back. The Export page says so
+  under the TRF downloads (`TrfExport.export_notes/1`).
+
+Still not carried: a counted handicap CHANGED part-way. The `299` holds the
+value as it stands, from before round 1; the rounds paired with an older
+value recorded it, the file does not, and a copy reads today's value for
+every round before. TEC's reading of `299` would allow a record per change
+(a round number after which the points apply); this app writes one.
 
 ## Not here
 

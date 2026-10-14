@@ -1777,6 +1777,24 @@ defmodule PairingsEngineWeb.TournamentsLive do
         a.players
       )
 
+  defp trf_adjustment_text(%{code: :extra_points_acceleration} = a) do
+    text =
+      ngettext(
+        "The file gives players virtual points that FIDE's Baku method does not produce. They were imported as extra points in acceleration mode (Settings, Extra points): each round in the file keeps the virtual points it was paired with, and %{count} player holds the points the file gives for the next round, which the rounds after it are paired with too until they are changed. Extra points in the pairing are not FIDE's rules, so pairing the next round takes the tournament out of FIDE mode.",
+        "The file gives players virtual points that FIDE's Baku method does not produce. They were imported as extra points in acceleration mode (Settings, Extra points): each round in the file keeps the virtual points it was paired with, and %{count} players hold the points the file gives for the next round, which the rounds after it are paired with too until they are changed. Extra points in the pairing are not FIDE's rules, so pairing the next round takes the tournament out of FIDE mode.",
+        a.holding
+      )
+
+    if a.kept,
+      do:
+        text <>
+          " " <>
+          gettext(
+            "The file also counts them in the final standings (record 299), and so does the tournament."
+          ),
+      else: text
+  end
+
   defp trf_adjustment_text(%{code: :old_style_byes} = a),
     do:
       ngettext(

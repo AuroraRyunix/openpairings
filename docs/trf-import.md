@@ -158,12 +158,17 @@ opinion of it.
   the export writes as a `260` from that round, comes back the same.
 - **A bye granted for a round not yet paired** (`240` `F`, `H` or `Z`) is
   imported as a `byes` row of the matching kind.
-- **Virtual points that Baku does not reproduce are not imported.** FIDE
-  C.04.7 Baku is the one acceleration method this app implements, so a
-  `250`/`XXA` line is applied only when that method produces the file's own
-  numbers for this roster (see `import_acceleration/3`); anything else
-  would be mislabelled and would pair the rest of the event differently
-  from the way it started.
+- **Virtual points that Baku does not reproduce are not called Baku.**
+  FIDE C.04.7 Baku is the one acceleration method this app implements, so
+  the tournament is made Baku only when that method produces the file's
+  own numbers for this roster and the file's `192`, if it has one, does
+  not name the Dutch system without `_BAKU` (see `import_acceleration/4`).
+  Anything else comes in as extra points in acceleration mode
+  (docs/extra-points.md, "Out to a TRF and back"): every round keeps the
+  virtual points it was paired with, every player holds the points the
+  file gives for the round after its last one, and the review lists it as
+  an adjustment. Until 2026-10 they were dropped, and the copy paired the
+  rest of the event as though nobody had held a point.
 
 ## What the tournament settings come from
 
@@ -178,7 +183,7 @@ the one that left. What a file says now lands where it belongs:
 | `310` / `362` / `320` / `330` | teams (name, roster, and - once every team has a `310` number - match points, game points, final rank), `team_match_points_win/draw/loss` from `362`, and `PairingsEngine.TeamMatchInference`'s bye (`320`) and forfeited-match (`330`) records, when the file has them |
 | `202` / `212` | `tiebreaks`, filtered to the codes this installation can compute |
 | `142` / `XXR` | `rounds_count` - the tournament's length, which is not how much of it has been played |
-| `250` / `XXA` | `acceleration`, when Baku reproduces the file's numbers |
+| `250` / `XXA` | `acceleration`, when Baku reproduces the file's numbers; otherwise `extra_points_mode` `"acceleration"`, `rounds.virtual_points` and `players.extra_points` |
 | `260` / `XXP` | `forbidden_pairings` rows, every pair within each group |
 | `240` | `byes` rows, for a round the file has not paired |
 | `299` (untyped) | `players.extra_points`, and `count_extra_points` with them |

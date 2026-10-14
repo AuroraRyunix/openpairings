@@ -120,7 +120,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       trf_selected: selected,
       postponed_report_form: postponed_report_form(t),
       bye_exclusion_rounds: PairingsEngine.RoundExplanation.bye_exclusion_rounds(t.id),
-      bye_preference_rounds: PairingsEngine.RoundExplanation.bye_preference_rounds(t.id)
+      bye_preference_rounds: PairingsEngine.RoundExplanation.bye_preference_rounds(t.id),
+      # What the file cannot carry of this tournament (`TrfExport.export_notes/1`).
+      trf_export_notes: PairingsEngine.TrfExport.export_notes(t)
     )
     |> assign_postponed()
   end
@@ -1264,6 +1266,17 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               length(@bye_preference_rounds),
               rounds: Enum.join(@bye_preference_rounds, ", ")
             )}
+          </p>
+
+          <%!-- Nor are extra points that do nothing: a TRF has a record for
+                points that count and for points the pairing uses, and
+                none for the rest. --%>
+          <p
+            :for={{note, i} <- Enum.with_index(@trf_export_notes)}
+            id={"trf-export-note-#{i}"}
+            class="hint"
+          >
+            {note}
           </p>
 
           <p :if={@sent_rounds != []} id="trf-sent-rounds" class="sr-only">

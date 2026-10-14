@@ -223,11 +223,13 @@ defmodule PairingsEngine.ExtraPointsPairingTest do
       {:ok, r1} = Pairing.pair_next_round(t)
       white_wins(r1)
 
+      # Round 1 as it was paired, and round 2 as it will be: the players'
+      # points as they stand (audit 2026-10, F6's second half).
       assert {:ok, text} = TrfExport.export(Repo.reload!(t))
-      assert text =~ "\r\n250       1.0   1   1    1    2\r\n"
+      assert text =~ "\r\n250       1.0   1   2    1    2\r\n"
 
       assert {:ok, engine} = TrfExport.export(Repo.reload!(t), nil, dialect: :engine)
-      assert engine =~ ~r/^XXA\s+1\s+1\.0\s*$/m
+      assert engine =~ ~r/^XXA\s+1\s+1\.0\s+1\.0\s*$/m
     end
 
     test "a JSON backup carries the recorded virtual points, re-keyed to the new players" do

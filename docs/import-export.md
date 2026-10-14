@@ -112,9 +112,12 @@ export writes them in FIDE's own spelling:
   * **`222`** - the rate of play, encoded (`90min/end+30sec/move from move
     1` is `5400+30`) where the wording allows it; a Bronstein delay or a
     free-text rate has no encoding and the line is left out.
-  * **`250`** - Baku virtual points, one record per rank range per round
-    range; **`260`** - prohibited pairings, explicit and by club or
-    federation, for every round of the tournament.
+  * **`250`** - virtual points, one record per rank range per round
+    range: Baku's, or the players' extra points in acceleration mode
+    (docs/extra-points.md) - every round's, and on a full export with
+    rounds still to pair the next round's too, which is what the next
+    round will be paired with; **`260`** - prohibited pairings, explicit
+    and by club or federation, for every round of the tournament.
   * **`240`** - a bye the arbiter has already granted for a round nobody
     has paired yet. Everything else in the report is a record of rounds
     played; this is the one forward-looking thing in it, because whoever

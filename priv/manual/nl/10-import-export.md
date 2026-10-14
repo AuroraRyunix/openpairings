@@ -54,7 +54,10 @@ op de keuze van het bestand:
   rondetoernooi-cycli die zijn teruggebracht tot wat het programma speelt, tiebreaks die
   niet in het bestand stonden of die het programma niet berekent, een aantal rondes dat
   is overgenomen uit de rondes die het bestand bevat, deputy-arbiters boven de vierde,
-  forfait- en bye-punten van ploegen, extra punten buiten de puntentelling, partijen
+  forfait- en bye-punten van ploegen, extra punten buiten de puntentelling, virtuele
+  punten die niet de Baku-methode van de FIDE zijn (geïmporteerd als extra punten in
+  versnellingsmodus: elke ronde houdt de virtuele punten waarmee ze is gepaard, en elke
+  speler krijgt de punten die het bestand voor de volgende ronde geeft), partijen
   zonder tegenstander die als byes zijn geïmporteerd, en rondes die niet zijn
   gecontroleerd omdat alleen een Zwitsers volgens het Nederlandse systeem dat kan.
 - *Symbolen die geen resultaatcode zijn.* Een symbool in een resultaatkolom dat geen
@@ -166,12 +169,24 @@ in de TRF16-indeling, en de toernooirecords: het aantal rondes (142), de startkl
 (152), het puntensysteem als dat niet 1, ½, 0 is (162), het programma (182), het type
 toernooi (192, bijvoorbeeld `FIDE_DUTCH_2025` voor een Zwitsers toernooi, `_BAKU` met versnelling,
 `BERGER_ROUNDROBIN_Gn`, `FIDE_TEAM_TYPEA_MP_GP`, of `CUSTOM_SWISS` voor Keizer), de
-tiebreaks (202), het speeltempo (222), de virtuele Baku-punten (250), de verboden
+tiebreaks (202), het speeltempo (222), de virtuele punten (250), de verboden
 paringen (260), een bye die voor een nog niet gepaarde ronde is toegekend (240) en de
 administratieve extra punten (299). Aantekeningen die het programma voor een menselijke
 lezer van het bestand wil tonen, worden in kopieën geschreven als `###`-commentaarregels.
 Elke gepaarde ronde kan ook worden geselecteerd met `?rounds=1-5` in het adres van de
 download (bereiken en losse rondes, zoals `1-3,6`).
+
+**Extra punten in het bestand.** Extra punten die in de rangschikking meetellen, worden
+geschreven als record 299: een handicap van vóór ronde 1 (ronde `000`), punten die in
+versnellingsmodus in de eindrangschikking blijven op ronde `999`. Extra punten in
+versnellingsmodus zijn ook virtuele punten (250): de punten waarmee elke ronde is gepaard,
+en, zolang er rondes over zijn, de punten waarmee de volgende ronde zal worden gepaard. Een
+toernooi dat uit het bestand wordt geïmporteerd, heeft ze allemaal terug en paart zijn
+volgende ronde zoals dit toernooi. Extra punten die noch in de rangschikking meetellen
+noch de paring bereiken (een handicap die niet wordt geteld, of een negatieve waarde in
+versnellingsmodus wanneer de punten niet worden behouden), hebben geen record in een TRF:
+een regel onder de downloads zegt hoeveel spelers zulke punten hebben, en een toernooi dat
+uit het bestand wordt geïmporteerd, heeft er geen.
 
 De oudere TRF16-schrijfwijze van de uitbreidingsregels, die TRF-paringsprogramma's zoals
 bbpPairings lezen, is beschikbaar door `?dialect=engine` toe te voegen aan het adres van

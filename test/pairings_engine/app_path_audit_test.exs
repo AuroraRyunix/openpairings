@@ -497,6 +497,173 @@ defmodule PairingsEngine.AppPathAuditTest do
     end
   end
 
+  describe "the players' extra points, exported to TRF and imported again" do
+    # F6's second half. The rounds paired with acceleration mode's extra
+    # points were in the file (`250`/`XXA`), the points the NEXT round is
+    # paired with were not, and the import threw the history away as "not
+    # Baku" besides. Now the file carries one more round of virtual points
+    # while rounds remain, and the import reads non-Baku virtual points as
+    # acceleration mode: each round keeps what it was paired with, each
+    # player holds what the next round gives them.
+    #
+    # Eight players, the four strongest given a point; the favourite LOSES
+    # every game, so the points decide who meets whom.
+    defp accelerated(attrs) do
+      t =
+        tournament(
+          Map.merge(
+            %{"rounds_count" => 5, "extra_points_mode" => "acceleration"},
+            attrs
+          )
+        )
+
+      for {p, i} <- Enum.with_index(add_players(t, Enum.map(1..8, &(2500 - &1 * 100))), 1),
+          i <= 4,
+          do: {:ok, _} = Tournaments.update_player(p, %{"extra_points" => 1.0})
+
+      upset = fn b ->
+        rating = Map.new(Tournaments.list_players(t.id), &{&1.id, &1.fide_rating})
+        if rating[b.white_player_id] >= rating[b.black_player_id], do: "0-1", else: "1-0"
+      end
+
+      pair!(t)
+      play(t, 1, upset)
+
+      # Wound down part-way, as the Extra points page does it: half a point
+      # off the top two. Round 2 is paired with what is left, round 1 keeps
+      # what it had - so the history in the file is not the present.
+      {:ok, _} = Tournaments.update_player(player(t, "P01"), %{"extra_points" => 0.5})
+      {:ok, _} = Tournaments.update_player(player(t, "P02"), %{"extra_points" => 0.5})
+      pair!(t)
+      play(t, 2, upset)
+
+      {:ok, _} = Tournaments.update_player(player(t, "P03"), %{"extra_points" => 0.0})
+      fresh(t)
+    end
+
+    defp next_round_of_both(original, copy) do
+      {:error, {:result, pairs}} =
+        Repo.transaction(fn ->
+          {:ok, _} = Pairing.pair_next_round(fresh(original))
+          {:ok, _} = Pairing.pair_next_round(fresh(copy))
+          Repo.rollback({:result, {names(original, 3), names(copy, 3)}})
+        end)
+
+      pairs
+    end
+
+    for dialect <- [:trf26, :engine] do
+      test "acceleration mode: the copy pairs the next round as the original does (#{dialect})" do
+        t = accelerated(%{})
+        {:ok, text} = TrfExport.export(t, nil, dialect: unquote(dialect))
+        {:ok, copy, report} = TrfImport.import_with_report(text, nil)
+
+        copy = fresh(copy)
+        assert copy.extra_points_mode == "acceleration"
+        assert copy.acceleration == "none"
+        assert Enum.any?(report.adjustments, &(&1.code == :extra_points_acceleration))
+
+        assert Map.new(Tournaments.list_players(copy.id), &{&1.name, &1.extra_points}) ==
+                 Map.new(Tournaments.list_players(t.id), &{&1.name, &1.extra_points})
+
+        # Each round as it was paired, not as the players stand today.
+        for n <- [1, 2] do
+          by_name = fn tour ->
+            names = Map.new(Tournaments.list_players(tour.id), &{to_string(&1.id), &1.name})
+            round = Tournaments.get_round(tour.id, n)
+            Map.new(round.virtual_points || %{}, fn {id, v} -> {names[id], v} end)
+          end
+
+          assert by_name.(copy) == by_name.(t)
+        end
+
+        {original, copied} = next_round_of_both(t, copy)
+        assert original == copied
+      end
+    end
+
+    test "the points the next round is paired with are in the file, as a 250 for round 3" do
+      {:ok, text} = TrfExport.export(accelerated(%{}))
+
+      # Round 1 with a point each, round 2 with what was left after half a
+      # point came off the top two, round 3 with P03's taken off as well.
+      assert text =~ "\r\n250       0.5   2   3    1    2\r\n"
+
+      trimmed = fn points ->
+        (points || []) |> Enum.reverse() |> Enum.drop_while(&(&1 == 0.0)) |> Enum.reverse()
+      end
+
+      by_rank =
+        Map.new(Ainalrami.Trf.parse(text).players, &{&1.rank, trimmed.(&1[:accelerations])})
+
+      assert by_rank[1] == [1.0, 0.5, 0.5]
+      assert by_rank[3] == [1.0, 1.0]
+      assert by_rank[4] == [1.0, 1.0, 1.0]
+      assert by_rank[5] == []
+    end
+
+    test "kept in the final standings: a 299 at round 999, and it comes back counted" do
+      t = accelerated(%{"count_extra_points" => true})
+      {:ok, text} = TrfExport.export(t)
+      assert text =~ ~r/\r\n299\s+1\.0\s+999\s+4\r\n/
+
+      {:ok, copy, _report} = TrfImport.import_with_report(text, nil)
+      copy = fresh(copy)
+      assert copy.extra_points_mode == "acceleration"
+      assert copy.count_extra_points
+
+      {original, copied} = next_round_of_both(t, copy)
+      assert original == copied
+    end
+
+    test "a counted handicap comes back counted, in both dialects" do
+      for dialect <- [:trf26, :engine] do
+        t = tournament(%{"rounds_count" => 5, "count_extra_points" => true})
+        players = add_players(t, Enum.map(1..8, &(2500 - &1 * 100)))
+
+        for p <- Enum.take(players, -3),
+            do: {:ok, _} = Tournaments.update_player(p, %{"extra_points" => 1.5})
+
+        pair!(t)
+        play(t, 1)
+        pair!(t)
+        play(t, 2)
+
+        {:ok, text} = TrfExport.export(fresh(t), nil, dialect: dialect)
+        {:ok, copy, _report} = TrfImport.import_with_report(text, nil)
+        copy = fresh(copy)
+        assert copy.extra_points_mode == "handicap"
+        assert copy.count_extra_points
+
+        {original, copied} = next_round_of_both(t, copy)
+        assert original == copied
+      end
+    end
+
+    test "the file sent for rating: no round it does not report, and no point as a game" do
+      t = accelerated(%{"count_extra_points" => true})
+      {:ok, text} = TrfExport.export(t, nil, for: :rating)
+
+      refute text =~ ~r/\r\n250\s+\S+\s+3\s+3/
+      refute text =~ "XXA"
+
+      parsed = Ainalrami.Trf.parse(text)
+      games = for p <- parsed.players, g <- p.games, g.opponent_rank, do: g
+      boards = for n <- [1, 2], b <- boards(t, n), b.black_player_id, do: b
+
+      # Two games per board, and each player's 001 total is their game points.
+      assert length(games) == 2 * length(boards)
+
+      for p <- parsed.players do
+        assert p.points ==
+                 Enum.sum(
+                   for g <- p.games,
+                       do: Ainalrami.Trf.points_for_game(g, Ainalrami.Trf.default_point_system())
+                 )
+      end
+    end
+  end
+
   ## ---------- F7: a file from before `absent_counts_as_vur` ----------
 
   describe "an export written before absent_counts_as_vur existed" do

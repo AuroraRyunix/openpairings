@@ -17,6 +17,8 @@ defmodule PairingsEngine.TrfExport do
   `PairingsEngine.Pairing.trf_player_rows/2`.
   """
 
+  use Gettext, backend: PairingsEngineWeb.Gettext
+
   import Ecto.Query, only: [from: 2]
 
   alias PairingsEngine.{Federation, Pairing, PeriodRatings, Standings, TeamStandings, Tournaments}
@@ -518,6 +520,43 @@ defmodule PairingsEngine.TrfExport do
   end
 
   @doc """
+  What a TRF of `tournament` cannot carry, one sentence each, for the
+  Export page to show beside the TRF downloads - as `SwarExport.
+  export_notes/1` does for the `.swar` file. Empty when the file holds it
+  all.
+
+  Today that is the players' extra points that do nothing: a handicap the
+  tournament does not count, or a penalty in acceleration mode that is
+  neither kept in the standings nor (being below zero) handed to the
+  engine. The file has a record for points that count (`299`) and for
+  points the pairing uses (`250`/`XXA`), and none for points that do
+  neither, so a copy imported from it has none. Points that count or pair
+  are written, and come back (docs/extra-points.md).
+  """
+  def export_notes(%Tournament{} = tournament) do
+    idle =
+      tournament.id
+      |> Tournaments.list_players()
+      |> Enum.count(&idle_extra_points?(&1.extra_points || 0.0, tournament))
+
+    if idle > 0,
+      do: [
+        ngettext(
+          "%{count} player holds extra points that neither count in the standings nor reach the pairing. A TRF carries only points that do one or the other, so these are not in the file, and a tournament imported from it has none.",
+          "%{count} players hold extra points that neither count in the standings nor reach the pairing. A TRF carries only points that do one or the other, so these are not in the file, and a tournament imported from it has none.",
+          idle
+        )
+      ],
+      else: []
+  end
+
+  defp idle_extra_points?(points, _tournament) when points == 0.0, do: false
+  defp idle_extra_points?(_points, %Tournament{count_extra_points: true}), do: false
+
+  defp idle_extra_points?(points, tournament),
+    do: not (Tournament.extra_points_pairing?(tournament) and points > 0)
+
+  @doc """
   Resolves the export metadata needed to build the download filename (see
   `PairingsEngineWeb.ExportController`): the concrete list of rounds that
   `export/2` will produce for the same `rounds_spec` (after clamping/
@@ -589,9 +628,18 @@ defmodule PairingsEngine.TrfExport do
       |> Enum.map(&report_unknown(&1, if(rating?, do: :rating, else: dialect)))
       |> period_ratings(tournament, players, rounds)
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
-      # Baku virtual points for the rounds in the file. The report had
-      # left them out altogether; TRF26 wants them (`250`) for pairing.
-      |> then(&Pairing.accelerated_rows(tournament, &1, players, length(rounds)))
+      # Virtual points - Baku's, or acceleration mode's extra points - for
+      # the rounds in the file, and sometimes the round after
+      # (`virtual_point_rounds/4`). The report had left them out
+      # altogether once; TRF26 wants them (`250`) for pairing.
+      |> then(
+        &Pairing.accelerated_rows(
+          tournament,
+          &1,
+          players,
+          virtual_point_rounds(tournament, rounds, paired, rating?)
+        )
+      )
       |> append_future_byes(tournament, players, rounds, paired)
       |> with_final_ranks(tournament, rounds, dialect)
 
@@ -619,6 +667,32 @@ defmodule PairingsEngine.TrfExport do
          else: text
 
     national_rating_records(text, tournament, trf_players, players, rounds, dialect)
+  end
+
+  # How many rounds of virtual points the file carries: one per round in
+  # it - and, for acceleration mode's extra points while rounds remain, one
+  # more, the points the next round is to be paired with. Those are the
+  # players' extra points as they stand, and until this column they left
+  # the building nowhere: the history was in `250`/`XXA`, the present was
+  # not, and a copy imported from the file paired its next round as though
+  # the acceleration had been switched off (audit 2026-10, F6's second
+  # half). A `250` naming a round not yet paired is how TRF26 already
+  # spells Baku's later rounds; the engines' `XXA` is one more value.
+  #
+  # Only on a file of every round paired so far, as with the byes for a
+  # round not yet paired (`append_future_byes/5`): a slice is history. Not
+  # in the file sent for rating, which reports games and leaves pairing the
+  # next round to whoever holds the tournament. Not for Baku, which a
+  # reader recomputes from the `192` and the history (`TrfImport`), nor a
+  # counted handicap, which is no virtual point at all (`accelerated_rows/4`).
+  defp virtual_point_rounds(tournament, rounds, paired, rating?) do
+    forward? =
+      not rating? and rounds == Enum.to_list(1..paired//1) and
+        paired < (tournament.rounds_count || 0) and
+        Tournament.extra_points_pairing?(tournament) and
+        Tournament.extra_points_acceleration?(tournament)
+
+    if forward?, do: length(rounds) + 1, else: length(rounds)
   end
 
   # The rank column of the 001 record (86-89) is the player's place in the
