@@ -9,15 +9,15 @@ Targets built:
 
 | OS      | x86_64            | aarch64 (ARM)      |
 | ------- | ----------------- | ------------------ |
-| macOS   | `macos_x86_64`    | `macos_aarch64`    |
+| macOS   | (none)            | `macos_aarch64`    |
 | Linux   | `linux_x86_64`    | `linux_aarch64`    |
 | Windows | `windows_x86_64`  | (see below)        |
 
 **macOS is built again since 2026-10-14**, after a month off (2026-09-14:
 nobody used it). Besides the single-file binary and the portable zip, each
 macOS runner wraps the portable release in **`OpenPairings.app`** and ships
-it zipped as `openpairings_app_macos_aarch64.zip` /
-`openpairings_app_macos_x86_64.zip`. Unsigned for now (ad-hoc), with
+it zipped as `openpairings_app_macos_aarch64.zip`. The Mac build is for
+Apple Silicon (M1 and later) only. Unsigned for now (ad-hoc), with
 Developer ID signing and notarisation written and waiting for the Apple
 account's secrets. Everything macOS - the bundle, its launcher, the data
 folder, updates, signing, and the test list for a real Mac - is in

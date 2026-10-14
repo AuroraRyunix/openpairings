@@ -66,8 +66,7 @@ het programma.
 `chmod +x openpairings.sh`). Het programma opent je browser.
 
 **macOS.** Download `openpairings_app_macos_aarch64.zip` voor een Mac met een
-Apple-chip (M1 en later) of `openpairings_app_macos_x86_64.zip` voor een Mac
-met Intel, open het bestand en sleep *OpenPairings* naar *Programma's*. De app
+Apple-chip (M1 en later; voor oudere Macs met Intel is er geen versie), open het bestand en sleep *OpenPairings* naar *Programma's*. De app
 is nog niet door Apple ondertekend, dus de eerste keer weigert macOS hem te
 openen: open *Systeeminstellingen*, *Privacy en beveiliging*, scrol naar
 beneden en klik op *Open toch* (*Open Anyway*) naast de melding over

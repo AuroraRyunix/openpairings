@@ -8,8 +8,7 @@ a Mac still has to confirm.
 
 | | |
 |---|---|
-| Apple Silicon (M1 and later) | `openpairings_app_macos_aarch64.zip`, built on `macos-15` |
-| Intel | `openpairings_app_macos_x86_64.zip`, built on `macos-15-intel` (GitHub retired `macos-13` in December 2025) |
+| Apple Silicon only (M1 and later) | `openpairings_app_macos_aarch64.zip`, built on `macos-15` |
 | Runtime | Erlang/OTP 29.0.5 and Elixir 1.20 from `erlef/setup-beam`, the same action and versions as the Linux and Windows jobs. On macOS it installs `erlef/otp_builds`, which links OpenSSL statically, so the app needs nothing from Homebrew |
 | Oldest macOS | 11 (Big Sur) is what the build asks for (`MACOSX_DEPLOYMENT_TARGET`); the build log prints what the binaries really accept and writes that into `Info.plist` |
 | Signed | ad-hoc only, for now - see [Unsigned, for now](#unsigned-for-now) |
