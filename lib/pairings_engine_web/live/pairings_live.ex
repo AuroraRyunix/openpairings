@@ -28,6 +28,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     RoundRobin,
     Snapshots,
     Standings,
+    StartingNumbers,
     TeamMatches,
     Tournaments,
     Tpn
@@ -165,6 +166,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        # whether the last pairing attempt found no legal pairing, which is
        # when creating the round by hand is offered.
        mpa_dialog: nil,
+       # How a round robin's players are numbered, asked before its first
+       # pairing (or before its first round is made by hand): the choice, the
+       # list it gives and the draw's seed. See "Round-robin starting numbers".
+       rr_numbers: nil,
        manual_round_offer: false,
        rr_by_hand: false,
        # The automatic rating check's notice (see
@@ -448,6 +453,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         seat_pick: nil,
         confirm: nil,
         mpa_dialog: nil,
+        rr_numbers: nil,
         manual_round_offer: false
       )
     end
@@ -1040,7 +1046,73 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("mpa_dialog_cancel", _params, socket),
-    do: {:noreply, assign(socket, mpa_dialog: nil)}
+    do: {:noreply, assign(socket, mpa_dialog: nil, rr_numbers: nil)}
+
+  ## ---------- Round-robin starting numbers ----------
+  #
+  # The Berger tables pair on the players' starting numbers, which cannot
+  # change once round 1 exists. So the first pairing asks how to number
+  # (`PairingsEngine.StartingNumbers`): by rating, as entered, by lot, or as
+  # already set on the Players page. The list each choice gives is shown
+  # first; what is shown is what is written, and the choice (with the draw's
+  # seed and the resulting order) goes to the audit trail.
+
+  def handle_event("rr_numbers_open", _params, socket) do
+    t = socket.assigns.tournament
+
+    if StartingNumbers.editable?(t) and is_nil(socket.assigns.round) and is_nil(t.archived_at) do
+      {:noreply,
+       assign(socket, rr_numbers: rr_numbers_state(t, :pair, StartingNumbers.default_mode(t)))}
+    else
+      {:noreply, assign(socket, rr_numbers: nil)}
+    end
+  end
+
+  def handle_event("rr_numbers_mode", %{"mode" => mode}, socket) do
+    with %{} = state <- socket.assigns.rr_numbers,
+         {:ok, mode} <- rr_numbers_mode(mode) do
+      t = socket.assigns.tournament
+
+      # Picking "by lot" again keeps the draw on the table; a fresh one is
+      # only made by the draw button.
+      seed = if mode == :lots, do: state.seed, else: nil
+
+      {:noreply, assign(socket, rr_numbers: rr_numbers_state(t, state.purpose, mode, seed))}
+    else
+      _ -> {:noreply, socket}
+    end
+  end
+
+  def handle_event("rr_numbers_draw", _params, socket) do
+    case socket.assigns.rr_numbers do
+      %{} = state ->
+        t = socket.assigns.tournament
+        seed = StartingNumbers.new_seed()
+        {:noreply, assign(socket, rr_numbers: rr_numbers_state(t, state.purpose, :lots, seed))}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("rr_numbers_confirm", _params, socket) do
+    case socket.assigns.rr_numbers do
+      %{purpose: :pair} = state ->
+        case apply_rr_numbers(socket, state) do
+          {:ok, socket} ->
+            handle_event("pair", %{}, assign(socket, rr_numbers: nil))
+
+          {:error, socket} ->
+            {:noreply, socket}
+        end
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("rr_numbers_cancel", _params, socket),
+    do: {:noreply, assign(socket, rr_numbers: nil)}
 
   # VCL4THP Q63: the round the engine could not pair, created empty for the
   # arbiter to pair by hand - behind a Level-3 confirmation, since the
@@ -1063,9 +1135,15 @@ defmodule PairingsEngineWeb.PairingsLive do
     %{tournament: t, round: round, mpa_open: open} = socket.assigns
 
     if RoundRobin.by_hand?(t) and is_nil(round) and is_nil(open) and is_nil(t.archived_at) do
+      # The first round made by hand fixes the numbers as well.
+      numbers =
+        if StartingNumbers.editable?(t),
+          do: rr_numbers_state(t, :by_hand, StartingNumbers.default_mode(t))
+
       {:noreply,
        assign(socket,
-         mpa_dialog: %{kind: :rr_round, round: socket.assigns.next_pairable, ack: false}
+         mpa_dialog: %{kind: :rr_round, round: socket.assigns.next_pairable, ack: false},
+         rr_numbers: numbers
        )}
     else
       {:noreply, socket}
@@ -1076,7 +1154,8 @@ defmodule PairingsEngineWeb.PairingsLive do
     with %{kind: :rr_round, ack: true} <- socket.assigns.mpa_dialog,
          t = socket.assigns.tournament,
          true <- RoundRobin.by_hand?(t),
-         nil <- ManualPairing.open_round(t.id) do
+         nil <- ManualPairing.open_round(t.id),
+         {:ok, socket} <- apply_rr_numbers(socket, socket.assigns.rr_numbers) do
       Snapshots.capture(t, "pairing.round_paired", socket.assigns.current_scope,
         summary: "Before pairing round #{socket.assigns.next_pairable} by hand"
       )
@@ -1094,7 +1173,12 @@ defmodule PairingsEngineWeb.PairingsLive do
 
           {:noreply,
            socket
-           |> assign(tournament: fresh_tournament(socket), round_number: round.number, error: nil)
+           |> assign(
+             tournament: fresh_tournament(socket),
+             round_number: round.number,
+             error: nil,
+             rr_numbers: nil
+           )
            |> refresh()
            |> put_flash(
              :info,
@@ -1105,9 +1189,10 @@ defmodule PairingsEngineWeb.PairingsLive do
            )}
 
         {:error, reason} ->
-          {:noreply, assign(socket, error: error_text(reason), mpa_dialog: nil)}
+          {:noreply, assign(socket, error: error_text(reason), mpa_dialog: nil, rr_numbers: nil)}
       end
     else
+      {:error, socket} -> {:noreply, socket}
       _ -> {:noreply, socket}
     end
   end
@@ -3763,6 +3848,103 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp note_recorded_missing(socket), do: socket
 
+  @rr_numbers_modes %{
+    "rating" => :rating,
+    "entered" => :entered,
+    "lots" => :lots,
+    "set" => :set
+  }
+
+  defp rr_numbers_mode(mode), do: Map.fetch(@rr_numbers_modes, mode)
+
+  # Whether the pair button asks how to number first: an individual round
+  # robin whose first round is not made yet.
+  defp rr_ask_numbers?(tournament, paired_rounds),
+    do: paired_rounds == 0 and StartingNumbers.applies?(tournament)
+
+  # What the dialog shows for `mode`: the ids in the order they would be
+  # numbered and the list that gives. A drawing not made yet is an empty
+  # list; the seed comes from the draw button.
+  defp rr_numbers_state(tournament, purpose, mode, seed \\ nil) do
+    seed = if mode == :lots, do: seed
+
+    ids =
+      case mode do
+        :rating -> StartingNumbers.rating_ids(tournament)
+        :entered -> StartingNumbers.entry_ids(tournament)
+        :lots when is_integer(seed) -> StartingNumbers.lot_ids(tournament, seed)
+        :lots -> []
+        :set -> tournament |> StartingNumbers.order() |> Enum.map(fn {p, _n} -> p.id end)
+      end
+
+    set? = StartingNumbers.set_by_hand?(tournament)
+
+    %{
+      purpose: purpose,
+      mode: mode,
+      seed: seed,
+      ids: ids,
+      order: StartingNumbers.numbered(tournament, ids),
+      # The "as set" choice exists while numbers do, and says when they are
+      # in fact one of the other orders.
+      set_available?: set?,
+      set_matches: if(set?, do: rr_set_matches(tournament)),
+      count: length(StartingNumbers.entry_ids(tournament))
+    }
+  end
+
+  defp rr_set_matches(tournament) do
+    set_ids = tournament |> StartingNumbers.order() |> Enum.map(fn {p, _n} -> p.id end)
+
+    cond do
+      set_ids == StartingNumbers.entry_ids(tournament) -> :entered
+      set_ids == StartingNumbers.rating_ids(tournament) -> :rating
+      true -> nil
+    end
+  end
+
+  # Writes the numbering the dialog showed and puts it on the audit trail.
+  # No dialog (a team event, or round 1 already exists): nothing to write.
+  # Not drawn yet: refused. A field that changed since the dialog opened
+  # (someone entered or withdrew a player) shows the new list instead of
+  # fixing a stale one.
+  defp apply_rr_numbers(socket, nil), do: {:ok, socket}
+
+  defp apply_rr_numbers(socket, %{mode: :lots, seed: nil}) do
+    {:error, put_flash(socket, :error, gettext("Draw the lots first."))}
+  end
+
+  defp apply_rr_numbers(socket, state) do
+    t = socket.assigns.tournament
+
+    case StartingNumbers.set_order(t, state.ids) do
+      {:ok, order} ->
+        details =
+          state.mode
+          |> StartingNumbers.audit_details(order, state.seed)
+          |> Map.put(:via, to_string(state.purpose))
+
+        Audit.log(t.id, socket.assigns.current_scope, "player.starting_numbers_set", details)
+        {:ok, socket}
+
+      {:error, reason} ->
+        message =
+          case reason do
+            :round_paired ->
+              gettext("Round 1 is paired: the starting numbers are the schedule now.")
+
+            reason when reason in [:archived, :handed_off] ->
+              error_text(reason)
+
+            _ ->
+              gettext("The list of players changed meanwhile - check the numbers and try again.")
+          end
+
+        state = rr_numbers_state(t, state.purpose, state.mode, state.seed)
+        {:error, socket |> put_flash(:error, message) |> assign(rr_numbers: state)}
+    end
+  end
+
   # Round-robin pairs its whole Berger schedule in one click instead of one
   # round at a time (see RoundRobin.pair_all_rounds/1's doc - there's
   # nothing to wait on between rounds the way Swiss waits on results) -
@@ -5223,12 +5405,187 @@ defmodule PairingsEngineWeb.PairingsLive do
     """
   end
 
+  # The first pairing of a round robin: how the players are numbered, with
+  # the list each choice gives, before the Berger table is fixed on it.
+  attr :numbers, :map, required: true
+
+  defp rr_numbers_dialog(assigns) do
+    ~H"""
+    <div class="pe-modal" phx-window-keydown="rr_numbers_cancel" phx-key="escape">
+      <div
+        class="pe-modal-card pe-modal-wide"
+        phx-click-away="rr_numbers_cancel"
+        id="rr-numbers-dialog"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="rr-numbers-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <header class="pe-modal-head">
+          <h2 id="rr-numbers-title">{gettext("Pair the whole tournament?")}</h2>
+
+          <p>
+            {gettext(
+              "The Berger tables pair on the players' starting numbers. How are the players numbered?"
+            )}
+          </p>
+        </header>
+
+        <div class="pe-modal-body">
+          <.rr_numbers_chooser numbers={@numbers} />
+
+          <div id="rr-numbers-lock-note" class="pe-modal-warn" role="alert">
+            <strong>{gettext("The numbers cannot change after round 1.")}</strong>
+            <p style="margin: 6px 0 0">
+              {gettext(
+                "This pairs every round of the schedule at once and locks in who is playing: anyone added afterwards is not in it, and the schedule cannot be changed once it exists."
+              )}
+            </p>
+          </div>
+        </div>
+
+        <footer class="pe-modal-foot">
+          <button type="button" id="rr-numbers-cancel" class="pe-btn" phx-click="rr_numbers_cancel">
+            {gettext("Cancel")}
+          </button>
+
+          <button
+            type="button"
+            id="rr-numbers-confirm"
+            class="pe-btn primary pe-modal-go"
+            phx-click="rr_numbers_confirm"
+            disabled={@numbers.mode == :lots && @numbers.seed == nil}
+          >
+            {gettext("Pair the whole tournament (Berger)")}
+          </button>
+        </footer>
+      </div>
+    </div>
+    """
+  end
+
+  # The four ways of numbering and the list the chosen one gives; shared by
+  # the pair dialog and the "pair round 1 by hand" dialog.
+  attr :numbers, :map, required: true
+
+  defp rr_numbers_chooser(assigns) do
+    ~H"""
+    <div id="rr-numbers">
+      <fieldset id="rr-numbers-modes" style="border: 0; padding: 0; margin: 0 0 8px">
+        <legend class="pe-modal-note" style="padding: 0">
+          {gettext("Number the players")}
+        </legend>
+
+        <label
+          :for={{mode, label, hint} <- rr_numbers_choices(@numbers)}
+          for={"rr-numbers-mode-#{mode}"}
+          style="display: block; margin-top: 8px; font-weight: 400"
+        >
+          <input
+            type="radio"
+            name="rr-numbering"
+            id={"rr-numbers-mode-#{mode}"}
+            value={mode}
+            checked={@numbers.mode == mode}
+            phx-click="rr_numbers_mode"
+            phx-value-mode={mode}
+          /> <strong>{label}</strong>
+          <span class="hint" style="display: block; margin-left: 22px">{hint}</span>
+        </label>
+      </fieldset>
+
+      <div :if={@numbers.mode == :lots} style="margin: 8px 0">
+        <button type="button" id="rr-numbers-draw" class="pe-btn" phx-click="rr_numbers_draw">
+          {if @numbers.seed, do: gettext("Draw again"), else: gettext("Draw lots")}
+        </button>
+        <span :if={@numbers.seed == nil} class="hint">
+          {gettext("Nothing is drawn yet.")}
+        </span>
+        <span :if={@numbers.seed} id="rr-numbers-seed" class="hint">
+          {gettext("Draw %{seed}: it is written to the audit trail, and repeats the same order.",
+            seed: @numbers.seed
+          )}
+        </span>
+      </div>
+
+      <p :if={@numbers.mode == :set && @numbers.set_matches} id="rr-numbers-set-note" class="hint">
+        <%= if @numbers.set_matches == :entered do %>
+          {gettext("These numbers are also the order the players were entered in.")}
+        <% else %>
+          {gettext("These numbers are also the rating order.")}
+        <% end %>
+      </p>
+
+      <div
+        :if={@numbers.order != []}
+        class="card-table-wrap"
+        style="max-height: 280px; overflow: auto"
+      >
+        <table class="pe-table" id="rr-numbers-list">
+          <thead>
+            <tr>
+              <th class="num">{gettext("No.")}</th>
+
+              <th>{gettext("Player")}</th>
+
+              <th class="num">{gettext("Rating")}</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr :for={{player, number} <- @numbers.order} id={"rr-number-row-#{player.id}"}>
+              <td class="num">{number}</td>
+
+              <td>{player.name}</td>
+
+              <td class="num">
+                {case PairingsEngine.Tournaments.Player.rating(player) do
+                  rating when is_integer(rating) and rating > 0 -> rating
+                  _ -> "-"
+                end}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    """
+  end
+
+  defp rr_numbers_choices(numbers) do
+    [
+      {:rating, gettext("By rating"),
+       gettext(
+         "Highest rating first. Equal ratings go by title, then by the tie-break set in the options (alphabetical unless you changed it), then by name, then in the order entered - the same order every time."
+       )},
+      {:entered, gettext("As entered"),
+       gettext("In the order the players were added to the tournament.")},
+      {:lots, gettext("By lot"),
+       gettext(
+         "The program draws. You see the draw before anything is fixed and can draw again; the draw is recorded so it can be repeated."
+       )}
+    ] ++
+      if numbers.set_available? do
+        [
+          {:set, gettext("As set on the Players page"),
+           gettext(
+             "The numbers that were already given, by hand on the Players page or by an imported file."
+           )}
+        ]
+      else
+        []
+      end
+  end
+
   # The manual pairing alteration's two Level-3 confirmations (TEC Manual):
   # finishing hand edits that leave the round different from the pairing
   # checker's (Q69 - the checker's own pairing shown, as the manual asks),
   # and creating a round by hand when no legal pairing exists (Q63). The
   # app's own dialog, like every hand edit's, with its own tick.
   attr :dialog, :map, required: true
+  attr :numbers, :map, default: nil
 
   defp mpa_dialog(assigns) do
     ~H"""
@@ -5388,6 +5745,8 @@ defmodule PairingsEngineWeb.PairingsLive do
               )}
             </p>
 
+            <.rr_numbers_chooser :if={@numbers} numbers={@numbers} />
+
             <div class="pe-modal-warn" role="alert">
               <strong>{gettext("A round that differs from the table is a departure from it.")}</strong>
               <p style="margin: 6px 0 0">
@@ -5417,7 +5776,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               id="rr-pair-by-hand-confirm"
               class="pe-btn primary pe-modal-go"
               phx-click="rr_pair_by_hand_confirm"
-              disabled={!@dialog.ack}
+              disabled={!@dialog.ack || (@numbers && @numbers.mode == :lots && @numbers.seed == nil)}
             >
               {gettext("Create round %{n}", n: @dialog.round)}
             </button>
@@ -5987,13 +6346,18 @@ defmodule PairingsEngineWeb.PairingsLive do
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"
             id="pair-round"
-            phx-click="pair"
+            phx-click={
+              if rr_ask_numbers?(@tournament, @paired_rounds), do: "rr_numbers_open", else: "pair"
+            }
             phx-value-acknowledged={
               acknowledged_value(@pairing_warnings, [:adjourned_older_round_open])
             }
             disabled={!@can_pair || @pairing_in_progress || @mpa_open != nil}
             data-confirm={
               cond do
+                rr_ask_numbers?(@tournament, @paired_rounds) ->
+                  nil
+
                 @tournament.pairing_system == "round_robin" ->
                   "This generates the whole round-robin schedule at once (every round, not just " <>
                     "this one) and locks in who's playing - anyone added afterward won't be in " <>
@@ -6920,7 +7284,8 @@ defmodule PairingsEngineWeb.PairingsLive do
           </footer>
         </div>
       </div>
-      <.mpa_dialog :if={@mpa_dialog} dialog={@mpa_dialog} />
+      <.mpa_dialog :if={@mpa_dialog} dialog={@mpa_dialog} numbers={@rr_numbers} />
+      <.rr_numbers_dialog :if={@rr_numbers && @rr_numbers.purpose == :pair} numbers={@rr_numbers} />
       <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">

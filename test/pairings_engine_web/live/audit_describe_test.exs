@@ -89,6 +89,18 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"player_name" => "Bram Claes", "other_name" => "Ann Peeters", "round" => 0}
     ],
     "player.starting_numbers_set" => [
+      %{
+        "mode" => "rating",
+        "seed" => nil,
+        "order" => [%{"no" => 1, "id" => 7, "name" => "Bram Claes"}]
+      },
+      %{"mode" => "entered", "order" => [%{"no" => 1, "id" => 7, "name" => "Bram Claes"}]},
+      %{
+        "mode" => "lots",
+        "seed" => 123_456,
+        "order" => [%{"no" => 1, "id" => 7, "name" => "Bram Claes"}]
+      },
+      %{"mode" => "set", "order" => [%{"no" => 1, "id" => 7, "name" => "Bram Claes"}]},
       %{"drawn" => true},
       %{"by_rating" => true},
       %{"player_name" => "Bram Claes", "number" => 3},

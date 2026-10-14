@@ -173,12 +173,17 @@ for. Pressing *Pair round N* for rounds 2 to 4 then asks first
 ratings*).
 
 **Starting numbers of a round robin.** Before round 1 the button **Starting
-numbers** opens the list the Berger tables pair by. Enter the result of a
-drawing of lots by hand (a number per player, or move a player up or down), or
-press **Draw lots** (the program draws, after a confirmation), or **Order by
-rating** to go back to the rating order. The numbers are used when round 1 is
-paired and cannot be changed after it; a player entered later gets the next
-number.
+numbers** opens the list the Berger tables pair by. Press **Order by rating**
+(highest rating first; equal ratings by title, then the tie-break set in the
+options, then name, then entry order), **Order as entered** (the order the
+players were added to the tournament), or **Draw lots** (the program draws,
+after a confirmation; the audit trail keeps the draw's seed and the resulting
+order). Or enter the result of a drawing of lots by hand (a number per player,
+or move a player up or down). The numbers are used when round 1 is paired and
+cannot be changed after it; a player entered later gets the next number. The
+first pairing of a round robin offers the same choices again
+([Numbering the players of a round robin](06-pairing.md#numbering-the-players-of-a-round-robin)),
+and SWAR users find there which SWAR option corresponds to which.
 
 ### The grid
 

@@ -790,16 +790,20 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       tournament
     end
 
-    test "the button reads 'Pair the whole tournament' and asks for confirmation", %{
+    test "the button reads 'Pair the whole tournament' and asks how to number first", %{
       conn: conn,
       scope: scope
     } do
       tournament = round_robin_setup_tournament(scope)
 
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
       assert html =~ "Pair the whole tournament"
-      assert html =~ "generates the whole round-robin schedule at once"
+      refute has_element?(lv, "#rr-numbers-dialog")
+
+      lv |> element("#pair-round") |> render_click()
+      assert has_element?(lv, "#rr-numbers-dialog #rr-numbers-lock-note")
+      assert render(lv) =~ "pairs every round of the schedule at once"
       # Not one round of the engine - only the round made by hand beside it
       # (VCL4THP Q100) names a single round.
       refute html =~ "Pair round 1 ("
