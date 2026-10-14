@@ -267,7 +267,8 @@ the build breaks.
 To work on the launcher itself, build it on its own:
 
 ```powershell
-py -3 rel\windows\build_brand_assets.py   # only if the icon changed
+py -3 rel\build_taskbar_icon.py           # only if the taskbar/Dock icon changed
+py -3 rel\windows\build_brand_assets.py   # only if the splash or installer art changed
 .\rel\windows\build_launcher.ps1          # writes rel\windows\OpenPairings.exe
 ```
 
