@@ -35,3 +35,4 @@
 *.swar binary
 priv/bbppairings/bbpPairings-linux binary
 priv/bbppairings/bbpPairings-windows.exe binary
+*.swift text eol=lf
