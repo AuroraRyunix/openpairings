@@ -94,6 +94,11 @@ defmodule PairingsEngine.Application do
       # says this is a desktop install, so a hosted server's copy of this
       # process sits doing nothing for the life of the node.
       PairingsEngine.Updates.Checker,
+      # The launcher's Details panel: this start's secret (and its file, when
+      # no launcher handed one over), the CPU sample, the slow queries. Idle
+      # on a hosted server - see its moduledoc. Before the endpoint, which
+      # asks it.
+      PairingsEngine.LauncherDetails,
       # Before the drain, the registration poll and the endpoint, and it
       # finishes before any of them starts: a restored backup can bring back a
       # tournament that was taken off the results site after it, with its key

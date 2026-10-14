@@ -107,7 +107,7 @@ try {
         "-Wl,/subsystem:windows" `
         launcher.c $res `
         -o $OutputPath `
-        -luser32 -lgdi32 -lshell32 -lole32 -lcomctl32 -lws2_32
+        -luser32 -lgdi32 -lshell32 -lole32 -lcomctl32 -lws2_32 -lwinhttp -lbcrypt
     if ($LASTEXITCODE -ne 0) { throw "zig cc failed with exit code $LASTEXITCODE" }
 }
 finally {

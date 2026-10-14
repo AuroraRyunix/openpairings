@@ -31,6 +31,17 @@ PORT=${PORT:-4000}
 # always told people and what the line below still says.
 RELEASE_DISTRIBUTION=${RELEASE_DISTRIBUTION:-none}
 export OPENPAIRINGS_LOCAL PORT RELEASE_DISTRIBUTION
+
+# `./openpairings.sh details [--once | --json]`: what the Windows launcher's
+# Details panel shows, for a machine without that window. It asks the
+# OpenPairings already running from this data folder, through a second,
+# short-lived runtime (`eval` starts nothing of the server); see
+# PairingsEngine.LauncherDetails.CLI and docs/launcher-details.md.
+if [ "${1:-}" = details ]; then
+  shift
+  exec "$here/bin/pairings_engine_portable" eval "PairingsEngine.LauncherDetails.CLI.main()" "$@"
+fi
+
 echo "Starting OpenPairings on http://localhost:$PORT"
 echo "Press Ctrl-C to stop it."
 echo

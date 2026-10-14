@@ -55,6 +55,11 @@ defmodule PairingsEngineWeb.Endpoint do
     plug Phoenix.Ecto.CheckRepoStatus, otp_app: :pairings_engine
   end
 
+  # The launcher's Details panel - a desktop copy, this machine, and a secret,
+  # or a 404. Before the request logger, so a panel left open does not log
+  # its own polling into the log it shows. See the plug.
+  plug PairingsEngineWeb.Plugs.LauncherStats
+
   plug Phoenix.LiveDashboard.RequestLogger,
     param_key: "request_logger",
     cookie_key: "request_logger"
