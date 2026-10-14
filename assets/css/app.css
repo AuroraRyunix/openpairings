@@ -150,6 +150,18 @@
   --accent-soft: #e8f0eb;
   --accent-ink: #ffffff;
   --accent-lift: #10151b;
+  /* The sign-in panel (`.auth-hero`), derived from the accent: on a light
+     theme the accent itself, deepening toward --accent-lift; on dark and slate
+     (below) a deep step of it, since a pale slab on a near-black page is a
+     searchlight. --hero-ink is the text on it, --hero-pole what everything
+     laid over it is mixed toward; the two always run AWAY from each other, so
+     an overlay can only add contrast. contrast_test.exs measures all 72
+     palettes. */
+  --hero-a: var(--accent);
+  --hero-b: color-mix(in srgb, var(--accent) 80%, var(--accent-lift));
+  --hero-c: color-mix(in srgb, var(--accent) 58%, var(--accent-lift));
+  --hero-ink: var(--accent-ink);
+  --hero-pole: var(--accent-lift);
   --danger: #a33c2e;
   --danger-hover: #863126;
   --danger-ink: #ffffff;
@@ -188,6 +200,11 @@
   --accent-soft: rgba(96, 189, 140, 0.16);
   --accent-ink: #0e1210;
   --accent-lift: #ffffff;
+  --hero-a: color-mix(in srgb, var(--accent) 50%, var(--accent-ink));
+  --hero-b: color-mix(in srgb, var(--accent) 40%, var(--accent-ink));
+  --hero-c: color-mix(in srgb, var(--accent) 30%, var(--accent-ink));
+  --hero-ink: var(--accent-lift);
+  --hero-pole: var(--accent-ink);
   --danger: #e07a63;
   --danger-hover: #e6927f;
   --danger-ink: #0e1210;
@@ -226,6 +243,11 @@
   --accent-soft: rgba(127, 178, 229, 0.18);
   --accent-ink: #0d141b;
   --accent-lift: #ffffff;
+  --hero-a: color-mix(in srgb, var(--accent) 50%, var(--accent-ink));
+  --hero-b: color-mix(in srgb, var(--accent) 40%, var(--accent-ink));
+  --hero-c: color-mix(in srgb, var(--accent) 30%, var(--accent-ink));
+  --hero-ink: var(--accent-lift);
+  --hero-pole: var(--accent-ink);
   --danger: #e58b8b;
   --danger-hover: #eba3a3;
   --danger-ink: #0d141b;
@@ -620,6 +642,19 @@ body {
   width: 36px;
   height: 27px;
   flex-shrink: 0;
+  /* The wing tips sit on the viewBox's edge and their stroke is wider than
+     the half unit left over; the svg's default clip took the outermost pixel
+     off the left wing (the hosted mark's mitred tip lost more). */
+  overflow: visible;
+}
+
+/* A flash is never wider than the window, whatever its width classes say
+   (320px / 384px): on a narrow phone, or with the text enlarged, the fixed
+   320 pushed its right edge off the screen and the message with it. Long
+   unbroken text (an address, a path) wraps instead of widening the box. */
+.toast > .alert {
+  max-width: calc(100vw - 2rem);
+  overflow-wrap: anywhere;
 }
 
 .topbar .brand-name {
@@ -5523,8 +5558,11 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
      logo/title out of reach) when the content is taller than the card. */
   align-items: safe center;
   padding: 40px 44px;
-  color: #eef4ef;
-  background: radial-gradient(130% 150% at 0% 0%, #3f8060 0%, #2e5e44 46%, #1d4030 100%);
+  /* The panel is the theme's accent, not a fixed green: it used to be, and
+     beside a blue or rose primary button it looked like two different apps.
+     The tokens are defined with the themes (--hero-*, top of this file). */
+  color: var(--hero-ink);
+  background: radial-gradient(130% 150% at 0% 0%, var(--hero-a) 0%, var(--hero-b) 46%, var(--hero-c) 100%);
   overflow: hidden;
 }
 /* soft decorative light + board grain */
@@ -5534,7 +5572,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   inset: -40% -20% auto auto;
   width: 520px;
   height: 520px;
-  background: radial-gradient(circle, rgba(255, 255, 255, 0.16), transparent 62%);
+  background: radial-gradient(circle, color-mix(in srgb, var(--hero-pole) 18%, transparent), transparent 62%);
   pointer-events: none;
 }
 .auth-hero::after {
@@ -5542,8 +5580,8 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   position: absolute;
   inset: 0;
   background-image:
-    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+    linear-gradient(color-mix(in srgb, var(--hero-pole) 7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--hero-pole) 7%, transparent) 1px, transparent 1px);
   background-size: 44px 44px;
   mask-image: radial-gradient(120% 120% at 100% 100%, #000 0%, transparent 70%);
   pointer-events: none;
@@ -5562,10 +5600,13 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
      of stretching the full panel width. */
   padding: 8px 14px 8px 10px;
   border-radius: 99px;
-  background: rgba(0, 0, 0, 0.16);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: color-mix(in srgb, var(--hero-pole) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hero-ink) 14%, transparent);
 }
-.auth-hero-mark { width: 46px; height: 35px; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25)); }
+/* `overflow: visible`: the wing tips sit on the viewBox's edge and their
+   stroke is wider than the half unit left over, so the default clip shaved
+   the outermost pixel off both wings. The top bar's mark has the same fix. */
+.auth-hero-mark { width: 46px; height: 35px; overflow: visible; filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25)); }
 .auth-hero-name { font-size: 20px; font-weight: 500; letter-spacing: 0.01em; }
 .auth-hero-name strong { font-weight: 800; }
 
@@ -5577,15 +5618,17 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   letter-spacing: -0.01em;
 }
 
-/* 0.92, not 0.82: where the line starts, the gradient is at its lightest and
-   0.82 read at 4.1:1 (accessibility pass, 2026-09-13; see
-   test/pairings_engine_web/contrast_test.exs for where each line sits). */
+/* The intro runs the panel's width, like the list under it. It was capped
+   at 34ch, which left it wrapping at half the panel while the bullets below
+   used all of it. Opaque-enough ink (92%), not the 82% it once was: the
+   lighter the mix, the less of the accent-ink's contrast survives
+   (see test/pairings_engine_web/contrast_test.exs, "the sign-in hero"). */
 .auth-hero-sub {
   font-size: 15px;
   line-height: 1.55;
-  color: rgba(238, 244, 239, 0.92);
+  color: color-mix(in srgb, var(--hero-ink) 92%, transparent);
   margin: 0 0 30px;
-  max-width: 34ch;
+  max-width: none;
 }
 
 .auth-features {
@@ -5601,40 +5644,25 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   align-items: center;
   gap: 10px;
   font-size: 14px;
-  color: rgba(238, 244, 239, 0.92);
+  color: color-mix(in srgb, var(--hero-ink) 92%, transparent);
 }
-.auth-features li svg { color: #8fe0b4; flex-shrink: 0; }
-/* A not-yet-shipped feature deliberately looks different from the shipped
-   ones above it - dimmer text, a clock instead of the green checkmark
-   (`hero-clock-mini`, not `hero-check-circle-mini`) - so it reads as "on
-   the roadmap", never as a claim the checkmark rows are already making. */
-/* Dimmer, but no longer below 4.5:1 - 0.6 read at 3.6:1. The clock and the
-   "Coming soon" tag are what say "not yet"; the dimming only supports them. */
-.auth-feature-soon { color: rgba(238, 244, 239, 0.8); }
-.auth-feature-soon svg { color: rgba(238, 244, 239, 0.5); }
-.auth-feature-soon-tag {
-  flex-shrink: 0;
-  padding: 1px 7px;
-  border-radius: 99px;
-  border: 1px solid rgba(238, 244, 239, 0.3);
-  font-size: 11px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
+.auth-features li svg { color: var(--hero-ink); flex-shrink: 0; }
 .auth-panel {
   display: flex;
-  padding: 12px 40px;
+  /* More room below than above: the card sits at the optical centre, which
+     is well above the arithmetic one - centred exactly, a short form in the
+     tall card left as much empty glass over "Welcome back" as under the
+     button, and the top read as the emptier half. */
+  padding: 24px 40px 110px;
   overflow-y: auto;
 }
 /* `margin: auto` (not align/justify-center) so the card centres when there's
    room but aligns to the top and stays fully scrollable when it's taller than
    the panel - flex centering would crop the top/bottom out of reach. */
-.auth-card { width: 100%; max-width: 360px; margin: auto; }
+.auth-card { width: 100%; max-width: 380px; margin: auto; }
 
 .auth-card-title {
-  font-size: 22px;
+  font-size: 26px;
   font-weight: 700;
   margin: 0 0 4px;
   color: var(--text);
@@ -5642,7 +5670,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 .auth-card-sub {
   font-size: 14px;
   color: var(--text-soft);
-  margin: 0 0 14px;
+  margin: 0 0 20px;
 }
 
 .auth-link { color: var(--accent); font-weight: 600; text-decoration: none; }
@@ -5737,7 +5765,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   align-items: center;
   gap: 12px;
   font-size: 14px;
-  color: rgba(238, 244, 239, 0.85);
+  color: color-mix(in srgb, var(--hero-ink) 92%, transparent);
 }
 .auth-hero-cta-btn {
   display: inline-flex;
@@ -5745,14 +5773,14 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   gap: 6px;
   padding: 9px 16px;
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: #f4f7f4;
+  background: color-mix(in srgb, var(--hero-pole) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--hero-ink) 35%, transparent);
+  color: var(--hero-ink);
   font-weight: 600;
   text-decoration: none;
   transition: background 0.14s ease;
 }
-.auth-hero-cta-btn:hover { background: rgba(255, 255, 255, 0.24); }
+.auth-hero-cta-btn:hover { background: color-mix(in srgb, var(--hero-pole) 34%, transparent); }
 
 .auth-tools {
   margin: 18px 0 0;
