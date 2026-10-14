@@ -1396,8 +1396,15 @@ defmodule PairingsEngineWeb.UserLive.Settings do
   defp theme_label("paper"), do: gettext("Paper")
   defp theme_label("board"), do: gettext("Board")
   defp theme_label("tomw"), do: gettext("Tom W")
-  defp theme_label("jorian"), do: gettext("Jorian")
   defp theme_label("contrast"), do: gettext("High Contrast")
+
+  # An installed theme pack: its own name, in Dutch when it brought one.
+  defp theme_label(id) do
+    case PairingsEngine.ThemePacks.get(id) do
+      nil -> id
+      pack -> PairingsEngine.ThemePacks.label(pack, Gettext.get_locale(PairingsEngineWeb.Gettext))
+    end
+  end
 
   defp accent_label("green"), do: gettext("Green")
   defp accent_label("blue"), do: gettext("Blue")

@@ -11,6 +11,7 @@ defmodule PairingsEngineWeb.Layouts do
   alias PairingsEngine.Authz
   alias PairingsEngine.Build
   alias PairingsEngine.Publishing.Monitor
+  alias PairingsEngine.ThemePacks
   alias PairingsEngine.Updates
 
   # Embed all files in layouts/* within this module.
@@ -1096,7 +1097,6 @@ defmodule PairingsEngineWeb.Layouts do
     {"paper", "hero-document-micro"},
     {"board", "hero-squares-2x2-micro"},
     {"tomw", "hero-swatch-micro"},
-    {"jorian", "hero-star-micro"},
     {"contrast", "hero-eye-micro"}
   ]
 
@@ -1108,7 +1108,6 @@ defmodule PairingsEngineWeb.Layouts do
   defp theme_label("paper"), do: gettext("Paper")
   defp theme_label("board"), do: gettext("Board")
   defp theme_label("tomw"), do: gettext("Tom W")
-  defp theme_label("jorian"), do: gettext("Jorian")
   defp theme_label("contrast"), do: gettext("High Contrast")
 
   @doc """
@@ -1179,9 +1178,21 @@ defmodule PairingsEngineWeb.Layouts do
   `data-theme` / `data-theme-source` attributes the inline script in
   root.html.heex maintains on `<html>` - so it needs no server state and
   reflects the choice instantly, even across tabs.
+
+  Installed theme packs (`PairingsEngine.ThemePacks`) follow the built-in
+  themes, each with its swatch, and a pack that was refused is listed under
+  them with the reason, greyed out, so whoever installed it finds out here
+  rather than in a log. A pack's option is highlighted by `aria-pressed`
+  (kept by `app.js`), since app.css cannot name a theme it has never heard of.
   """
   def theme_switch(assigns) do
-    assigns = assign(assigns, :themes, @themes)
+    locale = Gettext.get_locale(PairingsEngineWeb.Gettext)
+
+    assigns =
+      assigns
+      |> assign(:themes, @themes)
+      |> assign(:packs, Enum.map(ThemePacks.list(), &{&1, ThemePacks.label(&1, locale)}))
+      |> assign(:refused, ThemePacks.refused())
 
     ~H"""
     <details class="theme-picker" name="topbar-popover">
@@ -1214,6 +1225,31 @@ defmodule PairingsEngineWeb.Layouts do
         >
           <.icon name={icon} class="size-4" /> {theme_label(key)}
         </button>
+
+        <button
+          :for={{pack, label} <- @packs}
+          type="button"
+          class="theme-picker-item is-pack"
+          id={"theme-pack-#{pack.id}"}
+          data-theme-opt={pack.id}
+          data-phx-theme={pack.id}
+          phx-click={JS.dispatch("phx:set-theme")}
+          title={if pack.author != "", do: gettext("By %{author}", author: pack.author)}
+        >
+          <span class="theme-pack-swatch" aria-hidden="true">
+            <i :for={colour <- pack.swatch} style={"background: #{colour}"}></i>
+          </span>
+          {label}
+        </button>
+
+        <p
+          :for={{id, reason} <- @refused}
+          class="theme-picker-refused"
+          id={"theme-pack-refused-#{id}"}
+          title={reason}
+        >
+          {id}: {gettext("refused: %{reason}", reason: reason)}
+        </p>
       </div>
     </details>
     """

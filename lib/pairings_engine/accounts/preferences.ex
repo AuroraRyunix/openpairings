@@ -32,13 +32,24 @@ defmodule PairingsEngine.Accounts.Preferences do
   `"system"` is a theme here and not the same as `nil`: it says "follow the
   operating system's light/dark setting, on every device", where `nil` says
   "leave each device alone".
+
+  ## Theme packs
+
+  The installed packs (`PairingsEngine.ThemePacks`) are themes too, after
+  the built-in ones. They are read when asked, not at compile time, so a
+  pack that is removed stops being storable - and an account that stored it
+  gets no `data-account-theme` at all, which the inline script turns into
+  System like any other lost theme.
   """
 
-  @themes ~w(system light dark slate paper board tomw jorian contrast)
+  @themes ~w(system light dark slate paper board tomw contrast)
   @accents ~w(green blue teal violet rose slate indigo cyan fuchsia)
 
-  @doc "Every theme an account may store, `\"system\"` first."
-  def themes, do: @themes
+  @doc "Every theme an account may store, `\"system\"` first, installed packs last."
+  def themes, do: @themes ++ PairingsEngine.ThemePacks.ids()
+
+  @doc "The themes built into the program, `\"system\"` first."
+  def builtin_themes, do: @themes
 
   @doc "Every accent colour an account may store, the default (`green`) first."
   def accents, do: @accents
@@ -47,7 +58,7 @@ defmodule PairingsEngine.Accounts.Preferences do
   def locales, do: PairingsEngineWeb.Locale.codes()
 
   @doc "Whether `value` may be stored as a theme."
-  def theme?(value), do: value in @themes
+  def theme?(value), do: value in themes()
 
   @doc "Whether `value` may be stored as an accent colour."
   def accent?(value), do: value in @accents
