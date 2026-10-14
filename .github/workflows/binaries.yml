@@ -113,6 +113,11 @@ jobs:
         with:
           # Burrito 1.5 requires exactly this Zig version.
           version: 0.15.2
+          # No build cache: on 2026-10-14 Windows restored one from a run
+          # that was cancelled halfway, minus the build runner it pointed at,
+          # and Burrito failed twice in a row on a file that wasn't there.
+          # A clean Zig build costs a minute; a poisoned cache costs a release.
+          use-cache: false
 
       # Burrito shells out to `xz` to compress the payload. The Linux and macOS
       # images ship one; Windows does not, and there is no chocolatey package
