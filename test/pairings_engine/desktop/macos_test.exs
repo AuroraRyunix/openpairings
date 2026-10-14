@@ -133,10 +133,10 @@ defmodule PairingsEngine.Desktop.MacosTest do
       assert swift =~ ~s(let defaultDataFolder = "Library/Application Support/OpenPairings")
       assert swift =~ ~s(let dataEnv = "OPENPAIRINGS_DATA_DIR")
       assert swift =~ ~s(let releaseInResources = "app/bin/pairings_engine_portable")
-      assert swift =~ ~s(appendingPathComponent("launcher.sh"))
+      assert swift =~ ~s[appendingPathComponent("launcher.sh")]
       # CI starts the bundle's own executable this way.
       assert swift =~ ~s(let headlessEnv = "OPENPAIRINGS_LAUNCHER_NO_UI")
-      assert swift =~ ~s(contains("--headless"))
+      assert swift =~ ~s[contains("--headless")]
       assert read(".github/workflows/binaries.yml") =~ ~s("$launcher" --headless)
       # Nothing but AppKit and Foundation: the build has swiftc and the SDK.
       imports = Regex.scan(~r/^import (\w+)$/m, swift, capture: :all_but_first)

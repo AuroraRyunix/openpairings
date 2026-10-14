@@ -15,7 +15,7 @@
 #   OpenPairings.app/Contents/MacOS/OpenPairings rel/macos/Launcher.swift, compiled
 #   OpenPairings.app/Contents/Resources/launcher.sh  rel/macos/launcher.sh
 #   OpenPairings.app/Contents/Resources/app/    the portable release, whole
-#   OpenPairings.app/Contents/Resources/OpenPairings.icns  from the logo
+#   OpenPairings.app/Contents/Resources/OpenPairings.icns  rel/macos/OpenPairings-icon.png
 #
 # The executable is a small AppKit program (the Dock icon and the window)
 # compiled here with swiftc for arm64 and macOS 11; launcher.sh beside the
