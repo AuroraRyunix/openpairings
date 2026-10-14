@@ -1,7 +1,7 @@
 # OpenPairings on macOS
 
-Since 2026-10-14 every push to `main` builds **`OpenPairings.app`** for both
-kinds of Mac, and a release attaches it. Nobody on the project has a Mac:
+Since 2026-10-14 every push to `main` builds **`OpenPairings.app`** for Apple
+Silicon Macs, and a release attaches it. Nobody on the project has a Mac:
 everything below was built and started on GitHub's macOS runners, and the
 [test list](#testing-a-build-on-a-real-mac) at the end is what a person with
 a Mac still has to confirm.
@@ -23,29 +23,42 @@ a terminal. The app is for everybody else.
 ```
 OpenPairings.app/Contents/
   Info.plist                 rel/macos/Info.plist, version filled in from the release
-  MacOS/OpenPairings         rel/macos/launcher.sh
+  MacOS/OpenPairings         rel/macos/Launcher.swift, compiled (arm64, macOS 11+)
+  Resources/launcher.sh      rel/macos/launcher.sh
   Resources/app/             the portable release (pairings_engine_portable), whole
   Resources/OpenPairings.icns
 ```
 
 `rel/macos/build_app.sh` builds it on the runner around the portable
-release. The launcher does what `OpenPairings.exe` does on Windows, as far
-as a shell script and the Mac's own `osascript` allow:
+release, and compiles the launcher there with `swiftc` (plain AppKit, one
+file, no Xcode project). The two halves:
 
-- a second double-click opens a browser tab at the running copy instead of
-  starting a second server;
-- it starts the release in local mode with Erlang distribution off, waits
-  until `http://localhost:4000` answers, then opens the browser;
-- it stays as a **small window** ("OpenPairings is running at
-  http://localhost:4000") with two buttons, *Open in browser* and *Stop
-  OpenPairings*. Stopping sends the server SIGTERM, which closes the
-  database cleanly. Logging out or shutting down does the same. If the
-  server dies on its own, the window says so and names the log.
+- **`Launcher.swift`** is what you see. A normal **Dock icon**: the running
+  dot, *Options > Keep in Dock*, Cmd-Tab. A **small window** with the name,
+  what the server is doing ("OpenPairings is running at
+  http://localhost:4000"), *Open in browser* and *Stop OpenPairings*.
+  Closing the window only hides it; clicking the Dock icon brings it back,
+  and the Dock icon's menu has *Open in browser* too. The browser opens by
+  itself once the server answers. English, or Dutch when the Mac's first
+  language is Dutch.
+- **`launcher.sh`** is what it runs. It starts the release in local mode
+  with Erlang distribution off and everything it writes outside the bundle,
+  waits until the port answers, and stops the server on SIGTERM (clean
+  `init:stop()`, twenty seconds, then insists). It also watches its parent:
+  if the app is force-quit, the server goes with it.
 
-The window is AppleScript's `display dialog`. A menu-bar icon would be
-nicer, and needs a compiled Cocoa program that nobody here can run; the
-dialog needs nothing that is not on every Mac. The app has no Dock icon
-(`LSUIElement`): the window is how you find it.
+**Quitting stops the server**: *Stop OpenPairings*, Cmd-Q, the Dock's
+*Quit*, logging out and shutting down all send the server SIGTERM, which
+closes the database cleanly, and the app leaves once the server has. No
+question first, as on Windows. A second start (another copy of the app, or
+one started while the server already answers) opens a browser tab instead
+of a second server. If the server dies on its own, the app says so and names
+the log.
+
+Until 2026-10-14 the launcher was the shell script alone, with an
+AppleScript `display dialog` for a window and `LSUIElement` set, so the app
+had no Dock icon and could not be kept in the Dock. The Swift half exists
+for that.
 
 The launcher writes nothing into the app. A fresh download is run by
 Gatekeeper from a read-only, "translocated" copy, and writing into a signed
@@ -56,8 +69,9 @@ from a **read-only** bundle and checks its seal afterwards to prove it.
 ## Where the data is
 
 `~/Library/Application Support/OpenPairings` - the database
-(`openpairings.db`), `secret_key_base`, `backups/` and the launcher's
-`launcher.log`. The same folder the portable release and the single-file
+(`openpairings.db`), `secret_key_base`, `backups/` and `logs/server.log`,
+the server's output for the current run (a fresh file on every start; the
+previous run is kept once as `server.log.1`). The same folder the portable release and the single-file
 binary have always used on a Mac, so nothing moves.
 
 It is never inside the app: replacing the app (an update) or dragging it to
@@ -153,26 +167,31 @@ needs a Mac test of its own: the entitlements are right on paper.
 In the macOS jobs of `.github/workflows/binaries.yml`, after the existing
 checks of the single-file binary and the portable release:
 
-1. `build_app.sh`: every binary in the bundle links only to the system (a
-   Homebrew library would work on the runner and nowhere else); the oldest
-   macOS all of them accept goes into `Info.plist`; the ad-hoc signature
-   verifies.
-2. The zip is unpacked as an arbiter would, the bundle made read-only, and
-   the launcher started with a scratch data folder on port 4003 (no window,
-   no browser: `OPENPAIRINGS_LAUNCHER_NO_UI=1`). It must serve a signed-in
-   page, with nothing listening but `127.0.0.1:4003` and no `epmd`.
+1. `build_app.sh`: `Launcher.swift` compiles (swiftc's errors become
+   annotations on the run); every binary in the bundle links only to the
+   system - `/usr/lib` (the Swift runtime in `/usr/lib/swift` included) and
+   `/System` - since a Homebrew library would work on the runner and nowhere
+   else; the oldest macOS all of them accept goes into `Info.plist`; the
+   ad-hoc signature verifies.
+2. The zip is unpacked as an arbiter would and the bundle made read-only.
+   `Info.plist` must have no `LSUIElement`, and `CFBundleExecutable` must be
+   a Mach-O arm64 executable. The bundle's own executable is started with
+   `--headless` (no window, no browser; it runs `launcher.sh` and passes
+   signals on) with a scratch data folder on port 4003. It must serve a
+   signed-in page, with nothing listening but `127.0.0.1:4003` and no
+   `epmd`.
 3. A second start must leave at once, leaving one server.
 4. SIGTERM to the launcher must stop the server, and nothing may be left
    running.
 5. The bundle's seal must still verify (nothing was written into it), and
    the database must be in the data folder.
 
-What CI cannot check: the window, the browser opening, Gatekeeper on a
-downloaded copy, a real logout. That is the list below.
+What CI cannot check: the window, the Dock, the browser opening, Gatekeeper
+on a downloaded copy, a real logout. That is the list below.
 
 ## Testing a build on a real Mac
 
-For the owner's M1 Pro, before anything is released. About fifteen minutes.
+For the owner's M1 Pro, before anything is released. About twenty minutes.
 
 **Get the build**
 
@@ -191,9 +210,10 @@ For the owner's M1 Pro, before anything is released. About fifteen minutes.
 5. Double-click it in Applications. Expect macOS to refuse ("could not
    verify..."). Follow [Opening it the first time](#unsigned-for-now) for
    your macOS version. Write down which message you saw.
-6. Expect, within about ten seconds: a small window **"OpenPairings is
-   running at http://localhost:4000"** with *Stop OpenPairings* and *Open in
-   browser*, and your browser on the Tournaments page, signed in as
+6. Expect, within about ten seconds: an OpenPairings icon in the **Dock**
+   with a running dot, a small window **"OpenPairings is running at
+   http://localhost:4000"** with *Stop OpenPairings* and *Open in browser*,
+   and your browser on the Tournaments page, signed in as
    `<you>@<your-mac>.local`. No Terminal window.
 7. In Finder, *Get Info* on the app: the version should be the one on the
    run's commit.
@@ -202,24 +222,35 @@ For the owner's M1 Pro, before anything is released. About fifteen minutes.
 **Where the data went**
 
 9. Finder > *Go > Go to Folder...* > `~/Library/Application Support/OpenPairings`.
-   Expect `openpairings.db`, `secret_key_base` and `launcher.log`. Nothing
+   Expect `openpairings.db`, `secret_key_base` and `logs/server.log`. Nothing
    should have appeared inside the app.
 
 **Running, and stopping**
 
 10. Close the browser tab, click *Open in browser*: the page comes back.
-11. Double-click the app again: a browser tab opens; no second window.
-12. Click **Stop OpenPairings**. The window closes, and
+11. Cmd-Tab: OpenPairings is in the list.
+12. Close the small window (red button). The Dock icon keeps its dot and
+    the page still works. Click the **Dock icon**: the window comes back.
+13. Right-click the Dock icon: *Open in browser* opens a tab. Choose
+    *Options > Keep in Dock*.
+14. Double-click the app in Applications again: a browser tab opens; still
+    one Dock icon, no second server.
+15. Click **Stop OpenPairings**. The app leaves the Dock's running list (the
+    icon stays, without a dot, because you kept it), and
     `http://localhost:4000` no longer answers. In *Activity Monitor*, search
     for `beam`: nothing.
-13. Start the app again (no Gatekeeper question this time). The tournament
-    from step 8 is there.
-14. With it running, log out of macOS and back in (or restart). Start the
-    app: it starts normally and the tournament is there.
+16. Start the app again **from the Dock icon** (no Gatekeeper question this
+    time). The tournament from step 8 is there.
+17. Quit it with **Cmd-Q**, then start it again and quit it with the Dock
+    icon's *Quit*. Each time: the app goes and Activity Monitor shows no
+    `beam`.
+18. With it running, log out of macOS and back in (or restart). The logout
+    is not held up by a question. Start the app: it starts normally and the
+    tournament is there.
 
 **Updates**
 
-15. *Connections* page: the update check setting is there and on. A build
+19. *Connections* page: the update check setting is there and on. A build
     of the newest version shows no notice. If a newer release exists than
     your build, the notice at the top says "Download the new version and use
     it in place of this one", with a link to the release page and no
@@ -227,13 +258,13 @@ For the owner's M1 Pro, before anything is released. About fifteen minutes.
 
 **Removing it**
 
-16. Stop OpenPairings, drag `OpenPairings.app` from Applications to the
+20. Quit OpenPairings, drag `OpenPairings.app` from Applications to the
     Bin, empty the Bin.
-17. Check `~/Library/Application Support/OpenPairings` is **still there**,
+21. Check `~/Library/Application Support/OpenPairings` is **still there**,
     with `openpairings.db` in it.
-18. Install the app again (steps 3-5): your tournament is back.
+22. Install the app again (steps 3-5): your tournament is back.
 
 **Report back**: your macOS version, the Gatekeeper message from step 5,
-which steps did something else, and `launcher.log` from step 9 if anything
+which steps did something else, and `logs/server.log` from step 9 if anything
 went wrong. To remove everything after testing, delete that data folder too
 - the app never does.

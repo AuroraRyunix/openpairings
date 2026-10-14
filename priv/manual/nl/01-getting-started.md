@@ -71,9 +71,14 @@ is nog niet door Apple ondertekend, dus de eerste keer weigert macOS hem te
 openen: open *Systeeminstellingen*, *Privacy en beveiliging*, scrol naar
 beneden en klik op *Open toch* (*Open Anyway*) naast de melding over
 OpenPairings (op macOS 14 of ouder: klik met de rechtermuisknop op de app en
-kies *Open*). Daarna opent hij zoals elke andere app. Een klein venster meldt
-dat OpenPairings draait en je browser volgt; *Stop OpenPairings* in dat venster
-stopt het programma (dat venster is in het Engels). Om bij te werken stop je
+kies *Open*). Daarna opent hij zoals elke andere app, met een symbool in het
+Dock (klik er met de rechtermuisknop op en kies *Opties*, *Bewaar in Dock* om
+het daar te houden). Een klein venster meldt dat OpenPairings draait en je
+browser volgt; staat je Mac in het Nederlands, dan is dat venster dat ook. Je
+kunt het venster sluiten: OpenPairings blijft draaien, en een klik op het
+symbool in het Dock brengt het venster terug. *OpenPairings stoppen* in het
+venster, of de app stoppen (Cmd-Q, of *Stop* op het symbool in het Dock),
+stopt het programma; je toernooien blijven bewaard. Om bij te werken stop je
 het programma, download je de nieuwe zip en vervang je de app in
 *Programma's*.
 

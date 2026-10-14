@@ -518,8 +518,10 @@ jobs:
           ls -lh openpairings_portable_${{ matrix.target }}.zip
 
       # OpenPairings.app: the portable release inside a bundle whose
-      # executable is rel/macos/launcher.sh - a small window that says it is
-      # running and stops it, the browser opened once the port answers. See
+      # executable is rel/macos/Launcher.swift, compiled here with swiftc - a
+      # Dock icon and a small window that says it is running and stops it,
+      # the browser opened once the port answers - and which runs
+      # rel/macos/launcher.sh to start and stop the server. See
       # docs/macos.md for what the arbiter sees and rel/macos/build_app.sh
       # for what the build checks (no Homebrew library in any binary, the
       # oldest macOS they all accept). The version comes from the release
@@ -584,6 +586,8 @@ jobs:
       #
       # On top of what the portable checks prove, this one checks what only
       # the app does:
+      #   * the bundle is a Dock citizen: no LSUIElement in Info.plist, and its
+      #     executable is the compiled arm64 launcher, not a script;
       #   * it starts from a READ-ONLY bundle, as a download Gatekeeper has
       #     translocated is - a start that writes into its own app fails here;
       #   * a second start leaves at once instead of starting a second server;
@@ -606,11 +610,30 @@ jobs:
 
           export OPENPAIRINGS_DATA_DIR="$RUNNER_TEMP/op-app"
           export PORT=4003
-          # No windows and no browser on a runner nobody looks at; see the
-          # launcher's "Headless (CI)". Everything else is the real thing.
-          export OPENPAIRINGS_LAUNCHER_NO_UI=1
 
-          "$launcher" > "$RUNNER_TEMP/app.log" 2>&1 &
+          status=0
+          fail() { echo "::error::$1"; status=1; }
+
+          # A Dock icon needs no LSUIElement, and an executable that is a
+          # real program: the compiled launcher, for Apple Silicon.
+          plist="$app/Contents/Info.plist"
+          if /usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$plist" >/dev/null 2>&1; then
+            fail "Info.plist has LSUIElement: the app would have no Dock icon"
+          fi
+          exe=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$plist")
+          [ "$app/Contents/MacOS/$exe" = "$launcher" ] ||
+            fail "CFBundleExecutable is '$exe', not the launcher this test starts"
+          kind=$(file -b "$launcher")
+          echo "Contents/MacOS/$exe: $kind"
+          case "$kind" in
+            "Mach-O 64-bit executable arm64"*) ;;
+            *) fail "Contents/MacOS/$exe is not a Mach-O arm64 executable: $kind" ;;
+          esac
+
+          # --headless: no window and no browser on a runner nobody looks at,
+          # see Launcher.swift's header. Everything else is the real thing,
+          # through the bundle's own executable.
+          "$launcher" --headless > "$RUNNER_TEMP/app.log" 2>&1 &
           pid=$!
 
           body=""
@@ -619,9 +642,6 @@ jobs:
             kill -0 "$pid" 2>/dev/null || break
             sleep 2
           done
-
-          status=0
-          fail() { echo "::error::$1"; status=1; }
 
           if [ -z "$body" ]; then
             echo "::error::OpenPairings.app did not serve a page"
@@ -652,7 +672,7 @@ jobs:
           fi
 
           # A second double-click: must see the running one and leave.
-          "$launcher" > "$RUNNER_TEMP/app-second.log" 2>&1 &
+          "$launcher" --headless > "$RUNNER_TEMP/app-second.log" 2>&1 &
           second=$!
           for _ in $(seq 1 15); do
             kill -0 "$second" 2>/dev/null || break
@@ -665,7 +685,8 @@ jobs:
           servers=$( (lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t || true) | sort -u | wc -l | tr -d ' ')
           [ "$servers" = 1 ] || fail "$servers processes listen on $PORT after a second start"
 
-          # Stop: SIGTERM to the launcher, as at logout. The server goes too.
+          # Stop: SIGTERM to the launcher, which stops the server the way Quit
+          # does. The server goes too.
           kill -TERM "$pid" 2>/dev/null || true
           for _ in $(seq 1 30); do
             kill -0 "$pid" 2>/dev/null || break

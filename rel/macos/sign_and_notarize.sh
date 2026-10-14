@@ -72,13 +72,24 @@ sign() {
 
 # Inside out: the innermost code first, the bundle last, so that the
 # bundle's seal covers signatures that will not change afterwards. Shell
-# scripts are not Mach-O; the bundle's seal covers them as resources.
+# scripts (launcher.sh among them) are not Mach-O; the bundle's seal covers
+# them as resources. The app's own executable, Contents/MacOS/<name> - the
+# compiled Launcher.swift - is signed by the last `sign`, the one on the
+# bundle, with the same hardened runtime and entitlements: codesign signs a
+# bundle's main executable as part of signing the bundle.
 find "$app/Contents/Resources" -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 |
   while IFS= read -r binary; do
     sign "$binary"
   done
 sign "$app"
 codesign --verify --deep --strict --verbose=2 "$app"
+# Notarisation refuses an executable without the hardened runtime; asking
+# here names the culprit instead of a notary log.
+main=$(plutil -extract CFBundleExecutable raw -o - "$app/Contents/Info.plist")
+codesign --display --verbose=2 "$app/Contents/MacOS/$main" 2>&1 | grep -q 'flags=.*runtime' || {
+  echo "::error::Contents/MacOS/$main is not signed with the hardened runtime" >&2
+  exit 1
+}
 
 ditto -c -k --keepParent "$app" "$work/notarise.zip"
 # --wait returns when Apple has decided, and a refusal is a decision: the
