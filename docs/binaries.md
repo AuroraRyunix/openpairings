@@ -13,10 +13,15 @@ Targets built:
 | Linux   | `linux_x86_64`    | `linux_aarch64`    |
 | Windows | `windows_x86_64`  | (see below)        |
 
-**CI does not build macOS since 2026-09-14** - releases carry Windows and
-Linux only. The targets still build locally with `BURRITO_TARGET`, and the
-macOS steps in `binaries.yml` are kept: restoring the two commented matrix
-lines brings the builds back.
+**macOS is built again since 2026-10-14**, after a month off (2026-09-14:
+nobody used it). Besides the single-file binary and the portable zip, each
+macOS runner wraps the portable release in **`OpenPairings.app`** and ships
+it zipped as `openpairings_app_macos_aarch64.zip` /
+`openpairings_app_macos_x86_64.zip`. Unsigned for now (ad-hoc), with
+Developer ID signing and notarisation written and waiting for the Apple
+account's secrets. Everything macOS - the bundle, its launcher, the data
+folder, updates, signing, and the test list for a real Mac - is in
+[`docs/macos.md`](macos.md).
 
 There is no Windows/ARM target: Erlang/OTP publishes no Windows/ARM runtime for
 Burrito to bundle. Windows on ARM runs `windows_x86_64` under its built-in
@@ -92,6 +97,8 @@ The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_macos_aarc
 |---|---|---|
 | `openpairings_<target>` | one self-contained executable | you want a single file |
 | `openpairings_portable_<target>.zip` | a folder you unzip, runtime inside | **antivirus ate the other one** |
+| `openpairings_app_<target>.zip` (macOS only) | `OpenPairings.app`: the portable release in a bundle with a launcher | **on a Mac, this one** - see [`docs/macos.md`](macos.md) |
+| `SHA256SUMS` | the checksum of every file above (since 2026-10-14) | to check a download by hand |
 
 Both are on the release page for a tagged version, and both are build
 artifacts on every push to `main`. The portable one used to be a CI artifact
@@ -299,9 +306,9 @@ deliberately keep the pack id instead.** `build_installer.ps1` renames the
 two installers it packs to `OpenPairings-<version>-win-Setup.msi` and
 `OpenPairings-<version>-win-Setup.exe` - version, e.g. `0.59.0` - so a copy
 already sitting in someone's Downloads folder says which release it is. The
-macOS disk images get the same treatment in `binaries.yml`:
-`OpenPairings-<version>-macos-aarch64.dmg` and
-`OpenPairings-<version>-macos-x86_64.dmg`. The update feed - `releases.win.json`,
+The macOS app does not: since 2026-10-14 it is a zip with a fixed name,
+`openpairings_app_<target>.zip`, like the other non-Windows downloads (it was
+a versioned `.dmg` until then - see [`docs/macos.md`](macos.md)). The update feed - `releases.win.json`,
 `RELEASES` and every `OpenPairingsApp-<version>-full.nupkg` /
 `-delta.nupkg` - is the one thing that must NOT follow this rename: an
 installed copy's in-app updater (see "Updates" below) finds new versions by

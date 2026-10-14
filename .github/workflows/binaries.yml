@@ -44,12 +44,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # macOS is not built (maintainer's call, 2026-09-14): nobody uses it,
-          # and the Intel runner alone took 13 minutes a push. The macOS steps
-          # below are left in place, gated on runner.os, so re-adding these two
-          # lines brings it back:
-          #   - { runner: macos-15-intel, target: macos_x86_64 }
-          #   - { runner: macos-15, target: macos_aarch64 }
+          # macOS is back (2026-10-14), as OpenPairings.app in a zip - see
+          # docs/macos.md. It was off from 2026-09-14 because nobody used it
+          # and the Intel runner alone took 13 minutes a push; now somebody
+          # does. Apple Silicon is the one that matters. Intel stays while it
+          # builds without special cases: if it starts costing more than it
+          # is worth, drop that one line and its asset, nothing else.
+          # `macos-15-intel`, not `macos-13`: GitHub retired macos-13 in
+          # December 2025, and this is the Intel image it left.
+          - { runner: macos-15, target: macos_aarch64 }
+          - { runner: macos-15-intel, target: macos_x86_64 }
           # linux_x86_64 named ubuntu-24.04 explicitly (was `ubuntu-latest`
           # until 2026-09-27) for the same reason as the arm target below is
           # already pinned: `ubuntu-latest` is due to move to a still-preview
@@ -82,6 +86,16 @@ jobs:
         with:
           otp-version: "29.0.5"
           elixir-version: "1.20"
+
+      # On macOS setup-beam installs erlef/otp_builds' runtime, which links
+      # OpenSSL statically - so the release carries no Homebrew library
+      # (rel/macos/build_app.sh checks every binary for that). What the
+      # runner compiles itself - the SQLite NIF - would otherwise demand the
+      # runner's own macOS version as a minimum, because clang defaults to
+      # the system it runs on. 11.0 is the first version with Apple Silicon.
+      - name: Build for macOS 11 and newer (macOS)
+        if: runner.os == 'macOS'
+        run: echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
 
       # Compiled dependencies, per target. Without this every push downloaded
       # and compiled every dependency from scratch on every runner. Keyed on
@@ -506,154 +520,100 @@ jobs:
           zip -qr "openpairings_portable_${{ matrix.target }}.zip" pairings_engine_portable
           ls -lh openpairings_portable_${{ matrix.target }}.zip
 
-      - name: Build macOS .dmg (macOS)
+      # OpenPairings.app: the portable release inside a bundle whose
+      # executable is rel/macos/launcher.sh - a small window that says it is
+      # running and stops it, the browser opened once the port answers. See
+      # docs/macos.md for what the arbiter sees and rel/macos/build_app.sh
+      # for what the build checks (no Homebrew library in any binary, the
+      # oldest macOS they all accept). The version comes from the release
+      # itself, which mix.exs gave it: Info.plist keeps placeholders, and
+      # mix pairings.version_check fails if one becomes a literal again.
+      #
+      # This replaced the .dmg (2026-10-14). A zip made by `ditto` keeps the
+      # bundle's modes and signature, needs no `hdiutil` (which GitHub's
+      # runners refused intermittently with "Resource busy"), and can have a
+      # name without a version, so `releases/latest/download/<name>` works.
+      - name: Build OpenPairings.app (macOS)
         if: runner.os == 'macOS'
-        shell: bash
+        run: sh rel/macos/build_app.sh _build/prod/rel/pairings_engine_portable _build/prod/rel
+
+      # Developer ID signing and notarisation: written, and switched off until
+      # the Apple Developer account exists. It runs when the certificate
+      # secret is there and is skipped when it is not; the five secrets are
+      # listed in rel/macos/sign_and_notarize.sh and docs/macos.md.
+      #
+      # Asked in a step of its own, rather than with the secrets in the job's
+      # `env:` so that a step `if:` could read them: job env reaches every
+      # step, including the third-party actions above, and a signing key is
+      # the last thing to hand them. Only the two steps below see a secret.
+      - name: Is Apple signing set up? (macOS)
+        id: apple
+        if: runner.os == 'macOS'
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
         run: |
-          # Read the version BEFORE the `cd` - mix.exs is in the workspace
-          # root, and it is the single source of truth for it (the release job
-          # below reads it the same way, and rel/windows/build_installer.ps1
-          # does the same for the Windows installer; mix pairings.version_check
-          # keeps CHANGELOG.md, TODO.md and docs/features.md agreeing with it).
-          #
-          # This was hardcoded until 0.56.x, and had said 0.18.0 the whole
-          # time: the bundle told Finder, Spotlight and every crash reporter
-          # that an 0.56 application was 0.18. Nothing in a build reads
-          # Info.plist back, so no step could have caught it - the only real
-          # defence is not keeping a second copy of the number.
-          version=$(grep -m1 "version:" mix.exs | cut -d'"' -f2)
-          if [ -z "$version" ]; then
-            echo "Could not read a version out of mix.exs" >&2
-            exit 1
+          if [ -n "$APPLE_CERTIFICATE_P12_BASE64" ]; then
+            echo "sign=true" >> "$GITHUB_OUTPUT"
+            echo "Apple signing secrets present - signing and notarising."
+          else
+            echo "sign=false" >> "$GITHUB_OUTPUT"
+            echo "No APPLE_CERTIFICATE_P12_BASE64 secret - the app ships ad-hoc signed (docs/macos.md)."
           fi
 
+      - name: Sign and notarise OpenPairings.app (macOS, only with Apple secrets)
+        if: runner.os == 'macOS' && steps.apple.outputs.sign == 'true'
+        env:
+          APPLE_CERTIFICATE_P12_BASE64: ${{ secrets.APPLE_CERTIFICATE_P12_BASE64 }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: sh rel/macos/sign_and_notarize.sh _build/prod/rel/OpenPairings.app
+
+      # No version in the name, like the other downloads: a link to
+      # releases/latest/download/openpairings_app_macos_aarch64.zip stays
+      # right. The version is in the app (Finder, Get Info).
+      - name: Zip OpenPairings.app (macOS)
+        if: runner.os == 'macOS'
+        run: |
           cd _build/prod/rel
-          app_name="OpenPairings.app"
-          rm -rf "$app_name" dmg_staging
-          mkdir -p "$app_name/Contents/MacOS"
-          mkdir -p "$app_name/Contents/Resources/app"
+          ditto -c -k --keepParent OpenPairings.app "openpairings_app_${{ matrix.target }}.zip"
+          ls -lh "openpairings_app_${{ matrix.target }}.zip"
 
-          # Copy the portable release into Resources/app
-          cp -R pairings_engine_portable/* "$app_name/Contents/Resources/app/"
-
-          # Create Info.plist. The heredoc stays quoted so the plist body is
-          # never shell-expanded - it is full of `version="1.0"` attributes and
-          # double quotes, and one stray `$` in a future edit should not become
-          # an empty string. The version arrives through sed instead.
-          cat << 'EOF' | sed -e 's/^[ ]*//' -e "s/__VERSION__/${version}/g" > "$app_name/Contents/Info.plist"
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-              <key>CFBundleExecutable</key>
-              <string>OpenPairings</string>
-              <key>CFBundleIdentifier</key>
-              <string>cloud.zerotwo.openpairings</string>
-              <key>CFBundleName</key>
-              <string>OpenPairings</string>
-              <key>CFBundleDisplayName</key>
-              <string>OpenPairings</string>
-              <key>CFBundlePackageType</key>
-              <string>APPL</string>
-              <key>CFBundleShortVersionString</key>
-              <string>__VERSION__</string>
-              <key>CFBundleVersion</key>
-              <string>__VERSION__</string>
-              <key>LSMinimumSystemVersion</key>
-              <string>11.0</string>
-              <key>NSHighResolutionCapable</key>
-              <true/>
-          </dict>
-          </plist>
-          EOF
-
-          # Create launcher script in Contents/MacOS/OpenPairings
-          cat << 'EOF' | sed 's/^[ ]*//' > "$app_name/Contents/MacOS/OpenPairings"
-          #!/bin/bash
-          DIR="$(cd "$(dirname "$0")/../Resources/app" && pwd)"
-          export OPENPAIRINGS_LOCAL=1
-          export PORT=${PORT:-4000}
-          # Erlang distribution off, for the reason openpairings.sh spells out
-          # at length: a release otherwise starts `epmd` on 0.0.0.0:4369 and a
-          # node listener on 0.0.0.0:<ephemeral>, authorised by a cookie that
-          # ships inside the download and is therefore the same on every copy.
-          #
-          # It matters most here. Finder gives this bundle no console, so there
-          # is no Ctrl-C and no visible output - an arbiter has no way to notice
-          # a listener they did not ask for, and no way to stop it short of
-          # Force Quit. Nothing in the bundle used distribution anyway: Force
-          # Quit sends SIGTERM to the foreground BEAM, which is not an RPC.
-          export RELEASE_DISTRIBUTION=${RELEASE_DISTRIBUTION:-none}
-          exec "$DIR/bin/pairings_engine_portable" start
-          EOF
-          chmod +x "$app_name/Contents/MacOS/OpenPairings"
-
-          # Ad-hoc code sign the entire bundle for Apple Silicon / macOS integrity
-          codesign --force --deep --sign - "$app_name"
-
-          # Stage DMG with /Applications symlink
-          mkdir -p dmg_staging
-          cp -R "$app_name" dmg_staging/
-          ln -s /Applications dmg_staging/Applications
-
-          # Carries the version, so a .dmg sitting in someone's Downloads
-          # folder says which one it is - same reasoning as the Windows
-          # installers, see rel/windows/build_installer.ps1's .NOTES. Only
-          # the "_" between "macos" and the arch becomes "-"; the "_" inside
-          # "x86_64" itself is untouched (matrix.target is macos_x86_64 or
-          # macos_aarch64, and only the first "_" is replaced below).
-          dmg_target="${{ matrix.target }}"
-          dmg_target="${dmg_target/macos_/macos-}"
-          dmg_name="OpenPairings-${version}-${dmg_target}.dmg"
-          # GitHub's macOS runners intermittently refuse this with "hdiutil:
-          # create failed - Resource busy" - a runner-side race, not this
-          # build, and it has hit this job more than once. On a tag it blocks
-          # the whole release, because the release job needs every target, so
-          # a few spaced retries before giving up.
-          for attempt in 1 2 3 4 5; do
-            if hdiutil create -volname "OpenPairings" -srcfolder dmg_staging -ov -format UDZO "$dmg_name"; then
-              break
-            fi
-            if [ "$attempt" = 5 ]; then
-              echo "::error::hdiutil create failed 5 times" >&2
-              exit 1
-            fi
-            echo "hdiutil create failed (attempt $attempt), retrying in $((attempt * 5))s" >&2
-            sleep $((attempt * 5))
-          done
-          ls -lh "$dmg_name"
-
-      # Same reasoning as the portable-release smoke test above, for the
-      # bundle Finder actually launches: a build can succeed and still
-      # produce something that dies at boot, or that boots with distribution
-      # on, and nothing before this ever ran the heredoc launcher above for
-      # real. macos_x86_64 and macos_aarch64 both run this, natively.
-      - name: Smoke test the macOS .app bundle
+      # The zip, unpacked the way an arbiter unpacks it, started through the
+      # bundle's own launcher - the file Finder runs. Before this ever ran
+      # the launcher for real, a build could succeed and produce an app that
+      # died at boot, or booted with distribution on.
+      #
+      # On top of what the portable checks prove, this one checks what only
+      # the app does:
+      #   * it starts from a READ-ONLY bundle, as a download Gatekeeper has
+      #     translocated is - a start that writes into its own app fails here;
+      #   * a second start leaves at once instead of starting a second server;
+      #   * stopping the launcher stops the server, and nothing is left;
+      #   * afterwards the bundle's seal is still intact (nothing was written
+      #     into it) and the database is in the data folder.
+      - name: Smoke test OpenPairings.app (macOS)
         if: runner.os == 'macOS'
         shell: bash
         run: |
           set -euo pipefail
 
-          # Exec the bundle's own launcher directly - Contents/MacOS/OpenPairings,
-          # written a few lines up - rather than `open -a`, which hands the
-          # process to launchd and leaves nothing here to curl or kill.
-          # Finder would run this same file; it does not care who invoked it.
-          app="_build/prod/rel/OpenPairings.app/Contents/MacOS/OpenPairings"
+          check="$RUNNER_TEMP/app-check"
+          rm -rf "$check"
+          mkdir -p "$check"
+          ditto -x -k "_build/prod/rel/openpairings_app_${{ matrix.target }}.zip" "$check"
+          app="$check/OpenPairings.app"
+          launcher="$app/Contents/MacOS/OpenPairings"
+          chmod -R a-w "$app"
+
           export OPENPAIRINGS_DATA_DIR="$RUNNER_TEMP/op-app"
           export PORT=4003
+          # No windows and no browser on a runner nobody looks at; see the
+          # launcher's "Headless (CI)". Everything else is the real thing.
+          export OPENPAIRINGS_LAUNCHER_NO_UI=1
 
-          # The launcher turns on local mode, and local mode makes
-          # PairingsEngine.BrowserLauncher try to `open` this URL in a real
-          # browser window once the port is up - fine on somebody's Mac, a
-          # GUI call to nothing on this headless runner. It is fire-and-forget
-          # (see the module doc) so it cannot fail the boot, but there is no
-          # reason to let a stray `open` linger either. OPENPAIRINGS_NO_BROWSER
-          # is the variable the app already reads for exactly this case; the
-          # launcher does not touch it, so exporting it here reaches the BEAM
-          # the same way PORT and OPENPAIRINGS_DATA_DIR do.
-          export OPENPAIRINGS_NO_BROWSER=1
-
-          "$app" > "$RUNNER_TEMP/app.log" 2>&1 &
+          "$launcher" > "$RUNNER_TEMP/app.log" 2>&1 &
           pid=$!
 
           body=""
@@ -663,59 +623,83 @@ jobs:
             sleep 2
           done
 
-          # Checked while still running, same as the Linux check above and
-          # for the same reason. `lsof`, not `ss` - the macOS runner image
-          # has no iproute2. -nP: numeric host/port, no DNS or /etc/services
-          # lookups slowing this down. -sTCP:LISTEN: listening sockets only.
-          # No sudo, same reasoning as the Linux check: lsof can see any
-          # process's sockets that belong to the invoking user without it,
-          # and the runner user is who started the app above.
-          dist_status=0
-          if [ -n "$body" ]; then
-            listeners=$(lsof -nP -iTCP -sTCP:LISTEN)
-            echo "$listeners"
-
-            if echo "$listeners" | awk 'NR>1{print $9}' | grep -q ':4369$'; then
-              echo "::error::epmd is listening on 4369 - Erlang distribution is on"
-              dist_status=1
-            fi
-
-            beam_addrs=$(echo "$listeners" | awk 'NR>1 && $1 ~ /beam/ {print $9}' | sort -u)
-            echo "beam.smp listening on: ${beam_addrs:-<nothing found>}"
-
-            if [ -z "$beam_addrs" ]; then
-              echo "::error::no beam.smp listener found in lsof output"
-              dist_status=1
-            elif [ "$beam_addrs" != "127.0.0.1:${PORT}" ]; then
-              echo "::error::the BEAM is listening on more than the web port"
-              dist_status=1
-            fi
-          fi
-
-          kill "$pid" 2>/dev/null || true
+          status=0
+          fail() { echo "::error::$1"; status=1; }
 
           if [ -z "$body" ]; then
-            echo "::error::the macOS .app bundle did not serve a page"
+            echo "::error::OpenPairings.app did not serve a page"
             cat "$RUNNER_TEMP/app.log" || true
+            kill "$pid" 2>/dev/null || true
             exit 1
           fi
 
           case "$body" in
-            *".local"*) echo "macOS .app bundle signed in as the local owner" ;;
-            *) echo "::error::macOS .app bundle served a page but did not auto-sign-in"
-               echo "$body" | head -40
-               exit 1 ;;
+            *".local"*) echo "OpenPairings.app signed in as the local owner" ;;
+            *) fail "OpenPairings.app served a page but did not auto-sign-in"
+               echo "$body" | head -40 ;;
           esac
 
-          if [ "$dist_status" != 0 ]; then
-            exit 1
+          # Distribution off and loopback only, as for the portable release
+          # above. `lsof`, not `ss`: the macOS image has no iproute2. -nP:
+          # no DNS or service-name lookups. No sudo needed for the runner's
+          # own processes.
+          listeners=$(lsof -nP -iTCP -sTCP:LISTEN)
+          echo "$listeners"
+          if echo "$listeners" | awk 'NR>1{print $9}' | grep -q ':4369$'; then
+            fail "epmd is listening on 4369 - Erlang distribution is on"
+          fi
+          beam_addrs=$(echo "$listeners" | awk 'NR>1 && $1 ~ /beam/ {print $9}' | sort -u)
+          echo "beam.smp listening on: ${beam_addrs:-<nothing found>}"
+          if [ "$beam_addrs" != "127.0.0.1:${PORT}" ]; then
+            fail "the BEAM listens on '${beam_addrs}', not on 127.0.0.1:${PORT} alone"
           fi
 
+          # A second double-click: must see the running one and leave.
+          "$launcher" > "$RUNNER_TEMP/app-second.log" 2>&1 &
+          second=$!
+          for _ in $(seq 1 15); do
+            kill -0 "$second" 2>/dev/null || break
+            sleep 1
+          done
+          if kill -0 "$second" 2>/dev/null; then
+            fail "a second start did not leave; it would have been a second server"
+            kill "$second" 2>/dev/null || true
+          fi
+          servers=$( (lsof -nP -iTCP:"$PORT" -sTCP:LISTEN -t || true) | sort -u | wc -l | tr -d ' ')
+          [ "$servers" = 1 ] || fail "$servers processes listen on $PORT after a second start"
+
+          # Stop: SIGTERM to the launcher, as at logout. The server goes too.
+          kill -TERM "$pid" 2>/dev/null || true
+          for _ in $(seq 1 30); do
+            kill -0 "$pid" 2>/dev/null || break
+            sleep 1
+          done
+          if kill -0 "$pid" 2>/dev/null; then fail "the launcher did not stop within 30 seconds"; fi
+          if pgrep -fl "$check" ; then
+            fail "something from the app is still running after the launcher stopped"
+            pkill -9 -f "$check" || true
+          fi
+
+          chmod -R u+w "$app"
+          codesign --verify --deep --strict "$app" ||
+            fail "the bundle's seal is broken: something was written into the app"
+          [ -f "$OPENPAIRINGS_DATA_DIR/openpairings.db" ] ||
+            fail "no database in the data folder ($OPENPAIRINGS_DATA_DIR)"
+
+          if [ "$status" != 0 ]; then
+            cat "$RUNNER_TEMP/app.log" || true
+          fi
+          exit "$status"
+
+      # On every push, not only for a release: this is what the owner of a
+      # Mac downloads from the run's page to try a build before anything is
+      # published (docs/macos.md, "Testing a build").
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.os == 'macOS'
         with:
-          name: openpairings_dmg_${{ matrix.target }}
-          path: _build/prod/rel/*.dmg
+          name: openpairings_app_${{ matrix.target }}
+          path: _build/prod/rel/openpairings_app_${{ matrix.target }}.zip
+          if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
 
       - name: Zip the portable release for the release page (Windows)
@@ -808,7 +792,7 @@ jobs:
       # every push to main is the last place to hold that.
       #
       # Only the three release SHAPES are here - the single-file binary, the
-      # portable zip, the macOS disk image. The per-target artifacts above are
+      # portable zip, the macOS app's zip. The per-target artifacts above are
       # a separate thing: they exist for branch builds, which produce no
       # release at all.
       # Must match the `release` job's own condition below. It said tags
@@ -822,8 +806,8 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: release_assets_${{ matrix.target }}
-          # `*.dmg` matches on macOS only, the zip and the installer_out/*
-          # lines only exist on tag builds (Windows-only for installer_out) -
+          # The app zip exists on macOS only, the installer_out/* lines on
+          # Windows only -
           # so this deliberately does NOT use if-no-files-found: error. Every
           # runner is missing something here, and the release job below is
           # what checks that the set as a whole arrived.
@@ -837,7 +821,7 @@ jobs:
           path: |
             burrito_out/*
             _build/prod/rel/openpairings_portable_${{ matrix.target }}.zip
-            _build/prod/rel/*.dmg
+            _build/prod/rel/openpairings_app_${{ matrix.target }}.zip
             installer_out/*.exe
             installer_out/*.msi
             installer_out/releases.win.json
@@ -985,6 +969,27 @@ jobs:
 
           ls -lhR release_assets
 
+      # One file of checksums for everything attached below, under the names
+      # the release page shows (no directories). New with macOS
+      # (2026-10-14): an unsigned app is a download people are asked to
+      # trust by hand, and "compare it with SHA256SUMS" is the one check
+      # that costs them nothing. A fixed name, like the rest.
+      - name: Sum the release assets
+        if: steps.ver.outputs.publish == 'true'
+        run: |
+          set -euo pipefail
+          : > SHA256SUMS
+          # The same globs as `files:` below.
+          set -- release_assets/burrito_out/* release_assets/_build/prod/rel/*.zip
+          set -- "$@" release_assets/installer_out/*.exe release_assets/installer_out/*.msi
+          set -- "$@" release_assets/installer_out/releases.win.json release_assets/installer_out/*.nupkg
+          for f in "$@"; do
+            [ -f "$f" ] || continue
+            (cd "$(dirname "$f")" && sha256sum -- "$(basename "$f")") >> SHA256SUMS
+          done
+          mv SHA256SUMS release_assets/SHA256SUMS
+          cat release_assets/SHA256SUMS
+
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         if: steps.ver.outputs.publish == 'true'
         with:
@@ -1002,11 +1007,11 @@ jobs:
           files: |
             release_assets/burrito_out/*
             release_assets/_build/prod/rel/*.zip
-            release_assets/_build/prod/rel/*.dmg
             release_assets/installer_out/*.exe
             release_assets/installer_out/*.msi
             release_assets/installer_out/releases.win.json
             release_assets/installer_out/*.nupkg
+            release_assets/SHA256SUMS
 
       # GitHub's API has answered a release creation with HTTP 500 while
       # creating the release anyway (v0.60.1, 2026-09-13): the action retried,

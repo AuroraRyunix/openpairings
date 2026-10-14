@@ -9,9 +9,10 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
 
   @documents ["TODO.md", "docs/features.md", "CHANGELOG.md"]
   @workflow ".github/workflows/binaries.yml"
+  @plist "rel/macos/Info.plist"
 
   setup do
-    originals = Map.new([@workflow | @documents], &{&1, File.read!(&1)})
+    originals = Map.new([@workflow, @plist | @documents], &{&1, File.read!(&1)})
     on_exit(fn -> Enum.each(originals, fn {path, body} -> File.write!(path, body) end) end)
     {:ok, version: Mix.Project.config()[:version]}
   end
@@ -65,9 +66,9 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
 
   describe "files that derive the version" do
     test "the macOS bundle's plist names no version of its own" do
-      # The committed workflow substitutes a placeholder. If this fails, the
-      # 2026-09-10 bug is back: a literal in the Info.plist heredoc.
-      body = File.read!(@workflow)
+      # The committed template carries a placeholder. If this fails, the
+      # 2026-09-10 bug is back: a literal in the Info.plist.
+      body = File.read!(@plist)
 
       assert body =~ "CFBundleShortVersionString"
       assert Mix.Tasks.Pairings.VersionCheck.run([]) == :ok
@@ -78,7 +79,7 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
 
       error = assert_raise Mix.Error, fn -> Mix.Tasks.Pairings.VersionCheck.run([]) end
 
-      assert error.message =~ @workflow
+      assert error.message =~ @plist
       assert error.message =~ "0.18.0"
       assert error.message =~ "take it from mix.exs at build time"
     end
@@ -94,16 +95,12 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
       assert error.message =~ "hardcodes #{version}"
     end
 
-    test "the workflow's other version numbers are not mistaken for this one" do
-      # It pins OTP, Elixir, Zig and an action per step, most of them
-      # three-part - so a check anchored on "a number that looks like a
-      # version" would fire on a clean tree. Which numbers those are is
-      # dependabot's business and changes; that there are several is the
-      # part worth asserting.
-      body = File.read!(@workflow)
-
-      assert length(Regex.scan(~r/\d+\.\d+\.\d+/, body)) > 3
-      assert Mix.Tasks.Pairings.VersionCheck.run([]) == :ok
+    test "the workflow keeps no second copy of the plist" do
+      # The plist moved out of binaries.yml on 2026-10-14. A second copy put
+      # back there would be the one nobody checks.
+      refute File.read!(@workflow) =~ "CFBundleShortVersionString"
+      assert File.read!(@workflow) =~ "rel/macos/build_app.sh"
+      assert File.read!("rel/macos/build_app.sh") =~ "__VERSION__"
     end
   end
 
@@ -114,11 +111,11 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
   end
 
   defp hardcode(version) do
-    body = File.read!(@workflow)
+    body = File.read!(@plist)
     assert String.contains?(body, "<string>__VERSION__</string>")
 
     File.write!(
-      @workflow,
+      @plist,
       String.replace(body, "<string>__VERSION__</string>", "<string>#{version}</string>")
     )
   end

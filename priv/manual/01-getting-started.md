@@ -64,8 +64,16 @@ opens and your browser follows; closing that small window stops the program.
 (the file must be made executable once: `chmod +x openpairings.sh`). The
 program opens your browser.
 
-**macOS.** The releases no longer include a macOS build; it can be built from
-the source code on a Mac. It then starts the same way as the Linux build.
+**macOS.** Download `openpairings_app_macos_aarch64.zip` for a Mac with an
+Apple chip (M1 and later) or `openpairings_app_macos_x86_64.zip` for an Intel
+Mac, open it, and drag *OpenPairings* into *Applications*. The app is not yet
+signed by Apple, so the first time macOS refuses to open it: open *System
+Settings*, *Privacy & Security*, scroll down and click *Open Anyway* beside the
+message about OpenPairings (on macOS 14 or older: right-click the app and
+choose *Open*). After that it opens like any other app. A small window says
+that OpenPairings is running and your browser follows; *Stop OpenPairings* in
+that window stops the program. To update, stop it, download the new zip and
+replace the app in *Applications*.
 
 No Java and no database server are needed. The Swiss pairing engine
 (Ainalrami) is part of the program (see [Pairing a round](06-pairing.md)).

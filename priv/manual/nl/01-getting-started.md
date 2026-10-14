@@ -65,9 +65,18 @@ het programma.
 `./openpairings.sh` uit (het bestand moet eenmalig uitvoerbaar worden gemaakt:
 `chmod +x openpairings.sh`). Het programma opent je browser.
 
-**macOS.** De releases bevatten geen macOS-versie meer; die kan worden gebouwd
-vanuit de broncode op een Mac. Daarna start ze op dezelfde manier als de
-Linux-versie.
+**macOS.** Download `openpairings_app_macos_aarch64.zip` voor een Mac met een
+Apple-chip (M1 en later) of `openpairings_app_macos_x86_64.zip` voor een Mac
+met Intel, open het bestand en sleep *OpenPairings* naar *Programma's*. De app
+is nog niet door Apple ondertekend, dus de eerste keer weigert macOS hem te
+openen: open *Systeeminstellingen*, *Privacy en beveiliging*, scrol naar
+beneden en klik op *Open toch* (*Open Anyway*) naast de melding over
+OpenPairings (op macOS 14 of ouder: klik met de rechtermuisknop op de app en
+kies *Open*). Daarna opent hij zoals elke andere app. Een klein venster meldt
+dat OpenPairings draait en je browser volgt; *Stop OpenPairings* in dat venster
+stopt het programma (dat venster is in het Engels). Om bij te werken stop je
+het programma, download je de nieuwe zip en vervang je de app in
+*Programma's*.
 
 Er is geen Java en geen databaseserver nodig. De Zwitserse paringsengine
 (Ainalrami) zit in het programma (zie [Een ronde paren](06-pairing.md)).

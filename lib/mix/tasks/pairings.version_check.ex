@@ -34,7 +34,9 @@ defmodule Mix.Tasks.Pairings.VersionCheck do
   - so 37 minor versions of `.dmg` told their users the wrong number.
 
   The fix there was not to add a fourth document to keep in step. It was to
-  make the workflow read `mix.exs` at build time, which is what the Windows
+  make the build read the version at build time (since 2026-10-14 the plist
+  is `rel/macos/Info.plist`, and `rel/macos/build_app.sh` takes the version
+  from the release it wraps, which `mix.exs` gave it), which is what the Windows
   launcher already did (`mix.exs` hands `release.version` to
   `rel/windows/build_launcher.ps1`). So the check's job for that file is the
   inverse of its job for the prose: a version found there is the failure,
@@ -70,11 +72,12 @@ defmodule Mix.Tasks.Pairings.VersionCheck do
   # literal that happens to be right today is the state the plist was in the
   # day somebody typed it, and it drifts on the next bump.
   #
-  # Anchored on the CFBundle keys rather than on any three-part number,
-  # because that workflow is full of legitimate versions: OTP, Elixir, Zig,
-  # and every pinned action SHA's trailing comment.
+  # Anchored on the CFBundle keys rather than on any three-part number:
+  # the plist lived inside `.github/workflows/binaries.yml` until 2026-10-14,
+  # among OTP, Elixir and Zig versions, and it is a template of its own now
+  # (filled in by `rel/macos/build_app.sh` from the release it wraps).
   @derived [
-    {".github/workflows/binaries.yml",
+    {"rel/macos/Info.plist",
      ~r{<key>CFBundle(?:ShortVersionString|Version)</key>\s*<string>(\d+\.\d+\.\d+)</string>},
      "the macOS bundle's Info.plist"}
   ]

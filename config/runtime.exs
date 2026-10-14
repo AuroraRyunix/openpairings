@@ -142,6 +142,29 @@ local_dir =
             value
         end
 
+      # Never inside an app bundle (macOS, since 2026-10-14). A bundle is
+      # the program: replaced whole by the next version, deleted whole by
+      # dragging it to the Bin, and read-only when Gatekeeper runs a fresh
+      # download from a translocated copy. OpenPairings.app keeps its data
+      # in ~/Library/Application Support/OpenPairings, which is the default
+      # above; this refuses an OPENPAIRINGS_DATA_DIR that points into any
+      # `.app`, before anything is created there. The same lesson as the
+      # Windows move above, learned this time without losing anything.
+      in_bundle? =
+        dir
+        |> Path.expand()
+        |> String.replace("\\", "/")
+        |> String.split("/", trim: true)
+        |> Enum.any?(&String.ends_with?(String.downcase(&1), ".app"))
+
+      if in_bundle? do
+        raise """
+        OpenPairings will not keep its data in #{dir}: that is inside an app \
+        bundle, which the next version replaces and the Bin removes whole. \
+        Leave OPENPAIRINGS_DATA_DIR unset, or point it somewhere else.
+        """
+      end
+
       File.mkdir_p!(dir)
       dir
   end
