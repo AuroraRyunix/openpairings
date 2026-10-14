@@ -47,13 +47,10 @@ jobs:
           # macOS is back (2026-10-14), as OpenPairings.app in a zip - see
           # docs/macos.md. It was off from 2026-09-14 because nobody used it
           # and the Intel runner alone took 13 minutes a push; now somebody
-          # does. Apple Silicon is the one that matters. Intel stays while it
-          # builds without special cases: if it starts costing more than it
-          # is worth, drop that one line and its asset, nothing else.
-          # `macos-15-intel`, not `macos-13`: GitHub retired macos-13 in
-          # December 2025, and this is the Intel image it left.
+          # does. Apple Silicon only: Intel Macs were dropped the same day
+          # (owner's call; 13 minutes a push for machines Apple stopped
+          # selling in 2023).
           - { runner: macos-15, target: macos_aarch64 }
-          - { runner: macos-15-intel, target: macos_x86_64 }
           # linux_x86_64 named ubuntu-24.04 explicitly (was `ubuntu-latest`
           # until 2026-09-27) for the same reason as the arm target below is
           # already pinned: `ubuntu-latest` is due to move to a still-preview

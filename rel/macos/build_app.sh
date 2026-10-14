@@ -82,7 +82,9 @@ minimum=11.0
 found=$(mktemp)
 find "$app" -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 >"$found"
 while IFS= read -r binary; do
-  libs=$(otool -L "$binary" | tail -n +2 | awk '{print $1}')
+  # Only what it loads: `otool -L` also prints a library's own id, which
+  # for a precompiled NIF is a path on the machine that built it.
+  libs=$(otool -l "$binary" | awk '/cmd LC_(LOAD|LOAD_WEAK|REEXPORT|LAZY_LOAD)_DYLIB$/ {f=1; next} f && $1 == "name" {print $2; f=0}')
   for lib in $libs; do
     case "$lib" in
       /usr/lib/* | /System/Library/* | @rpath/* | @loader_path/* | @executable_path/*) ;;
