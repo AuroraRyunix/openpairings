@@ -313,6 +313,15 @@ defmodule PairingsEngineWeb.Router do
     post "/tournaments/:id/games", BoardLinkController, :games
   end
 
+  # Installed theme packs' stylesheets and fonts (`PairingsEngine.ThemePacks`).
+  # No pipeline: they are files, the sign-in page needs them as much as any
+  # other, and a session would change nothing about what is served. The
+  # controller's whitelist is the whole of the access control.
+  scope "/themes", PairingsEngineWeb do
+    get "/:id/theme.css", ThemePackController, :css
+    get "/:id/fonts/:file", ThemePackController, :font
+  end
+
   # Changing language. A controller rather than a LiveView event: the choice
   # lives in the session, and a LiveView holds a socket, not a conn.
   scope "/", PairingsEngineWeb do

@@ -20,8 +20,10 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   went with Mocha.
 
   A list is only a safety net while it is true, which is what these check:
-  the bootstrap, the stylesheet and the picker have to name the same eight
+  the bootstrap, the stylesheet and the picker have to name the same seven
   themes, and nothing may refer to one that is gone.
+  Theme packs join the list at run time from the `op-theme-packs` meta tag
+  and are checked in `theme_picker_packs_test.exs`; these are the built-ins.
   """
 
   @root File.read!("lib/pairings_engine_web/components/layouts/root.html.heex")
@@ -59,8 +61,8 @@ defmodule PairingsEngineWeb.ThemeChoiceTest do
   end
 
   test "the bootstrap accepts exactly the themes the stylesheet defines" do
-    assert MapSet.size(accepted()) == 8,
-           "expected eight themes, the bootstrap accepts " <>
+    assert MapSet.size(accepted()) == 7,
+           "expected seven built-in themes, the bootstrap accepts " <>
              "#{inspect(Enum.sort(accepted()))}"
 
     assert MapSet.equal?(accepted(), styled_or_root()),

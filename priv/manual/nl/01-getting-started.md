@@ -130,7 +130,8 @@ De balk bovenaan elke pagina bevat:
 - **Help** - deze handleiding. Binnen een toernooi opent ze bij het hoofdstuk
   dat past bij de pagina waarop je bent.
 - De kleuraccent, de taalkeuze (Engels en Nederlands) en het thema (Systeem,
-  Licht, Donker, Leisteen, Papier, Bord, Tom W, Jorian, Hoog contrast).
+  Licht, Donker, Leisteen, Papier, Bord, Tom W, Hoog contrast, en de
+  themapakketten die geïnstalleerd zijn - zie [Eigen thema's](#custom-themes)).
 - Het accountmenu, met *Instellingen* (online), *Functies* en *Afmelden*
   (online), en het versienummer.
 
@@ -192,6 +193,86 @@ inschrijfformulier.
 
 Het programma volgt het kleurenschema dat je kiest: *Systeem* volgt de lichte of
 donkere instelling van de computer, en de themakeuze biedt daarnaast Licht,
-Donker, Leisteen, Papier, Bord, Tom W (koningsblauw met een hemelsblauw accent),
-Jorian (de look van de projectwebsite: een koningsblauwe pagina met witte
-tekst en gele knoppen) en Hoog contrast. De live pagina heeft een eigen modus met hoog contrast.
+Donker, Leisteen, Papier, Bord, Tom W (koningsblauw met een hemelsblauw accent)
+en Hoog contrast, met daarna de themapakketten die geïnstalleerd zijn. De live
+pagina heeft een eigen modus met hoog contrast.
+
+## Eigen thema's {#custom-themes}
+
+Thema's buiten de ingebouwde komen als **themapakket**: een map met een
+stylesheet erin. Standaard is er geen geïnstalleerd. Een geïnstalleerd pakket
+verschijnt in de themakeuze na de ingebouwde thema's, met zijn kleuren naast
+zijn naam; je kiest het zoals elk ander thema. Wordt het pakket later
+verwijderd, dan kom je zonder melding terug op *Systeem*.
+
+### Waar pakketten staan {#where-packs-go}
+
+In de desktopversie in een map `themes` in de gegevensmap (zie
+[Waar je gegevens staan](#where-your-data-is)), één map per pakket:
+
+- Windows: `%LOCALAPPDATA%\OpenPairingsData\themes`
+- macOS: `~/Library/Application Support/OpenPairings/themes`
+- Linux: `~/.local/share/OpenPairings/themes`
+
+Maak de map `themes` aan als ze er nog niet is. Het programma leest ze telkens
+een pagina opent, dus een nieuw pakket verschijnt op de volgende pagina, zonder
+herstart.
+
+Online kun je zelf geen pakket installeren: de server leest zijn pakketten uit
+een map die de beheerder kiest (`PAIRINGS_THEMES_DIR`). Vraag het aan de
+beheerder.
+
+### Wat een pakket bevat {#what-a-pack-contains}
+
+Een map met als naam de id van het pakket (kleine letters, cijfers en
+streepjes), met daarin:
+
+- `theme.json` - `id` (de naam van de map), `name` (zoals in de themakeuze;
+  hoogstens 40 tekens), eventueel `name_nl` (de Nederlandse naam), `author`,
+  `version`, `dark` (`true` als de tekst op de vlakken van het pakket licht is,
+  zodat het programma zijn eigen tekens voor een donkere achtergrond tekent) en
+  `swatch` (drie of vier kleuren als `#rrggbb`, het voorbeeld in de
+  themakeuze).
+- `theme.css` - de stylesheet, hoogstens 200 KB.
+- eventueel `fonts/`, met lettertypen als `.woff2`-bestanden (hoogstens 1 MB
+  elk, namen van kleine letters, cijfers, `-` en `_`), en een licentie- of
+  leesmij-bestand.
+
+Een thema is vooral een reeks kleurtokens in een blok
+`[data-theme="<id>"] { ... }`. De tokens zijn: `--bg` (de pagina), `--surface`
+(kaarten), `--surface-alt` (gestreepte rijen), `--surface-hover`, `--border`,
+`--text`, `--text-soft`, `--accent`, `--accent-hover`, `--accent-soft`,
+`--accent-ink` (tekst op het accent), `--accent-lift`, `--danger`,
+`--danger-hover`, `--danger-ink`, `--success`, `--success-soft`, `--warn`,
+`--warn-soft`, `--info`, `--info-soft`, `--shadow`, `--scrim` (achter een
+dialoogvenster), `--radius`, en die van het aanmeldpaneel: `--hero-a`,
+`--hero-b`, `--hero-c`, `--hero-ink` en `--hero-pole`. Een token dat het
+pakket weglaat, houdt de waarde van het thema Licht. Een pakket kan ook eigen
+accentkleuren zetten met `[data-accent="blue"]:where([data-theme="<id>"]) { ... }`.
+
+### Wat een pakket niet mag {#what-a-pack-may-not-do}
+
+Het programma weigert een pakket, en zegt onder de thema's in de themakeuze
+waarom, als de stylesheet:
+
+- `@import` gebruikt, of een andere `@`-regel dan `@font-face`, `@keyframes`,
+  `@media` en `@supports`;
+- met `url()` naar iets anders verwijst dan zijn eigen `fonts/<naam>.woff2`, of
+  `image-set()` en dergelijke gebruikt;
+- `expression(`, `javascript:`, `behavior:` of `-moz-binding` bevat;
+- een regel heeft die niet begint bij `[data-theme="<id>"]` (ook toegestaan:
+  `:root[data-theme="<id>"]`, `html[data-theme="<id>"]` en de accentvorm
+  hierboven), een regel in een andere regel nest, of een backslash buiten een
+  tekenreeks gebruikt.
+
+De stylesheet en de lettertypen komen van het programma zelf; een pakket kan
+niets van elders laden.
+
+### Een pakket controleren {#checking-a-pack}
+
+Vanuit een kopie van de broncode van het programma voert
+`mix pairings.theme_check PAD` dezelfde veiligheidscontrole uit en meet daarna
+de kleuren van het pakket aan de contrastregels die ook voor de ingebouwde
+thema's gelden, in elke accentkleur. Je krijgt elk kleurenpaar dat te moeilijk
+leesbaar is. Een pakket dat deze controle niet doorstaat, laadt wel; het is
+alleen zwaar voor de ogen van wie ermee moet werken.

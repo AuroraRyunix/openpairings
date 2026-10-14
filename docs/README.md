@@ -21,6 +21,8 @@ everything the app does and what is planned next.
   restore drill of both apps: what a restore gives back, what it undoes,
   and why each step of the procedure is there.
 - [Standalone binaries](binaries.md) - Burrito single-file executables.
+- [Theme packs](theme-packs.md) - writing a theme as an installable folder:
+  the format, what the scanner refuses, the tokens, and how to check one.
 - [FIDE endorsement readiness](fide-endorsement.md) - the Verification Check
   List mapped against OpenPairings, current gaps, and the RTG/FPC
   fuzz-testing harness plan. Read its own opening note first: the document

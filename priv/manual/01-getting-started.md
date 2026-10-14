@@ -127,7 +127,8 @@ The bar at the top of every page has:
 - **Help** - this manual. Inside a tournament it opens at the chapter that
   matches the page you are on.
 - The colour accent, the language picker (English and Dutch) and the theme
-  (System, Light, Dark, Slate, Paper, Board, Tom W, Jorian, High Contrast).
+  (System, Light, Dark, Slate, Paper, Board, Tom W, High Contrast, and any
+  theme packs installed - see [Custom themes](#custom-themes)).
 - The account menu, with *Settings* (online), *Features* and *Log out* (online),
   and the version number.
 
@@ -186,6 +187,81 @@ adds a player, the arrow keys move between the cells, <kbd>Space</kbd> or
 
 The program follows the colour scheme you choose: *System* follows the
 computer's light or dark setting, and the theme picker also offers Light, Dark,
-Slate, Paper, Board, Tom W (royal blue with a sky-blue accent), Jorian (the
-project website's look: a royal-blue page with white type and yellow buttons)
-and High Contrast. The live page has a high-contrast mode of its own.
+Slate, Paper, Board, Tom W (royal blue with a sky-blue accent) and High
+Contrast, followed by any theme packs that are installed. The live page has a
+high-contrast mode of its own.
+
+## Custom themes
+
+Themes beyond the built-in ones come as **theme packs**: a folder with a
+stylesheet in it. None is installed by default. An installed pack appears in
+the theme picker after the built-in themes, with its colours beside its name;
+choose it like any other theme. If the pack is removed later, whoever had
+chosen it is quietly put back on *System*.
+
+### Where packs go
+
+On the desktop build, in a folder called `themes` inside the data folder (see
+[Where your data is](#where-your-data-is)), one folder per pack:
+
+- Windows: `%LOCALAPPDATA%\OpenPairingsData\themes`
+- macOS: `~/Library/Application Support/OpenPairings/themes`
+- Linux: `~/.local/share/OpenPairings/themes`
+
+Create the `themes` folder if it is not there. The program reads it when a
+page opens, so a new pack shows up on the next page without a restart.
+
+Online, you cannot install a pack yourself: the server reads its packs from a
+folder its operator chooses (`PAIRINGS_THEMES_DIR`). Ask the operator.
+
+### What a pack contains
+
+A folder named after the pack's id (lowercase letters, digits and dashes),
+holding:
+
+- `theme.json` - `id` (the folder's name), `name` (as shown in the picker; at
+  most 40 characters), optionally `name_nl` (the Dutch name), `author`,
+  `version`, `dark` (`true` when the text on the pack's surfaces is light, so
+  the program draws its own marks for a dark background) and `swatch` (three
+  or four colours as `#rrggbb`, the preview in the picker).
+- `theme.css` - the stylesheet, at most 200 KB.
+- optionally `fonts/`, with fonts as `.woff2` files (at most 1 MB each, names
+  of lowercase letters, digits, `-` and `_`), and a licence or read-me file.
+
+A theme is mostly a set of colour tokens in a block
+`[data-theme="<id>"] { ... }`. The tokens are: `--bg` (the page), `--surface`
+(cards), `--surface-alt` (striped rows), `--surface-hover`, `--border`,
+`--text`, `--text-soft`, `--accent`, `--accent-hover`, `--accent-soft`,
+`--accent-ink` (text on the accent), `--accent-lift`, `--danger`,
+`--danger-hover`, `--danger-ink`, `--success`, `--success-soft`, `--warn`,
+`--warn-soft`, `--info`, `--info-soft`, `--shadow`, `--scrim` (behind a
+dialog), `--radius`, and the sign-in panel's `--hero-a`, `--hero-b`,
+`--hero-c`, `--hero-ink` and `--hero-pole`. A token the pack leaves out keeps
+the Light theme's value. A pack may also set its own accent colours with
+`[data-accent="blue"]:where([data-theme="<id>"]) { ... }`.
+
+### What a pack may not do
+
+The program refuses a pack, and says why under the themes in the picker, if
+its stylesheet:
+
+- uses `@import`, or any other `@`-rule than `@font-face`, `@keyframes`,
+  `@media` and `@supports`;
+- refers to any address other than its own `fonts/<name>.woff2` with `url()`,
+  or uses `image-set()` and the like;
+- contains `expression(`, `javascript:`, `behavior:` or `-moz-binding`;
+- has a rule that does not start from `[data-theme="<id>"]` (also allowed:
+  `:root[data-theme="<id>"]`, `html[data-theme="<id>"]`, and the accent form
+  above), nests one rule inside another, or uses a backslash outside a
+  string.
+
+The stylesheet and fonts are served by the program itself; a pack cannot load
+anything from elsewhere.
+
+### Checking a pack
+
+From a copy of the program's source, `mix pairings.theme_check PATH` runs the
+same safety check and then measures the pack's colours against the contrast
+rules the built-in themes are held to, in every accent colour, and lists every
+pair of colours that is too hard to read. A pack that fails this check still
+loads; it is just hard on the eyes of whoever has to use it.

@@ -173,6 +173,19 @@ if windows_data_layout do
   config :pairings_engine, :windows_data_layout, windows_data_layout
 end
 
+# Theme packs (`PairingsEngine.ThemePacks`): `PAIRINGS_THEMES_DIR` when the
+# deploy sets it, else `<local_dir>/themes` on a desktop install, else none.
+# Only the inputs are recorded here; `ThemePacks.dir/0` decides, so the
+# decision has a test.
+if local_dir do
+  config :pairings_engine, :local_data_dir, local_dir
+end
+
+case System.get_env("PAIRINGS_THEMES_DIR") do
+  value when value in [nil, ""] -> :ok
+  value -> config :pairings_engine, :themes_dir, value
+end
+
 # Generated once and kept. Regenerating it every boot would silently
 # invalidate every session and every unexpired login link on restart.
 local_secret = fn ->
