@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The network listener's port check speaks each system's dialect.** Asking a second time for a second was not enough: on Linux a port this program closed itself stays "in use" for up to a minute unless the check says it may reuse it, and on Windows saying so would let it take another program's port. The check now asks the question each system understands. Found because the new release gate did its job and refused 0.86.0 over exactly this test.
+
 ## [0.86.0] - 2026-10-15
 
 - [Change] **The Dutch says "je" everywhere, and one word for one thing.** The live-boards pages and the Dutch manual still said "u", which made the program formal in one room and on first-name terms in the next. Also settled: *resultaat* for a game's result (the site stays the *uitslagensite*), *verstuurd* for *verzonden*, *paring* for the pairing that "koppeling" used to name, *arbiter* for *scheidsrechter*, and chapter 18 quotes Alnasl's labels as Alnasl now writes them.

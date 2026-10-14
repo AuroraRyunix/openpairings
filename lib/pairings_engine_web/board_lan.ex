@@ -462,8 +462,17 @@ defmodule PairingsEngineWeb.BoardLan do
     end
   end
 
+  # `reuseaddr` means opposite things on the two systems this runs on. On
+  # Windows it lets a socket take a port another program is listening on, so
+  # the probe must not set it. On Linux and macOS it only lets a port be
+  # reused while its last connections are still winding down (which can take
+  # a minute after this program closed it itself), and never a port another
+  # program listens on - so there the probe must set it, or it calls its own
+  # freshly closed port taken.
   defp try_listen(ip, port) do
-    case :gen_tcp.listen(port, [:binary, ip: ip, active: false, reuseaddr: false]) do
+    reuse? = not match?({:win32, _}, :os.type())
+
+    case :gen_tcp.listen(port, [:binary, ip: ip, active: false, reuseaddr: reuse?]) do
       {:ok, socket} -> :gen_tcp.close(socket)
       {:error, reason} -> {:error, reason}
     end

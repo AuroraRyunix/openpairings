@@ -250,7 +250,7 @@ Wat je moet weten:
 | De ronde die vanzelf start als je ze paart | werkt | werkt |
 | Zetten, klokken, PGN en het resultaat die het bord zag, terug naar OpenPairings | werkt | werkt |
 | De kolom **Bord zag**, de partijpagina en de PGN met zetten | werkt | werkt |
-| Zetten naar de uitslagensite (livepagina's voor toeschouwers) | werkt | **wacht** in de wachtrij van Alnasl (de pagina Verzendlijst zegt hoeveel) en gaat in volgorde weg zodra er verbinding is |
+| Zetten naar de uitslagensite (livepagina's voor toeschouwers) | werkt | **wacht** in de wachtrij van Alnasl (de pagina Wachtrij zegt hoeveel) en gaat in volgorde weg zodra er verbinding is |
 | Lichess-uitzending (als je er in Alnasl een instelde) | werkt | wacht op dezelfde manier |
 | Het toernooi publiceren, en OpenPairings dat de toestemming van het kastje voor de uitslagensite ophaalt | werkt, vanzelf | wacht, en gebeurt vanzelf zodra er verbinding is |
 
@@ -318,8 +318,8 @@ ronde en eigen uitslagenpagina.
    niets geblokkeerd: je kunt de volgende ronde paren en publiceren. Elke
    vermelding is een link naar de partijpagina.
 2. **Beëindig partijen op het kastje** waar dat nodig is (*Partij beëindigen*,
-   onder de tegel of op de pagina van het bord: een uitslag, of *Geen
-   uitslag*). Dat is het eigen archief van Alnasl, niet het resultaat in
+   onder de tegel of op de pagina van het bord: een resultaat, of *Geen
+   resultaat*). Dat is het eigen archief van Alnasl, niet het resultaat in
    OpenPairings.
 3. **PGN met de zetten.** De partijpagina biedt **PGN downloaden**, en **De eigen
    PGN van het kastje** ter vergelijking. Instellingen, **Live borden**, kaart
@@ -376,7 +376,7 @@ ronde en eigen uitslagenpagina.
 | Geen kolom **Bord zag** op de pagina Paringen | Nog geen code bereikt dit toernooi en geen bord meldde een partij. | Maak een code (stap 2) en voeg ze toe op het kastje. |
 | Rood *wijkt af* in de kolom Bord zag | Het bord zag een andere resultaat dan de ingevoerde. | Controleer de notatieformulieren. Er wordt niets geblokkeerd. |
 | Een tegel zegt *Paring gewijzigd in OpenPairings* | Een paring veranderde nadat er zetten waren gespeeld. | Zie [Tijdens de ronde](#during-the-round). |
-| De uitslagensite toont niets | De partijen wachten in de wachtrij; of de ronde is niet gepubliceerd; of het kastje heeft nog geen toestemming (het toernooi staat niet op de uitslagensite, of de site is onbereikbaar, zei nee, of is te oud). | De pagina **Verzendlijst** van Alnasl zegt wat er wacht en waarom, en Instellingen, Live borden, kaart **De uitslagensite** zegt hoe het met de toestemming staat. Een partij wordt alleen getoond voor een bord van een gepubliceerde ronde. |
+| De uitslagensite toont niets | De partijen wachten in de wachtrij; of de ronde is niet gepubliceerd; of het kastje heeft nog geen toestemming (het toernooi staat niet op de uitslagensite, of de site is onbereikbaar, zei nee, of is te oud). | De pagina **Wachtrij** van Alnasl zegt wat er wacht en waarom, en Instellingen, Live borden, kaart **De uitslagensite** zegt hoe het met de toestemming staat. Een partij wordt alleen getoond voor een bord van een gepubliceerde ronde. |
 
 ## Beperkingen van nu {#limits-today}
 
