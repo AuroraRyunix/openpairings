@@ -1363,11 +1363,15 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   def handle_event("sn_move_to", _params, socket), do: {:noreply, socket}
 
+  # The draw is made from a seed the audit entry keeps, with the resulting
+  # order: the lots can be repeated from the trail.
   def handle_event("sn_draw_lots", _params, socket) do
+    seed = StartingNumbers.new_seed()
+
     starting_numbers_result(
       socket,
-      StartingNumbers.draw_lots(socket.assigns.tournament),
-      %{drawn: true}
+      StartingNumbers.draw_lots_seeded(socket.assigns.tournament, seed),
+      &StartingNumbers.audit_details(:lots, &1, seed)
     )
   end
 
@@ -1375,7 +1379,15 @@ defmodule PairingsEngineWeb.PlayersLive do
     starting_numbers_result(
       socket,
       StartingNumbers.by_rating(socket.assigns.tournament),
-      %{by_rating: true}
+      &StartingNumbers.audit_details(:rating, &1)
+    )
+  end
+
+  def handle_event("sn_by_entry", _params, socket) do
+    starting_numbers_result(
+      socket,
+      StartingNumbers.by_entry(socket.assigns.tournament),
+      &StartingNumbers.audit_details(:entered, &1)
     )
   end
 
@@ -3608,6 +3620,8 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   defp starting_numbers_result(socket, {:ok, order}, details) do
+    details = if is_function(details, 1), do: details.(order), else: details
+
     Audit.log(
       socket.assigns.tournament.id,
       socket.assigns.current_scope,
@@ -3819,7 +3833,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         <p class="hint">
           {gettext(
-            "These are the numbers the Berger tables pair by. Enter the result of the drawing of lots by hand, or let the program draw them. They are used when round 1 is paired and cannot change after that. A player entered later gets the next number."
+            "These are the numbers the Berger tables pair by. Order them by rating, in the order the players were entered, or by a drawing of lots; or enter the result of a drawing by hand. They are used when round 1 is paired and cannot change after that. A player entered later gets the next number."
           )}
         </p>
 
@@ -3836,6 +3850,10 @@ defmodule PairingsEngineWeb.PlayersLive do
 
           <button id="sn-by-rating" type="button" class="pe-btn" phx-click="sn_by_rating">
             {gettext("Order by rating")}
+          </button>
+
+          <button id="sn-by-entry" type="button" class="pe-btn" phx-click="sn_by_entry">
+            {gettext("Order as entered")}
           </button>
         </div>
 

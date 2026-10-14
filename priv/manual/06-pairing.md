@@ -119,7 +119,9 @@ change who plays whom.
 ## Round robin
 
 A round robin pairs the **whole tournament at once**: the button reads *Pair
-the whole tournament (Berger)*, and the program asks for confirmation.
+the whole tournament (Berger)*. Before round 1 the program first asks how the
+players are numbered ([Numbering the players of a round
+robin](#numbering-the-players-of-a-round-robin)); after that, it pairs.
 
 > [!WARNING]
 > The schedule cannot be changed afterwards and players added later are
@@ -130,9 +132,9 @@ players each player sits out one round with a zero-point bye; a double
 cycle plays the table twice with the colours reversed (with the last two
 rounds of the first cycle in reverse order, if that option is on). A player
 who is absent or withdrawn stays in the schedule: enter a forfeit result for
-their games. The starting numbers the Berger tables use are the rating order
-unless you set them before round 1 on the Players page (*Starting numbers*,
-by hand or by a drawing of lots; [Players and rating lists](04-players-and-ratings.md)).
+their games. The Berger tables pair on the players' starting numbers, which
+you choose at the first pairing (below) or beforehand on the Players page
+(*Starting numbers*; [Players and rating lists](04-players-and-ratings.md)).
 
 Beside it, **Pair round N by hand…** makes the next round yourself instead
 of taking the table's
@@ -141,6 +143,47 @@ round exists, the main button reads *Pair the remaining rounds (Berger)*
 and pairs the rest from the table - unless the rounds made by hand have
 left the table behind, and its next round would pair two players who
 already met in that cycle: then it refuses and says which two.
+
+### Numbering the players of a round robin
+
+The Berger table pairs on starting numbers, and they cannot change once round 1
+exists. So the first click on *Pair the whole tournament (Berger)* (and the
+first *Pair round 1 by hand…*) asks how to number the players. The choice in
+use is preselected, and the dialog lists the numbers each choice gives before
+anything is fixed.
+
+- **By rating.** The FIDE default. Highest rating first; players on the same
+  rating go by FIDE title, then by the tie-break chosen in the options
+  (alphabetical unless you changed it), then by name, then in the order entered.
+  The same field always gives the same list: nothing in it is random.
+- **As entered.** The order in which the players were added to this
+  tournament. This is the order the program created them in (each new player
+  comes after the previous one), so it holds for players typed in, taken from a
+  list or read from an imported file, in that file's order. A tournament
+  re-created from an exported tournament file is entered in the file's order,
+  which is its rating order; there *As entered* and *By rating* give the same
+  list.
+- **By lot.** The program draws after you press *Draw lots*. You see the draw
+  and can draw again; nothing is fixed until you confirm the pairing.
+- **As set on the Players page.** Offered when the players already have
+  numbers: set there by hand or by lot, or carried in by an imported file. The
+  dialog says when those numbers happen to be the rating order or the order of
+  entry.
+
+The pairing dialog says plainly that the numbers cannot change after round 1.
+The choice goes to the audit trail with the resulting order; for a draw also
+with its seed, and the same seed on the players in entry order gives the same
+order again. The Players page's *Starting numbers* dialog offers the same three
+(*Draw lots*, *Order by rating*, *Order as entered*) and, besides, numbers by
+hand. A team round robin is not numbered here: its teams are ordered on the
+Teams page.
+
+**Coming from SWAR.** SWAR's three ways of ordering the players for a round
+robin - by ranking, by entry, at random - correspond to *By rating*, *As
+entered* and *By lot*. What an imported SWAR file carries is only the result:
+SWAR numbers a round robin's table by the players' position in its ranking, and
+the import keeps that position as the starting number, so it appears as *As set
+on the Players page*. The file does not say which of the three ways produced it.
 
 ## Keizer
 
