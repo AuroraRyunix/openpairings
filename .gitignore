@@ -92,3 +92,6 @@ graphify-out/
 # Asset tool binaries the installers drop in the root when MIX_BUILD_PATH is custom
 /tailwind-*
 /esbuild-*
+
+# Drafts waiting to be sent, not for the repo
+/docs/outbox/
