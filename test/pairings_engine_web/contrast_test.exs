@@ -81,8 +81,8 @@ defmodule PairingsEngineWeb.ContrastTest do
     ".tl-val.after" => ["surface-alt"]
   }
 
-  # On the sign-in hero's fixed green gradient, the same in every theme -
-  # measured by "the sign-in hero" below instead.
+  # On the sign-in panel's gradient, which follows the accent - measured by
+  # "the sign-in panel" below instead.
   @on_the_hero [".auth-hero-cta-btn"]
 
   setup_all do
@@ -187,53 +187,79 @@ defmodule PairingsEngineWeb.ContrastTest do
     end
   end
 
-  test "the sign-in hero: every line of text on the green gradient", %{css: css} do
-    [stops] =
-      Regex.run(~r/\.auth-hero\s*\{[^}]*radial-gradient\([^,]+,\s*([^;]+)\);/, css,
-        capture: :all_but_first
-      )
-
-    stops =
-      for [hex, at] <- Regex.scan(~r/(#[0-9a-f]{6})\s+([\d.]+)%/, stops, capture: :all_but_first),
-          do: {parse(hex), String.to_integer(at) / 100}
-
-    # Where each line sits along the gradient, which runs from the top-left
-    # corner over an ellipse 150% of the panel's height: 0 at the corner, 0.46
-    # at the middle stop. Measured on the 680px panel, text 44px in: the name
-    # and title near the top, the subtitle from ~200px down, the feature list
-    # from ~300px, the "coming soon" line and the call to action below it.
+  test "the sign-in panel: every line of text on its gradient, in every theme and accent", %{
+    css: css,
+    palettes: palettes
+  } do
+    # The panel is derived from the accent (--hero-* tokens, defined with the
+    # themes), so it is measured per palette: text against all three gradient
+    # stops, bare and with the corner glow (the strongest overlay) laid on it.
     lines = [
-      {".auth-hero", 0.1, 3.0},
-      {".auth-hero-sub", 0.2, 4.5},
-      {".auth-features li", 0.3, 4.5},
-      {".auth-feature-soon", 0.5, 4.5},
-      {".auth-hero-cta", 0.6, 4.5}
+      ".auth-hero",
+      ".auth-hero-sub",
+      ".auth-features li",
+      ".auth-hero-cta"
     ]
 
-    for {selector, at, needed} <- lines do
-      [color] =
-        Regex.run(
-          ~r/(?:^|\n)#{Regex.escape(selector)}\s*\{[^}]*?(?:^|[;{\s])color:\s*([^;]+);/,
-          css,
-          capture: :all_but_first
-        )
+    colours =
+      for selector <- lines,
+          into: %{},
+          do: {selector, rule_value(css, selector, "color")}
 
-      back = gradient(stops, at)
-      ratio = ratio(over(colour(%{}, color), back), back)
-
-      assert ratio >= needed,
-             "#{selector} is #{Float.round(ratio, 2)}:1 on the hero, needs #{needed}:1"
-    end
-
-    [button_back, button_text] =
+    [glow] =
       Regex.run(
-        ~r/\.auth-hero-cta-btn\s*\{[^}]*background:\s*([^;]+);[^}]*color:\s*([^;]+);/,
+        ~r/\.auth-hero::before\s*\{[^}]*?radial-gradient\(circle,\s*(color-mix\([^;]*?\)),\s*transparent/s,
         css,
         capture: :all_but_first
       )
 
-    back = over(colour(%{}, button_back), gradient(stops, 0.65))
-    assert ratio(colour(%{}, button_text), back) >= 4.5
+    assert glow =~ "var(--hero-pole)"
+
+    button_back = rule_value(css, ".auth-hero-cta-btn", "background")
+    button_hover = rule_value(css, ".auth-hero-cta-btn:hover", "background")
+    button_text = rule_value(css, ".auth-hero-cta-btn", "color")
+
+    failures =
+      for {{theme, accent}, palette} <- palettes,
+          hero = hero_palette(css, theme, palette),
+          stop <- [:a, :b, :c],
+          lit <- [false, true],
+          ground = hero_ground(hero, stop, lit, glow),
+          {what, expr, back, needed} <-
+            Enum.map(lines, &{&1, colours[&1], ground, 4.5}) ++
+              [
+                {".auth-hero-cta-btn", button_text, over(colour(hero, button_back), ground), 4.5},
+                {".auth-hero-cta-btn:hover", button_text,
+                 over(colour(hero, button_hover), ground), 4.5},
+                {".auth-features li svg", "var(--hero-ink)", ground, 3.0}
+              ],
+          fore = colour(hero, expr),
+          ratio = ratio(over(fore, back), back),
+          ratio < needed do
+        "#{theme} theme, #{accent} accent, #{what} on the #{stop} stop#{if lit, do: " with the glow"}: " <>
+          "#{Float.round(ratio, 2)}:1, needs #{needed}:1"
+      end
+
+    assert failures == [], Enum.join(Enum.uniq(failures), "
+")
+
+    # The point of the exercise: on a light theme the panel starts as the very
+    # colour of the primary button, so the two never disagree.
+    for {{theme, accent}, palette} <- palettes, theme not in ["dark", "slate"] do
+      assert hero_palette(css, theme, palette)["hero-a"] == palette["accent"],
+             "#{theme} theme, #{accent} accent: the panel is not the accent"
+    end
+  end
+
+  test "the sign-in panel is made of tokens, not of a fixed colour", %{css: css} do
+    # It was a fixed green gradient beside a primary button that follows the
+    # accent. Any colour literal back in the panel's fill, or the intro capped
+    # narrower than the list under it, is what this is here to refuse.
+    fill = rule_value(css, ".auth-hero", "background")
+    refute fill =~ ~r/#[0-9a-f]{3,6}|rgba?\(/i, ".auth-hero's fill has a colour literal: #{fill}"
+    assert fill =~ "var(--hero-a)"
+    assert rule_value(css, ".auth-hero", "color") == "var(--hero-ink)"
+    assert rule_value(css, ".auth-hero-sub", "max-width") == "none"
   end
 
   test "no field is edged in the hairline colour", %{css: css} do
@@ -283,6 +309,67 @@ defmodule PairingsEngineWeb.ContrastTest do
     assert_in_delta ratio(parse("#767676"), parse("#ffffff")), 4.54, 0.01
     # A tint is laid over its ground before it is measured.
     assert over(parse("rgba(0, 0, 0, 0.5)"), parse("#ffffff")) == {127.5, 127.5, 127.5, 1.0}
+  end
+
+  # ---------------------------------------------------------------------------
+  # The sign-in panel
+
+  # The value of one declaration in the rule with exactly this selector.
+  defp rule_value(css, selector, property) do
+    [body] =
+      for [sel, body] <- rules(css),
+          String.trim(sel) |> String.replace(~r/\s+/, " ") == selector,
+          body =~ ~r/(?:^|[;{\s])#{property}:/,
+          do: body
+
+    [value] =
+      Regex.run(~r/(?:^|[;{\s])#{property}:\s*([^;]+);/, body, capture: :all_but_first)
+
+    String.trim(value)
+  end
+
+  # The palette plus the panel's own tokens, resolved: the unparsed
+  # `--hero-*` expressions from `:root`, overridden by the theme's block.
+  defp hero_palette(css, theme, palette) do
+    [root] =
+      Regex.run(
+        ~r/(?:^|
+):root\s*\{([^}]*)\}/,
+        css,
+        capture: :all_but_first
+      )
+
+    themed =
+      case Regex.run(
+             ~r/(?:^|
+)\[data-theme="#{theme}"\]\s*\{([^}]*)\}/,
+             css,
+             capture: :all_but_first
+           ) do
+        [body] -> body
+        nil -> ""
+      end
+
+    raw =
+      for body <- [root, themed],
+          [name, value] <-
+            Regex.scan(~r/--(hero-[\w]+):\s*([^;]+);/, body, capture: :all_but_first),
+          reduce: %{},
+          do: (acc -> Map.put(acc, name, String.trim(value)))
+
+    assert Map.keys(raw) |> Enum.sort() == ~w(hero-a hero-b hero-c hero-ink hero-pole)
+
+    Map.merge(palette, for({name, expr} <- raw, into: %{}, do: {name, colour(palette, expr)}))
+  end
+
+  defp hero_ground(hero, stop, lit, glow) do
+    base = hero["hero-#{stop}"]
+
+    if lit do
+      over(colour(hero, glow), base)
+    else
+      base
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -416,13 +503,6 @@ defmodule PairingsEngineWeb.ContrastTest do
 
   defp over({r, g, b, a}, {br, bg, bb, _}),
     do: {r * a + br * (1 - a), g * a + bg * (1 - a), b * a + bb * (1 - a), 1.0}
-
-  defp gradient(stops, at) do
-    {{from, a}, {to, b}} =
-      stops |> Enum.zip(tl(stops)) |> Enum.find(fn {{_, a}, {_, b}} -> at >= a and at <= b end)
-
-    mix(to, from, (at - a) / (b - a))
-  end
 
   defp hex({r, g, b, _}),
     do:

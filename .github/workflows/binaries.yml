@@ -843,9 +843,9 @@ jobs:
             installer_out/releases.win.json
             installer_out/*.nupkg
 
-  # The only job in this workflow that can write to the repository, and it
-  # only exists on a tag. `needs: build` means no release is created unless
-  # every target built and smoke-tested first.
+  # The only job in this workflow that can write to the repository.
+  # `needs: build` means no release is created unless every target built and
+  # smoke-tested first, and the test gate below adds: and the tests passed.
   release:
     name: Attach binaries to the release
     needs: build
@@ -866,6 +866,9 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      # Read-only, and only so the test gate below can ask the API how the
+      # "Elixir CI" run for this commit ended.
+      actions: read
 
     steps:
       # Only mix.exs is needed, and only on the main-push path - but the
@@ -903,6 +906,62 @@ jobs:
             echo "Release ${tag} does not exist yet - publishing."
             echo "publish=true" >> "$GITHUB_OUTPUT"
           fi
+
+      # A red test run must block the release. 0.85.0 went out with a failed
+      # "Elixir CI" run behind it (one flaky test) because this workflow and
+      # that one are independent: both fire on the same push, and nothing here
+      # waited for the other. `needs: build` only proves the binaries build and
+      # start, not that the test suite passed.
+      #
+      # Chosen over a `workflow_run` trigger on Elixir CI: that trigger runs
+      # from the default branch's copy of the workflow, with a different
+      # github.sha/ref, and would split the build matrix from the release job
+      # and break the tag path (tags never trigger Elixir CI, so a tag push
+      # would never publish). Chosen over merging the test job into this file:
+      # that duplicates Elixir CI and lets the two drift. Asking the API about
+      # the commit being released keeps both workflows, the build matrix and
+      # the secrets exactly as they are, and works for a main push and for a
+      # tag on a commit that already went through main.
+      #
+      # It waits (the tests usually finish long before the five-target build
+      # does, but not always), and treats "no run at all for this commit after
+      # ten minutes" as a failure, not a pass: an unverified commit is not a
+      # tested one. After a red run, fix or re-run Elixir CI for the commit,
+      # then re-run this job; the gate asks again from scratch.
+      - name: Wait for a green Elixir CI run on this commit
+        if: steps.ver.outputs.publish == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          start=$(date +%s)
+          while :; do
+            runs=$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/elixir.yml/runs?head_sha=${GITHUB_SHA}&per_page=50")
+            total=$(echo "$runs" | jq '.workflow_runs | length')
+            green=$(echo "$runs" | jq '[.workflow_runs[] | select(.status == "completed" and .conclusion == "success")] | length')
+            pending=$(echo "$runs" | jq '[.workflow_runs[] | select(.status != "completed")] | length')
+            elapsed=$(( $(date +%s) - start ))
+
+            if [ "$green" -gt 0 ]; then
+              echo "Elixir CI passed for ${GITHUB_SHA} - releasing."
+              exit 0
+            fi
+            if [ "$total" -gt 0 ] && [ "$pending" -eq 0 ]; then
+              echo "::error::Elixir CI did not pass for ${GITHUB_SHA}; not publishing a release over a red test run."
+              echo "$runs" | jq -r '.workflow_runs[] | "  \(.html_url) -> \(.conclusion)"'
+              exit 1
+            fi
+            if [ "$total" -eq 0 ] && [ "$elapsed" -ge 600 ]; then
+              echo "::error::No Elixir CI run found for ${GITHUB_SHA} after 10 minutes; refusing to release an untested commit."
+              exit 1
+            fi
+            if [ "$elapsed" -ge 2700 ]; then
+              echo "::error::Elixir CI for ${GITHUB_SHA} was still running after 45 minutes; not publishing."
+              exit 1
+            fi
+            echo "Elixir CI for ${GITHUB_SHA}: ${total} run(s), ${pending} still going. Waiting..."
+            sleep 30
+          done
 
       - name: Collect every target's release assets
         if: steps.ver.outputs.publish == 'true'

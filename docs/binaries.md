@@ -58,6 +58,15 @@ To cut a release:
 git tag -a v0.17.0 -m "0.17.0" && git push origin v0.17.0
 ```
 
+**A red CI blocks the release.** Whether the release comes from a tag or from
+a `mix.exs` version bump pushed to `main`, the release job first waits for the
+"Elixir CI" run on that same commit and publishes only if it passed. A failed
+run, no run at all after ten minutes, or one still going after 45 minutes
+stops the release (the binaries are still built and kept as workflow
+artifacts). Fix or re-run the tests, then re-run the failed "Attach binaries
+to the release" job; it asks again from scratch. (0.85.0 was published over a
+failed run before this gate existed.)
+
 ## Building locally
 
 Needs **Zig** and **xz** on the build machine (`brew install zig xz`, or your

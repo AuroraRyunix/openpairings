@@ -127,7 +127,9 @@ verandert niet wie tegen wie speelt.
 ## Rondetoernooi {#round-robin}
 
 Een rondetoernooi paart het **hele toernooi in één keer**: de knop luidt *Het
-hele toernooi paren (Berger)*, en het programma vraagt om bevestiging.
+hele toernooi paren (Berger)*. Vóór ronde 1 vraagt het programma eerst hoe de
+spelers worden genummerd ([De spelers van een rondetoernooi
+nummeren](#numbering-the-players-of-a-round-robin)); daarna paart het.
 
 > [!WARNING]
 > Het schema kan achteraf niet meer worden gewijzigd, en spelers die later worden
@@ -138,9 +140,9 @@ spelers rust elke speler één ronde uit met een bye van nul punten. Een dubbele
 cyclus speelt de tabel tweemaal met omgekeerde kleuren (met de laatste twee
 rondes van de eerste cyclus in omgekeerde volgorde, als die optie aanstaat). Een
 speler die afwezig is of zich heeft teruggetrokken, blijft in het schema: voer
-voor zijn partijen een forfaitresultaat in. De startnummers die de Berger-tabellen
-gebruiken, zijn de ratingvolgorde, tenzij u ze vóór ronde 1 op de pagina Spelers
-instelt (*Startnummers*, met de hand of door loting; [Spelers en ratinglijsten](04-players-and-ratings.md)).
+voor zijn partijen een forfaitresultaat in. De Berger-tabellen paren op de
+startnummers van de spelers; die kiest u bij de eerste paring (hieronder) of
+vooraf op de pagina Spelers (*Startnummers*; [Spelers en ratinglijsten](04-players-and-ratings.md)).
 
 Ernaast maakt **Ronde N met de hand paren…** de volgende ronde zelf in plaats
 van die van de tabel
@@ -150,6 +152,51 @@ Zodra er een ronde bestaat, luidt de hoofdknop *De resterende rondes paren
 rondes de tabel hebben verlaten en haar volgende ronde twee spelers zou paren
 die elkaar in die cyclus al ontmoetten: dan weigert hij en zegt hij welke
 twee.
+
+### De spelers van een rondetoernooi nummeren {#numbering-the-players-of-a-round-robin}
+
+De Berger-tabel paart op startnummers, en die kunnen niet meer veranderen
+zodra ronde 1 bestaat. Daarom vraagt de eerste klik op *Het hele toernooi paren
+(Berger)* (en op de eerste *Ronde 1 met de hand paren…*) hoe de spelers worden
+genummerd. De gebruikte keuze staat voorgeselecteerd, en het dialoogvenster
+toont de nummers die elke keuze geeft voordat er iets vastligt.
+
+- **Volgens rating.** De standaard van FIDE. Hoogste rating eerst; spelers met
+  dezelfde rating gaan volgens FIDE-titel, dan volgens de tiebreak uit de opties
+  (alfabetisch tenzij u die wijzigde), dan volgens naam, dan in de volgorde van
+  invoer. Hetzelfde veld geeft altijd dezelfde lijst: er zit niets willekeurigs
+  in.
+- **Volgens invoer.** De volgorde waarin de spelers aan dit toernooi werden
+  toegevoegd. Dat is de volgorde waarin het programma ze aanmaakte (elke nieuwe
+  speler komt na de vorige), dus ze geldt voor ingetypte spelers, spelers uit een
+  lijst en spelers uit een ingevoerd bestand, in de volgorde van dat bestand. Een
+  toernooi dat uit een geëxporteerd toernooibestand is heraangemaakt, is
+  ingevoerd in de volgorde van het bestand, en dat is de ratingvolgorde; daar
+  geven *Volgens invoer* en *Volgens rating* dezelfde lijst.
+- **Door loting.** Het programma loot nadat u op *Loten* drukt. U ziet de
+  loting en kunt opnieuw loten; er ligt niets vast tot u de paring bevestigt.
+- **Zoals ingesteld op de pagina Spelers.** Wordt aangeboden wanneer de spelers al
+  nummers hebben: daar met de hand of door loting ingesteld, of meegekomen met
+  een ingevoerd bestand. Het dialoogvenster zegt het wanneer die nummers toevallig
+  de ratingvolgorde of de volgorde van invoer zijn.
+
+Het paringsvenster zegt duidelijk dat de nummers na ronde 1 niet meer kunnen
+veranderen. De keuze komt in het logboek met de resulterende volgorde; bij een
+loting ook met de loting (seed), en dezelfde seed op de spelers in volgorde van
+invoer geeft opnieuw dezelfde volgorde. Het venster *Startnummers* op de pagina
+Spelers biedt dezelfde drie aan (*Loten*, *Rangschikken op rating*,
+*Rangschikken op invoer*) en daarnaast nummers met de hand. Een
+team-rondetoernooi wordt hier niet genummerd: de teams worden op de pagina Teams
+gerangschikt.
+
+**Als u van SWAR komt.** De drie manieren waarop SWAR de spelers voor een
+rondetoernooi rangschikt - volgens ranking, volgens invoer, willekeurig -
+komen overeen met *Volgens rating*, *Volgens invoer* en *Door loting*. Een
+ingevoerd SWAR-bestand bevat alleen het resultaat: SWAR nummert de tabel van een
+rondetoernooi volgens de plaats van de spelers in zijn ranking, en de import
+behoudt die plaats als startnummer, zodat het verschijnt als *Zoals ingesteld op
+de pagina Spelers*. Het bestand zegt niet welke van de drie manieren het
+opleverde.
 
 ## Keizer {#keizer}
 

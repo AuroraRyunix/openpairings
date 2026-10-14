@@ -24,6 +24,27 @@ defmodule PairingsEngine.StartingNumbers do
   so two players never share a number and nobody outside the pool is
   scheduled. "Order by rating" takes every number off: round 1 then numbers
   the field by rating exactly as it did before this existed.
+
+  The same four ways of numbering are offered where the first pairing is
+  asked for (`PairingsEngineWeb.PairingsLive`) and on the Players page:
+
+    * `:rating` - `rating_ids/1`, `Pairing.initial_order/2`: Tournament
+      Rating highest first, then FIDE title, then the tournament's
+      initial-order tie-break (alphabetical unless another was chosen), then
+      name, then id. Total, so the same field always numbers the same way.
+    * `:entered` - `entry_ids/1`: the order the players were added to the
+      tournament, which is ascending `players.id` (the database hands ids
+      out in insertion order; there is no other reliable entry stamp, since
+      `inserted_at` has a one-second grain and an import stamps a whole file
+      with the same second). A tournament rebuilt from an export file is
+      entered in that file's order, which is the Players list's rating
+      order, so there "as entered" and "by rating" can coincide.
+    * `:lots` - `lot_ids/2`: a drawing of lots done by the program from a
+      seed. The seed and the resulting order are written to the audit trail,
+      and `shuffle_by_seed/2` of the entry order with that seed gives the
+      same order again.
+    * `:set` - the numbers already on the players (set on the Players page,
+      or carried in by an imported file).
   """
 
   import Ecto.Query
@@ -117,6 +138,88 @@ defmodule PairingsEngine.StartingNumbers do
   def draw_lots(%Tournament{} = tournament, shuffle \\ &Enum.shuffle/1) do
     set_order(tournament, shuffle.(current_ids(tournament)))
   end
+
+  @doc """
+  Numbers the pool by the drawing `seed` gives (`lot_ids/2`), so the draw
+  can be repeated from the audit trail.
+  """
+  def draw_lots_seeded(%Tournament{} = tournament, seed) when is_integer(seed),
+    do: set_order(tournament, lot_ids(tournament, seed))
+
+  @doc "Numbers the pool in the order the players were entered (`entry_ids/1`)."
+  def by_entry(%Tournament{} = tournament), do: set_order(tournament, entry_ids(tournament))
+
+  @doc "The pool's player ids in the order they were added to the tournament."
+  def entry_ids(%Tournament{} = tournament) do
+    tournament.id |> Engine.active_players() |> Enum.sort_by(& &1.id) |> Enum.map(& &1.id)
+  end
+
+  @doc """
+  The pool's player ids in the order round 1 would number them by rating
+  (`Pairing.initial_order/2`; ties by title, the tournament's tie-break,
+  name and id).
+  """
+  def rating_ids(%Tournament{} = tournament) do
+    tournament.id
+    |> Engine.active_players()
+    |> Engine.initial_order(tournament)
+    |> Enum.map(& &1.id)
+  end
+
+  @doc "A fresh seed for a drawing of lots."
+  def new_seed, do: :crypto.strong_rand_bytes(4) |> :binary.decode_unsigned()
+
+  @doc """
+  The entry order shuffled by `seed`: the same seed on the same field draws
+  the same order, which is what lets an audit entry reproduce a draw.
+  """
+  def lot_ids(%Tournament{} = tournament, seed) when is_integer(seed),
+    do: tournament |> entry_ids() |> shuffle_by_seed(seed)
+
+  @doc """
+  Shuffles `ids` by `seed`: every id gets a random key from a generator
+  seeded with `seed`, and the list is sorted by the keys. Pure.
+  """
+  def shuffle_by_seed(ids, seed) when is_list(ids) and is_integer(seed) do
+    {keyed, _state} =
+      Enum.map_reduce(ids, :rand.seed_s(:exsss, seed), fn id, state ->
+        {key, state} = :rand.uniform_s(state)
+        {{key, id}, state}
+      end)
+
+    keyed |> Enum.sort() |> Enum.map(&elem(&1, 1))
+  end
+
+  @doc """
+  The pool numbered by `ids` as `[{player, number}]`, without writing
+  anything: what `set_order/2` would give. Ids outside the pool are dropped.
+  """
+  def numbered(%Tournament{} = tournament, ids) when is_list(ids) do
+    by_id = tournament.id |> Engine.active_players() |> Map.new(&{&1.id, &1})
+
+    ids
+    |> Enum.flat_map(fn id -> List.wrap(Map.get(by_id, id)) end)
+    |> Enum.with_index(1)
+  end
+
+  @doc """
+  What the audit trail keeps of a numbering: how it was chosen, the seed if
+  there was one and the resulting order (number, player id, name).
+  """
+  def audit_details(mode, order, seed \\ nil) when is_list(order) do
+    %{
+      mode: to_string(mode),
+      seed: seed,
+      order: Enum.map(order, fn {p, n} -> %{no: n, id: p.id, name: p.name} end)
+    }
+  end
+
+  @doc """
+  The numbering to preselect: `:set` when numbers are already on the
+  players, else `:rating`.
+  """
+  def default_mode(%Tournament{} = tournament),
+    do: if(set_by_hand?(tournament), do: :set, else: :rating)
 
   @doc """
   Takes every number off, so round 1 numbers the field by rating

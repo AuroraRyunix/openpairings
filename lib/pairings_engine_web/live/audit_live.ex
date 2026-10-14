@@ -379,6 +379,28 @@ defmodule PairingsEngineWeb.AuditLive do
         other: name(d, "other_name")
       )
 
+  # A whole numbering at once: how it was chosen, and the order it gave
+  # (with the seed, for a drawing of lots - the same seed on the entry order
+  # draws the same order again).
+  def describe("player.starting_numbers_set", %{"mode" => "rating"} = d),
+    do: gettext("Numbered the players by rating: %{order}.", order: numbered_names(d))
+
+  def describe("player.starting_numbers_set", %{"mode" => "entered"} = d),
+    do: gettext("Numbered the players as entered: %{order}.", order: numbered_names(d))
+
+  def describe("player.starting_numbers_set", %{"mode" => "lots"} = d),
+    do:
+      gettext("Drew the starting numbers by lot (seed %{seed}): %{order}.",
+        seed: value(d, "seed"),
+        order: numbered_names(d)
+      )
+
+  def describe("player.starting_numbers_set", %{"mode" => "set"} = d),
+    do:
+      gettext("Fixed the starting numbers as set on the Players page: %{order}.",
+        order: numbered_names(d)
+      )
+
   def describe("player.starting_numbers_set", %{"drawn" => true}),
     do: gettext("Drew the starting numbers by lot.")
 
@@ -2503,6 +2525,16 @@ defmodule PairingsEngineWeb.AuditLive do
   defp shown(list) when is_list(list), do: Enum.map_join(list, ", ", &shown/1)
   defp shown(map) when is_map(map), do: Jason.encode!(map)
   defp shown(v), do: text(v)
+
+  defp numbered_names(d) do
+    d
+    |> Map.get("order", [])
+    |> List.wrap()
+    |> Enum.map_join(", ", fn
+      %{"no" => no, "name" => name} -> "#{no}. #{name}"
+      _ -> "?"
+    end)
+  end
 
   defp name(d, key) do
     case d[key] do

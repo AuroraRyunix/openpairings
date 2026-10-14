@@ -182,10 +182,17 @@ volgen*).
 **Startnummers van een rondetoernooi.** Vóór ronde 1 opent de knop
 **Startnummers** de lijst waarop de Berger-tabellen paren. Voer het resultaat van
 een loting met de hand in (een nummer per speler, of verplaats een speler omhoog
-of omlaag), of druk op **Loten** (het programma loot, na een bevestiging), of op
-**Rangschikken op rating** om terug te gaan naar de ratingvolgorde. De nummers
-worden gebruikt wanneer ronde 1 wordt gepaard en kunnen daarna niet meer worden
-gewijzigd; een later ingeschreven speler krijgt het volgende nummer.
+of omlaag), of druk op **Rangschikken op rating** (hoogste rating eerst; bij
+gelijke rating de titel, dan de tiebreak uit de opties, dan de naam, dan de
+volgorde van invoer), **Rangschikken op invoer** (de volgorde waarin de spelers
+aan het toernooi werden toegevoegd) of **Loten** (het programma loot, na een
+bevestiging; het logboek bewaart de seed van de loting en de resulterende
+volgorde). De nummers worden gebruikt wanneer ronde 1 wordt gepaard en kunnen
+daarna niet meer worden gewijzigd; een later ingeschreven speler krijgt het
+volgende nummer. De eerste paring van een rondetoernooi biedt dezelfde keuzes
+opnieuw aan
+([De spelers van een rondetoernooi nummeren](06-pairing.md#numbering-the-players-of-a-round-robin)),
+en SWAR-gebruikers vinden daar welke SWAR-optie waarmee overeenkomt.
 
 ### Het rooster {#the-grid}
 

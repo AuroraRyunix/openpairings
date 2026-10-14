@@ -16,7 +16,7 @@ defmodule PairingsEngineWeb.UserLive.Login do
       current_scope={@current_scope}
     >
       <div class="auth-wrap">
-        <aside class="auth-hero">
+        <aside id="auth-hero" class="auth-hero">
           <div class="auth-hero-inner">
             <div class="auth-hero-brand">
               <svg
@@ -69,13 +69,13 @@ defmodule PairingsEngineWeb.UserLive.Login do
 
             <h1 class="auth-hero-title">{gettext("Run world-class chess tournaments.")}</h1>
 
-            <p class="auth-hero-sub">
+            <p id="auth-hero-sub" class="auth-hero-sub">
               {gettext(
                 "Swiss pairings from our own engine, FIDE tie-break rules, and official report formats - from the first round to the final crosstable, right in your browser."
               )}
             </p>
 
-            <ul class="auth-features">
+            <ul id="auth-features" class="auth-features">
               <li>
                 <.icon name="hero-check-circle-mini" class="size-5" /> {gettext(
                   "Swiss (Dutch), round robin, Keizer & team tournaments, grouped per event"
@@ -128,8 +128,8 @@ defmodule PairingsEngineWeb.UserLive.Login do
           </div>
         </aside>
 
-        <div class="auth-panel">
-          <div class="auth-card">
+        <div id="auth-panel" class="auth-panel">
+          <div id="auth-card" class="auth-card">
             <h2 class="auth-card-title">
               {if @current_scope, do: gettext("Confirm it's you"), else: gettext("Welcome back")}
             </h2>

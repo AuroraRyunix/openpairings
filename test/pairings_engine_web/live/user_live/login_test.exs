@@ -21,6 +21,36 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
       assert html =~ "our own FIDE 2026 Swiss engine"
     end
 
+    # The sign-in screen at its widest and at its narrowest: the pieces the
+    # layout is built from are all there, by id.
+    test "has the brand panel and the form card", %{conn: conn} do
+      {:ok, lv, _html} = live(conn, ~p"/users/log-in")
+
+      for id <- ~w(auth-hero auth-hero-sub auth-features auth-panel auth-card login_form_magic) do
+        assert has_element?(lv, "##{id}"), "no ##{id} on the sign-in screen"
+      end
+
+      # The intro sits in the panel, above the list, so it can use the same width.
+      assert has_element?(lv, "#auth-hero #auth-hero-sub")
+      assert has_element?(lv, "#auth-hero #auth-features")
+      assert has_element?(lv, "#auth-panel #auth-card #login_form_magic")
+    end
+
+    # What a visitor sees after opening a page that needs an account: the
+    # redirect carries the flash, and it is the error one, in the fixed toast
+    # that app.css keeps inside the window.
+    test "shows why you were sent here", %{conn: conn} do
+      {:ok, conn} =
+        live(conn, ~p"/users/settings")
+        |> follow_redirect(conn, ~p"/users/log-in")
+
+      {:ok, lv, _html} = live(conn)
+
+      assert has_element?(lv, "#flash-error")
+      assert has_element?(lv, "#flash-error", "You must log in to access this page.")
+      assert has_element?(lv, "#flash-error.toast")
+    end
+
     test "shows the running app version", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/users/log-in")
 
