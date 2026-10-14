@@ -232,7 +232,9 @@ streepjes), met daarin:
   `version`, `dark` (`true` als de tekst op de vlakken van het pakket licht is,
   zodat het programma zijn eigen tekens voor een donkere achtergrond tekent) en
   `swatch` (drie of vier kleuren als `#rrggbb`, het voorbeeld in de
-  themakeuze).
+  themakeuze), en eventueel `users`: een lijst e-mailadressen. Dan bestaat
+  het pakket alleen voor die accounts; wie niet op de lijst staat of niet is
+  aangemeld, ziet het niet in de themakeuze en kan het niet kiezen.
 - `theme.css` - de stylesheet, hoogstens 200 KB.
 - eventueel `fonts/`, met lettertypen als `.woff2`-bestanden (hoogstens 1 MB
   elk, namen van kleine letters, cijfers, `-` en `_`), en een licentie- of

@@ -899,7 +899,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                   <legend>{gettext("Colour theme")}</legend>
 
                   <div class="acct-choices">
-                    <label :for={{value, label} <- theme_options()} class="acct-choice">
+                    <label :for={{value, label} <- theme_options(@current_scope)} class="acct-choice">
                       <input
                         type="radio"
                         name="prefs[theme]"
@@ -1371,10 +1371,10 @@ defmodule PairingsEngineWeb.UserLive.Settings do
     ]
   end
 
-  defp theme_options do
+  defp theme_options(scope) do
     [
       {"", gettext("This device decides")}
-      | Enum.map(Preferences.themes(), &{&1, theme_label(&1)})
+      | Enum.map(Preferences.themes(scope), &{&1, theme_label(&1)})
     ]
   end
 

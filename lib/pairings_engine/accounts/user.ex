@@ -364,7 +364,7 @@ defmodule PairingsEngine.Accounts.User do
     user
     |> cast(attrs, [:locale, :theme, :accent], empty_values: [nil, ""])
     |> validate_inclusion(:locale, Preferences.locales())
-    |> validate_inclusion(:theme, Preferences.themes())
+    |> validate_inclusion(:theme, Preferences.themes(user))
     |> validate_inclusion(:accent, Preferences.accents())
   end
 

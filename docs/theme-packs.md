@@ -41,6 +41,7 @@ sibling `openpairings_themes` repository to the server's
 | `version` | yes | free text |
 | `dark` | yes | boolean; `true` sets `data-theme-dark` on `<html>`, which switches the core's dark-background accents, checkbox marks and `color-scheme` |
 | `swatch` | yes | 3 or 4 `#rrggbb` colours, the picker preview |
+| `users` | no | 1 to 100 email addresses (case-insensitive). When present, the pack exists only for those signed-in accounts: picker, bootstrap list and storable themes. Visitors never get it. The stylesheet URL itself stays public; nothing loads it for anyone else. An empty list is refused rather than read as "everybody" |
 
 Limits: `theme.css` at most 200 KB, each font at most 1 MB, font names
 `[a-z0-9_-]+\.woff2`.

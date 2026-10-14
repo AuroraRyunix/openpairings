@@ -422,7 +422,7 @@ defmodule PairingsEngineWeb.Layouts do
       <nav class="topbar-auth" aria-label={gettext("Account and display")}>
         <.accent_picker />
         <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
-        <.theme_switch />
+        <.theme_switch current_scope={@current_scope} />
         <%= if @current_scope do %>
           <%!-- Read here rather than passed in. `Layouts.app` is a function
                 component, so it sees only the attributes its caller hands it -
@@ -1185,13 +1185,20 @@ defmodule PairingsEngineWeb.Layouts do
   rather than in a log. A pack's option is highlighted by `aria-pressed`
   (kept by `app.js`), since app.css cannot name a theme it has never heard of.
   """
+  attr :current_scope, :map,
+    default: nil,
+    doc: "who is looking: a pack kept for particular accounts is listed only for them"
+
   def theme_switch(assigns) do
     locale = Gettext.get_locale(PairingsEngineWeb.Gettext)
 
     assigns =
       assigns
       |> assign(:themes, @themes)
-      |> assign(:packs, Enum.map(ThemePacks.list(), &{&1, ThemePacks.label(&1, locale)}))
+      |> assign(
+        :packs,
+        Enum.map(ThemePacks.list(assigns.current_scope), &{&1, ThemePacks.label(&1, locale)})
+      )
       |> assign(:refused, ThemePacks.refused())
 
     ~H"""

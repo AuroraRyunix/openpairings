@@ -55,7 +55,7 @@ defmodule PairingsEngine.ThemePacksTest do
       assert Preferences.theme?("toon")
 
       assert [%{"id" => "toon", "dark" => true, "css" => "/themes/toon/theme.css?v=" <> _}] =
-               Jason.decode!(ThemePacks.bootstrap_json())
+               Jason.decode!(ThemePacks.bootstrap_json(nil))
     end
 
     test "is gone the moment its folder is", %{themes_dir: dir} do

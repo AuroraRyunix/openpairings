@@ -114,4 +114,42 @@ defmodule PairingsEngineWeb.ThemePickerPacksTest do
     {:ok, user} = Accounts.update_user_preferences(user, %{"theme" => "toon"})
     assert user.theme == "toon"
   end
+
+  describe "a pack kept for particular accounts" do
+    setup %{themes_dir: dir} do
+      owner = user_fixture()
+      install_pack(dir, "mine", meta: %{"users" => [String.upcase(owner.email)]})
+      %{owner: owner}
+    end
+
+    test "is offered to the listed account only", %{conn: conn, owner: owner} do
+      doc = page(log_in_user(conn, owner))
+      assert has?(doc, "#theme-pack-mine")
+      assert [%{"id" => "mine"}] = packs_data(doc)
+
+      for doc <- [page(log_in_user(build_conn(), user_fixture())), page(build_conn())] do
+        refute has?(doc, "#theme-pack-mine")
+        assert packs_data(doc) == []
+      end
+    end
+
+    test "is storable by the listed account only", %{conn: conn, owner: owner} do
+      assert {:ok, %{theme: "mine"}} =
+               Accounts.update_user_preferences(owner, %{"theme" => "mine"})
+
+      assert {:error, _} = Accounts.update_user_preferences(user_fixture(), %{"theme" => "mine"})
+
+      {:ok, lv, _html} = conn |> log_in_user(user_fixture()) |> live(~p"/users/settings")
+      refute has_element?(lv, ~s(#theme-choices input[value="mine"]))
+    end
+
+    test "an empty or malformed list is refused, not opened to everybody", %{themes_dir: dir} do
+      install_pack(dir, "none", meta: %{"users" => []})
+      install_pack(dir, "odd", meta: %{"users" => ["not an address"]})
+
+      refused = Map.new(PairingsEngine.ThemePacks.refused())
+      assert refused["none"] =~ "users"
+      assert refused["odd"] =~ "users"
+    end
+  end
 end

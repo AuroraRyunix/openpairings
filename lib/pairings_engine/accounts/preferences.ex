@@ -39,14 +39,18 @@ defmodule PairingsEngine.Accounts.Preferences do
   the built-in ones. They are read when asked, not at compile time, so a
   pack that is removed stops being storable - and an account that stored it
   gets no `data-account-theme` at all, which the inline script turns into
-  System like any other lost theme.
+  System like any other lost theme. A pack kept for particular accounts
+  (`"users"` in its `theme.json`) is storable by those accounts only.
   """
 
   @themes ~w(system light dark slate paper board tomw contrast)
   @accents ~w(green blue teal violet rose slate indigo cyan fuchsia)
 
-  @doc "Every theme an account may store, `\"system\"` first, installed packs last."
-  def themes, do: @themes ++ PairingsEngine.ThemePacks.ids()
+  @doc """
+  Every theme `who` (a scope, a user, or `nil`) may store, `"system"` first,
+  installed packs last - minus the packs kept for other accounts.
+  """
+  def themes(who \\ nil), do: @themes ++ PairingsEngine.ThemePacks.ids(who)
 
   @doc "The themes built into the program, `\"system\"` first."
   def builtin_themes, do: @themes
@@ -57,8 +61,8 @@ defmodule PairingsEngine.Accounts.Preferences do
   @doc "Every interface language an account may store."
   def locales, do: PairingsEngineWeb.Locale.codes()
 
-  @doc "Whether `value` may be stored as a theme."
-  def theme?(value), do: value in themes()
+  @doc "Whether `value` may be stored as a theme by `who`."
+  def theme?(value, who \\ nil), do: value in themes(who)
 
   @doc "Whether `value` may be stored as an accent colour."
   def accent?(value), do: value in @accents

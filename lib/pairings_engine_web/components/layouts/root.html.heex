@@ -27,7 +27,10 @@
           the bootstrap below: id, dark or not, and the stylesheet to load
           when it is the chosen theme. An attribute, escaped like any other,
           and read with JSON.parse - never spliced into the script. --%>
-    <meta name="op-theme-packs" content={PairingsEngine.ThemePacks.bootstrap_json()} />
+    <meta
+      name="op-theme-packs"
+      content={PairingsEngine.ThemePacks.bootstrap_json(assigns[:current_scope])}
+    />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
     <%!-- Runs before first paint (a deferred bundle would flash the wrong

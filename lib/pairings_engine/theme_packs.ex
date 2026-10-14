@@ -18,6 +18,17 @@ defmodule PairingsEngine.ThemePacks do
 
   Nothing is installed by default.
 
+  ## Packs for some accounts only
+
+  A `theme.json` may carry `"users": ["someone@example.org", ...]`. Such a
+  pack exists only for those signed-in accounts: it is in their picker,
+  their bootstrap and their list of storable themes, and nobody else's. A
+  visitor who is not signed in is nobody's account, so never sees one. The
+  stylesheet itself is still served to whoever asks - it is a stylesheet,
+  not a secret - but no page loads it for anyone else, and a browser that
+  remembers the theme from an earlier sign-in falls back to System like it
+  does for any theme it has lost.
+
   ## Refusals
 
   A pack that does not load is refused, not half-loaded: a bad `theme.json`,
@@ -49,6 +60,7 @@ defmodule PairingsEngine.ThemePacks do
           version: String.t(),
           dark: boolean(),
           swatch: [String.t()],
+          users: [String.t()] | nil,
           path: String.t(),
           etag: String.t()
         }
@@ -86,16 +98,38 @@ defmodule PairingsEngine.ThemePacks do
     end
   end
 
-  @doc "The accepted packs, sorted by name."
+  @doc """
+  Every accepted pack, sorted by name - including the ones kept for
+  particular accounts. For anything shown to somebody, use `list/1`.
+  """
   @spec list() :: [pack()]
   def list, do: for({:ok, pack} <- scan(), do: pack)
+
+  @doc """
+  The packs `who` may use: a scope, a user, or `nil` for a visitor. See
+  "Packs for some accounts only".
+  """
+  @spec list(term()) :: [pack()]
+  def list(who), do: Enum.filter(list(), &allowed?(&1, who))
+
+  @doc "Whether `who` (a scope, a user, or `nil`) may use `pack`."
+  def allowed?(%{users: nil}, _who), do: true
+  def allowed?(%{users: users}, %{user: user}), do: allowed?(%{users: users}, user)
+
+  def allowed?(%{users: users}, %{email: email}) when is_binary(email),
+    do: String.downcase(email) in users
+
+  def allowed?(_pack, _who), do: false
 
   @doc "The refused packs, as `{folder name, reason}`."
   @spec refused() :: [{String.t(), String.t()}]
   def refused, do: for({:refused, id, reason} <- scan(), do: {id, reason})
 
-  @doc "The ids of the accepted packs."
+  @doc "The ids of every accepted pack."
   def ids, do: Enum.map(list(), & &1.id)
+
+  @doc "The ids of the packs `who` may use."
+  def ids(who), do: Enum.map(list(who), & &1.id)
 
   @doc "The accepted pack `id`, or `nil`."
   @spec get(String.t()) :: pack() | nil
@@ -106,11 +140,12 @@ defmodule PairingsEngine.ThemePacks do
   def get(_), do: nil
 
   @doc """
-  The packs as the root layout hands them to its bootstrap script: data,
-  never code.
+  The packs `who` may use, as the root layout hands them to its bootstrap
+  script: data, never code.
   """
-  def bootstrap_json do
-    list()
+  def bootstrap_json(who) do
+    who
+    |> list()
     |> Enum.map(&%{id: &1.id, dark: &1.dark, css: css_url(&1)})
     |> Jason.encode!()
   end
@@ -267,6 +302,9 @@ defmodule PairingsEngine.ThemePacks do
                Enum.all?(swatch, &(is_binary(&1) and &1 =~ @hex))) ->
         {:error, "swatch must be 3 or 4 hex colours"}
 
+      not users?(json["users"]) ->
+        {:error, "users must be a list of 1 to 100 email addresses"}
+
       true ->
         {:ok,
          %{
@@ -276,10 +314,27 @@ defmodule PairingsEngine.ThemePacks do
            author: string(json["author"]),
            version: string(json["version"]),
            dark: json["dark"],
-           swatch: Enum.map(swatch, &String.downcase/1)
+           swatch: Enum.map(swatch, &String.downcase/1),
+           users: users(json["users"])
          }}
     end
   end
+
+  # Absent means everybody. An empty list would mean nobody, which is a pack
+  # nobody can see - refused, so whoever wrote it hears about it.
+  defp users?(nil), do: true
+
+  defp users?(list) when is_list(list) and length(list) in 1..100,
+    do:
+      Enum.all?(
+        list,
+        &(is_binary(&1) and String.length(&1) <= 254 and &1 =~ ~r/\A[^@\s]+@[^@\s]+\z/)
+      )
+
+  defp users?(_), do: false
+
+  defp users(nil), do: nil
+  defp users(list), do: list |> Enum.map(&String.downcase/1) |> Enum.uniq()
 
   defp text?(value),
     do: is_binary(value) and String.trim(value) != "" and String.length(value) <= 40

@@ -27,7 +27,7 @@ defmodule PairingsEngineWeb.AccountPreferences do
   """
   def html_attrs(%{user: %User{} = user}) do
     %{}
-    |> put_if("data-account-theme", user.theme, &Preferences.theme?/1)
+    |> put_if("data-account-theme", user.theme, &Preferences.theme?(&1, user))
     |> put_if("data-account-accent", user.accent, &Preferences.accent?/1)
   end
 

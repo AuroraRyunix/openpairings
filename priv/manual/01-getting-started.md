@@ -223,7 +223,10 @@ holding:
   most 40 characters), optionally `name_nl` (the Dutch name), `author`,
   `version`, `dark` (`true` when the text on the pack's surfaces is light, so
   the program draws its own marks for a dark background) and `swatch` (three
-  or four colours as `#rrggbb`, the preview in the picker).
+  or four colours as `#rrggbb`, the preview in the picker), and optionally
+  `users`: a list of email addresses. Then the pack exists for those
+  accounts only; anyone not on the list, or not signed in, does not see it in
+  the picker and cannot choose it.
 - `theme.css` - the stylesheet, at most 200 KB.
 - optionally `fonts/`, with fonts as `.woff2` files (at most 1 MB each, names
   of lowercase letters, digits, `-` and `_`), and a licence or read-me file.
