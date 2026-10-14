@@ -1,7 +1,7 @@
 # OpenResults: de publieke uitslagensite
 
 OpenResults is de alleen-lezen site waar toeschouwers een toernooi volgen: de
-paringen, de uitslagen, de stand, een kruistabel, een kaart voor elke speler
+paringen, de resultaten, de stand, een kruistabel, een kaart voor elke speler
 en, in de zaal, de schermen aan de muur. Niemand heeft een account nodig, en de
 site rekent niets zelf uit. Ze toont wat de computer van de arbiter stuurt, dus
 de arbiter bepaalt wat openbaar is en wanneer. Dit hoofdstuk beschrijft wat een
@@ -71,7 +71,7 @@ volgens zijn eigen regel, op de ladder.
 ### Ronden en paringen {#rounds-and-pairings}
 
 Elke gepubliceerde ronde heeft een eigen pagina, met de paringen en, wanneer de
-arbiter dat toestaat, de uitslagen naarmate ze binnenkomen. Een uitgesteld
+arbiter dat toestaat, de resultaten naarmate ze binnenkomen. Een uitgesteld
 spel wordt als zodanig gemarkeerd. Hoeveel van een ronde openbaar is, bepaalt de
 arbiter, ronde per ronde: zie
 [Wat het publiek ziet, ronde per ronde](14-publishing.md#what-the-public-sees-round-by-round).
@@ -104,16 +104,16 @@ Voor een televisie of beamer in de speelzaal zijn er twee schermvullende
 pagina's, die vanaf de stand-, kruistabel- en rondepagina's bereikbaar zijn.
 
 Het **zaalscherm** wisselt pagina per pagina: de paringen van de nieuwste ronde,
-een lijst *Zoek je bord* met alle spelers op alfabet, de uitslagen naarmate ze
+een lijst *Zoek je bord* met alle spelers op alfabet, de resultaten naarmate ze
 binnenkomen, de stand, en de mededeling van de arbiter. Een weergave waar niets
-te tonen is, wordt overgeslagen. Zolang een nieuwe ronde nog geen uitslag heeft,
+te tonen is, wordt overgeslagen. Zolang een nieuwe ronde nog geen resultaat heeft,
 blijft het scherm op de paringen, de naamlijst en de mededeling staan. De
 weergaven, het aantal seconden per pagina, het aantal standregels en de
 mededeling worden in OpenPairings ingesteld, zie
 [Het zaalscherm](14-publishing.md#the-hall-display).
 
 De **beamerweergave** toont alleen de paringen van de nieuwste ronde, in grote
-letters. Ze volgt een nieuw gepubliceerde ronde en de uitslagen naarmate ze
+letters. Ze volgt een nieuw gepubliceerde ronde en de resultaten naarmate ze
 binnenkomen, zonder herladen.
 
 Op beide schermen is er een knop Volledig scherm (of de toets <kbd>F</kbd>) en
@@ -124,8 +124,8 @@ en de weergaven voor een scherm zonder keuzemenu vastleggen, bijvoorbeeld
 
 > [!NOTE] Nooit meer dan de openbare pagina's
 > De zaalschermen volgen dezelfde regels als de openbare pagina's. Er verschijnen
-> geen paringen zolang de arbiter ze achterhoudt, en geen uitslag uit een ronde
-> waarvan de uitslagen niet openbaar zijn.
+> geen paringen zolang de arbiter ze achterhoudt, en geen resultaat uit een ronde
+> waarvan de resultaten niet openbaar zijn.
 
 ### Talen en thema's {#languages-and-themes}
 
@@ -139,7 +139,7 @@ gekozen is.
 ### Afdrukken, feeds en insluiten {#printing-feeds-and-embedding}
 
 Elke pagina kan vanuit de browser worden afgedrukt. Elk toernooi heeft een
-Atom-feed, met een item telkens wanneer de paringen, de uitslagen of de stand
+Atom-feed, met een item telkens wanneer de paringen, de resultaten of de stand
 van een ronde openbaar worden, zodat een feedlezer elk item één keer toont.
 
 Een pagina kan ook met `?embed=1` in een andere site worden ingesloten. De eigen
@@ -150,7 +150,7 @@ uitslagensite beheert.
 ### Een pagina melden {#reporting-a-page}
 
 Elke toernooipagina heeft een link **Deze pagina melden**. Een melding heeft een
-reden (verkeerde of valse uitslagen, persoonsgegevens, spam of aanstootgevende
+reden (verkeerde of valse resultaten, persoonsgegevens, spam of aanstootgevende
 inhoud, of iets anders), tot 2000 tekens toelichting, en een optioneel
 contactadres. Een bezoeker kan vijf meldingen per tien minuten sturen. Een
 melding blijft bewaard wanneer het toernooi van de site gehaald wordt.
@@ -164,7 +164,7 @@ verstuurd is.
 | Wat | Waar in OpenPairings |
 | --- | --- |
 | Of een toernooi gepubliceerd is, en of het vermeld wordt | [Een toernooi publiceren](14-publishing.md#publishing-a-tournament) |
-| Welke rondes openbaar zijn, en hoe ver (paringen, uitslagen, standen) | [Wat het publiek ziet, ronde per ronde](14-publishing.md#what-the-public-sees-round-by-round) |
+| Welke rondes openbaar zijn, en hoe ver (paringen, resultaten, standen) | [Wat het publiek ziet, ronde per ronde](14-publishing.md#what-the-public-sees-round-by-round) |
 | Automatisch publiceren, en de vertraging ervan | [Automatisch publiceren](14-publishing.md#automatic-publishing) |
 | Ratings, titels, federaties, clubs, categorieën, spelerskaarten en de tiebreakkolommen | [Wat de openbare pagina toont](14-publishing.md#what-the-public-page-shows) |
 | De startrangschikking vóór ronde 1 | [Wat de openbare pagina toont](14-publishing.md#what-the-public-page-shows) |
@@ -178,7 +178,7 @@ Drie dingen volgen uit de manier waarop de site gebouwd is:
   verandert de volgorde die ze beslist niet. Wanneer de volgorde een verborgen
   tiebreak gebruikte, zegt de pagina dat.
 - **Een achtergehouden ronde ontbreekt.** Een ronde die de arbiter niet
-  gepubliceerd heeft, of een uitslag die hij achterhoudt, wordt helemaal niet naar
+  gepubliceerd heeft, of een resultaat die hij achterhoudt, wordt helemaal niet naar
   de site gestuurd. Ze wordt niet op de pagina weggefilterd.
 - **Een volgorde met de hand wordt aangegeven.** Heeft de arbiter de volgorde met
   de hand gezet, dan zegt de stand dat.
@@ -199,7 +199,7 @@ van de arbiter staan in
   cookiemelding nodig. Een taal die in het adres gekozen wordt, staat in het adres.
   Een kleur of thema dat op een pagina gekozen wordt, wordt in de browser
   onthouden.
-- **Namen, bordnummers, uitslagen en plaatsen worden altijd getoond.** Een toernooi
+- **Namen, bordnummers, resultaten en plaatsen worden altijd getoond.** Een toernooi
   dat die niet mag tonen, moet niet gepubliceerd worden. Zie
   [Alleen link is geen privacy](14-publishing.md#publishing-a-tournament).
 - **Persoonsgegevens worden beperkt bewaard.** De termijnen staan op de
@@ -207,7 +207,7 @@ van de arbiter staan in
   dagen na het einde van het toernooi, het contactadres van een melding 90 dagen
   na de afhandeling ervan, en het adres van een melder 30 dagen.
 - **Een pagina kan even achterlopen.** Een gepubliceerde ronde verandert niet, en
-  de standpagina ververst ongeveer elke 20 seconden, dus een uitslag kan even op
+  de standpagina ververst ongeveer elke 20 seconden, dus een resultaat kan even op
   zich laten wachten.
-- **Een site die uitvalt, stopt de zaal niet.** Paren en uitslagen invoeren gaat in
+- **Een site die uitvalt, stopt de zaal niet.** Paren en resultaten invoeren gaat in
   OpenPairings door, of de site nu antwoordt of niet.

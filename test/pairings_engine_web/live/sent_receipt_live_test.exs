@@ -131,9 +131,9 @@ defmodule PairingsEngineWeb.SentReceiptLiveTest do
 
     Gettext.with_locale(PairingsEngineWeb.Gettext, "nl", fn ->
       assert Words.stamp_text(receipt) =~ "Verstuurd 03-10-2026 14:02 UTC · R5·7F2A"
-      assert Words.drift_title(receipt) =~ "Gewijzigd na verzending (R5·7F2A)"
+      assert Words.drift_title(receipt) =~ "Gewijzigd na het versturen (R5·7F2A)"
 
-      assert Words.code_text(%{receipt | code: nil}) == "verstuurd vóór de verzendbewijzen"
+      assert Words.code_text(%{receipt | code: nil}) == "verstuurd vóór de ontvangstbewijzen"
     end)
 
     assert Words.stamp_text(receipt) == "Sent 03-10-2026 14:02 UTC · R5·7F2A"

@@ -63,7 +63,7 @@ Het programma helpt op twee manieren:
 - Wanneer het opslaan van het inschrijfformulier een speler een **tweede of latere
   halvepuntsbye** zou geven, toont het formulier een waarschuwing voor de betreffende
   rondes (*De regels staan een speler slechts één halvepuntsbye per toernooi toe*),
-  en vraagt de knop **Opslaan** *Toch opslaan?* De opslag gaat pas door nadat u
+  en vraagt de knop **Opslaan** *Toch opslaan?* De opslag gaat pas door nadat je
   bevestigt.
 - Het vakje **Geen bye van een half punt voor deze speler** (vroeger *Komt niet in
   aanmerking voor byes van een half punt*) markeert een speler met voorwaarden of
@@ -114,12 +114,12 @@ het - toch geven*; een bye van een vol punt toont de melding hierboven.
 > afwezigheid: met N = 2 wordt de derde vrije ronde van een speler aangeboden als
 > bye van nul punt. Een bye van nul punt betaalt niets en gebruikt niets op. De
 > gekozen bye wordt wel gescoord zoals gekozen, wat de limieten ook zeggen: waar ze
-> voor die ronde minder zouden betalen (u kiest toch een halvepuntsbye voor de derde
-> ronde), zeggen het formulier en de bevestiging dat, en ze houden u niet tegen. De
+> voor die ronde minder zouden betalen (je kiest toch een halvepuntsbye voor de derde
+> ronde), zeggen het formulier en de bevestiging dat, en ze houden je niet tegen. De
 > afwezigheidspunten later wijzigen, verandert een al gekozen bye niet.
 
 > [!WARNING]
-> Markeer de afwezigheden **voordat** u de ronde paart. Een speler die laat komt,
+> Markeer de afwezigheden **voordat** je de ronde paart. Een speler die laat komt,
 > kan weer als aanwezig worden gemarkeerd en met de hand worden gepaard (zie
 > hieronder), of in de volgende ronde worden ingeschreven.
 
@@ -152,7 +152,7 @@ speler zonder tegenstander de helft van zijn eigen trede.
 
 ## Byes met de hand {#byes-by-hand}
 
-In een gepaarde ronde laat de pagina Paringen u wijzigen wie tegen wie speelt, of
+In een gepaarde ronde laat de pagina Paringen je wijzigen wie tegen wie speelt, of
 wie niet meespeelt. Het menu *Wijzigingen met de hand* (rechtsklik op de naam van
 een speler in de ronde) biedt:
 
@@ -201,14 +201,14 @@ of hem juist aan een bepaalde speler geven.
 > Deze voorkeuren zijn geen FIDE-regels. Ze staan standaard uit en worden niet
 > toegepast wanneer het toernooi FIDE-gehomologeerd is.
 
-Om ze te gebruiken, zet u **Byevoorkeuren** aan op de pagina Functies (accountmenu,
+Om ze te gebruiken, zet je **Byevoorkeuren** aan op de pagina Functies (accountmenu,
 *Functies*, Belgisch pakket). Het formulier van de speler biedt dan één
 keuzelijst, **Door de paring toegekende bye**, met één keuze:
 
 - **De FIDE-regels beslissen** (de standaard);
 - **Krijgt hem nooit** - de speler is in elke ronde uitgesloten van de bye;
-- **Niet in bepaalde rondes** - uitgesloten in de rondes die u typt en, als u wilt,
-  een voorkeur voor **de overige rondes** (de rondes van het toernooi die u niet
+- **Niet in bepaalde rondes** - uitgesloten in de rondes die je typt en, als je wilt,
+  een voorkeur voor **de overige rondes** (de rondes van het toernooi die je niet
   noemde);
 - **Liever niet**, **Liever wel** en **Moet hem krijgen, als een reglementaire paring
   dat toelaat**, elk voor alle rondes of voor bepaalde rondes.

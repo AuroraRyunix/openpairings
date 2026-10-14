@@ -1,9 +1,9 @@
 # Naar FIDE sturen: het ratingrapport
 
 Een gerate toernooi wordt aan FIDE gerapporteerd in een TRF-bestand (Tournament Report File).
-OpenPairings maakt het bestand; **het uploadt het niet**. U (of de ratingofficier
-van uw federatie) stuurt het bestand naar de ratingserver van FIDE, op de manier
-die uw federatie gebruikt. De taak van het programma is een correct bestand
+OpenPairings maakt het bestand; **het uploadt het niet**. Jij (of de ratingofficier
+van je federatie) stuurt het bestand naar de ratingserver van FIDE, op de manier
+die je federatie gebruikt. De taak van het programma is een correct bestand
 maken, ervoor zorgen dat geen enkele partij twee keer wordt gerapporteerd, en
 een logboek bijhouden van wat er verstuurd is.
 
@@ -20,7 +20,7 @@ Instellingen, **FIDE**:
 
 Instellingen, **Toernooi** (en **Geavanceerd**, **Normen**): de hoofdarbiter en de
 plaatsvervangers met hun FIDE-ID's, de federatie, de locatie, het speeltempo en
-de data. Het programma herinnert u aan de aanbevolen velden op de pagina's Spelers
+de data. Het programma herinner je aan de aanbevolen velden op de pagina's Spelers
 en Paringen; geen daarvan blokkeert de paring.
 
 > [!FIDE] Byeuitsluiting en bye-voorkeur
@@ -36,33 +36,33 @@ met haar borden en haar status:
 
 | Status | Betekenis |
 | --- | --- |
-| *Wordt gespeeld* | Een bord heeft nog geen uitslag: de ronde kan nog niet verstuurd worden. |
-| *Klaar om te versturen* | Elk bord heeft een uitslag. |
+| *Wordt gespeeld* | Een bord heeft nog geen resultaat: de ronde kan nog niet verstuurd worden. |
+| *Klaar om te versturen* | Elk bord heeft een resultaat. |
 | *Verstuurd* | De ronde is verstuurd; de datum en een ontvangstcode worden getoond (bijvoorbeeld `R5·7F2A`). |
 
 ![De pagina Exporteren, sectie TRF, met rondes in de statussen Wordt gespeeld, Klaar om te versturen en Verstuurd](screenshots/11-export-trf-rounds.png "Rondes en hun status op de pagina Exporteren")
 
-Vink de rondes aan die u wilt en druk op:
+Vink de rondes aan die je wilt en druk op:
 
-- **Versturen…** - maakt het bestand voor het ratingbureau, downloadt het naar uw computer en **markeert elke partij
+- **Versturen…** - maakt het bestand voor het ratingbureau, downloadt het naar je computer en **markeert elke partij
   erin als verstuurd**, in één stap. Het bestand krijgt een naam naar het type
   van het toernooi, het FIDE-toernooi-ID, de naam en de rondes. Het bevat alleen
   de records van het rapport, geen opmerkingen.
 - **Een kopie downloaden (niet voor rating)** en **Alle rondes (TRF-kopie, niet voor
-  rating)** - kopieën voor uw eigen gebruik of een ander programma. De bestandsnaam
+  rating)** - kopieën voor je eigen gebruik of een ander programma. De bestandsnaam
   eindigt op `COPY-NOT-FOR-RATING` en het bestand zegt dat in een `###`-commentaarregel.
 
 > [!IMPORTANT]
 > **Downloaden is niet versturen.** *Versturen…* bezorgt niets bij wie dan ook:
-> u krijgt het bestand, en het programma noteert dat het is afgegeven. U moet
-> het gedownloade bestand daarna zelf nog naar uw ratingverantwoordelijke sturen
-> (per e-mail, of zoals uw federatie het vraagt). De bevestiging zegt het, de
+> je krijgt het bestand, en het programma noteert dat het is afgegeven. Je moet
+> het gedownloade bestand daarna zelf nog naar je ratingverantwoordelijke sturen
+> (per e-mail, of zoals je federatie het vraagt). De bevestiging zegt het, de
 > regel onder de knop zegt het, en de pagina zegt het na de download nog eens,
 > met de code van het ontvangstbewijs.
 
 > [!WARNING]
 > Een verstuurde ronde kan niet opnieuw verstuurd worden, en kan niet ongedaan gemaakt worden
-> door de paring ervan te wissen. Een verstuurde uitslag kan alleen na een bevestiging gewijzigd worden;
+> door de paring ervan te wissen. Een verstuurde resultaat kan alleen na een bevestiging gewijzigd worden;
 > wijzigen wie tegen wie speelde in een verstuurde ronde, of de afwezigheid van een speler daarin,
 > vraagt een vinkje *Ik begrijp het - verstuurde ronde N toch wijzigen*. Dit beschermt
 > tegen het twee keer rapporteren van een partij.
@@ -74,12 +74,12 @@ Regels die hieruit volgen:
 - Een kopie die naar een andere computer is overgedragen, en een gearchiveerd toernooi,
   versturen niets.
 - Een toernooi dat geïmporteerd is uit een back-up, een TRF of een SWAR-bestand is mogelijk al
-  gerapporteerd. Zo'n kopie verstuurt niets totdat u **Deze kopie meldt de uitslagen: versturen toelaten**
+  gerapporteerd. Zo'n kopie verstuurt niets totdat je **Deze kopie meldt de resultaten: versturen toelaten**
   aanvinkt op de pagina Exporteren, om te bevestigen dat deze kopie degene is die rapporteert.
-- Het programma bewaart van elke verzending een **ontvangstbewijs** (een code, de partijen, wie
-  heeft verstuurd en wanneer). Als een uitslag, een naam of een FIDE-ID wordt gewijzigd nadat een ronde
-  verstuurd is, tonen de ronde en de pagina Exporteren *Gewijzigd na verzending*, met elke wijziging,
-  zodat u die kunt corrigeren met het ratingbureau. Er wordt nooit uit zichzelf opnieuw iets verstuurd.
+- Het programma bewaart van elk verstuurd bestand een **ontvangstbewijs** (een code, de partijen, wie
+  heeft verstuurd en wanneer). Als een resultaat, een naam of een FIDE-ID wordt gewijzigd nadat een ronde
+  verstuurd is, tonen de ronde en de pagina Exporteren *Gewijzigd na het versturen*, met elke wijziging,
+  zodat je die kunt corrigeren met het ratingbureau. Er wordt nooit uit zichzelf opnieuw iets verstuurd.
 
 ## De inhoud van het bestand {#the-contents-of-the-file}
 
@@ -87,9 +87,9 @@ Het bestand is TRF26. Naast de rijen van de spelers (de startrangorde, naam, FID
 rating, titel, federatie, geboortedatum, punten, rangschikking en het resultaat van elke
 ronde met de tegenstander en de kleur) bevat het de kopregels en de records van het
 toernooitype die vermeld staan in [Importeren en exporteren](10-import-export.md).
-Voor elke ronde zijn de uitslagcodes `1`, `=`, `0` voor gespeelde partijen, `+` en
+Voor elke ronde zijn de resultaatcodes `1`, `=`, `0` voor gespeelde partijen, `+` en
 `-` voor forfaits, `U` voor de door de paring toegekende bye, `H` voor een halvepuntsbye, `F` voor een
-volpuntsbye, `Z` voor een nulpuntsbye of een afwezigheid. Een uitgestelde partij waarvan de uitslag
+volpuntsbye, `Z` voor een nulpuntsbye of een afwezigheid. Een uitgestelde partij waarvan het resultaat
 onbekend is, is `?` in een kopie.
 
 Het bestand voor het ratingbureau bevat nooit `?`: een uitgestelde partij die nog open is wanneer
@@ -131,17 +131,17 @@ ze gespeeld is en het bestand waarin ze zit:
 - Voer de **toernooinaam** van het bestand met uitgestelde partijen in (standaard de naam van de competitie
   plus *uitgestelde partijen*) en het **FIDE-toernooi-ID** ervan.
 - **Dit bestand maken** maakt het bestand voor één ratingperiode (maand); *Versturen…* downloadt het en markeert
-  de partijen erin als verstuurd - en zoals bij een ronde stuurt u het gedownloade bestand
-  zelf naar uw ratingverantwoordelijke. Een paginanotitie zegt welke maand het is en dat het bestand
+  de partijen erin als verstuurd - en zoals bij een ronde stuur je het gedownloade bestand
+  zelf naar je ratingverantwoordelijke. Een paginanotitie zegt welke maand het is en dat het bestand
   vóór het einde van die maand verstuurd moet zijn. Een partij die in haar ronde met de echte
-  uitslag is verstuurd, wordt nooit opnieuw aangeboden.
+  resultaat is verstuurd, wordt nooit opnieuw aangeboden.
 
 ## Controles {#checks}
 
-- Voordat het bestand het programma verlaat, wordt elke uitslagcode en elk paar tegenstanders gevalideerd;
+- Voordat het bestand het programma verlaat, wordt elke resultaatcode en elk paar tegenstanders gevalideerd;
   een fout stopt de download met een melding.
 - Het bestand terug importeren in OpenPairings (of in een ander programma) is de beste
-  controle dat het zegt wat u denkt dat het zegt ([Importeren en exporteren](10-import-export.md)).
+  controle dat het zegt wat je denkt dat het zegt ([Importeren en exporteren](10-import-export.md)).
 - **Ontvangstbewijs (JSON)** op de pagina Exporteren downloadt het ontvangstbewijs van één verstuurd bestand: code en vingerafdruk, ronde of periode, wie het verstuurde en wanneer, de partijen zoals verstuurd, en de SHA-256 en naam van het bestand. Het ontvangstbewijs bewaart ook het exacte bestand; de ratinginbox downloadt en controleert dat bestand.
 
 ## De inbox per ratingperiode {#the-rating-period-inbox}
@@ -167,7 +167,7 @@ Het vinkje FIDE-gehomologeerd is de enige instelling die zegt dat een toernooi
 geratet wordt; voor een nationale rating bestaat er geen.
 
 *Verstuurd* betekent dat de arbiter op **Versturen…** drukte en dat het bestand
-naar zijn computer werd gedownload. Of hij het daarna naar u heeft
+naar zijn computer werd gedownload. Of hij het daarna naar jou heeft
 doorgestuurd, kan de pagina niet weten: **Bestand downloaden** geeft datzelfde
 bestand, voor het geval het nooit is aangekomen.
 

@@ -28,7 +28,7 @@ opent de lijst, voor de resultaten die geen cijfer hebben.
 
 Kies het resultaat uit de lijst. Op een telefoon of een smal scherm heeft elk bord
 ook drie grote knoppen, 1-0, ½-½ en 0-1; de knop van het opgeslagen resultaat is
-ingedrukt. Drukt u op de ingedrukte knop nogmaals, dan verandert er niets.
+ingedrukt. Druk je op de ingedrukte knop nogmaals, dan verandert er niets.
 
 ### De resultaten in de lijst {#the-results-in-the-list}
 
@@ -50,12 +50,12 @@ maar niet gerate is, is een gespeelde partij die FIDE niet rate.
 ### Een resultaat wissen en corrigeren {#clearing-and-correcting-a-result}
 
 Het kiezen van de lege waarde op een bord dat al een resultaat heeft, wist het niet
-meteen: een vakje vraagt *Het geregistreerde resultaat wissen?* en u bevestigt met
+meteen: een vakje vraagt *Het geregistreerde resultaat wissen?* en je bevestigt met
 **Ja, wis het**, of annuleert. Een resultaat wijzigen in een ander resultaat wordt
 meteen opgeslagen en in het auditlogboek vastgelegd, met de oude en de nieuwe
 waarde.
 
-Een resultaat in een ronde die al naar het ratingkantoor is **verzonden**, wordt
+Een resultaat in een ronde die al naar het ratingkantoor is **verstuurd**, wordt
 pas na een bevestiging gewijzigd.
 
 > [!FIDE]
@@ -64,8 +64,8 @@ pas na een bevestiging gewijzigd.
 > toernooi gecorrigeerd, in het verslag aan het ratingkantoor.
 
 Wanneer twee arbiters aan dezelfde ronde werken, wordt een resultaat geweigerd als de
-spelers aan het bord niet meer degenen zijn die uw pagina toonde - een collega heeft
-een speler gewisseld of vervangen nadat uw pagina was opgebouwd. De melding is *Niet
+spelers aan het bord niet meer degenen zijn die je pagina toonde - een collega heeft
+een speler gewisseld of vervangen nadat je pagina was opgebouwd. De melding is *Niet
 opgeslagen: dit bord is gewijzigd*; er wordt niets weggeschreven. Laad de pagina
 opnieuw en voer het resultaat in op het bord zoals het nu is. Een telefoon die voor
 resultaten wordt gebruikt, zegt hetzelfde voor zijn bord. Twee arbiters die een
@@ -87,7 +87,7 @@ Wanneer het laatste resultaat van een ronde binnen is, kan de volgende ronde wor
 gepaard.
 
 Met elektronische borden in de zaal heeft de pagina Paringen ook een kolom **Bord
-zag**: wat het bord meldde, naast uw invoer. Ze voert nooit een resultaat in. Zie
+zag**: wat het bord meldde, naast je invoer. Ze voert nooit een resultaat in. Zie
 [De bordkolom](17-live-boards.md#the-board-column).
 
 ## Resultaten uit een bestand (CSV) {#results-from-a-file-csv}
@@ -101,7 +101,7 @@ het nummer dat op het paringsblad staat. Geaccepteerde resultaatwoorden: `1-0`,
 
 > [!NOTE]
 > **Er wordt niets opgeslagen tenzij elke regel geldig is**: de pagina somt elk
-> probleem op (maximaal 50) en u corrigeert het bestand en verstuurt het opnieuw.
+> probleem op (maximaal 50) en je corrigeert het bestand en verstuurt het opnieuw.
 
 ## Resultaten via telefoons {#results-from-phones}
 
@@ -130,7 +130,7 @@ overeenkomst of uitgesteld), is **uitgesteld**. Het toernooi gaat door.
 
 **Zet het aan.** Instellingen, Puntentelling, *Uitgestelde partijen*: **Uitgestelde
 partijen toelaten**. Met dit uit, wordt nergens een uitgesteld resultaat aangeboden.
-Op dezelfde pagina stelt u in wat een uitgestelde partij telt tot ze is gespeeld,
+Op dezelfde pagina stel je in wat een uitgestelde partij telt tot ze is gespeeld,
 voor de speler die haar heeft uitgesteld en voor de tegenstander: standaard een
 remise voor beiden. De waarde wordt bij elke partij opgeslagen wanneer ze wordt
 uitgesteld, dus een latere wijziging van de instelling raakt alleen nieuwe
@@ -143,8 +143,8 @@ uitgestelde partijen.
 **Leg het vast.** Kies *uitgesteld door wit* of *uitgesteld door zwart* als resultaat
 van het bord. Tot de partij is gespeeld, telt ze zoals de instelling zegt in de
 stand, de tiebreaks en de paring van elke latere ronde. Een uitgestelde partij
-wordt ook automatisch vastgelegd wanneer u een ronde paart terwijl er borden zonder
-resultaat overblijven en u **Ontbrekende resultaten als uitgesteld vastleggen en
+wordt ook automatisch vastgelegd wanneer je een ronde paart terwijl er borden zonder
+resultaat overblijven en je **Ontbrekende resultaten als uitgesteld vastleggen en
 ronde N paren** kiest. Een ronde paren terwijl een uitgestelde partij uit een
 eerdere ronde nog open is, vraagt om een bevestiging die de spelers noemt: zij
 worden op een voorlopige score gepaard.
@@ -181,4 +181,4 @@ voor de uitgestelde partijen, omdat een partij die in een andere ratingperiode
 is gespeeld, als apart toernooi wordt gerapporteerd. Buiten de FIDE-modus wordt
 een uitgestelde partij zonder vragen als `?` in de TRF-kopieën en als niet
 gespeeld in het bestand voor de rating geschreven. Zie
-[Verzenden naar FIDE](11-fide-report.md).
+[Versturen naar FIDE](11-fide-report.md).

@@ -64,7 +64,7 @@ berekeningen worden gedaan door dezelfde engine die de Zwitserse rondes paart.
 - **Voorinstelling.** Een voorinstelling vult de lijst in één keer: *FIDE
   Round Robin* (DE, WIN, SB, KS), *Disparate Swiss (wide rating range)* (BHC1, BH,
   SB), *Regular Swiss* (BHC1, BH, PS), *Old Swiss (classic)* (PS, BH, SB), of
-  *Eigen* voor elke lijst die u zelf samenstelt. Een nieuw toernooi begint met de
+  *Eigen* voor elke lijst die je zelf samenstelt. Een nieuw toernooi begint met de
   standaard van FIDE voor het type: individueel Zwitsers BHC1, BH, SB, DE, WIN, PS;
   individueel rondetoernooi DE, WIN, SB, KS; teamevenementen MP, GP, DE, BB, SB.
 - **Tiebreak toevoegen…** voegt er een toe uit de onderstaande lijst; **Omhoog
@@ -232,7 +232,7 @@ hij staat.
 
 Een arbiter kan een volgorde met de hand moeten vaststellen, bijvoorbeeld na een
 barrage die aan het bord is beslist. Op de pagina Stand zet **Handmatige rangschikking
-inschakelen** de volgorde van het toernooi om in een lijst die u kunt wijzigen:
+inschakelen** de volgorde van het toernooi om in een lijst die je kunt wijzigen:
 
 - de volgorde wordt eerst gezet op de huidige stand;
 - elke rij heeft knoppen om hem omhoog of omlaag te verplaatsen (*Herschikken*);
@@ -268,7 +268,7 @@ teamtoernooien.
 
 Een toernooi dat een tiebreak gebruikt die het programma niet berekent, kan de code
 **EXT** (*Externe waarde*) aan zijn tiebreaklijst toevoegen. De pagina Stand toont
-dan een kolom waarin u per speler de buiten het programma berekende waarde invult (een
+dan een kolom waarin je per speler de buiten het programma berekende waarde invult (een
 getal, met komma of punt als decimaalteken; leeg wist de waarde). Een hogere waarde
 staat hoger. EXT is geen tiebreak van C.07 en wordt niet in de TRF geschreven. De
 waarden kunnen worden ingevuld tot het toernooi wordt gearchiveerd.

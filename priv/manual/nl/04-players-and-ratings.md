@@ -16,9 +16,9 @@ federatie, titel, geboortejaar, en de standaard-, rapid- en blitzratings. Open
 **Verbindingen** (bovenbalk op de pagina Toernooien), sectie *FIDE-databank*, en
 druk de eerste keer op **Ratinglijst downloaden**. **Bijwerken vanaf FIDE**
 downloadt de huidige lijst opnieuw (FIDE publiceert elke maand een nieuwe lijst).
-Het programma houdt bij welke maand de lijst is die het heeft. Eén keer per dag, terwijl het draait, vraagt het ook aan FIDE of er een nieuwere lijst is (één klein verzoek; offline gebeurt er niets). Wat het met het antwoord doet, is een keuze uit drie onder Verbindingen: op een **server** downloadt het de lijst zelf (ongeveer één keer per maand); op een **desktopinstallatie** **vraagt het eerst** (standaard), met een banner op elke pagina (voor beheerders): "FIDE-ratinglijst: er is een nieuwere lijst. De download is ongeveer 41 MB", met **Nu downloaden**, **Later** (de banner blijft een dag weg) en **Niet meer vragen**. Er wordt niets gedownload voordat u op **Nu downloaden** drukt. Onder Verbindingen heet de keuze *Automatisch downloaden*, *Eerst vragen* of *Nooit*; *Niet meer vragen* zet haar op *Nooit*, en u kunt altijd met de hand op **Bijwerken vanaf FIDE** drukken of haar terugzetten op *Eerst vragen*. Een ratingcontrole op de pagina Spelers die de lijst verouderd vindt, stelt op een desktopinstallatie dezelfde vraag in plaats van de download te starten. De pagina toont hoeveel spelers de lokale databank bevat
-en wanneer die voor het laatst is bijgewerkt. Op een desktopversie bent u de
-beheerder van uw eigen installatie. Op een server mag alleen de beheerder
+Het programma houdt bij welke maand de lijst is die het heeft. Eén keer per dag, terwijl het draait, vraagt het ook aan FIDE of er een nieuwere lijst is (één klein verzoek; offline gebeurt er niets). Wat het met het antwoord doet, is een keuze uit drie onder Verbindingen: op een **server** downloadt het de lijst zelf (ongeveer één keer per maand); op een **desktopinstallatie** **vraagt het eerst** (standaard), met een banner op elke pagina (voor beheerders): "FIDE-ratinglijst: er is een nieuwere lijst. De download is ongeveer 41 MB", met **Nu downloaden**, **Later** (de banner blijft een dag weg) en **Niet meer vragen**. Er wordt niets gedownload voordat je op **Nu downloaden** drukt. Onder Verbindingen heet de keuze *Automatisch downloaden*, *Eerst vragen* of *Nooit*; *Niet meer vragen* zet haar op *Nooit*, en je kunt altijd met de hand op **Bijwerken vanaf FIDE** drukken of haar terugzetten op *Eerst vragen*. Een ratingcontrole op de pagina Spelers die de lijst verouderd vindt, stelt op een desktopinstallatie dezelfde vraag in plaats van de download te starten. De pagina toont hoeveel spelers de lokale databank bevat
+en wanneer die voor het laatst is bijgewerkt. Op een desktopversie ben je de
+beheerder van je eigen installatie. Op een server mag alleen de beheerder
 bijwerken. Een speler die niet in de lijst staat, heeft geen FIDE-rating (ongeveer
 twee derde van de rijen in de lijst zijn ongerate spelers): dat betekent "geen
 FIDE-ID of geen rating", niet een mislukte download.
@@ -29,7 +29,7 @@ FIDE-ID of geen rating", niet een mislukte download.
 
 **De nationale ratinglijst.** De Belgische lijst (KBSB/FRBE) is een ingebouwde
 nationale lijst. Ze hoort bij het *Belgische pakket* van functies, dat voor elk
-account uitstaat tenzij u het aanzet: accountmenu, **Functies**. Met *Synchronisatie
+account uitstaat tenzij je het aanzet: accountmenu, **Functies**. Met *Synchronisatie
 van de nationale ratinglijst* aan, toont Verbindingen de sectie *Belgische
 nationale ratinglijst*, waar **Synchroniseren vanaf de KBSB** het openbare
 maandbestand van de federatie downloadt (ongeveer 36.000 spelers: nationaal ID,
@@ -37,14 +37,14 @@ naam, club, FIDE-ID, nationale rating). *KBSB-spelerzoekopdracht* voegt de lijst
 toe aan de spelerszoekfunctie. *Clubs in bulk bijwerken* voegt de knop **Clubs
 bijwerken** toe aan de pagina Spelers. Een arbiter buiten België ziet niets
 hiervan. De synchronisatie kopieert alleen het bestand van de federatie; ze
-schrijft nooit zelf ratings in uw toernooien.
+schrijft nooit zelf ratings in je toernooien.
 
 **Andere nationale lijsten** zijn niet ingebouwd. Voor een speler van een andere
-federatie typt u het nationale ID en de nationale rating met de hand in, of laadt
-u de lijst zelf als CSV-bestand.
+federatie typ je het nationale ID en de nationale rating met de hand in, of laad
+je de lijst zelf als CSV-bestand.
 
-**Uw eigen ratinglijsten (CSV).** Verbindingen heeft een link naar **Ratinglijsten**
-(`/rating-lists`), waar u een eigen lijst laadt, bijvoorbeeld een nationale of
+**Je eigen ratinglijsten (CSV).** Verbindingen heeft een link naar **Ratinglijsten**
+(`/rating-lists`), waar je een eigen lijst laadt, bijvoorbeeld een nationale of
 clublijst. De eerste rij van het CSV-bestand benoemt de kolommen: `id`, `name` en
 `rating` zijn verplicht; `federation`, `title`, `birth_year` en `fide_id` zijn
 optioneel. Het scheidingsteken kan een komma, puntkomma of tab zijn, en een rating
@@ -59,14 +59,14 @@ ratinglijstvolgorde van een toernooi worden opgenomen.
 bepaalt de lijsten waaruit de rating van een speler wordt gehaald wanneer de
 speler wordt toegevoegd of de ratings worden vernieuwd, in volgorde: FIDE
 Standard, FIDE Rapid, FIDE Blitz, Effectief Rapid (Rapid, anders Standard),
-Effectief Blitz, de nationale lijst, en uw eigen lijsten. Gebruik de pijltjes om
+Effectief Blitz, de nationale lijst, en je eigen lijsten. Gebruik de pijltjes om
 een lijst te verplaatsen, **Weglaten** om er een te verwijderen, en **Aan de
 volgorde toevoegen** om er een toe te voegen; **Terug naar de standaardvolgorde**
 herstelt de volgorde die bij het speeltempo van het toernooi past. De eerste lijst
 is de *hoofdlijst*: haar rating wordt automatisch ingevoerd. De ratings die de
 speler in de andere lijsten heeft, staan naast het zoekresultaat, en een klik op
 een ervan (*Deze rating in de plaats gebruiken*) kiest die. Een FIDE-lijst vult de
-FIDE-rating; de nationale lijst en uw eigen lijsten vullen de nationale rating.
+FIDE-rating; de nationale lijst en je eigen lijsten vullen de nationale rating.
 
 **Welke rating wordt gebruikt.** De *Gebruikte Elo* van een speler is de
 **toernooirating**, die de instelling *Toernooirating* van het toernooi bepaalt
@@ -154,14 +154,14 @@ de instelling *Paringsnummers van laatkomers* op *Achter het veld* staat.
 op de pagina Spelers opent de lijst in paringsvolgorde. Twee spelers met dezelfde
 rating kunnen hun nummers **wisselen** (de knop *Wisselen* tussen hun rijen, om ze
 op een andere regel te ordenen), en **Opnieuw aanmaken volgens rating** nummert
-iedereen opnieuw op de huidige ratings, met behoud van de volgorde die u aan
+iedereen opnieuw op de huidige ratings, met behoud van de volgorde die je aan
 spelers met gelijke rating hebt gegeven. Gebruik dit om een ratingwijziging te
 volgen of een fout te corrigeren.
 
 > [!FIDE] C.04.2
 > Beide zijn alleen mogelijk tot en met het paren van ronde 4.
 
-Elke wijziging vraagt om uw bevestiging; bij een regeneratie komt eerst een lijst
+Elke wijziging vraagt om je bevestiging; bij een regeneratie komt eerst een lijst
 van de spelers wier nummer verandert. Rondes die al gepaard waren, gebruikten de
 oude nummers, dus een paringscontroleur zal ze niet langer reproduceren; het
 dialoogvenster zegt dat. Elke wijziging wordt in het auditlogboek geschreven.
@@ -243,7 +243,7 @@ en toont een tabel van wat zou veranderen: de speler, het veld, de oude en de
 nieuwe waarde, met een regel zoals *12 gecontroleerd, 5 wijzigingen, 3 zonder
 ID-match*. Alleen de **FIDE-rating** en de **titel** worden voorgesteld, en een
 titel wordt alleen voorgesteld wanneer de FIDE-lijst er echt een bevat. Een speler
-zonder FIDE-ID wordt niet aangeraakt. Er wordt niets geschreven tot u op
+zonder FIDE-ID wordt niet aangeraakt. Er wordt niets geschreven tot je op
 **Toepassen** drukt; **Annuleren** schrijft niets. Het is alles-of-niets, en het is
 een handmatige handeling: het programma schrijft nooit zelf ratings.
 
@@ -302,7 +302,7 @@ kan worden teruggezet.
 
 ## Export van de spelerslijst {#export-of-the-player-list}
 
-Instellingen, **Exporteren**, *Spelers exporteren (CSV)*: de kolommen die u kiest,
-in de volgorde die u kiest, met een scheidingsteken (komma, puntkomma, tab of
+Instellingen, **Exporteren**, *Spelers exporteren (CSV)*: de kolommen die je kiest,
+in de volgorde die je kiest, met een scheidingsteken (komma, puntkomma, tab of
 pipe), gesorteerd op startrang of op naam, eventueel zonder afwezige spelers en
 met een markering voor Excel. Zie [Importeren en exporteren](10-import-export.md).

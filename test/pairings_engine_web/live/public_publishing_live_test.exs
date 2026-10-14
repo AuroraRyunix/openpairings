@@ -458,7 +458,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
       assert card(Publishing.status(), "nl") ==
                {"off", "Klaar om te publiceren",
-                "Om een toernooi te publiceren: open de Instellingen, ga naar OpenResults en zet publiceren aan. De eerste keer wordt het je één keer gevraagd, en er wordt niets verzonden voor je akkoord gaat."}
+                "Om een toernooi te publiceren: open de Instellingen, ga naar OpenResults en zet publiceren aan. De eerste keer wordt het je één keer gevraagd, en er wordt niets verstuurd voor je akkoord gaat."}
 
       tournament = create_tournament(scope)
       {:ok, _} = Tournaments.set_publish_to_openresults(tournament, true)
@@ -469,7 +469,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
       assert card(Publishing.status(), "nl") ==
                {"refused", "Wacht op je toestemming",
-                "Publiceren wacht op je toestemming om deze computer bij de uitslagensite te registreren. Er is nog niets verzonden."}
+                "Publiceren wacht op je toestemming om deze computer bij de uitslagensite te registreren. Er is nog niets verstuurd."}
 
       assert Server.requests() == []
 

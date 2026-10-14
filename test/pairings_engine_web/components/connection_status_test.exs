@@ -198,7 +198,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
            {"Registration closed",
             "The results site is not accepting new installations right now. Nothing has been sent, and it will be tried again later."},
            {"Registratie gesloten",
-            "De uitslagensite aanvaardt op dit moment geen nieuwe installaties. Er is niets verzonden, en het wordt later opnieuw geprobeerd."}},
+            "De uitslagensite aanvaardt op dit moment geen nieuwe installaties. Er is niets verstuurd, en het wordt later opnieuw geprobeerd."}},
           {:address_blocked, "down",
            {"Address blocked",
             "The results site has blocked this computer&#39;s network address. Contact the operator of the results site."},
@@ -214,7 +214,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
            {"Results site low on storage",
             "The results site is low on storage. Everything waiting is sent when it has room again."},
            {"Weinig opslagruimte op de uitslagensite",
-            "De uitslagensite heeft bijna geen opslagruimte meer. Alles wat wacht, wordt verzonden zodra er weer ruimte is."}},
+            "De uitslagensite heeft bijna geen opslagruimte meer. Alles wat wacht, wordt verstuurd zodra er weer ruimte is."}},
           {:key_not_recognised_bare, "down",
            {"Key not recognised",
             "The results site does not recognise this computer&#39;s key. Publishing has stopped until you register again."},
@@ -235,7 +235,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
           # Not a repeat here: the headline says the queue is moving, the
           # sentence says the connection under it is fine.
           {:sending, "busy", {"Sending", "Connected. The address and token are both accepted."},
-           {"Bezig met verzenden", "Verbonden. Het adres en de token worden allebei aanvaard."}}
+           {"Bezig met versturen", "Verbonden. Het adres en de token worden allebei aanvaard."}}
         ] do
       @name name
       @tone tone

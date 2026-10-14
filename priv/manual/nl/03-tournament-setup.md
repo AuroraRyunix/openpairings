@@ -24,7 +24,7 @@ Toernooien, **Nieuw toernooi**.
 
 ![Het formulier Nieuw toernooi met naam, paringssysteem, rondes, plaats, startdatum en speeltempo](screenshots/03-new-tournament-form.png "Het formulier Nieuw toernooi")
 
-Het formulier begint met uw standaardwaarden (pagina Account, *Nieuwe
+Het formulier begint met je standaardwaarden (pagina Account, *Nieuwe
 toernooien*: systeem, rondes, formaat, speeltempo, plaats, organisator,
 publicatiemodus). Het toernooi wordt aangemaakt in de FIDE-modus
 ([FIDE-modus](02-fide-mode.md)).
@@ -48,7 +48,7 @@ en zonder te blokkeren, wanneer het aantal rondes niet kan worden gepaard voor d
 ingeschreven spelers: een Zwitsers toernooi met meer rondes dan de spelers zonder
 herhaalpartij toelaten, of een rondetoernooi waarvan het aantal rondes niet
 overeenkomt met het aantal spelers. De waarschuwing linkt naar de instelling; als
-u het aantal behoudt, wordt de ronde die niet kan worden gepaard met de hand
+je het aantal behoudt, wordt de ronde die niet kan worden gepaard met de hand
 gemaakt ([Een ronde paren](06-pairing.md)). Aanbevolen, maar niet verplicht:
 de hoofdarbiter, de federatie, het speeltempo en (voor een FIDE-gerat toernooi)
 het FIDE-toernooi-ID.
@@ -72,8 +72,8 @@ Het menu **Instellingen** in de bovenbalk heeft deze pagina's:
 | Over | versie en de paringsengine die dit toernooi gebruikt |
 
 Elke pagina wordt opgeslagen met de eigen knop **Instellingen opslaan**. Wanneer
-een collega dezelfde instellingen wijzigt terwijl u aan het typen bent, meldt de
-pagina dat ze verouderd is, in plaats van wat u typte te overschrijven. Elke
+een collega dezelfde instellingen wijzigt terwijl je aan het typen bent, meldt de
+pagina dat ze verouderd is, in plaats van wat je typte te overschrijven. Elke
 wijziging van een instelling wordt met de oude en de nieuwe waarde in het
 auditlogboek geschreven.
 
@@ -116,8 +116,8 @@ Op **Instellingen → Toernooi**, de kaart **Groep**:
 
 - **Groep aanmaken** start een nieuwe groep, met een naam naar keuze, met dit
   toernooi erin.
-- **Of voeg het toe aan een bestaande groep** toont de groepen die u al kunt
-  bewerken - die waarin een toernooi zit dat u mag bewerken - en voegt dit toernooi
+- **Of voeg het toe aan een bestaande groep** toont de groepen die je al kunt
+  bewerken - die waarin een toernooi zit dat je mag bewerken - en voegt dit toernooi
   achteraan toe. Een toernooi zit in hoogstens één groep.
 - **Label van dit toernooi in de keuzestrook** is een korte naam zoals *Open* of
   *U20*. Leeg toont de keuzestrook de eigen naam van het toernooi.
@@ -125,7 +125,7 @@ Op **Instellingen → Toernooi**, de kaart **Groep**:
 - **Uit de groep halen** haalt dit toernooi eruit. In het toernooi zelf verandert
   niets. Het laatste toernooi dat vertrekt, verwijdert de groep.
 
-Zodra een groep twee toernooien bevat die u kunt openen, begint elke pagina van elk
+Zodra een groep twee toernooien bevat die je kunt openen, begint elke pagina van elk
 met een **keuzestrook**: de naam van de groep en haar toernooien naast elkaar, het
 huidige gemarkeerd. Een klik opent dezelfde pagina van het andere toernooi -
 Rangschikking naar Rangschikking, een instellingenpagina naar dezelfde
@@ -136,7 +136,7 @@ telefoon is de keuzestrook een uitklapmenu.
 Wie wat mag: wie een toernooi mag bewerken - de eigenaar, of een medewerker die de
 uitnodiging aanvaardde - mag het in een groep zetten, een label geven, de groep
 herschikken of het eruit halen. De keuzestrook en de kaart tonen alleen de toernooien
-die *u* mag openen. Een toernooi dat alleen met u gedeeld is, verraadt de rest van het
+die *jij* mag openen. Een toernooi dat alleen met jou gedeeld is, verraadt de rest van het
 evenement niet.
 
 Op de pagina **Toernooien** staan de toernooien van een groep samen onder de naam van
@@ -168,7 +168,7 @@ er deel van is.
 - De **naam van de groep** is openbaar als naam van het evenement zodra twee van haar
   toernooien gepubliceerd zijn.
 - Een toernooi publiceren of intrekken, hernoemen, een label, de volgorde of de naam
-  van de groep wijzigen verstuurt de andere toernooien vanzelf opnieuw; u hoeft ze niet
+  van de groep wijzigen verstuurt de andere toernooien vanzelf opnieuw; je hoeft ze niet
   één voor één te publiceren.
 
 ## Pagina Opties {#options-page}
@@ -210,7 +210,7 @@ zonder de FIDE-modus te verlaten; een back-upbestand uit die tijd ook, wanneer
 het wordt geïmporteerd. Zo'n toernooi zegt dat één keer, op deze pagina en op de
 pagina Paringen, tot ronde 4 gepaard is: **Overschakelen naar volgens rating**
 wijzigt de instelling, **Behouden** laat ze staan, en elk antwoord wordt
-onthouden. Wijzigt u deze drie instellingen na ronde 1, dan wordt niemand
+onthouden. Wijzig je deze drie instellingen na ronde 1, dan wordt niemand
 die al een nummer heeft opnieuw genummerd; de pagina zegt dat.
 
 Een speler die in ronde 1 afwezig is (een gevraagde bye, een afwezigheid, een
@@ -230,7 +230,7 @@ heeft het altijd aan, en bij een round robin of Keizer verschijnt het vakje
 niet. Een back-upbestand houdt wat het toernooi had.
 
 **Beginkleur.** Voor de eerste ronde van een Zwitsers toernooi: door loting
-bepaald wanneer ronde 1 wordt gepaard, of Wit of Zwart door u gekozen. De gebruikte
+bepaald wanneer ronde 1 wordt gepaard, of Wit of Zwart door jou gekozen. De gebruikte
 kleur wordt op de pagina Paringen onder ronde 1 getoond.
 
 > [!FIDE] C.04.3 5.1
@@ -278,19 +278,19 @@ Keizer gehandhaafd; het schema van een rondetoernooi ligt vast en negeert het.
 kunnen spelen zijn uitgesloten, en hoeveel wensen er zijn. Wanneer de
 beperkingen samen met de al gespeelde partijen een speler niemand meer laten om
 te treffen, of de ronde helemaal niet meer paarbaar maken, zegt de pagina dat in
-het rood voordat u op Paren drukt. Sluiten ze meer dan de helft van de
+het rood voordat je op Paren drukt. Sluiten ze meer dan de helft van de
 mogelijke partijen uit, dan waarschuwt ze dat de engine weinig keuze overhoudt.
 Een bord dat met forfait eindigde is geen gespeelde partij: de twee mogen nog
 tegen elkaar gepaard worden, en de pagina telt het zo.
 
 **Regels.** *Spelers van dezelfde club* of *Spelers van dezelfde federatie*
 treffen elkaar niet - elke club of federatie, of alleen de clubs of federaties
-die u opgeeft (gescheiden door komma's). Elke regel is **Nooit - een regel** of
+die je opgeeft (gescheiden door komma's). Elke regel is **Nooit - een regel** of
 **Indien mogelijk - een wens**, en geldt voor **Elke ronde**, **De eerste
 rondes**, **De laatste rondes** (teruggeteld vanaf het aantal rondes) of **Van
 ronde … tot ronde …**. Een regel volgt de spelers zoals ze zijn wanneer een
 ronde gepaard wordt, dus een late instapper of een verbeterde club valt eronder
-zonder dat u de regel aanraakt. Elke regel toont wat hij nu doet, bijvoorbeeld
+zonder dat je de regel aanraakt. Elke regel toont wat hij nu doet, bijvoorbeeld
 *4 paren over 2 clubs*; **Bewerken** en **Verwijderen** werken ter plaatse.
 
 **Spelers die elkaar niet mogen treffen.** Zoek op naam, club of federatie, vink
@@ -298,12 +298,12 @@ twee of meer spelers aan en druk op **Deze N uit elkaar houden**. Twee spelers
 vormen een verboden paar, drie of meer een groep waarvan de leden elkaar nooit
 treffen. **Enkel indien mogelijk** maakt er een wens van. Een paar wordt een
 wens of weer een regel met **Maak er een wens van** / **Maak er een regel van**;
-een groep wijzigt u met **Bewerken**, dat de leden aanvinkt zodat u er kunt
+een groep wijzig je met **Bewerken**, dat de leden aanvinkt zodat je er kunt
 toevoegen of weghalen, en dan **Groep opslaan**.
 
-Een paar of een regel die u toevoegt wanneer er al rondes gepaard zijn, geldt
+Een paar of een regel die je toevoegt wanneer er al rondes gepaard zijn, geldt
 vanaf de eerstvolgende ronde die gepaard wordt, en het TRF-rapport zegt dat.
-Maakt u daarna een ronde ongedaan, dan geldt de beperking vanaf die ronde: paar
+Maak je daarna een ronde ongedaan, dan geldt de beperking vanaf die ronde: paar
 ze opnieuw en de beperking wordt toegepast.
 
 **Hoe zwaar de wensen wegen.** *Sterk* zet de wensen vóór de kleur- en
@@ -373,7 +373,7 @@ Eén datum voor elke ronde:
 - **Alles wissen** maakt ze allemaal leeg.
 
 De data worden gebruikt op de afgedrukte lijsten, het TRF-rapport (record 132),
-de uitslagformulieren van de matches en de uitslagensite. De begin- en einddatum
+de resultaatformulieren van de matches en de uitslagensite. De begin- en einddatum
 van het toernooi worden daaruit afgeleid.
 
 ## Pagina Extra punten {#extra-points-page}

@@ -6,13 +6,13 @@ te zetten: **elk nieuw toernooi staat in de FIDE-modus**, en blijft daarin tot
 de arbiter er bewust uit gaat of een instelling wijzigt die de FIDE-regels niet
 toestaan.
 
-## Wat de FIDE-modus u geeft {#what-fide-mode-gives-you}
+## Wat de FIDE-modus je geeft {#what-fide-mode-gives-you}
 
 Een nieuw toernooi begint met de instellingen die de FIDE-regels beschrijven:
 
 - Zwitserse paring volgens het FIDE Dutch-systeem, rondetoernooi volgens
   Berger-tabellen.
-- De beginkleur wordt door loting bepaald (C.04.3 5.1), tenzij u die zelf
+- De beginkleur wordt door loting bepaald (C.04.3 5.1), tenzij je die zelf
   instelt.
 - Puntentelling 1 - ½ - 0, waarbij de door de paring toegekende bye als winst
   telt.
@@ -61,7 +61,7 @@ FIDE-modus. Zie [Uitgestelde partijen](07-results.md).
 
 > [!FIDE] Afwijkingen van FIDE
 > Enkele instellingen veranderen wie tegen wie speelt, of wat een partij waard
-> is, op een manier die de FIDE-regels niet beschrijven. Als u er een kiest,
+> is, op een manier die de FIDE-regels niet beschrijven. Als je er een kiest,
 > verlaat het toernooi de modus.
 
 De instellingen zijn:
@@ -126,11 +126,11 @@ Voordat er iets wordt geschreven, toont het programma het dialoogvenster
 FIDE-checklist voor toernooibehandelaars Niveau 4 noemt):
 
 1. *Dit voldoet niet aan de FIDE-reglementen.* Het somt op wat het toernooi uit
-   de FIDE-modus haalt en vraagt of u wilt doorgaan. **Ja, doorgaan** gaat naar
+   de FIDE-modus haalt en vraagt of je wilt doorgaan. **Ja, doorgaan** gaat naar
    de tweede vraag; **Annuleren** (of <kbd>Escape</kbd>) sluit het
    dialoogvenster.
 2. *In de FIDE-modus blijven?* **Ja, in de FIDE-modus blijven** sluit het
-   dialoogvenster; **Nee, FIDE-modus verlaten** voert uit wat u vroeg: de
+   dialoogvenster; **Nee, FIDE-modus verlaten** voert uit wat je vroeg: de
    instellingen worden opgeslagen, de schakelaar wordt aangezet, of de ronde
    wordt gepaard.
 
@@ -141,7 +141,7 @@ opgeslagen en de ronde wordt niet gepaard. De tweede vraag somt op wat verlaten
 doet:
 
 - **Het is definitief.** Het toernooi kan nooit meer terug naar de FIDE-modus,
-  ook niet als u elke instelling terugzet.
+  ook niet als je elke instelling terugzet.
 - Het toernooi legt vast vanaf welke ronde het niet in de FIDE-modus zat, en de
   TRF26-kopieën van het rapport zeggen dat in een commentaarregel (`FIDE mode
   exited @ Round N`), zodat wie het bestand controleert weet waar hij nauwkeuriger
@@ -156,7 +156,7 @@ doet:
 > [!WARNING]
 > Verlaat de FIDE-modus alleen voor een evenement dat niemand naar FIDE stuurt:
 > een clubkampioenschap met eigen regels, een Keizeravond, of een evenement
-> waarbij u iets moet veranderen wat de regels verbieden.
+> waarbij je iets moet veranderen wat de regels verbieden.
 
 ## De FIDE-pagina van de instellingen {#the-fide-page-of-the-settings}
 

@@ -1,6 +1,6 @@
 # Aan de slag
 
-Dit hoofdstuk legt uit wat OpenPairings is, hoe u het installeert en start, en
+Dit hoofdstuk legt uit wat OpenPairings is, hoe je het installeert en start, en
 hoe het programma is opgebouwd. De andere hoofdstukken volgen de volgorde
 waarin een arbiter werkt: het toernooi instellen, de spelers invoeren, een
 ronde paren, de resultaten invoeren, afdrukken, rapporteren.
@@ -29,13 +29,13 @@ rating-bureau:
 
 ## Twee manieren om het te gebruiken {#two-ways-to-run-it}
 
-**Op uw eigen computer (de desktopversie).** Eén persoon gebruikt het
+**Op je eigen computer (de desktopversie).** Eén persoon gebruikt het
 programma op één computer. Er is geen aanmelding: het programma start, opent
-uw webbrowser op `http://localhost:4000` en u bent aangemeld als eigenaar van
-die computer. Uw toernooien worden op die computer opgeslagen. Het programma
+je webbrowser op `http://localhost:4000` en je bent aangemeld als eigenaar van
+die computer. Je toernooien worden op die computer opgeslagen. Het programma
 is alleen bereikbaar vanaf die computer, nooit via het netwerk.
 
-**Op een server (de onlineversie).** Het programma draait op een server en u
+**Op een server (de onlineversie).** Het programma draait op een server en je
 bereikt het via een webadres. Iedereen heeft een account, elk toernooi behoort
 toe aan de eigenaar, en de eigenaar kan andere arbiters uitnodigen om het te
 delen (zie [Accounts, delen en overdracht](15-accounts-and-handoff.md)).
@@ -47,23 +47,23 @@ de desktopversie.
 
 ## De desktopversie installeren {#installing-the-desktop-build}
 
-Download de release voor uw systeem van de releasepagina van het project.
+Download de release voor je systeem van de releasepagina van het project.
 
 **Windows.** Het `.msi`-bestand is de aanbevolen download. Het toont een
 installatieprogramma met een welkomstpagina, de licentie en de keuze tussen
-installeren alleen voor uzelf (geen beheerdersrechten nodig) of voor iedereen
-op de computer. Het `Setup.exe` ernaast installeert meteen voor uzelf, zonder
+installeren alleen voor jezelf (geen beheerdersrechten nodig) of voor iedereen
+op de computer. Het `Setup.exe` ernaast installeert meteen voor jezelf, zonder
 vragen. Start na de installatie *OpenPairings* vanuit het Startmenu. Er opent
-een klein venster en uw browser volgt; als u dat kleine venster sluit, stopt
+een klein venster en je browser volgt; als je dat kleine venster sluit, stopt
 het programma.
 
 > [!TIP]
-> Verwijdert uw antivirus het losse bestand, gebruik dan de *draagbare* release:
+> Verwijdert je antivirus het losse bestand, gebruik dan de *draagbare* release:
 > pak die uit en dubbelklik op `OpenPairings.exe` in de map.
 
 **Linux.** Download het draagbare archief en pak het uit. Voer
 `./openpairings.sh` uit (het bestand moet eenmalig uitvoerbaar worden gemaakt:
-`chmod +x openpairings.sh`). Het programma opent uw browser.
+`chmod +x openpairings.sh`). Het programma opent je browser.
 
 **macOS.** De releases bevatten geen macOS-versie meer; die kan worden gebouwd
 vanuit de broncode op een Mac. Daarna start ze op dezelfde manier als de
@@ -72,9 +72,9 @@ Linux-versie.
 Er is geen Java en geen databaseserver nodig. De Zwitserse paringsengine
 (Ainalrami) zit in het programma (zie [Een ronde paren](06-pairing.md)).
 
-### Waar uw gegevens staan {#where-your-data-is}
+### Waar je gegevens staan {#where-your-data-is}
 
-De toernooien staan in één databasebestand in een map van uw gebruikersaccount:
+De toernooien staan in één databasebestand in een map van je gebruikersaccount:
 
 - Windows: `%LOCALAPPDATA%\OpenPairingsData`; back-ups in
   `%LOCALAPPDATA%\OpenPairingsBackups`.
@@ -93,8 +93,8 @@ Een desktopkopie controleert bij het starten en daarna elke paar uur of er een
 nieuwere release bestaat, en toont een melding bovenaan de pagina.
 
 > [!NOTE]
-> Het programma installeert nooit zelf iets, en nooit midden in uw beslissing:
-> een nieuwe versie kan een nieuwere paringsengine bevatten, dus u kiest het
+> Het programma installeert nooit zelf iets, en nooit midden in je beslissing:
+> een nieuwe versie kan een nieuwere paringsengine bevatten, dus je kiest het
 > moment (niet tijdens het spelen van een ronde).
 
 Bij een installatie per gebruiker op Windows heeft de melding een knop
@@ -103,19 +103,19 @@ releasepagina. De controle kan worden uitgeschakeld op de pagina Verbindingen.
 
 ## De eerste start {#the-first-start}
 
-Open het programma. De eerste pagina is **Toernooien**: de lijst van uw
+Open het programma. De eerste pagina is **Toernooien**: de lijst van je
 toernooien (aanvankelijk leeg), met *Nieuw toernooi* en de importknoppen.
 
 ![De pagina Toernooien met enkele toernooien en de knoppen Nieuw toernooi en importeren bovenaan](screenshots/01-tournaments-list.png "De pagina Toernooien")
 
 De balk bovenaan elke pagina bevat:
 
-- **Toernooien** - de lijst van uw toernooien.
+- **Toernooien** - de lijst van je toernooien.
 - **Hulpmiddelen** - de openbare arbiterhulpmiddelen (normrapporten uit
   geüploade bestanden).
 - **Wijzigingen** - wat er in elke release is veranderd.
 - **Help** - deze handleiding. Binnen een toernooi opent ze bij het hoofdstuk
-  dat past bij de pagina waarop u bent.
+  dat past bij de pagina waarop je bent.
 - De kleuraccent, de taalkeuze (Engels en Nederlands) en het thema (Systeem,
   Licht, Donker, Leisteen, Papier, Bord, Tom W, Jorian, Hoog contrast).
 - Het accountmenu, met *Instellingen* (online), *Functies* en *Afmelden*
@@ -137,7 +137,7 @@ Binnen een toernooi toont de balk de eigen tabbladen van het toernooi:
 
 *Verbindingen* (de ratinglijsten, back-ups, het publicatieadres) verschijnt in
 de balk op de pagina Toernooien, voor de beheerder van de installatie. Op een
-desktopversie bent dat altijd u.
+desktopversie bent dat altijd jij.
 
 ## Een eerste toernooi in het kort {#a-first-tournament-in-short}
 
@@ -149,7 +149,7 @@ desktopversie bent dat altijd u.
 4. **Spelers**: voeg de spelers toe (doorzoek de FIDE-lijst of typ ze in).
 5. **Paringen**: **Ronde 1 paren**.
 6. Voer de resultaten in op de pagina Paringen. Wanneer elk bord een resultaat
-   heeft, paart u de volgende ronde.
+   heeft, paar je de volgende ronde.
 7. **Stand**, **Afdrukken** wanneer nodig.
 8. Na de laatste ronde: Instellingen, **Exporteren**, stuur het TRF-bestand naar
    het rating-bureau (zie [Versturen naar FIDE](11-fide-report.md)).
@@ -160,8 +160,8 @@ De volgende hoofdstukken leggen elke stap volledig uit.
 
 De pagina rond de handleiding en het hele programma zijn beschikbaar in het
 Engels en het Nederlands (keuzelijst in de bovenbalk; online volgt de keuze
-uw account). Deze handleiding bestaat in het Engels en het Nederlands en volgt de taal die
-u kiest.
+je account). Deze handleiding bestaat in het Engels en het Nederlands en volgt de taal die
+je kiest.
 
 ## Toetsenbord en toegankelijkheid {#keyboard-and-accessibility}
 
@@ -169,7 +169,7 @@ Elke actie is een knop of een link en is met het toetsenbord bereikbaar. Het
 invoeren van resultaten is ontworpen voor het toetsenbord (zie
 [Resultaten](07-results.md)): klik op het resultaatveld van het eerste bord en
 typ dan <kbd>1</kbd> voor een winst voor Wit, <kbd>2</kbd> voor remise en
-<kbd>3</kbd> voor een winst voor Zwart; met de pijltjestoetsen loopt u door de
+<kbd>3</kbd> voor een winst voor Zwart; met de pijltjestoetsen loop je door de
 andere waarden. Het spelersrooster heeft eigen toetsenbordbediening (zie
 [Spelers en ratinglijsten](04-players-and-ratings.md)): <kbd>Ctrl</kbd>+<kbd>I</kbd>
 voegt een speler toe, de pijltjestoetsen bewegen tussen de cellen,
@@ -177,7 +177,7 @@ voegt een speler toe, de pijltjestoetsen bewegen tussen de cellen,
 en <kbd>Enter</kbd> of <kbd>Space</kbd> op de naam van een speler opent het
 inschrijfformulier.
 
-Het programma volgt het kleurenschema dat u kiest: *Systeem* volgt de lichte of
+Het programma volgt het kleurenschema dat je kiest: *Systeem* volgt de lichte of
 donkere instelling van de computer, en de themakeuze biedt daarnaast Licht,
 Donker, Leisteen, Papier, Bord, Tom W (koningsblauw met een hemelsblauw accent),
 Jorian (de blauwdruk-look van de projectwebsite: lichtblauw papier, donkere

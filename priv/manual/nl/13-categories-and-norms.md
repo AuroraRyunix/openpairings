@@ -40,7 +40,7 @@ De pagina toont eerst de **FIDE-instellingen** en **Officials & FIDE-rapportgege
 
 - Voor **FA1/IA1** neemt *Kies een arbiter* de kandidaat uit de officials van het evenement, of typ de naam, het FIDE-ID en de federatie van elke arbiter; er wordt niets opgeslagen.
 - Voor **IT4** wordt een speler opgenomen zodra een geclaimde titel voor hem is ingesteld (*Normgegevens bewerken*: de geclaimde titel, de normomschrijving, medaillepercentage, groep, deelnemende federaties, opmerkingen).
-- Een **gecombineerd rapport** (festival) voegt meerdere van uw toernooien samen tot één rapport: kies de andere toernooien, één ervan als *hoofdtoernooi* (het levert de kop, het schema en de naam) en download de gecombineerde IT3, FA1 of IA1. Dubbele spelers over toernooien heen worden gedetecteerd.
+- Een **gecombineerd rapport** (festival) voegt meerdere van je toernooien samen tot één rapport: kies de andere toernooien, één ervan als *hoofdtoernooi* (het levert de kop, het schema en de naam) en download de gecombineerde IT3, FA1 of IA1. Dubbele spelers over toernooien heen worden gedetecteerd.
 
 De formulieren gebruiken de FIDE-huisstijl voor namen (voornaam, ACHTERNAAM in hoofdletters).
 
@@ -58,16 +58,16 @@ ratingverslag staan; alleen de normberekening laat ze weg.
 ### Normen zonder account {#norms-without-an-account}
 
 Het tabblad **Hulpmiddelen** in de bovenbalk opent een openbare pagina voor arbiters zonder account: upload `.swar`- of `.trf`-bestanden (tot tien, elk 5 MB), vul de officials in, en download de IT3-, FA1- en IA1-formulieren, gecombineerd over de bestanden.
-Niets wordt opgeslagen: de bestanden leven alleen in het geheugen zolang u werkt.
+Niets wordt opgeslagen: de bestanden leven alleen in het geheugen zolang je werkt.
 
 ## Geschiedenis (herstelpunten) {#history-restore-points}
 
-**Geavanceerd**, **Geschiedenis**. Een herstelpunt is een volledige kopie van het toernooi op één moment. Het programma maakt er automatisch één aan vóór een actie die moeilijk ongedaan te maken is (een ronde paren of ontpaaren, uitslagen uit een bestand importeren, een forfait of score van een wedstrijd, een gewijzigde opstelling, een teruggetrokken ploeg, een overdracht); de nieuwste vijftig worden bewaard. Druk op **Herstelpunt opslaan** (met een optionele naam, bijvoorbeeld *Einde dag 1*) om zelf een punt aan te maken.
+**Geavanceerd**, **Geschiedenis**. Een herstelpunt is een volledige kopie van het toernooi op één moment. Het programma maakt er automatisch één aan vóór een actie die moeilijk ongedaan te maken is (een ronde paren of ontpaaren, resultaten uit een bestand importeren, een forfait of score van een wedstrijd, een gewijzigde opstelling, een teruggetrokken ploeg, een overdracht); de nieuwste vijftig worden bewaard. Druk op **Herstelpunt opslaan** (met een optionele naam, bijvoorbeeld *Einde dag 1*) om zelf een punt aan te maken.
 
 **Terug naar dit punt** herstelt het toernooi naar dat moment.
 
-> [!WARNING] Overschrijft live-uitslagen
-> Elke uitslag, paring en spelerwijziging die na het punt gemaakt is, verdwijnt, en u moet `RESTORE` intypen om te bevestigen. De pagina somt elke partij op die al naar het ratingbureau is verstuurd en in de hersteld staat niet meer zou voorkomen, en vraagt om een vinkje om toch te herstellen. Herstellen wijzigt alleen de inhoud: niet de eigenaar, niet of het toernooi gearchiveerd is, niet wat gepubliceerd is.
+> [!WARNING] Overschrijft live-resultaten
+> Elke resultaat, paring en spelerwijziging die na het punt gemaakt is, verdwijnt, en je moet `RESTORE` intypen om te bevestigen. De pagina somt elke partij op die al naar het ratingbureau is verstuurd en in de hersteld staat niet meer zou voorkomen, en vraagt om een vinkje om toch te herstellen. Herstellen wijzigt alleen de inhoud: niet de eigenaar, niet of het toernooi gearchiveerd is, niet wat gepubliceerd is.
 
 ## Auditlogboek {#audit-trail}
 

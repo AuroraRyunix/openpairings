@@ -6,7 +6,7 @@ wijzigen van een paring en het ongedaan maken van een ronde.
 
 ## De pagina Paringen {#the-pairings-page}
 
-De pagina toont één ronde tegelijk. Een rij rondeknoppen bovenaan verplaatst u
+De pagina toont één ronde tegelijk. Een rij rondeknoppen bovenaan verplaats je
 naar andere rondes; een ronde die nog niet gepaard is, wordt leeg getoond met de
 knop die haar paart. De tabel heeft één rij per bord: het bordnummer, de witte
 speler, het resultaat en de zwarte speler. Een speler met een bye is een bord
@@ -33,7 +33,7 @@ De knop **Ronde N paren** is beschikbaar wanneer
   ontbrekende resultaten*. Als uitgestelde partijen zijn toegestaan (pagina
   Puntentelling), registreert een aparte knop, **Ontbrekende resultaten als
   uitgesteld vastleggen en ronde N paren**, de lege borden als uitgesteld en
-  gaat verder, nadat u de waarschuwing hebt gelezen;
+  gaat verder, nadat je de waarschuwing hebt gelezen;
 - de aanwezigheid van de spelers klopt: spelers die als afwezig zijn gemarkeerd,
   worden niet gepaard ([Byes en afwezigheden](05-byes-and-absences.md));
 - er geen sessie met handmatige wijzigingen open staat op een eerdere ronde (zie
@@ -59,7 +59,7 @@ De knop luidt **Ronde N paren (Ainalrami)**, met de naam van de engine. Druk
 erop en bevestig. Het programma
 
 1. geeft de paringsnummers als dit de eerste ronde is (hoogste rating eerst; de
-   startkleur wordt door loting bepaald, tenzij u die zelf instelt),
+   startkleur wordt door loting bepaald, tenzij je die zelf instelt),
 2. bouwt het toernooi op als TRF-bestand, controleert het en geeft het aan de
    engine,
 3. leest de paringen van de engine, nummert de borden, kent de byes toe en
@@ -88,7 +88,7 @@ hand paren…** aan (zie *Een paring met de hand wijzigen*).
 **Wanneer de paringsnummers de ratings niet volgen.** De paringsregels lezen de
 paringsnummers als de rangorde, dus een sterke speler met een hoog nummer wordt
 het hele toernooi als een zwakke gepaard. Voor ronde 2, 3 en 4 controleert het
-programma daarom de nummers wanneer u op **Ronde N paren** drukt, en stopt het
+programma daarom de nummers wanneer je op **Ronde N paren** drukt, en stopt het
 als een speler op de verkeerde plaats staat - een laatkomer die achter het veld
 is genummerd, een rating die na ronde 1 is gecorrigeerd, of nummers die met een
 geïmporteerd TRF- of SWAR-bestand zijn meegekomen (het dialoogvenster zegt
@@ -141,7 +141,7 @@ cyclus speelt de tabel tweemaal met omgekeerde kleuren (met de laatste twee
 rondes van de eerste cyclus in omgekeerde volgorde, als die optie aanstaat). Een
 speler die afwezig is of zich heeft teruggetrokken, blijft in het schema: voer
 voor zijn partijen een forfaitresultaat in. De Berger-tabellen paren op de
-startnummers van de spelers; die kiest u bij de eerste paring (hieronder) of
+startnummers van de spelers; die kies je bij de eerste paring (hieronder) of
 vooraf op de pagina Spelers (*Startnummers*; [Spelers en ratinglijsten](04-players-and-ratings.md)).
 
 Ernaast maakt **Ronde N met de hand paren…** de volgende ronde zelf in plaats
@@ -163,7 +163,7 @@ toont de nummers die elke keuze geeft voordat er iets vastligt.
 
 - **Volgens rating.** De standaard van FIDE. Hoogste rating eerst; spelers met
   dezelfde rating gaan volgens FIDE-titel, dan volgens de tiebreak uit de opties
-  (alfabetisch tenzij u die wijzigde), dan volgens naam, dan in de volgorde van
+  (alfabetisch tenzij je die wijzigde), dan volgens naam, dan in de volgorde van
   invoer. Hetzelfde veld geeft altijd dezelfde lijst: er zit niets willekeurigs
   in.
 - **Volgens invoer.** De volgorde waarin de spelers aan dit toernooi werden
@@ -173,8 +173,8 @@ toont de nummers die elke keuze geeft voordat er iets vastligt.
   toernooi dat uit een geëxporteerd toernooibestand is heraangemaakt, is
   ingevoerd in de volgorde van het bestand, en dat is de ratingvolgorde; daar
   geven *Volgens invoer* en *Volgens rating* dezelfde lijst.
-- **Door loting.** Het programma loot nadat u op *Loten* drukt. U ziet de
-  loting en kunt opnieuw loten; er ligt niets vast tot u de paring bevestigt.
+- **Door loting.** Het programma loot nadat je op *Loten* drukt. Je ziet de
+  loting en kunt opnieuw loten; er ligt niets vast tot je de paring bevestigt.
 - **Zoals ingesteld op de pagina Spelers.** Wordt aangeboden wanneer de spelers al
   nummers hebben: daar met de hand of door loting ingesteld, of meegekomen met
   een ingevoerd bestand. Het dialoogvenster zegt het wanneer die nummers toevallig
@@ -189,7 +189,7 @@ Spelers biedt dezelfde drie aan (*Loten*, *Rangschikken op rating*,
 team-rondetoernooi wordt hier niet genummerd: de teams worden op de pagina Teams
 gerangschikt.
 
-**Als u van SWAR komt.** De drie manieren waarop SWAR de spelers voor een
+**Als je van SWAR komt.** De drie manieren waarop SWAR de spelers voor een
 rondetoernooi rangschikt - volgens ranking, volgens invoer, willekeurig -
 komen overeen met *Volgens rating*, *Volgens invoer* en *Door loting*. Een
 ingevoerd SWAR-bestand bevat alleen het resultaat: SWAR nummert de tabel van een
@@ -244,7 +244,7 @@ Voor een Zwitserse ronde die door Ainalrami is gepaard, toont de pagina
 - voor elke float en voor de bye de vraag *waarom deze speler en geen andere*.
   Open die om te zien wat elke andere kandidaat zou hebben gekost, in termen van
   de criteria van C.04.3, en of de keuze van de engine de beste is. De antwoorden
-  worden uitgewerkt wanneer u een vraag opent, en worden opgeslagen.
+  worden uitgewerkt wanneer je een vraag opent, en worden opgeslagen.
 
 Vaak zou een andere kandidaat helemaal niets gekost hebben: de paring waarin
 die speler doorschuift is *even goed volgens elke regel*. De regel zegt dat dan
@@ -330,7 +330,7 @@ Het wissen van een resultaat berekent alleen de nieuwe combinaties opnieuw.
 
 ### Vaste borden aankondigen {#announcing-fixed-boards}
 
-Wanneer de naamkaartjes van de vaste borden worden uitgegeven, drukt u in de
+Wanneer de naamkaartjes van de vaste borden worden uitgegeven, druk je in de
 voorvertoning op **Vaste borden aankondigen**. Het afdrukken van de vaste borden
 kondigt ze ook aan zolang **Afdrukken kondigt ze aan** is aangevinkt (dat staat
 standaard aan). Elk bord wordt opgeslagen met zijn nummer, wit en zwart, het
@@ -379,9 +379,9 @@ naam tegen elkaar gespeeld. Het programma noemt dit een
   aanpassen**, of impliciet met de eerste wijziging met de hand in de ronde. Zolang
   ze open is, toont een banner *Wijzigingen met de hand aan ronde N zijn open*,
   met de knop **Handmatige aanpassingen afronden**.
-- Wijzigingen met de hand maakt u met het menu **Wijzigingen met de hand**:
+- Wijzigingen met de hand maak je met het menu **Wijzigingen met de hand**:
   klik met de rechtermuisknop op een speler (of druk op de toets voor het
-  contextmenu) op de pagina Paringen. Het menu biedt, afhankelijk van wat u hebt
+  contextmenu) op de pagina Paringen. Het menu biedt, afhankelijk van wat je hebt
   aangeklikt:
 
 | Actie | Wat het doet |
@@ -390,18 +390,18 @@ naam tegen elkaar gespeeld. Het programma noemt dit een
 | Wisselen met een speler op een bord… | Wisselt een niet-spelende speler met een speler op een bord. |
 | Op een lege plaats zetten | Zet een speler uit de lijst *Lijst met niet-spelenden* op een lege plaats. |
 | Markeren als afwezig voor deze ronde | Haalt de speler van het bord en zet hem op de lijst *Lijst met niet-spelenden*. |
-| Paren met een andere speler die niet speelt… | Paart twee spelers van de lijst *Lijst met niet-spelenden* op een nieuw bord; u kiest het tafelnummer. |
+| Paren met een andere speler die niet speelt… | Paart twee spelers van de lijst *Lijst met niet-spelenden* op een nieuw bord; je kiest het tafelnummer. |
 | De door de paring toegekende bye geven | Geeft een speler van de lijst *Lijst met niet-spelenden* de door de paring toegekende bye, gescoord zoals ingesteld op de pagina Puntentelling. |
 | Een bye toekennen aan de overblijvende speler | Geeft de bye aan de speler die alleen op een bord is overgebleven, nadat de tegenstander is verwijderd. |
 | Dit bord verwijderen… | Verwijdert een leeg bord (een volledig leeggemaakt bord kan worden verborgen en weer zichtbaar gemaakt). |
 
-- De sessie **eindigt** pas wanneer u op **Handmatige aanpassingen afronden**
+- De sessie **eindigt** pas wanneer je op **Handmatige aanpassingen afronden**
   drukt. De volgende ronde kan niet worden gepaard zolang een sessie open is, zodat
   de controle hieronder niet kan worden overgeslagen door door te gaan.
 
 Elke wijziging toont eerst een bevestiging met de borden vóór en na de wijziging,
-die u accepteert of annuleert (<kbd>Escape</kbd> annuleert). Terwijl een wijziging
-half is gemaakt, toont een banner dat. Een resultaat op een bord dat u wijzigt,
+die je accepteert of annuleert (<kbd>Escape</kbd> annuleert). Terwijl een wijziging
+half is gemaakt, toont een banner dat. Een resultaat op een bord dat je wijzigt,
 wordt gewist; de bevestiging meldt dat. Elke wijziging wordt in het auditlogboek
 vastgelegd.
 
@@ -421,7 +421,7 @@ op die de borden die ze maakt zouden breken:
 - twee spelers die beiden de tegenovergestelde kleur krijgen van die welke elk
   verschuldigd is.
 
-Zo'n wijziging wordt pas toegepast nadat u het vakje hebt aangevinkt waarmee u de
+Zo'n wijziging wordt pas toegepast nadat je het vakje hebt aangevinkt waarmee je de
 waarschuwing bevestigt. Een wijziging die niets breekt, heeft geen vinkje nodig.
 
 ### Afronden: de controle met de paringscontroleur {#finishing-the-check-against-the-pairing-checker}
@@ -429,22 +429,22 @@ waarschuwing bevestigt. Een wijziging die niets breekt, heeft geen vinkje nodig.
 **Handmatige aanpassingen afronden** vraagt eerst dat elke plaats is gevuld (vul
 hem in, geef de overgebleven speler een bye, of maak het bord leeg) en dat ten
 minste één bord is gepaard. Daarna draait het programma de paringsengine over de
-spelers zoals de ronde ze nu plaatst, en vergelijkt de paring met uw borden, met
+spelers zoals de ronde ze nu plaatst, en vergelijkt de paring met je borden, met
 kleuren maar zonder de volgorde van de borden:
 
 - **Niets is veranderd sinds de sessie begon, of de borden zijn die van de engine:**
   de sessie eindigt; er wordt niets vastgelegd.
 - **De borden verschillen van de paring van de engine:** een dialoog toont de
-  paring van de controleur, wat alleen in uw paring staat en wat alleen in die van
+  paring van de controleur, wat alleen in je paring staat en wat alleen in die van
   de controleur staat, en de regelwaarschuwingen die nog gelden. Kies **Verder
   aanpassen** om terug te gaan, of vink *Ik begrijp het - houd mijn paringen en
   leg de wijziging vast* aan en druk op **Afronden en vastleggen**. De ronde
-  behoudt uw borden en legt de wijziging vast. De TRF-kopieën van het verslag
+  behoudt je borden en legt de wijziging vast. De TRF-kopieën van het verslag
   bevatten die als commentaarregel:
   `### MPA @ Round r: <checker's boards> => <the round's boards>`. Opnieuw afronden
   van een sessie vervangt de regel van die ronde, of verwijdert hem wanneer de
   borden nu met de engine overeenkomen. Het bestand dat *Versturen…* maakt,
-  bevat alleen records, dus het heeft geen zo'n regel ([Verzenden naar FIDE](11-fide-report.md)).
+  bevat alleen records, dus het heeft geen zo'n regel ([Versturen naar FIDE](11-fide-report.md)).
 - **De controleur kan de ronde niet beoordelen** (het is een controle op het
   Nederlandse systeem, dus een ploegen-, rondetoernooi-, Keizer-, per-categorie- of
   Zwitsers-matchformaatronde valt buiten zijn bereik): als de borden verschillen van
@@ -457,9 +457,9 @@ programma dit en schrijft het niets weg. De pagina Paringen biedt dan **Ronde N
 met de hand paren…** aan. De dialoog zegt dat de ronde wordt gemaakt zonder borden
 en met elke speler op de lijst *Lijst met niet-spelenden*, en dat geen paring van
 de ronde de regels kan volgen, zodat de ronde wordt vastgelegd als handmatige
-wijziging van de paring. U bevestigt met het vinkje *Ik begrijp het - maak ronde N
-om met de hand te paren*. Na **Ronde N maken** paart u de spelers uit de lijst
-(twee spelers paren, de door de paring toegekende bye geven) en rondt u de
+wijziging van de paring. Je bevestigt met het vinkje *Ik begrijp het - maak ronde N
+om met de hand te paren*. Na **Ronde N maken** paar je de spelers uit de lijst
+(twee spelers paren, de door de paring toegekende bye geven) en rond je de
 handmatige wijzigingen af zoals hierboven.
 
 ### Een rondetoernooi met de hand gepaard {#a-round-robin-paired-by-hand}
@@ -468,14 +468,14 @@ In een rondetoernooi (één tabel voor het hele veld, niet in matchvorm, geen
 teamtoernooi) staat **Ronde N met de hand paren…** naast de Berger-knop. De
 dialoog zegt dat de ronde wordt gemaakt zonder borden en met elke speler op
 de lijst *Lijst met niet-spelenden*, en dat een ronde die van de tabel afwijkt
-wordt vastgelegd als handmatige wijziging van de paring; u bevestigt met het
+wordt vastgelegd als handmatige wijziging van de paring; je bevestigt met het
 vinkje *Ik begrijp het - ronde N aanmaken om met de hand te paren*. Paar daarna
-telkens twee spelers uit de lijst. Een speler die u buiten de borden laat,
+telkens twee spelers uit de lijst. Een speler die je buiten de borden laat,
 rust die ronde uit met de bye van nul punten van het rondetoernooi, gegeven
 bij het afronden; de door de paring toegekende bye wordt in een rondetoernooi
 niet aangeboden.
 
-Elk bord wordt gecontroleerd terwijl u het maakt, en een overtreding vraagt
+Elk bord wordt gecontroleerd terwijl je het maakt, en een overtreding vraagt
 een eigen vinkje:
 
 - **Twee spelers die elkaar in deze cyclus al ontmoeten** - in een enkel
@@ -502,9 +502,9 @@ en worden op dezelfde manier beoordeeld.
 - **Een ronde die niet de laatste is.** Het wijzigen van een eerdere ronde vraagt
   om een vinkje, omdat latere rondes erop zijn gebaseerd. In de FIDE-modus kunnen
   alleen de laatste twee gespeelde rondes worden gewijzigd ([FIDE-modus](02-fide-mode.md)).
-- **Een ronde die al naar het ratingkantoor is verzonden.** Het wijzigen van wie
-  tegen wie speelde in een verzonden ronde vraagt het vinkje *Ik begrijp het - wijzig
-  toch de verzonden ronde N* ([Verzenden naar FIDE](11-fide-report.md)).
+- **Een ronde die al naar het ratingkantoor is verstuurd.** Het wijzigen van wie
+  tegen wie speelde in een verstuurde ronde vraagt het vinkje *Ik begrijp het - wijzig
+  toch de verstuurde ronde N* ([Versturen naar FIDE](11-fide-report.md)).
 
 ## Een ronde ongedaan maken {#undoing-a-round}
 
@@ -514,17 +514,17 @@ en worden op dezelfde manier beoordeeld.
 > maakt eerst een herstelpunt ([Accounts, delen en overdracht](15-accounts-and-handoff.md)).
 
 Bij een Zwitsers matchformaat horen de twee rondes van een match bij elkaar. Een
-ronde die naar het ratingkantoor is verzonden, kan niet worden ontpaard.
+ronde die naar het ratingkantoor is verstuurd, kan niet worden ontpaard.
 
 Ronde 1 van een individueel Zwitsers toernooi ontparen - zodat er geen ronde
 overblijft - neemt ook de paringsnummers terug die die ronde heeft toegekend. De
 volgende ronde 1 nummert iedereen die dan is ingeschreven, volgens rating, zodat
 een ronde die werd gepaard om het programma uit te proberen voordat het veld
-compleet was niets achterlaat. Nummers die u koos blijven: een wissel op de
+compleet was niets achterlaat. Nummers die je koos blijven: een wissel op de
 pagina Spelers, en de nummers van een geïmporteerd bestand; wie daarna wordt
 ingeschreven, komt er volgens rating tussen. Rondetoernooien, Keizer en
 teamtoernooien behouden hun nummers.
 
 ## Resultaten invoeren {#entering-results}
 
-Resultaten worden op dezelfde pagina ingevoerd. Zie [Uitslagen](07-results.md).
+Resultaten worden op dezelfde pagina ingevoerd. Zie [Resultaten](07-results.md).

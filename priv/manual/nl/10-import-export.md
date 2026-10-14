@@ -19,7 +19,7 @@ OpenPairings leest en schrijft verschillende formaten. Ze verschillen in doel:
 ## Importeren {#importing}
 
 Op de pagina **Toernooien** openen de importknoppen een paneel met een bestandskiezer
-of een gebied waarin u een bestand kunt slepen.
+of een gebied waarin je een bestand kunt slepen.
 
 ### TRF-bestand {#trf-file}
 
@@ -39,7 +39,7 @@ wordt **gecontroleerd op de paringsregels**: een herhaalde partij, twee spelers 
 beiden dezelfde kleur verschuldigd waren, een paar dat de eigen verbodsregistratie van
 het bestand verbiedt, een tweede door de paring toegekende bye.
 
-**De controlestap.** Er wordt niets geschreven tot u de controle hebt gezien die volgt
+**De controlestap.** Er wordt niets geschreven tot je de controle hebt gezien die volgt
 op de keuze van het bestand:
 
 - *De versie.* De controle zegt of het bestand als TRF26 of als TRF16 is gelezen. TRF16
@@ -62,38 +62,38 @@ op de keuze van het bestand:
   gecontroleerd omdat alleen een Zwitsers volgens het Nederlandse systeem dat kan.
 - *Symbolen die geen resultaatcode zijn.* Een symbool in een resultaatkolom dat geen
   resultaatcode is (een `5`, een `x`, een `%`) wordt gelezen als een partij met onbekende
-  uitslag en geïmporteerd als uitgestelde partij, net als `?`. Elk symbool wordt vermeld
+  resultaat en geïmporteerd als uitgestelde partij, net als `?`. Elk symbool wordt vermeld
   met de speler, het startnummer, de ronde en het gevonden symbool. Het resultaat van de
   tegenstander in die ronde wordt ook op onbekend gezet, en de lijst zegt dat, omdat beide
   kanten van een partij moeten overeenkomen. Een symbool in een ronde zonder tegenstander
   (`0000`) is geen partij en het bestand wordt nog steeds geweigerd; de melding
   noemt de speler, de ronde en het symbool. Annuleren importeert niets.
-- *Uitslagen aangenomen voor de controle.* De rondes na een partij met een onbekende
-  uitslag (`?`, of een symbool dat zo gelezen wordt) worden toch getoetst aan de
+- *Resultaten aangenomen voor de controle.* De rondes na een partij met een onbekende
+  resultaat (`?`, of een symbool dat zo gelezen wordt) worden toch getoetst aan de
   paringsregels, met die partij geteld als remise voor beide spelers - wat de import
   ervan maakt, een uitgestelde partij. De controle zegt welke rondes zo getoetst zijn
   en somt elke aangenomen partij op, met de ronde en de twee spelers.
 - *Spelers die teruggetrokken lijken.* Een TRF-bestand kan niet zeggen dat een speler
   zich heeft teruggetrokken: het toont een speler met niets in de latere rondes, en zo
   ziet een afwezigheid er ook uit. De controle somt daarom, onder *Lijkt teruggetrokken -
-  wordt in de volgende ronde gepaard tenzij u hem als teruggetrokken markeert*, elke
+  wordt in de volgende ronde gepaard tenzij je hem als teruggetrokken markeert*, elke
   speler op die eerder speelde of een bye had en geen partij en geen bye heeft in de
   laatste ronde van het bestand, of in de laatste paar rondes na elkaar. Elk heeft een
   vinkje **Importeren als teruggetrokken**. Aangevinkt wordt de speler als teruggetrokken
   geïmporteerd en niet meer gepaard; niet aangevinkt als actief, en dan paart de volgende
   ronde hem. Een speler met niets in de laatste twee rondes of meer is al aangevinkt; een
   speler die alleen de laatste ronde miste niet, want één gemiste ronde is meestal niet
-  meer dan dat. Pas beide aan zoals u wilt, hier of nadien in de spelerslijst. Niet in de
+  meer dan dat. Pas beide aan zoals je wilt, hier of nadien in de spelerslijst. Niet in de
   lijst: een late instapper (lege rondes vooraan, partijen achteraan), een speler met
   niets in geen enkele ronde, een speler met een bye van een half of een heel punt in de
   laatste ronde of een bye die al voor de volgende is toegekend, iedereen in een bestand
   waarvan alle rondes gespeeld zijn, en de spelers van een rondetoernooi of een
-  ploegentoernooi. Een bye van nul punten telt als niets. Wat u koos, wordt bij het
+  ploegentoernooi. Een bye van nul punten telt als niets. Wat je koos, wordt bij het
   toernooi en in het auditlogboek bewaard.
 - *Rondes die een paringsregel breken.* Als een ronde van het bestand een regel breekt,
   krijgt de controle de kop *Deze rondes van het bestand breken de FIDE-paringsregels*
   en zegt dat het importeren niet in overeenstemming is met de paringsregels. Dit is
-  een waarschuwing die uw uitdrukkelijke bevestiging vraagt (niveau 3). De knop luidt
+  een waarschuwing die je uitdrukkelijke bevestiging vraagt (niveau 3). De knop luidt
   dan **Toch importeren**; anders luidt hij **Importeren**. **Annuleren** importeert
   niets.
 
@@ -110,10 +110,10 @@ dat *Versturen…* maakt, bevat alleen records en geen zo'n regel.)
 
 **Een OpenPairings-back-up importeren** leest een bestand dat is gemaakt met **Volledige
 back-up exporteren (JSON)** (hieronder), tot 10 MB. Het geeft een nieuw toernooi, dat
-van u is, met de instellingen, officials, ploegen, elk spelerveld, rondes, resultaten,
+van jou is, met de instellingen, officials, ploegen, elk spelerveld, rondes, resultaten,
 byes, verboden paringen, paringsregels, de registratie van wat er naar het ratingkantoor is
-verzonden en de partijen die live borden meldden
-([Live borden](17-live-boards.md#games-and-pgn)). Het origineel wordt nooit aangeraakt, ook niet wanneer u uw eigen bestand
+verstuurd en de partijen die live borden meldden
+([Live borden](17-live-boards.md#games-and-pgn)). Het origineel wordt nooit aangeraakt, ook niet wanneer je je eigen bestand
 opnieuw importeert. Gaat er iets mis, dan blijft er niets achter.
 
 Wat niet meereist: herstelpunten, het logo, de telefoons die zijn ingeschreven voor het
@@ -127,15 +127,15 @@ aanvaarden.
 
 Een toernooi in een groep ([Toernooigroepen](03-tournament-setup.md#tournament-groups))
 neemt de naam van de groep, zijn label en zijn plaats mee in het bestand, ter
-informatie. De import gebruikt ze niet: de kopie komt in geen enkele groep aan, en u
-voegt ze op haar pagina Instellingen aan een groep toe als u ze daar wilt.
+informatie. De import gebruikt ze niet: de kopie komt in geen enkele groep aan, en je
+voegt ze op haar pagina Instellingen aan een groep toe als je ze daar wilt.
 
 ### SWAR-bestand {#swar-file}
 
 Met de functie *SWAR-import* aan (menu Account, **Functies**, Belgisch pakket) leest
 **Een SWAR-toernooi importeren** een `.swar`-bestand met spelers, rondes, resultaten,
 byes, puntentelling (met de 3-2-1 clubpuntentelling inbegrepen), afwezigheden en de
-categorieën. Spelers zonder FIDE-ID worden in de FIDE-lijst opgezocht, en u bevestigt de
+categorieën. Spelers zonder FIDE-ID worden in de FIDE-lijst opgezocht, en je bevestigt de
 overeenkomsten in een stap *FIDE-ID's oplossen*. Bestaat er al een toernooi dat er
 hetzelfde uitziet, dan zegt het paneel dat en biedt het aan het te openen of een andere
 kopie te importeren. Een SWAR-teamcompetitie kan worden geïmporteerd als individueel
@@ -144,7 +144,7 @@ toernooi (de partijen), niet als teamevenement.
 ### Resultaten uit een CSV-bestand {#results-from-a-csv-file}
 
 Op de pagina Paringen, **Meer**, **Resultaten importeren (CSV)**. Zie
-[Uitslagen](07-results.md).
+[Resultaten](07-results.md).
 
 ### Een overdracht ontvangen {#receive-a-hand-off}
 
@@ -158,11 +158,11 @@ Instellingen, **Exporteren** (de pagina *Export / back-up*):
 ### TRF (FIDE-ratingverslag) {#trf-fide-rating-report}
 
 Het TRF26-bestand voor het ratingkantoor. Een tabel toont elke gepaarde ronde met de
-stand (wordt gespeeld, klaar om te verzenden, verzonden) en een vinkje.
+stand (wordt gespeeld, klaar om te versturen, verstuurd) en een vinkje.
 **Een kopie downloaden (niet voor rating)** en **Alle rondes (TRF-kopie, niet voor
 rating)** maken kopieën, en **Versturen…** maakt het bestand voor het ratingkantoor en
-markeert de partijen als verzonden. Dit maakt deel uit van de rapportageprocedure en
-wordt uitgelegd in [Verzenden naar FIDE](11-fide-report.md).
+markeert de partijen als verstuurd. Dit maakt deel uit van de rapportageprocedure en
+wordt uitgelegd in [Versturen naar FIDE](11-fide-report.md).
 
 Het geschreven bestand is TRF26, het rapportformaat van 2026. Het heeft de spelerregels
 in de TRF16-indeling, en de toernooirecords: het aantal rondes (142), de startkleur
@@ -204,7 +204,7 @@ Rangschikking. Met de standaardwaardering (remise voor beiden) zijn de twee geli
 
 - **Volledige back-up exporteren (JSON)** - het hierboven beschreven bestand, voor dit
   toernooi. Op de pagina Toernooien exporteert **Alles exporteren (JSON)** elk toernooi
-  dat u bezit in één bestand.
+  dat je bezit in één bestand.
 - **.swar exporteren (v7, experimenteel)** (Belgisch pakket) schrijft een SWAR-bestand.
   Een regel somt op wat het SWAR-formaat van dit toernooi niet kan bevatten -
   onder meer een afwezigheid die iets anders dan een half punt waard is (SWAR
@@ -216,7 +216,7 @@ Rangschikking. Met de standaardwaardering (remise voor beiden) zijn de twee geli
 
 ### Spelers (CSV) {#players-csv}
 
-**Spelers exporteren (CSV)**: u kiest de kolommen (toevoegen, verwijderen, omhoog of
+**Spelers exporteren (CSV)**: je kiest de kolommen (toevoegen, verwijderen, omhoog of
 omlaag verplaatsen), het kolomscheidingsteken (komma, puntkomma voor Excel op een Belgische
 of Nederlandse computer, tab, pipe), de volgorde van de rijen (startrangschikking en
 rating, of naam), of afwezige spelers worden weggelaten, en of de UTF-8-markering wordt

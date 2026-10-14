@@ -4,10 +4,10 @@ Elk afdrukbaar document opent in een nieuw browsertabblad als gewone pagina die 
 printdialoog van de browser start.
 
 > [!TIP]
-> Omdat het een gewone pagina is, kunt u die ook als PDF opslaan via de printdialoog.
+> Omdat het een gewone pagina is, kun je die ook als PDF opslaan via de printdialoog.
 > Het tabblad kan worden gesloten zonder het programma te verstoren.
 
-## Waar u afdrukt {#where-to-print-from}
+## Waar je afdrukt {#where-to-print-from}
 
 Het tabblad **Afdrukken** toont elk document met een korte beschrijving en een knop
 **Afdrukken…**. Een document dat een gepaarde ronde nodig heeft, is grijs totdat de
@@ -37,7 +37,7 @@ de methoden met de hoogste rating of een met de hand ingetypte rating.
 | **Spelerslijst** | Alle ingeschreven spelers: titel, naam, ratings, federatie, club. |
 | **Spelerskaarten** | Eén kaart per speler met elke ronde van het toernooi erop, om over het bord in te vullen. |
 | **Paringenlijst** | De borden van een ronde, om op de locatie op te hangen. De pagina Paringen biedt ook *Paringen, met rubriek afwezigen*, die de spelers die niet spelen toevoegt, met de waarde van de ronde voor elk. Een speler met een vaste tafel is gemarkeerd, bijvoorbeeld `5 (table 5)`. |
-| **Alfabetische paringenlijst** | "Waar zit ik": de spelers gesorteerd op naam, om uw bord te vinden. |
+| **Alfabetische paringenlijst** | "Waar zit ik": de spelers gesorteerd op naam, om je bord te vinden. |
 | **Stand** | De rangschikking met de punten en de tiebreaks. |
 | **Resultaatkaartjes** | Eén kaartje per bord van een ronde, acht op een A4-pagina, met de namen, ratings, paringsnummers en de drie resultaten om aan te kruisen, een regel voor een ander resultaat, en handtekeningvakjes. Byes worden overgeslagen. |
 | **Notatiebriefjes** | Eén voorbereid briefje per bord: namen, ratings, zetkolommen en handtekeningen. |
@@ -50,9 +50,9 @@ de methoden met de hoogste rating of een met de hand ingetypte rating.
 
 De paringenlijst, de resultaatkaartjes en de notatiebriefjes nemen een ronde: de
 pagina Afdrukken gebruikt de laatst gepaarde ronde, en de pagina Paringen drukt de
-ronde af waarnaar u kijkt. In het adres van een afdrukpagina kiest `?round=N` een
+ronde af waarnaar je kijkt. In het adres van een afdrukpagina kiest `?round=N` een
 ronde. De paringenlijst valt standaard terug op ronde 1 en de resultaatkaartjes op de
-laatst gepaarde ronde als u het weglaat. Een ronde die niet is gepaard, geeft het
+laatst gepaarde ronde als je het weglaat. Een ronde die niet is gepaard, geeft het
 antwoord *Ronde N is nog niet gepaard*, niet een andere ronde. De afdruk van de stand
 neemt op dezelfde manier een ronde (`?round=N`) en toont dan de stand zoals die was
 na die ronde.
@@ -60,8 +60,8 @@ na die ronde.
 ### Resultaatkaartjes: testafdruk en stapelsnijden {#result-cards-test-print-and-stack-cutting}
 
 - **Resultaatkaartjes: testafdruk (eerste 3)** drukt drie kaartjes af, om de uitlijning
-  van uw printer te controleren voordat u een stapel afdrukt.
-- **Resultaatkaartjes: volgorde voor stapelsnijden** ordent de kaartjes zo dat u, na
+  van je printer te controleren voordat je een stapel afdrukt.
+- **Resultaatkaartjes: volgorde voor stapelsnijden** ordent de kaartjes zo dat je, na
   het afdrukken van elke pagina, de uitdraai stapelt en in acht strepen snijdt met een
   guillotine; elke stapel staat dan in bordvolgorde. Plaatsen die aan het eind leeg
   blijven, worden leeg afgedrukt.

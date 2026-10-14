@@ -33,7 +33,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token label
              computer guid swar trf json csv fide id elo keizer support deputy helper pibe
-             chess960 chess rnbqkbnr javafo ainalrami)
+             chess960 chess rnbqkbnr javafo ainalrami live)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list
@@ -1038,13 +1038,13 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
              "Published the results of round 3; they now travel with its pairings."
 
     assert nl("pairing.results_published", %{"round" => 3}) ==
-             "Uitslagen van ronde 3 gepubliceerd; ze gaan nu mee met de paringen."
+             "Resultaten van ronde 3 gepubliceerd; ze gaan nu mee met de paringen."
 
     assert en("pairing.results_unpublished", %{"round" => 3}) ==
              "Took the results of round 3 off the public page; its pairings stay public without them."
 
     assert nl("pairing.results_unpublished", %{"round" => 3}) ==
-             "Uitslagen van ronde 3 van de publieke pagina gehaald; de paringen blijven publiek, zonder uitslagen."
+             "Resultaten van ronde 3 van de publieke pagina gehaald; de paringen blijven publiek, zonder resultaten."
 
     refute nl("pairing.results_unpublished", %{"round" => 3}) =~ "gepubliceerd"
   end

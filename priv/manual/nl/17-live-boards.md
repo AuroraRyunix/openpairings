@@ -28,7 +28,7 @@ Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 | De ingestroute die de zetten en klokken van een bord ontvangt, en de toestemming van het kastje om ze te gebruiken (door OpenPairings opgehaald, niets te kopiëren) | gebouwd |
 | De koppeling in OpenPairings: koppelcodes, wat het kastje te horen krijgt, wat het meldt, de bordkolom, bewaarde partijen en PGN | gebouwd |
 | De kant van Alnasl van de koppeling met OpenPairings | gebouwd, in Alnasl; met gesimuleerde borden doorlopen, nog niet in een zaal |
-| De koppeling van een desktopkopie naar een kastje op een andere machine in de zaal | gebouwd, uit tot u ze aanzet; zie [Een kastje elders op het netwerk](#boxes-on-the-network) |
+| De koppeling van een desktopkopie naar een kastje op een andere machine in de zaal | gebouwd, uit tot je ze aanzet; zie [Een kastje elders op het netwerk](#boxes-on-the-network) |
 
 ## Wat Alnasl is {#what-alnasl-is}
 
@@ -80,9 +80,9 @@ QR-code. Scan ze met het kastje, of kopieer de regel naar de instelpagina van he
 kastje. Meer instellen is er niet: de code bevat het adres van deze server en een
 geheim, en het kastje verneemt de rest via de koppeling.
 
-De code wordt **één keer** getoond. Wanneer u de pagina verlaat, kan ze niet
+De code wordt **één keer** getoond. Wanneer je de pagina verlaat, kan ze niet
 opnieuw getoond worden, want OpenPairings bewaart ze niet, alleen een
-vingerafdruk. Bent u ze kwijt, maak dan een nieuwe: een code kost één klik.
+vingerafdruk. Ben je ze kwijt, maak dan een nieuwe: een code kost één klik.
 
 Maak één code per kastje. De lijst onder de knop toont elke code met haar laatste
 vier tekens, met het kastje dat ze gebruikt, de versie ervan, wanneer het voor het
@@ -99,70 +99,70 @@ bereikt het kastje zonder nieuwe scan.
 
 Een groepscode geeft toegang tot de toernooien van de groep die **de persoon die
 de code maakte** mag openen, en tot geen andere. Een afdeling van een andere
-arbiter, die u niet kunt openen, gaat ook niet naar uw kastje.
+arbiter, die je niet kunt openen, gaat ook niet naar je kastje.
 
 ### Een kastje elders op het netwerk {#boxes-on-the-network}
 
-*Gebouwd, alleen in de desktopeditie. Uit tot u het aanzet.* De desktopeditie
+*Gebouwd, alleen in de desktopeditie. Uit tot je het aanzet.* De desktopeditie
 antwoordt op haar eigen computer en nergens anders, en dat verandert niet. Een
 kastje dat niet op die computer staat (een kleine computer naast de borden, een
-tweede laptop) heeft een ingang nodig, en die kunt u geven: Instellingen,
+tweede laptop) heeft een ingang nodig, en die kun je geven: Instellingen,
 **Live borden**, kaart **Kastjes elders op dit netwerk**, schakelaar **Laat
 borden op dit netwerk verbinden**.
 
 Wat de schakelaar doet:
 
-- Hij opent **één extra deur** op uw computer, op het netwerkadres dat u kiest,
-  voor het kastje van de borden en voor niets anders. Uw toernooien, de
-  pagina's van OpenPairings en al het andere blijven alleen vanaf uw eigen
+- Hij opent **één extra deur** op je computer, op het netwerkadres dat je kiest,
+  voor het kastje van de borden en voor niets anders. Je toernooien, de
+  pagina's van OpenPairings en al het andere blijven alleen vanaf je eigen
   computer bereikbaar, precies zoals voorheen. Wie die deur in een browser
   opent, krijgt "niets hier".
 - De pagina biedt daarna **twee soorten code** aan: *Nieuwe code voor een
   kastje op deze computer* (zoals voorheen, `http://127.0.0.1`) en *Nieuwe code
-  voor een kastje op het netwerk*, die het adres van uw computer op het netwerk
+  voor een kastje op het netwerk*, die het adres van je computer op het netwerk
   van de zaal bevat. De pagina zegt in woorden waar elke code heen leidt, naast
   de QR-code.
 - De deur antwoordt alleen op een code die voor het netwerk is gemaakt, alleen
   aan machines op een lokaal netwerk, en ze is **dicht zolang er geen zo'n code
   bestaat**: trek de laatste in en ze sluit. Een netwerkcode werkt tot ze wordt ingetrokken; trek ze in als het evenement voorbij is.
-- Het is een instelling van uw computer, voor alle toernooien, en ze wordt
+- Het is een instelling van je computer, voor alle toernooien, en ze wordt
   onthouden: na een herstart is de deur er vanzelf weer. Verbindingen toont hoe
   het ervoor staat en heeft een knop **Uitzetten**.
 
 > [!WARNING] De code reist leesbaar
 > De deur spreekt gewoon http. De code van een kastje gaat onbeschermd over het
 > netwerk, om de paar seconden. Over **een kabel tussen de twee machines**, of
-> **een eigen netwerk** (uw eigen kleine router, niemand anders erop), is dat
+> **een eigen netwerk** (je eigen kleine router, niemand anders erop), is dat
 > prima. Op **een wifi waar ook de spelers op zitten** kan wie weet hoe, de code
 > lezen, en dan de paringen zien en zetten insturen alsof hij een bord was. Een
-> uitslag invoeren kan hij niet (dat doet een bord nooit), een paring wijzigen
+> resultaat invoeren kan hij niet (dat doet een bord nooit), een paring wijzigen
 > evenmin, en iets anders zien ook niet. Neem liever een kabel of een eigen
 > netwerk, en trek de code in na het evenement.
 
 > [!IMPORTANT] Windows stelt een vraag
 > De eerste keer toont Windows *Windows-beveiliging: wilt u toestaan dat deze
 > app communiceert op deze netwerken?* Vink **Particuliere netwerken** aan en
-> kies **Toestaan**. OpenPairings kan die vraag niet voor u beantwoorden. Koos
-> u Annuleren, of zag u de vraag nooit, dan krijgt het kastje geen antwoord:
+> kies **Toestaan**. OpenPairings kan die vraag niet voor je beantwoorden. Koos
+> je Annuleren, of zag je de vraag nooit, dan krijgt het kastje geen antwoord:
 > open Windows-beveiliging, Firewall en netwerkbeveiliging, **Een app door de
 > firewall toestaan**, en sta OpenPairings toe op particuliere netwerken.
 
-**Welk adres.** Zit uw computer op één lokaal netwerk, dan neemt de pagina dat
+**Welk adres.** Zit je computer op één lokaal netwerk, dan neemt de pagina dat
 adres. Zit hij op meerdere (een kabel naar het kastje en de wifi van de zaal),
 kies dan dat waar het kastje op zit: alleen dat ene wordt geopend. De poort is
-`4747` tenzij u ze wijzigt; gebruikt een ander programma ze al, dan zegt de
-pagina dat en kiest u een andere. Verder verandert daar niets door.
+`4747` tenzij je ze wijzigt; gebruikt een ander programma ze al, dan zegt de
+pagina dat en kies je een andere. Verder verandert daar niets door.
 
 **Als het adres verandert.** De meeste netwerken delen zelf adressen uit, en
-morgen kan het uwe een ander zijn. De code van vandaag wijst dan naar een adres
+morgen kan het jouwe een ander zijn. De code van vandaag wijst dan naar een adres
 waar niets is. OpenPairings merkt het, bij het opstarten en op deze pagina:
 *Het adres van deze computer is veranderd van … naar …: kastjes met de oude
 code vinden hem niet meer.* Het verhuist de deur **niet** vanzelf naar het
 nieuwe adres, want een laptop die plots op een ander netwerk zit, is precies
-het moment waarop u eerst gevraagd wilt worden. Kies het nieuwe adres, maak een
-nieuwe code en geef ze aan het kastje. Om het te voorkomen geeft u de computer
+het moment waarop je eerst gevraagd wilt worden. Kies het nieuwe adres, maak een
+nieuwe code en geef ze aan het kastje. Om het te voorkomen geef je de computer
 een **vast adres** (in de router, of in de netwerkinstellingen van Windows), of
-gebruikt u een kabel tussen de twee machines en niets anders. De lijst met
+gebruik je een kabel tussen de twee machines en niets anders. De lijst met
 codes toont bij elke netwerkcode het adres waarvoor ze gemaakt is, en zegt het
 in het rood wanneer de computer daar niet meer antwoordt.
 
@@ -188,12 +188,12 @@ gaat er niets over een speler de deur uit: geen geboortedatum, geen club, geen
 e-mailadres, geen telefoonnummer.
 
 Het krijgt ook te horen welke ronde bezig is. OpenPairings heeft geen knop die een
-ronde start: een ronde die gepaard is, is bezig. Wanneer u dus een ronde paart,
+ronde start: een ronde die gepaard is, is bezig. Wanneer je dus een ronde paart,
 start het kastje ze zelf, binnen ongeveer vijf seconden. Van de rondes die het laatst
 samen gepaard zijn (één in een Zwitsers of een Keizer, beide legs van een
 tweelegswedstrijd, alle rondes van een rondetoernooi), is de ronde die bezig is de
 eerste met een partij die nog openstaat, of de laatste als er geen is. Een
-uitslag die in ronde 2 gewist wordt terwijl ronde 3 gespeeld wordt, stuurt de
+resultaat die in ronde 2 gewist wordt terwijl ronde 3 gespeeld wordt, stuurt de
 borden dus niet terug naar ronde 2.
 
 Een wijziging daarna bereikt het kastje op dezelfde manier: een bord gewisseld,
@@ -221,7 +221,7 @@ staat:
 OpenPairings vraagt wanneer het toernooi op de uitslagensite staat en een van
 deze dingen waar is: een koppelcode bereikt het (zijn eigen code, of die van
 zijn groep), een kastje heeft een partij gemeld, of **Live-link op de
-uitslagensite** staat aan. De volgorde waarin u de dingen doet, maakt niet uit.
+uitslagensite** staat aan. De volgorde waarin je de dingen doet, maakt niet uit.
 Een code die gemaakt is voordat het toernooi gepubliceerd was, wordt bediend
 zodra de eerste publicatie is aangekomen.
 
@@ -243,32 +243,32 @@ geplakt wordt, staat in [Relaissleutels](#relay-keys).
 live borden een kolom **Bord zag**. Een toernooi zonder kastje heeft de kolom
 niet.
 
-**Een bord voert nooit een uitslag in.** U voert de uitslagen in zoals voorheen.
-De kolom toont wat het bord meldde, naast wat u invoerde:
+**Een bord voert nooit een resultaat in.** Je voert de resultaten in zoals voorheen.
+De kolom toont wat het bord meldde, naast wat je invoerde:
 
 | De kolom toont | Het betekent |
 | --- | --- |
 | `-` | Het bord meldde niets voor deze partij. |
 | *bezig* | Er is een partij bezig. |
-| een uitslag, vet | Het bord zag een uitslag en u hebt er nog geen ingevoerd. |
-| een uitslag, onopvallend | Het bord zag de uitslag die u invoerde. |
-| een uitslag in het rood, *wijkt af* | Het bord zag een andere uitslag dan die u invoerde. |
-| *geen uitslag* | Het bord zag de partij eindigen en kon niet uitmaken hoe. |
+| een resultaat, vet | Het bord zag een resultaat en je hebt er nog geen ingevoerd. |
+| een resultaat, onopvallend | Het bord zag het resultaat die je invoerde. |
+| een resultaat in het rood, *wijkt af* | Het bord zag een andere resultaat dan die je invoerde. |
+| *geen resultaat* | Het bord zag de partij eindigen en kon niet uitmaken hoe. |
 
-Rood is een waarschuwing en niets meer. Het blokkeert niets: u kunt de volgende
-ronde paren, publiceren en verzenden zoals gewoonlijk. Controleer de
-notatieformulieren, en verbeter de uitslag als het de ingevoerde is die fout is.
-Een forfait dat u invoerde, wordt vergeleken op wie het punt kreeg: een bord dat
+Rood is een waarschuwing en niets meer. Het blokkeert niets: je kunt de volgende
+ronde paren, publiceren en versturen zoals gewoonlijk. Controleer de
+notatieformulieren, en verbeter het resultaat als het de ingevoerde is die fout is.
+Een forfait dat je invoerde, wordt vergeleken op wie het punt kreeg: een bord dat
 `1-0` zag, komt overeen met `1-0FF`.
 
 Op een telefoon staat de melding van het bord op een eigen regel onder de
-uitslagknoppen. De kolom wordt niet afgedrukt en staat niet in de paringslijst
+resultaatknoppen. De kolom wordt niet afgedrukt en staat niet in de paringslijst
 voor aan de muur: ze is de controle van de arbiter, geen deel van de paring.
 
 ## Partijen en PGN {#games-and-pgn}
 
 *Gebouwd.* Elke vermelding in de kolom is een link naar de partij: de zetten, de
-klokken bij de laatste melding, de uitslag van het bord naast de uwe, en hoeveel
+klokken bij de laatste melding, het resultaat van het bord naast die van jou, en hoeveel
 zetten het kastje achteraf afleidde of raadde. Een geraden zet is de beste lezing
 van een onduidelijk bord door het kastje, niet iets wat het zag.
 
@@ -279,8 +279,8 @@ De partijen worden bij het toernooi bewaard. Er zijn drie downloads:
 
 In elk bestand komen de kopregels uit het toernooi: evenement, plaats, datum,
 ronde en bord (`3.12` is bord 12 van ronde 3), wit, zwart, ratings, FIDE-ID's en
-het speeltempo. De **uitslag is die welke u invoerde**, of `*` zolang u dat niet
-deed. Een bord dat `1-0` zag op een partij die u niet hebt ingevoerd, is in het
+het speeltempo. Het **resultaat is dat wat je invoerde**, of `*` zolang je dat niet
+deed. Een bord dat `1-0` zag op een partij die je niet hebt ingevoerd, is in het
 bestand nog steeds `*`. Kloktijden staan na de zetten als `{[%clk 1:29:58]}` waar
 het kastje ze meldde.
 
@@ -290,22 +290,22 @@ precies zoals het kastje het schreef, ter vergelijking.
 De PGN-export op de pagina Paringen (**Meer**, PGN) is ongewijzigd en bevat nog
 steeds geen zetten.
 
-**Een partij gaat mee met haar paring.** Wanneer u een ronde ontpaart en
+**Een partij gaat mee met haar paring.** Wanneer je een ronde ontpaart en
 opnieuw paart, worden de partijen die de borden voor de oude paringen hadden
 gemeld op dat moment uit OpenPairings verwijderd: ze horen bij partijen die
-niet meer bestaan. Hetzelfde geldt voor een bord dat u verwijdert, een
+niet meer bestaan. Hetzelfde geldt voor een bord dat je verwijdert, een
 ploegopstelling die een bord laat vallen, en een herstelpunt dat de paring niet
 heeft. Het auditlogboek krijgt één regel met het aantal verwijderde partijen.
 Het kastje houdt zijn eigen kopie en zijn eigen PGN. Een partij waarvan de
 paring alleen naar een ander bord verhuisde, of een andere speler kreeg, blijft
-bewaard. Gaat u terug naar een herstelpunt van vóór het opnieuw paren, dan
+bewaard. Ga je terug naar een herstelpunt van vóór het opnieuw paren, dan
 komen de oude paringen terug met hun partijen zoals ze stonden toen het punt
-werd genomen; het kastje stuurt de latere zetten niet vanzelf opnieuw, maar u
+werd genomen; het kastje stuurt de latere zetten niet vanzelf opnieuw, maar je
 kunt een partij vanaf het kastje opnieuw laten sturen.
 
 ## Relaissleutels {#relay-keys}
 
-*Gebouwd.* Dit deel is naslag. In het gewone verloop ziet u nooit een
+*Gebouwd.* Dit deel is naslag. In het gewone verloop zie je nooit een
 relaissleutel: zie [De toestemming van het kastje](#the-relay-key-for-the-box).
 
 Een relais is een kastje tussen mensen in een zaal, en het mag het hele
@@ -364,11 +364,11 @@ De uitzending is de pagina voor de partijen van een ronde, op
 `/t/<toernooi>/live`, die naar de nieuwste ronde gaat. Ze heeft drie kolommen:
 
 - **Links:** de ronde-knoppen, een zoekveld, en elke partij van de ronde, met het
-  bord, beide spelers, de uitslag (`1-0` of `½-½`), en de lopende partijen
+  bord, beide spelers, het resultaat (`1-0` of `½-½`), en de lopende partijen
   gemarkeerd. De borden van een ploegronde staan onder hun wedstrijd.
 - **Midden:** één partij, groot, met een balk boven en onder het bord. De balken
   tonen de naam, de titel, de federatie en de rating, de klok in een vakje, en de
-  score zodra er een uitslag is. De laatste zet is opgelicht, en er is een knop
+  score zodra er een resultaat is. De laatste zet is opgelicht, en er is een knop
   voor het volledige scherm.
 - **Rechts:** de naam van het evenement, de data, de plaats en de ronde, en de zetten
   als tabel in figurine-notatie, met de huidige zet gemarkeerd. Naast de zetten
@@ -388,7 +388,7 @@ uitzending.
 
 ### De beamerweergave {#the-projector-view}
 
-*Gebouwd.* De beamerweergave zet de partijen die u kiest op een
+*Gebouwd.* De beamerweergave zet de partijen die je kiest op een
 scherm in de zaal. Ze opent vanuit de uitzending of Alle borden met de knop
 *Beamer*, die een lijst van de borden van de ronde toont om aan te vinken: allemaal,
 geen, of enkele.
@@ -405,11 +405,11 @@ berekent hoeveel kolommen de grootste borden geven. Druk op <kbd>f</kbd> voor
 volledig scherm.
 
 Met `auto=1`, wat in de lijst standaard aan staat, verdwijnen afgelopen partijen
-vanzelf van het scherm. Een partij die eindigt, toont haar uitslag een halve minuut
+vanzelf van het scherm. Een partij die eindigt, toont haar resultaat een halve minuut
 over het bord, en maakt dan plaats voor de andere. In deze modus worden forfaits
 nooit getoond. Wanneer de laatste partij weg is, zegt het scherm dat en somt de
-uitslagen op. Zonder de automatische modus blijven afgelopen partijen staan met hun
-uitslag. Het oudere paringenscherm op de uitslagensite is een aparte pagina en
+resultaten op. Zonder de automatische modus blijven afgelopen partijen staan met hun
+resultaat. Het oudere paringenscherm op de uitslagensite is een aparte pagina en
 verandert niet. Zie [Het zaalscherm en de beamerweergave](16-openresults.md#the-hall-display-and-the-projector-view).
 
 ### Stukkensets {#piece-sets}
@@ -419,18 +419,18 @@ stukkensets: Cburnett, de standaard, en Chessnut. De kijker kiest met de keuzeli
 Stukken op de livepagina's, en de keuze wordt in de browser onthouden. Een scherm
 zonder keuzelijst krijgt een set in het adres, met `?pieces=chessnut`.
 
-### Forfaits en uitslagen {#forfeits-and-results}
+### Forfaits en resultaten {#forfeits-and-results}
 
 *Gebouwd.* Een forfait dat de arbiter heeft gepubliceerd
 (`1-0FF`, `0-1FF` of `0-0FF`) wordt als forfait getoond, wat het relais ook stuurt.
 Aan een forfaitbord zit niemand, dus het bord toont *Forfait* of *Dubbel forfait*, de
-uitslag als `1-0 FF`, en een leeg bord met *Niet gespeeld - forfait*. Een bord met een
-gepubliceerde uitslag en geen partij van het relais toont *Partij voorbij*, niet *Nog
+resultaat als `1-0 FF`, en een leeg bord met *Niet gespeeld - forfait*. Een bord met een
+gepubliceerde resultaat en geen partij van het relais toont *Partij voorbij*, niet *Nog
 niet gestart*.
 
-Een gepubliceerde uitslag wint altijd. Anders wordt, zodra de partij afgelopen is en de
-uitslagen van de ronde openbaar zijn, de uitslag van het relais getoond, met de
-aanduiding voorlopig. In een ronde waarvan de arbiter de uitslagen achterhoudt, toont een
+Een gepubliceerde resultaat wint altijd. Anders wordt, zodra de partij afgelopen is en de
+resultaten van de ronde openbaar zijn, het resultaat van het relais getoond, met de
+aanduiding voorlopig. In een ronde waarvan de arbiter de resultaten achterhoudt, toont een
 afgelopen partij alleen *Partij voorbij*.
 
 ### De uitzendvertraging {#the-broadcast-delay}
@@ -452,7 +452,7 @@ bij elk verzoek opgebouwd, op de uitzendvertraging.
 ### Federatievlaggen {#federation-flags}
 
 *Gebouwd.* Waar OpenPairings de instelling voor vlaggen meestuurt (het
-vinkje *Federatievlaggen*, standaard aan tenzij u het uitvinkt), wordt een klein vlaggetje
+vinkje *Federatievlaggen*, standaard aan tenzij je het uitvinkt), wordt een klein vlaggetje
 naast de federatiecode van een speler getoond: op de startlijst, de inschrijvingslijst, de
 spelerskaart, het zaalscherm en de livepagina's (op de beamerweergave alleen de vlag, zonder
 de code). Een speler die onder de FIDE zelf staat, of een code heeft die geen land aanduidt,
@@ -462,7 +462,7 @@ houdt de code en krijgt geen plaatje.
 
 *Gebouwd.* In OpenPairings: Instellingen, OpenResults, de kaart *Elke ronde publiceren*, de
 schakelaar **Live borden**. Dezelfde schakelaar staat op Instellingen, Live borden, als
-**Live-link op de uitslagensite**. Hij staat uit voor elk toernooi tot u hem aanzet, en wordt
+**Live-link op de uitslagensite**. Hij staat uit voor elk toernooi tot je hem aanzet, en wordt
 alleen aangeboden zolang het toernooi gepubliceerd is.
 
 Aan: OpenPairings stuurt een woord mee in de momentopname (`live_boards: true` in het deel
@@ -470,14 +470,14 @@ over het toernooi) en publiceert het toernooi meteen opnieuw. De openbare pagina
 naar de live borden. Uit: het woord wordt niet gestuurd en de link verdwijnt met de volgende
 kopie. De livepagina's zelf werken met of zonder dat woord, voor wie hun adres heeft.
 
-De schakelaar is uw verklaring dat de borden worden doorgestuurd. Een kastje koppelen zet hem
+De schakelaar is je verklaring dat de borden worden doorgestuurd. Een kastje koppelen zet hem
 niet aan, en de schakelaar start geen kastje: zonder iets dat zetten stuurt, leidt de link
 naar borden in de beginstelling. De instelling zit in een JSON-back-up en komt in het
 auditlogboek.
 
 ## Beperkingen {#limits}
 
-- **Een desktopkopie bereikt een kastje op een andere machine alleen als u dat toelaat.**
+- **Een desktopkopie bereikt een kastje op een andere machine alleen als je dat toelaat.**
   De desktopeditie antwoordt op haar eigen computer en nergens anders. Een
   kastjesprogramma op die computer heeft niets meer nodig. Een kastje elders in de zaal
   heeft de schakelaar **Laat borden op dit netwerk verbinden** nodig, een code die voor
@@ -489,8 +489,8 @@ auditlogboek.
   wordt bewaard zoals het kastje hem schreef, mits hij de vorm van een zet heeft. Het
   kastje controleert de wettigheid, en de uitslagensite ook.
 - **Een code is een sleutel.** Wie een code heeft, kan de paringen van het toernooi lezen
-  en er partijen voor melden. Hij kan geen uitslag invoeren, geen paring wijzigen en niets
-  anders lezen. Trek een code in die u niet meer gebruikt.
+  en er partijen voor melden. Hij kan geen resultaat invoeren, geen paring wijzigen en niets
+  anders lezen. Trek een code in die je niet meer gebruikt.
 - **Wat meereist in een export.** De partijen die de borden meldden, zitten in de
   JSON-export en in een herstelpunt. De koppelcodes en de toestemming van het kastje voor de
   uitslagensite (de relaissleutel) niet: een kopie op een andere machine maakt

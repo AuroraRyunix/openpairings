@@ -1,9 +1,9 @@
 # Ploegentoernooien
 
 Een ploegentoernooi is een toernooi met als format **Zwitsers (ploegen)** of **Rondetoernooi
-(ploegen)**: vink **Ploegentoernooi** aan wanneer u het aanmaakt. Ploegen spelen wedstrijden; een
+(ploegen)**: vink **Ploegentoernooi** aan wanneer je het aanmaakt. Ploegen spelen wedstrijden; een
 wedstrijd is een reeks individuele partijen, bord tegen bord. De individuele partijen
-zijn overal elders gewone partijen (uitslagen, spelerskaarten, het FIDE-ratingrapport), en
+zijn overal elders gewone partijen (resultaten, spelerskaarten, het FIDE-ratingrapport), en
 de ploegenlaag is erop gebouwd.
 
 Keizer kan geen ploegentoernooi zijn.
@@ -23,11 +23,11 @@ Keizer kan geen ploegentoernooi zijn.
    gepaard wordt.
 5. **De volgorde van de ploegen.** De volgorde van de kaarten wordt de paringnummers van de ploegen
    wanneer ronde 1 gepaard wordt. Verplaats ploegen met de pijltjes of druk op **Rangschikken op rating**.
-   Ploegen die u niet zelf verplaatst heeft, worden gerangschikt op rating wanneer ronde 1 gepaard wordt.
+   Ploegen die je niet zelf verplaatst heeft, worden gerangschikt op rating wanneer ronde 1 gepaard wordt.
    Hoe de rating van een ploeg berekend wordt, is de optie *Ploegrating voor de volgorde van de ploegen* op de pagina Opties:
    de standaard (olympiaderegel) is het gemiddelde van de hoogst gerate spelers, één per bord; de
    alternatieven zijn het gemiddelde van de eerste borden in bordvolgorde, het
-   gemiddelde van de hele opstelling, of een rating die u per ploeg intypt. De rating van een ploeg
+   gemiddelde van de hele opstelling, of een rating die je per ploeg intypt. De rating van een ploeg
    kan ook op haar kaart ingetypt worden, en die wint dan. Een ongerate speler telt mee met de rating
    ingesteld bij *Rating van een ongerate speler* (standaard 1400).
 6. **Wedstrijdpunten** (Instellingen, Puntentelling): standaard 2, 1, 0. Een competitie die 3, 1, 0
@@ -76,7 +76,7 @@ Een ploegen-Zwitsers dat al speler voor speler gepaard was in een eerdere versie
 
 Elke paring is een **wedstrijd**. De pagina Paringen toont boven de borden een tabel *Wedstrijden - ronde N*:
 wedstrijdnummer, aantal borden, de ploegen, de partijpuntenscore tot nu toe, de wedstrijdpunten zodra elk bord
-een uitslag heeft, een link naar de opstellingen van de wedstrijd (*Opstellingen*) en de bediening
+een resultaat heeft, een link naar de opstellingen van de wedstrijd (*Opstellingen*) en de bediening
 **Forfait bij beslissing**.
 
 - *Opstellingen*: de pagina van een wedstrijd bepaalt wie op welk bord speelt; een opstelling
@@ -87,14 +87,14 @@ een uitslag heeft, een link naar de opstellingen van de wedstrijd (*Opstellingen
   resultaten. Eerst wordt een herstelpunt bewaard.
 - Een bord dat met de hand is toegevoegd (twee spelers uit de lijst van niet-spelenden) sluit aan bij de
   wedstrijd van hun ploegen wanneer het tafelnummer, de kleuren en de bordvolgordes passen; past het niet,
-  dan wordt het gemarkeerd als **geen ploeg** en telt het voor geen enkele ploeg totdat u het een bord van
+  dan wordt het gemarkeerd als **geen ploeg** en telt het voor geen enkele ploeg totdat je het een bord van
   de wedstrijd maakt.
 
 **Een wedstrijd die als geheel forfait is.** Instellingen - Puntentelling - *Een wedstrijd die als geheel
 forfait is* bepaalt hoeveel partijpunten zo'n wedstrijd oplevert voor de ploeg die ze krijgt toegewezen:
 *Eén per opgesteld bord* (de standaard: een ploeg die zeven van de acht borden bezette, wint met 7-0, en een
 ploeg zonder opstelling met 0-0 - de wedstrijdpunten kloppen in beide gevallen) of *Het volledige aantal
-borden* (8-0 op acht borden, wat er ook was opgesteld, voor reglementen die de uitslag van een ploegforfait
+borden* (8-0 op acht borden, wat er ook was opgesteld, voor reglementen die het resultaat van een ploegforfait
 vastleggen). Het geldt voor een wedstrijd die bij beslissing forfait werd verklaard voordat er een partij
 van gespeeld was, en voor een wedstrijd tegen een ploeg die als ploeg niet aan de ronde deelneemt. Een
 wedstrijd die forfait werd verklaard nadat er partijen gespeeld waren, behoudt de som van haar borden, en
@@ -109,13 +109,13 @@ ingelezen, staat weer op de standaard.
 > het eigen reglement van de competitie.
 
 Een ploeg kan op haar kaart voor een ronde als **afwezig als ploeg** gemarkeerd worden (vóór de ronde gepaard
-is); een ploeg die zich terugtrekt, wordt in de rangschikking getoond als *teruggetrokken, uitslagen niet
+is); een ploeg die zich terugtrekt, wordt in de rangschikking getoond als *teruggetrokken, resultaten niet
 geteld* (rondetoernooi, minder dan 50% gespeeld, FIDE Algemeen Reglement 6.6).
 
-## Uitslagen en rangschikking {#results-and-standings}
+## Resultaten en rangschikking {#results-and-standings}
 
-Uitslagen worden per bord ingevoerd op de pagina Paringen, zoals in elk toernooi
-([Uitslagen](07-results.md)). De ploegenrangschikking (pagina Stand) toont de
+Resultaten worden per bord ingevoerd op de pagina Paringen, zoals in elk toernooi
+([Resultaten](07-results.md)). De ploegenrangschikking (pagina Stand) toont de
 rangschikking, de ploeg, gespeelde wedstrijden, gewonnen-gelijk-verloren, wedstrijdpunten en de
 ploegtiebreaks, elk met zijn berekening (voor elke ronde de tegenstander en wat die waard was, een forfait,
 een bye). De pagina toont ook **bordstatistieken**: per boordnummer de spelers die daar zaten, met

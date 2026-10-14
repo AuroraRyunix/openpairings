@@ -1,13 +1,13 @@
 # Publiceren: de uitslagensite en de live-pagina
 
 Een toernooi kan gepubliceerd worden op **OpenResults**, een aparte alleen-lezen
-uitslagensite. Het publiek ziet de paringen, de uitslagen en de standen, en een kaart voor
+uitslagensite. Het publiek ziet de paringen, de resultaten en de standen, en een kaart voor
 elke speler, op hun eigen telefoon, zonder account.
 OpenPairings serveert zelf geen openbare pagina's: de computer van de arbiter is de
 bron van de gegevens en stuurt ze naar de uitslagensite, en een drukke openbare pagina
 kan een paringssessie niet verstoren.
 
-Publiceren is optioneel en standaard uit. Er wordt niets verstuurd totdat u het voor een
+Publiceren is optioneel en standaard uit. Er wordt niets verstuurd totdat je het voor een
 toernooi aanzet.
 
 ![De instellingenpagina van OpenResults met de keuze Op de uitslagensite, Toeschouwers zien en Automatisch](screenshots/14-openresults-settings.png "Instellingen, OpenResults")
@@ -24,7 +24,7 @@ Instellingen, **OpenResults**.
 
 | Keuze | Betekenis |
 | --- | --- |
-| Uit | er wordt niets verstuurd. Terug naar Uit vraagt eerst om bevestiging; een kopie die al op de site staat, blijft tot u ze verwijdert (zie *Het adres*). |
+| Uit | er wordt niets verstuurd. Terug naar Uit vraagt eerst om bevestiging; een kopie die al op de site staat, blijft tot je ze verwijdert (zie *Het adres*). |
 | Alleen link | gepubliceerd, maar niet vermeld: iedereen met het adres kan het volgen. |
 | Op de voorpagina | gepubliceerd en op de voorpagina van de uitslagensite. |
 
@@ -40,10 +40,10 @@ Op de pagina Paringen stelt een bediening **Toeschouwers zien:** (ook in het rec
 | --- | --- |
 | Niets | de ronde wordt niet getoond |
 | Paringen | wie tegen wie speelt |
-| + Uitslagen | de uitslagen naarmate ze binnenkomen |
+| + Resultaten | de resultaten naarmate ze binnenkomen |
 | + Standen | de standen na de ronde ook |
 
-Een nieuw gepubliceerde ronde begint bij *Paringen*: live uitslagen zijn een bewuste keuze. Naar beneden gaan vraagt eerst om bevestiging en noemt wat er verdwijnt.
+Een nieuw gepubliceerde ronde begint bij *Paringen*: live resultaten zijn een bewuste keuze. Naar beneden gaan vraagt eerst om bevestiging en noemt wat er verdwijnt.
 
 ### Automatisch publiceren {#automatic-publishing}
 
@@ -51,10 +51,10 @@ Instellingen, OpenResults, **Automatisch**: één instelling voor hoe ver de lad
 
 - **Met de hand**: er beweegt niets vanzelf.
 - **Paringen zodra gepaard**: de paringen van de ronde worden openbaar wanneer ze gepaard is; een optionele vertraging *Paringen worden publiek na N minuten* (0: meteen).
-- **+ uitslagen live**: de uitslagen worden openbaar naarmate ze worden ingevoerd.
+- **+ resultaten live**: de resultaten worden openbaar naarmate ze worden ingevoerd.
 - **+ standen wanneer de ronde klaar is**: de standen worden openbaar zodra de ronde en elke ronde ervoor klaar zijn.
 
-De automatisering verplaatst een ronde alleen omhoog; u kunt een ronde altijd met de hand terugzetten, en ze blijft staan waar u haar zet.
+De automatisering verplaatst een ronde alleen omhoog; je kunt een ronde altijd met de hand terugzetten, en ze blijft staan waar je haar zet.
 
 **Vóór ronde 1 ziet het publiek de startrangschikking** (standaard uit). Zonder die ziet het publiek, zodra een ronde openbaar is, alleen de lijst van spelers.
 
@@ -62,18 +62,18 @@ De automatisering verplaatst een ronde alleen omhoog; u kunt een ronde altijd me
 
 ### Wat de openbare pagina toont {#what-the-public-page-shows}
 
-Schakelaars bepalen welke details een gepubliceerde pagina mag tonen (ratings, titels, federaties, clubs, categorieën, spelerskaarten, de standpagina, de paringspagina's, de kolommen van de stand en welke tiebreaks), en apart of de berekening van de tiebreaks gepubliceerd wordt. Een detail dat u verbergt, wordt helemaal niet naar de uitslagensite gestuurd. Een tiebreakkolom verbergen verandert de volgorde die ze beslist niet, en de pagina zegt wanneer de volgorde een verborgen tiebreak heeft gebruikt. De berekening van de tiebreak beantwoordt de vraag van een toeschouwer *waarom sta ik vierde* (de tegenstander van elke ronde en de waarde ervan). De kolom *Aanwezig in ronden* is alleen openbaar als u haar aanvinkt. *Federation flags* tekent een vlaggetje naast de naam en de federatiecode van elke speler; het staat aan tot u het uitvinkt. Het hoort bij *Federations*: het vinkje hangt daaraan vast en wordt alleen aangeboden zolang *Federations* aangevinkt is. Vinkt u *Federations* uit, dan worden er ook geen vlaggen gepubliceerd; vinkt u het weer aan, dan staat het vlaggenvinkje terug zoals u het had achtergelaten. Een speler die onder de FIDE zelf staat, of een code heeft die geen land aanduidt, krijgt geen plaatje.
+Schakelaars bepalen welke details een gepubliceerde pagina mag tonen (ratings, titels, federaties, clubs, categorieën, spelerskaarten, de standpagina, de paringspagina's, de kolommen van de stand en welke tiebreaks), en apart of de berekening van de tiebreaks gepubliceerd wordt. Een detail dat je verbergt, wordt helemaal niet naar de uitslagensite gestuurd. Een tiebreakkolom verbergen verandert de volgorde die ze beslist niet, en de pagina zegt wanneer de volgorde een verborgen tiebreak heeft gebruikt. De berekening van de tiebreak beantwoordt de vraag van een toeschouwer *waarom sta ik vierde* (de tegenstander van elke ronde en de waarde ervan). De kolom *Aanwezig in ronden* is alleen openbaar als je haar aanvinkt. *Federation flags* tekent een vlaggetje naast de naam en de federatiecode van elke speler; het staat aan tot je het uitvinkt. Het hoort bij *Federations*: het vinkje hangt daaraan vast en wordt alleen aangeboden zolang *Federations* aangevinkt is. Vink je *Federations* uit, dan worden er ook geen vlaggen gepubliceerd; vink je het weer aan, dan staat het vlaggenvinkje terug zoals je het had achtergelaten. Een speler die onder de FIDE zelf staat, of een code heeft die geen land aanduidt, krijgt geen plaatje.
 
 > [!WARNING]
-> Namen, bordnummers, uitslagen en plaatsen worden altijd getoond: een toernooi dat ze niet mag tonen, moet niet gepubliceerd worden.
+> Namen, bordnummers, resultaten en plaatsen worden altijd getoond: een toernooi dat ze niet mag tonen, moet niet gepubliceerd worden.
 
 ### Het zaalscherm {#the-hall-display}
 
-Een schermvullende pagina voor een televisie of beamer in de speelzaal, op een adres dat op de instellingenpagina getoond wordt zodra het toernooi gepubliceerd is. De kaart **Zaalscherm** kiest wat er wordt doorlopen (paringen, de lijst *Zoek je bord* op naam, uitslagen, standen), seconden per pagina, hoeveel plaatsen van de stand getoond worden, of de paringen vastgehouden worden tot de eerste uitslag van een nieuwe ronde binnen is, en een **Mededeling** (gewone tekst, tot 500 tekens) die op het scherm getoond wordt. Opslaan verstuurt die meteen.
+Een schermvullende pagina voor een televisie of beamer in de speelzaal, op een adres dat op de instellingenpagina getoond wordt zodra het toernooi gepubliceerd is. De kaart **Zaalscherm** kiest wat er wordt doorlopen (paringen, de lijst *Zoek je bord* op naam, resultaten, standen), seconden per pagina, hoeveel plaatsen van de stand getoond worden, of de paringen vastgehouden worden tot het eerste resultaat van een nieuwe ronde binnen is, en een **Mededeling** (gewone tekst, tot 500 tekens) die op het scherm getoond wordt. Opslaan verstuurt die meteen.
 
 ### Het adres {#the-address}
 
-*Deellink* is het openbare adres (een QR-code ernaartoe verschijnt op de pagina Live). **Naar een nieuw adres verplaatsen** haalt de oude kopie neer, maakt een nieuw adres en publiceert opnieuw (gebruik het als een link is uitgelekt). **Van de uitslagensite verwijderen** haalt het toernooi van de site. Wanneer een toernooibestand of een back-up een publicatiesleutel bevat, wordt u gevraagd of u *De publicatie overnemen* of *Opnieuw beginnen* kiest.
+*Deellink* is het openbare adres (een QR-code ernaartoe verschijnt op de pagina Live). **Naar een nieuw adres verplaatsen** haalt de oude kopie neer, maakt een nieuw adres en publiceert opnieuw (gebruik het als een link is uitgelekt). **Van de uitslagensite verwijderen** haalt het toernooi van de site. Wanneer een toernooibestand of een back-up een publicatiesleutel bevat, word je gevraagd of je *De publicatie overnemen* of *Opnieuw beginnen* kiest.
 
 ### Ploegen {#teams}
 
@@ -84,17 +84,17 @@ Ploegentoernooien worden ook gepubliceerd, met ploegstanden en wedstrijden.
 
 ## Inschrijvingen via de uitslagensite {#entries-through-the-results-site}
 
-**Inschrijvingsformulier** op de instellingenpagina van OpenResults laat spelers zich inschrijven op de uitslagensite: zet **Inschrijvingen open** aan, stel in wanneer het opent en sluit, een maximum aantal spelers, en of de lijst van inschrijvers op het formulier getoond wordt. **Inschrijvingen nakijken** opent de pagina met inschrijvingen, waar u nieuwe ophaalt, ze als spelers aanvaardt of verwerpt ([Spelers en ratinglijsten](04-players-and-ratings.md)).
+**Inschrijvingsformulier** op de instellingenpagina van OpenResults laat spelers zich inschrijven op de uitslagensite: zet **Inschrijvingen open** aan, stel in wanneer het opent en sluit, een maximum aantal spelers, en of de lijst van inschrijvers op het formulier getoond wordt. **Inschrijvingen nakijken** opent de pagina met inschrijvingen, waar je nieuwe ophaalt, ze als spelers aanvaardt of verwerpt ([Spelers en ratinglijsten](04-players-and-ratings.md)).
 
 ## De pagina Live (beamerweergave) {#the-live-page-projector-view}
 
-Pagina **Paringen**, **Meer**, **Lokale weergave & telefoon-QR** (de pagina `/t/:id/live` van dit programma): de huidige ronde schermvullend voor een beamer, die doorloopt tussen paringen, uitslagen en standen, met een pauzeknop, een knop om te verlaten en een optie voor hoog contrast. Ze toont een QR-code voor het openbare adres als het toernooi gepubliceerd is. Ze bevat ook de kaart **Een telefoon inschrijven om uitslagen in te voeren** ([Uitslagen](07-results.md)). De pagina werkt zichzelf bij wanneer een uitslag verandert. Ze wordt door dit programma geserveerd, dus het scherm moet op dezelfde computer staan, of op een computer die er kan bij komen; de openbare pagina (hierboven) is voor iedereen anders.
+Pagina **Paringen**, **Meer**, **Lokale weergave & telefoon-QR** (de pagina `/t/:id/live` van dit programma): de huidige ronde schermvullend voor een beamer, die doorloopt tussen paringen, resultaten en standen, met een pauzeknop, een knop om te verlaten en een optie voor hoog contrast. Ze toont een QR-code voor het openbare adres als het toernooi gepubliceerd is. Ze bevat ook de kaart **Een telefoon inschrijven om resultaten in te voeren** ([Resultaten](07-results.md)). De pagina werkt zichzelf bij wanneer een resultaat verandert. Ze wordt door dit programma geserveerd, dus het scherm moet op dezelfde computer staan, of op een computer die er kan bij komen; de openbare pagina (hierboven) is voor iedereen anders.
 
 ## Als er geen netwerk is {#if-there-is-no-network}
 
 > [!NOTE]
-> Publiceren blokkeert nooit het paren of het invoeren van uitslagen.
+> Publiceren blokkeert nooit het paren of het invoeren van resultaten.
 
-Een wijziging wordt enkele seconden nadat u ze maakt verzonden; het label in de bovenbalk zegt intussen *Bezig met verzenden*. Als er voor toeschouwers niets veranderd is (een dialoogvenster bevestigd terwijl er niets te doen was, een uitslag ingevoerd en meteen teruggenomen), wordt er niets verzonden en blijft het label zoals het was. **Opnieuw proberen**, publiceren uit- en weer aanzetten, en het programma opnieuw starten verzenden altijd.
+Een wijziging wordt enkele seconden nadat je ze maakt verstuurd; het label in de bovenbalk zegt intussen *Bezig met versturen*. Als er voor toeschouwers niets veranderd is (een dialoogvenster bevestigd terwijl er niets te doen was, een resultaat ingevoerd en meteen teruggenomen), wordt er niets verstuurd en blijft het label zoals het was. **Opnieuw proberen**, publiceren uit- en weer aanzetten, en het programma opnieuw starten versturen altijd.
 
-Een verzending die niet aankomt, wordt bewaard en opnieuw geprobeerd met steeds langere pauzes; de status van de verbinding wordt getoond als een klein label in de bovenbalk, en de pagina zegt wat er mis is. De openbare pagina haalt de zaal in wanneer de verbinding terug is.
+Wat niet aankomt, wordt bewaard en opnieuw geprobeerd met steeds langere pauzes; de status van de verbinding wordt getoond als een klein label in de bovenbalk, en de pagina zegt wat er mis is. De openbare pagina haalt de zaal in wanneer de verbinding terug is.
