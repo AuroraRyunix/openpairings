@@ -319,12 +319,13 @@ def build_msi_logo(out_path):
 
 
 def main():
-    icon = build_icon(os.path.join(HERE, "OpenPairings.ico"))
+    # OpenPairings.ico is no longer the orb: the taskbar got its own mark
+    # (rel/build_taskbar_icon.py) and this script leaves that file alone.
     splash = build_splash(os.path.join(HERE, "splash.png"))
     msi_banner = build_msi_banner(os.path.join(HERE, "msi_banner.bmp"))
     msi_logo = build_msi_logo(os.path.join(HERE, "msi_logo.bmp"))
 
-    for path in (icon, splash, msi_banner, msi_logo):
+    for path in (splash, msi_banner, msi_logo):
         print("wrote %s (%d bytes)" % (os.path.relpath(path, ROOT), os.path.getsize(path)))
 
 

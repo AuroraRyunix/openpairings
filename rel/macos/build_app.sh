@@ -54,7 +54,7 @@ ditto "$payload" "$app/Contents/Resources/app"
 cp "$here/launcher.sh" "$app/Contents/MacOS/OpenPairings"
 chmod 755 "$app/Contents/MacOS/OpenPairings"
 
-# The icon, from the same 1024px logo the site uses. Cosmetic: a failure
+# The Dock icon, drawn by rel/build_taskbar_icon.py. Cosmetic: a failure
 # leaves Finder's generic icon and a warning, not a failed build.
 make_icon() {
   for size in 16 32 128 256 512; do
@@ -65,7 +65,7 @@ make_icon() {
   iconutil -c icns "$2" -o "$3"
 }
 
-logo=priv/static/images/logo.png
+logo=rel/macos/OpenPairings-icon.png
 iconset="$out/OpenPairings.iconset"
 rm -rf "$iconset"
 mkdir -p "$iconset"
