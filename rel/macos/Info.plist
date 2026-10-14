@@ -20,8 +20,13 @@
     <string>__VERSION__</string>
     <key>LSMinimumSystemVersion</key>
     <string>__MINIMUM_SYSTEM__</string>
-    <key>LSUIElement</key>
-    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsLocalNetworking</key>
+        <true/>
+    </dict>
     <key>NSHighResolutionCapable</key>
     <true/>
 </dict>

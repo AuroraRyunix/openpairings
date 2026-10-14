@@ -69,10 +69,14 @@ Apple chip (M1 and later; there is no build for older Intel Macs), open it, and 
 signed by Apple, so the first time macOS refuses to open it: open *System
 Settings*, *Privacy & Security*, scroll down and click *Open Anyway* beside the
 message about OpenPairings (on macOS 14 or older: right-click the app and
-choose *Open*). After that it opens like any other app. A small window says
-that OpenPairings is running and your browser follows; *Stop OpenPairings* in
-that window stops the program. To update, stop it, download the new zip and
-replace the app in *Applications*.
+choose *Open*). After that it opens like any other app, with an icon in the
+Dock (right-click it and choose *Options*, *Keep in Dock* to keep it there). A
+small window says that OpenPairings is running and your browser follows. You
+can close that window: OpenPairings keeps running, and clicking its Dock icon
+brings the window back. *Stop OpenPairings* in the window, or quitting the app
+(Cmd-Q, or *Quit* on the Dock icon), stops the program; your tournaments stay
+saved. To update, quit it, download the new zip and replace the app in
+*Applications*.
 
 No Java and no database server are needed. The Swiss pairing engine
 (Ainalrami) is part of the program (see [Pairing a round](06-pairing.md)).

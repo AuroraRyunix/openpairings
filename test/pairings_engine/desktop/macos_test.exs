@@ -112,9 +112,35 @@ defmodule PairingsEngine.Desktop.MacosTest do
       assert [_, exe] =
                Regex.run(~r{<key>CFBundleExecutable</key>\s*<string>([^<]+)</string>}, plist)
 
-      assert build =~ ~s(cp "$here/launcher.sh" "$app/Contents/MacOS/#{exe}")
+      # The executable is the compiled Swift launcher; the script that
+      # starts the server sits beside the release as a resource.
+      assert build =~ ~s(-o "$app/Contents/MacOS/#{exe}" "$swift_source")
+      assert build =~ "-target arm64-apple-macos11"
+      assert build =~ ~s(cp "$here/launcher.sh" "$app/Contents/Resources/launcher.sh")
       # The data folder is not named after anything an installer would own.
       refute plist =~ "OpenPairingsData"
+    end
+
+    test "the app has a Dock icon" do
+      # LSUIElement hides the app from the Dock and Cmd-Tab, which is what
+      # the shell-script version did and what this one exists to undo.
+      refute read("rel/macos/Info.plist") =~ "LSUIElement"
+    end
+
+    test "the Swift launcher runs launcher.sh and agrees with it on the data folder" do
+      swift = read("rel/macos/Launcher.swift")
+
+      assert swift =~ ~s(let defaultDataFolder = "Library/Application Support/OpenPairings")
+      assert swift =~ ~s(let dataEnv = "OPENPAIRINGS_DATA_DIR")
+      assert swift =~ ~s(let releaseInResources = "app/bin/pairings_engine_portable")
+      assert swift =~ ~s(appendingPathComponent("launcher.sh"))
+      # CI starts the bundle's own executable this way.
+      assert swift =~ ~s(let headlessEnv = "OPENPAIRINGS_LAUNCHER_NO_UI")
+      assert swift =~ ~s(contains("--headless"))
+      assert read(".github/workflows/binaries.yml") =~ ~s("$launcher" --headless)
+      # Nothing but AppKit and Foundation: the build has swiftc and the SDK.
+      imports = Regex.scan(~r/^import (\w+)$/m, swift, capture: :all_but_first)
+      assert Enum.sort(List.flatten(imports)) == ["AppKit", "Foundation"]
     end
 
     test "the shell scripts have Unix line endings" do

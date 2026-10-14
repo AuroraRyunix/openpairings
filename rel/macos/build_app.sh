@@ -12,9 +12,16 @@
 # The bundle:
 #
 #   OpenPairings.app/Contents/Info.plist        rel/macos/Info.plist, filled in
-#   OpenPairings.app/Contents/MacOS/OpenPairings rel/macos/launcher.sh
+#   OpenPairings.app/Contents/MacOS/OpenPairings rel/macos/Launcher.swift, compiled
+#   OpenPairings.app/Contents/Resources/launcher.sh  rel/macos/launcher.sh
 #   OpenPairings.app/Contents/Resources/app/    the portable release, whole
 #   OpenPairings.app/Contents/Resources/OpenPairings.icns  from the logo
+#
+# The executable is a small AppKit program (the Dock icon and the window)
+# compiled here with swiftc for arm64 and macOS 11; launcher.sh beside the
+# release is the part that starts and stops the server. A Swift program on
+# macOS 11 and newer links to /usr/lib/swift and the system frameworks
+# only, which the check below allows like any other system library.
 #
 # Two things are checked here because nothing after this would notice them
 # until somebody's Mac refused to start the program:
@@ -51,8 +58,26 @@ mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 
 # ditto, not cp -R: it keeps modes, symlinks and extended attributes.
 ditto "$payload" "$app/Contents/Resources/app"
-cp "$here/launcher.sh" "$app/Contents/MacOS/OpenPairings"
-chmod 755 "$app/Contents/MacOS/OpenPairings"
+cp "$here/launcher.sh" "$app/Contents/Resources/launcher.sh"
+chmod 755 "$app/Contents/Resources/launcher.sh"
+
+# The app's executable. swiftc's complaints go to the log in full and, for
+# errors, to the run's summary as annotations on the line they are about:
+# the first compile of this file happens here, on a Mac nobody sits at.
+swift_source="${here#"$PWD"/}/Launcher.swift"
+swift_log=$(mktemp)
+if ! xcrun swiftc -O -swift-version 5 -target arm64-apple-macos11 -framework AppKit \
+  -o "$app/Contents/MacOS/OpenPairings" "$swift_source" >"$swift_log" 2>&1; then
+  sed -n 's/^\(.*\.swift\):\([0-9][0-9]*\):\([0-9][0-9]*\): error: \(.*\)$/::error file=\1,line=\2,col=\3::\4/p' "$swift_log"
+  echo "swiftc failed on $swift_source; everything it said:"
+  cat "$swift_log"
+  rm -f "$swift_log"
+  exit 1
+fi
+cat "$swift_log"
+rm -f "$swift_log"
+echo "Launcher compiled: $(file "$app/Contents/MacOS/OpenPairings" | cut -d: -f2-)"
+otool -L "$app/Contents/MacOS/OpenPairings"
 
 # The icon, from the same 1024px logo the site uses. Cosmetic: a failure
 # leaves Finder's generic icon and a warning, not a failed build.
