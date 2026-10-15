@@ -87,7 +87,8 @@ defmodule PairingsEngine.SnapshotFixtures do
       {"snapshot_team_roundrobin.json", :team_snapshot_fixture_published},
       {"snapshot_team_lineups_optional.json", :team_optional_fixture_published},
       {"snapshot_swiss_grouped.json", :swiss_grouped_snapshot_tournament},
-      {"snapshot_roundrobin_uncounted.json", :round_robin_uncounted_tournament}
+      {"snapshot_roundrobin_uncounted.json", :round_robin_uncounted_tournament},
+      {"snapshot_roundrobin_pending.json", :round_robin_pending_tournament}
     ]
   end
 
@@ -648,6 +649,87 @@ defmodule PairingsEngine.SnapshotFixtures do
     end
 
     {:ok, tournament} = Tournaments.publish_standings_through(tournament, 5)
+    Tournaments.get_tournament!(tournament.id)
+  end
+
+  @doc false
+  # A six-player club round robin in the middle of its season
+  # (`docs/postponed-rethink.md`): every round paired and published up
+  # front, rounds 1-4 played except two games - round 2's board 3 nobody
+  # has entered (an overdue board, since rounds 3 and 4 are complete), and
+  # round 3's board 1 postponed by White - and round 5 under way, one result
+  # in. The one fixture whose standings carry `pending_games` and whose
+  # boards carry `pending`. The tournament never ticked "Allow postponed
+  # games": a round robin offers them regardless.
+  def round_robin_pending_tournament do
+    tournament =
+      Repo.insert!(%Tournament{
+        name: "Clubkampioenschap Lier 2026-2027",
+        type: "roundrobin",
+        pairing_system: "round_robin",
+        city: "Lier",
+        federation: "BEL",
+        chief_arbiter: "Arbiter Fixture",
+        start_date: "2026-09-03",
+        end_date: "2026-10-01",
+        round_dates: ~w(2026-09-03 2026-09-10 2026-09-17 2026-09-24 2026-10-01),
+        rounds_count: 5,
+        tiebreaks: ~w(SB DE),
+        publish_mode: "manual",
+        public_slug: "lier-club-2026"
+      })
+
+    roster = [
+      {1, "Peeters, An", 2105, "BEL"},
+      {2, "Wouters, Bram", 2050, "BEL"},
+      {3, "Mertens, Celine", 1988, "BEL"},
+      {4, "Hermans, Dirk", 1932, "BEL"},
+      {5, "Goossens, Eva", 1870, "BEL"},
+      {6, "Jacobs, Frank", 1811, "BEL"}
+    ]
+
+    p =
+      for {no, name, rating, fed} <- roster, into: %{} do
+        {no,
+         Repo.insert!(%Player{
+           tournament_id: tournament.id,
+           pairing_number: no,
+           name: name,
+           fide_rating: rating,
+           federation: fed
+         })}
+      end
+
+    # C.05 Annex 1, the table for five or six players. `""` is a board
+    # nobody has entered; `"*W"` a game postponed by White.
+    schedule = [
+      [{1, 6, "1-0"}, {2, 5, "1-0"}, {3, 4, "1/2-1/2"}],
+      [{6, 4, "0-1"}, {5, 3, "0-1"}, {1, 2, ""}],
+      [{2, 6, "*W"}, {3, 1, "0-1"}, {4, 5, "1/2-1/2"}],
+      [{6, 5, "1/2-1/2"}, {1, 4, "1-0"}, {2, 3, "1-0"}],
+      [{3, 6, "1-0"}, {4, 2, ""}, {5, 1, ""}]
+    ]
+
+    for {games, number} <- Enum.with_index(schedule, 1) do
+      round = insert_round(tournament, number, ~U[2026-09-03 18:00:00Z])
+
+      for {{white, black, result}, board} <- Enum.with_index(games, 1) do
+        postponed? = result == "*W"
+
+        Repo.insert!(%Pairing{
+          round_id: round.id,
+          board: board,
+          white_player_id: p[white].id,
+          black_player_id: p[black].id,
+          result: result,
+          provisional_white: if(postponed?, do: "draw"),
+          provisional_black: if(postponed?, do: "draw"),
+          postponed_by: if(postponed?, do: "white")
+        })
+      end
+    end
+
+    {:ok, tournament} = Tournaments.publish_standings_through(tournament, 4)
     Tournaments.get_tournament!(tournament.id)
   end
 

@@ -2285,6 +2285,22 @@ defmodule PairingsEngine.Tournaments.Tournament do
   """
   def paired_as_teams?(t), do: team_round_robin?(t) or team_swiss?(t)
 
+  @doc """
+  Whether a board of this tournament may be recorded as postponed: the
+  arbiter ticked *Allow postponed games*, or it is a round robin, which
+  offers them whatever the tick says.
+
+  The tick is off by default because a provisional score feeds the next
+  Swiss pairing, and an arbiter should choose that on purpose. A round
+  robin's schedule was fixed before anybody scored anything, so the reason
+  does not apply there, and a club round robin without postponed games is a
+  season with one unplayed game in it somewhere (`docs/postponed-rethink.md`).
+  Every gate that used to read `postponed_games` reads this.
+  """
+  def postponed_allowed?(%{pairing_system: "round_robin"}), do: true
+  def postponed_allowed?(%{postponed_games: true}), do: true
+  def postponed_allowed?(_), do: false
+
   @doc "The values `team_board_colours` takes."
   def team_board_colours, do: @team_board_colours
 

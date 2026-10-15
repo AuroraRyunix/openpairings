@@ -270,10 +270,10 @@ defmodule PairingsEngine.Compliance do
   # but not a FIDE one. Only while the tournament allows postponed games at
   # all: with them off, the two values are never read.
   defp departed?(:postponed_requester_not_draw, t),
-    do: t.postponed_games == true and t.postponed_requester_outcome not in [nil, "draw"]
+    do: Tournament.postponed_allowed?(t) and t.postponed_requester_outcome not in [nil, "draw"]
 
   defp departed?(:postponed_opponent_not_draw, t),
-    do: t.postponed_games == true and t.postponed_opponent_outcome not in [nil, "draw"]
+    do: Tournament.postponed_allowed?(t) and t.postponed_opponent_outcome not in [nil, "draw"]
 
   # Scoring. VCL4THP v13 fails a program on which, in FIDE mode, two draws
   # can be worth more than a win plus a loss (Q74), a pairing-allocated bye

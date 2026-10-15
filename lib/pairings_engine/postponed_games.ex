@@ -158,6 +158,113 @@ defmodule PairingsEngine.PostponedGames do
     |> Enum.frequencies()
   end
 
+  ## ---------- overdue boards: the blanks a round robin moved past ----------
+  #
+  # See `docs/postponed-rethink.md`. A round robin pairs its whole schedule
+  # up front, so a game that is not played stays blank, and a blank used to
+  # hold the public standings at the round before it for the rest of the
+  # season. A blank the tournament has visibly moved past - a LATER round is
+  # complete - is read as an unnamed postponed game wherever standings are
+  # shown, and nowhere else: nothing is written, so the TRF, the send check
+  # and the rating report see the blank they always saw (VCL4THP Q159-160
+  # allow recording a missing result as adjourned only when the arbiter
+  # confirms it, and this records nothing).
+
+  @doc """
+  Whether `tournament` reads overdue boards at all: an individual round
+  robin. A Swiss or Keizer event cannot pair past a blank without the
+  confirmed "record missing results as postponed" step, and a team round
+  robin's match points are `TeamStandings`' business.
+  """
+  def overdue_applies?(%Tournament{pairing_system: "round_robin"} = t),
+    do: not Tournament.paired_as_teams?(t)
+
+  def overdue_applies?(_tournament), do: false
+
+  @doc """
+  Every overdue board of `tournament`, oldest round first, in the shape of
+  `open_games/1` (`%{round: n, pairing: %Pairing{}}`, players preloaded): a
+  board with two players and no result, in a round older than the latest
+  complete round - one with boards, none of them blank. `[]` where
+  `overdue_applies?/1` says no.
+
+  "A later round is complete", not "a later round has a result": club
+  players play a game early as often as late, and one round-7 result typed
+  on a Monday must not turn every round-6 board into a game "still to be
+  played" before Thursday.
+  """
+  def overdue_blanks(%Tournament{} = tournament) do
+    if overdue_applies?(tournament), do: query_overdue(tournament.id), else: []
+  end
+
+  defp query_overdue(tournament_id) do
+    complete =
+      Repo.all(
+        from p in Pairing,
+          join: r in Round,
+          on: p.round_id == r.id,
+          where: r.tournament_id == ^tournament_id,
+          group_by: r.number,
+          having: sum(fragment("CASE WHEN ? = '' THEN 1 ELSE 0 END", p.result)) == 0,
+          select: r.number
+      )
+
+    case complete do
+      [] ->
+        []
+
+      numbers ->
+        latest = Enum.max(numbers)
+
+        Repo.all(
+          from p in Pairing,
+            join: r in Round,
+            on: p.round_id == r.id,
+            where:
+              r.tournament_id == ^tournament_id and r.number < ^latest and p.result == "" and
+                not is_nil(p.white_player_id) and not is_nil(p.black_player_id),
+            order_by: [r.number, p.board],
+            preload: [:white_player, :black_player],
+            select: %{round: r.number, pairing: p}
+        )
+    end
+  end
+
+  @doc "The ids of `overdue_blanks/1`, as a set."
+  def overdue_ids(%Tournament{} = tournament) do
+    tournament |> overdue_blanks() |> MapSet.new(& &1.pairing.id)
+  end
+
+  @doc """
+  Every game the standings count before it has a result - the open
+  postponed games and the overdue boards - in the shape of `open_games/1`,
+  oldest round first. What "N games still to be played" counts and what
+  `pending_by_player/1` marks.
+  """
+  def pending_games(%Tournament{} = tournament) do
+    (open_games(tournament) ++ overdue_blanks(tournament))
+    |> Enum.sort_by(&{&1.round, &1.pairing.board})
+  end
+
+  @doc """
+  An overdue board as the unnamed postponed game it is read as: result `*`,
+  both seats valued at the tournament's "for the opponent" setting -
+  nobody asked for it, which is exactly how `*` is stamped when it IS
+  written (`Tournaments.update_pairing_result/3`). In memory only, so the
+  standings run it through the one result-to-points mapping there is
+  (`Standings.pairing_records/4`) instead of a second.
+  """
+  def as_pending(%Pairing{} = pairing, %Tournament{} = tournament) do
+    value = tournament.postponed_opponent_outcome || "draw"
+
+    %{
+      pairing
+      | result: Results.postponed(),
+        provisional_white: value,
+        provisional_black: value
+    }
+  end
+
   @doc """
   The FIDE rating period a game played on `date` falls in, and the date to
   have it reported by, as `%{period: first day of the month, deadline: last

@@ -20,7 +20,10 @@ setting *Players still level share a place* says (see below).
 - A Keizer tournament shows the Keizer table (rank, name, rating, value,
   Keizer points) instead of the tie-break table.
 - Under a heading *Not final* the page warns when a game is postponed and
-  still to be played, or when boards have no result.
+  still to be played, or when boards have no result. In a round robin, a board
+  without a result in a round that a later, complete round has moved past
+  counts as a postponed game, and the warning says how many there are (see
+  [Postponed games](07-results.md#postponed-games)).
 - A player who withdrew keeps their row, with the points scored so far, and is
   marked *withdrawn* beside the name (also in the printed standings). In a
   round robin the rule below can take such a player's results out.

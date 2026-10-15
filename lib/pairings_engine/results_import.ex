@@ -19,6 +19,7 @@ defmodule PairingsEngine.ResultsImport do
   alias PairingsEngine.Repo
   alias PairingsEngine.Results
   alias PairingsEngine.Tournaments
+  alias PairingsEngine.Tournaments.Tournament
 
   ## ---------- Bounds ----------
 
@@ -310,7 +311,7 @@ defmodule PairingsEngine.ResultsImport do
                 warnings = PostponedGames.result_warnings(pairing, result)
 
                 cond do
-                  Results.postponed?(result) and not tournament.postponed_games ->
+                  Results.postponed?(result) and not Tournament.postponed_allowed?(tournament) ->
                     {resolved, [{:postponed_games_off, board} | errors]}
 
                   :adjourned_non_draw_result in warnings ->

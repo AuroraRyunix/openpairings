@@ -1061,10 +1061,20 @@ defmodule PairingsEngineWeb.PrintController do
       true ->
         entries =
           case {keizer?, requested_round} do
-            {true, nil} -> Keizer.standings(tournament)
-            {true, n} -> Keizer.standings(tournament, through_round: n)
-            {false, nil} -> PairingsEngine.Standings.standings(tournament)
-            {false, n} -> PairingsEngine.Standings.standings(tournament, through_round: n)
+            {true, nil} ->
+              Keizer.standings(tournament)
+
+            {true, n} ->
+              Keizer.standings(tournament, through_round: n)
+
+            # `pending: true` - an overdue round-robin board counts as the
+            # postponed game the Standings page and the results site count
+            # it as (`docs/postponed-rethink.md`).
+            {false, nil} ->
+              PairingsEngine.Standings.standings(tournament, pending: true)
+
+            {false, n} ->
+              PairingsEngine.Standings.standings(tournament, through_round: n, pending: true)
           end
 
         # Manual ranking (SWAR parity #23) only ever applies to the current
@@ -1116,12 +1126,18 @@ defmodule PairingsEngineWeb.PrintController do
 
     missing = PairingsEngine.Tournaments.count_missing_results(tournament.id, requested_round)
 
+    overdue =
+      tournament
+      |> PairingsEngine.PostponedGames.overdue_blanks()
+      |> Enum.count(&(is_nil(requested_round) or &1.round <= requested_round))
+
     banner(open, "postponed-not-final", &PairingsEngineWeb.Postponed.not_final_text/1) <>
       banner(
         missing,
         "missing-results-not-final",
         &PairingsEngineWeb.Postponed.missing_results_text/1
-      )
+      ) <>
+      banner(overdue, "missing-results-overdue", &PairingsEngineWeb.Postponed.overdue_text/1)
   end
 
   defp final_refused_body(tournament) do
@@ -1147,13 +1163,14 @@ defmodule PairingsEngineWeb.PrintController do
       esc(text.(count)) <> "</strong></div>"
   end
 
-  # Each entry's open postponed games in the rounds the sheet covers, as
+  # Each entry's open postponed games and overdue boards
+  # (`PostponedGames.pending_games/1`) in the rounds the sheet covers, as
   # `:pending`, printed beside the name ("(1 pending)") so a provisional place
   # on a sheet pinned to the wall is not read as a final one.
   defp with_pending(entries, tournament, requested_round) do
     pending =
       tournament
-      |> PairingsEngine.PostponedGames.open_games()
+      |> PairingsEngine.PostponedGames.pending_games()
       |> Enum.filter(&(is_nil(requested_round) or &1.round <= requested_round))
       |> PairingsEngine.PostponedGames.pending_by_player()
 

@@ -28,6 +28,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     Tournaments
   }
 
+  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.Postponed
   alias PairingsEngineWeb.SentReceipt
   alias PairingsEngine.Federations.BEL.{SwarExport, SwarUpload}
@@ -262,7 +263,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
   defp assign_postponed(socket) do
     t = socket.assigns.tournament
 
-    if t.postponed_games do
+    if Tournament.postponed_allowed?(t) do
       all_sendable = PostponedGames.sendable_late_games(t)
       periods = rating_periods(all_sendable)
 
@@ -1284,7 +1285,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
           </p>
         </div>
 
-        <div :if={@tournament.postponed_games} id="postponed-part" class="trf-late-part">
+        <div
+          :if={Tournament.postponed_allowed?(@tournament)}
+          id="postponed-part"
+          class="trf-late-part"
+        >
           <h3>{gettext("Postponed games")}</h3>
 
           <div class="card-table-wrap">

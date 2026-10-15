@@ -72,7 +72,9 @@ volgens zijn eigen regel, op de ladder.
 
 Elke gepubliceerde ronde heeft een eigen pagina, met de paringen en, wanneer de
 arbiter dat toestaat, de resultaten naarmate ze binnenkomen. Een uitgesteld
-spel wordt als zodanig gemarkeerd. Hoeveel van een ronde openbaar is, bepaalt de
+spel wordt als zodanig gemarkeerd, en een bord uit een round robin dat nog
+geen uitslag heeft in een ronde waar het toernooi al voorbij is, toont *Uitslag
+nog niet binnen*. Hoeveel van een ronde openbaar is, bepaalt de
 arbiter, ronde per ronde: zie
 [Wat het publiek ziet, ronde per ronde](14-publishing.md#what-the-public-sees-round-by-round).
 

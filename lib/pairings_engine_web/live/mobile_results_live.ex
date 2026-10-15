@@ -9,7 +9,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.{Audit, Mobile, Standings, Tournaments}
-  alias PairingsEngine.Tournaments.{Pairing, Player}
+  alias PairingsEngine.Tournaments.{Pairing, Player, Tournament}
 
   @results [{"1-0", "1-0"}, {"1/2-1/2", "½-½"}, {"0-1", "0-1"}]
 
@@ -690,7 +690,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           >
             <button
               :for={{value, label} <- @extra_results}
-              :if={value not in ~w(*W *B) or @tournament.postponed_games}
+              :if={value not in ~w(*W *B) or Tournament.postponed_allowed?(@tournament)}
               type="button"
               disabled={@locked || @read_only?}
               class={["mobile-result-btn", p.result == value && "chosen"]}

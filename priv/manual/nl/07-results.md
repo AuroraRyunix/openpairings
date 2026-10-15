@@ -129,7 +129,10 @@ Een partij die niet in haar ronde kan worden gespeeld (verplaatst door
 overeenkomst of uitgesteld), is **uitgesteld**. Het toernooi gaat door.
 
 **Zet het aan.** Instellingen, Puntentelling, *Uitgestelde partijen*: **Uitgestelde
-partijen toelaten**. Met dit uit, wordt nergens een uitgesteld resultaat aangeboden.
+partijen toelaten**. Met dit uit, wordt nergens een uitgesteld resultaat aangeboden,
+behalve in een round robin: dat biedt het altijd aan, omdat het
+schema niet van de scores afhangt. Daar staat de schakelaar aan en kun je hem niet
+uitzetten.
 Op dezelfde pagina stel je in wat een uitgestelde partij telt tot ze is gespeeld,
 voor de speler die haar heeft uitgesteld en voor de tegenstander: standaard een
 remise voor beiden. De waarde wordt bij elke partij opgeslagen wanneer ze wordt
@@ -149,6 +152,21 @@ ronde N paren** kiest. Een ronde paren terwijl een uitgestelde partij uit een
 eerdere ronde nog open is, vraagt om een bevestiging die de spelers noemt: zij
 worden op een voorlopige score gepaard.
 
+**Borden zonder uitslag, in een round robin.** Een round robin paart
+alle ronden vooraf, dus een partij die niet gespeeld wordt, blijft vaak gewoon
+zonder uitslag staan. Zodra een *latere* ronde al haar uitslagen heeft, telt zo'n
+bord als een uitgestelde partij waar niemand om vroeg: beide spelers krijgen in de
+stand en de tiebreaks wat de instelling aan de tegenstander geeft (standaard een
+remise), de stand zegt hoeveel partijen nog open zijn, en de uitslagensite toont
+*Uitslag nog niet binnen* op het bord. Er wordt niets op het bord geschreven: de
+TRF en de bestanden voor de rating zien nog altijd een bord zonder uitslag, en je
+kunt de ronde pas versturen als ze er een heeft. Een partij die vooraf gespeeld is
+in een latere ronde, maakt die ronde niet volledig; de hele ronde moet binnen zijn.
+Wil je dat de stand dezelfde avond al doorloopt, zet het bord dan zelf op
+*uitgesteld door wit* of *uitgesteld door zwart*. Zwitserse, Keizer- en
+ploegentoernooien doen dit niet: daar kun je sowieso niet verder paren met een leeg
+bord.
+
 **Openstaande partijen.** De pagina Paringen toont de openstaande uitgestelde
 partijen, met een knop naar hun ronde. Elke partij mag de afgesproken datum dragen
 (nooit een uiterste datum; niets wordt te laat) en een korte geschiedenis van
@@ -165,7 +183,12 @@ gedownload.
 **Overal waar de stand verschijnt.** Zolang een partij open is, zeggen de stand, de
 afdrukken en de publiek gepubliceerde stand dat ze *niet definitief* zijn, markeren
 ze de speler of ploeg met *1 pending* (1 in behandeling), en blijft het toernooi
-lopen. Het archiveren van het toernooi meldt hoeveel partijen nog niet zijn gespeeld.
+lopen. Een ronde met een open uitgestelde partij, of met alleen nog de borden uit
+een round robin hierboven zonder uitslag, houdt de gepubliceerde stand niet
+tegen: die loopt door tot de laatste zulke ronde en zegt hoeveel partijen nog
+gespeeld moeten worden (op de uitslagensite: *Voorlopig: 2 partijen hebben nog geen
+uitslag en tellen tot dan als remise*). Een ronde die nog bezig is, houdt de stand
+wel tegen, zoals altijd. Het archiveren van het toernooi meldt hoeveel partijen nog niet zijn gespeeld.
 
 **Verslaglegging.** In de FIDE-modus is er geen TRF die de ronde van een
 uitgestelde partij zonder resultaat bevat, en geen eindstand: Instellingen,

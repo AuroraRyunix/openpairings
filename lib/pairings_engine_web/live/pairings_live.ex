@@ -4334,12 +4334,12 @@ defmodule PairingsEngineWeb.PairingsLive do
     offered =
       Enum.flat_map(@results, fn
         {"*W", :postponed_white} ->
-          if tournament.postponed_games,
+          if Tournament.postponed_allowed?(tournament),
             do: [{"*W", gettext("* postponed by White")}],
             else: []
 
         {"*B", :postponed_black} ->
-          if tournament.postponed_games,
+          if Tournament.postponed_allowed?(tournament),
             do: [{"*B", gettext("* postponed by Black")}],
             else: []
 
@@ -4348,7 +4348,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       end)
 
     held =
-      if held_postponed?(pairing.result, tournament.postponed_games),
+      if held_postponed?(pairing.result, Tournament.postponed_allowed?(tournament)),
         do: [{pairing.result, gettext("* postponed")}],
         else: []
 
@@ -7779,7 +7779,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                       >
                         <.result_options
                           result={pairing.result}
-                          postponed_games={@tournament.postponed_games}
+                          postponed_games={Tournament.postponed_allowed?(@tournament)}
                         />
                       </select>
                     </form>

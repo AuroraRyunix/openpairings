@@ -70,7 +70,9 @@ by its own rule, on the ladder.
 ### Rounds and pairings {#rounds-and-pairings}
 
 Each published round has its own page, with the pairings and, when the arbiter
-allows it, the results as they come in. A postponed game is marked as such.
+allows it, the results as they come in. A postponed game is marked as such,
+and a round-robin board still without a result in a round the tournament has
+moved past says *Result not yet in*.
 How much of a round is
 public is set by the arbiter, round by round: see
 [What the public sees, round by round](14-publishing.md#what-the-public-sees-round-by-round).

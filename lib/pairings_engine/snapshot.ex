@@ -42,6 +42,13 @@ defmodule PairingsEngine.Snapshot do
       round 1 published the moment it is paired, standings through 1 would
       say "after round 1" while every board still reads 0-0, because a
       published round used to count even with no results in it.
+      Since 2026-10-15 "complete" is "settled"
+      (`Tournaments.round_settled?/2`): in an individual round robin a
+      blank that a later complete round has moved past is an overdue
+      board, counted as a game still to be played - flagged on its board
+      (`pending`) and in the count above the table (`pending_games`) -
+      instead of holding the standings at the round before it for the rest
+      of the season. `docs/postponed-rethink.md` has the reasoning.
     * `players` is withheld entirely - `[]`, and with it every standings row -
       while `tournament.standings_through` is `nil` AND no round has been
       published yet. This is the one piece of withholding that depends on a
@@ -155,6 +162,11 @@ defmodule PairingsEngine.Snapshot do
     after_round = Tournaments.effective_standings_through(tournament)
     results_public = &Tournaments.results_public?(tournament, &1, after_round)
 
+    # The overdue boards (`PostponedGames.overdue_blanks/1`): blanks a
+    # round robin has moved past, counted by the standings below as games
+    # still to be played and marked as such on their boards.
+    pending_ids = PostponedGames.overdue_ids(tournament)
+
     team_nos = if paired_as_teams?(tournament), do: team_numbers(tournament), else: %{}
 
     matches_by_round =
@@ -179,7 +191,8 @@ defmodule PairingsEngine.Snapshot do
             nos,
             results_public.(round),
             Map.get(matches_by_round, round.number, []),
-            team_nos
+            team_nos,
+            pending_ids
           )
         end),
       "standings" => standings(tournament, nos, after_round)
@@ -584,7 +597,15 @@ defmodule PairingsEngine.Snapshot do
   # round's pairings are withheld for being unpublished, never for being
   # incomplete.
 
-  defp round_row(%Round{} = round, %Tournament{} = t, nos, results_public?, matches, team_nos) do
+  defp round_row(
+         %Round{} = round,
+         %Tournament{} = t,
+         nos,
+         results_public?,
+         matches,
+         team_nos,
+         pending_ids
+       ) do
     visible = Enum.reject(round.pairings, & &1.hidden)
 
     row = %{
@@ -595,7 +616,7 @@ defmodule PairingsEngine.Snapshot do
       # them, not because none were entered. Absent means true: an older
       # publisher sent every result it had.
       "results_public" => results_public?,
-      "boards" => boards(visible, nos, results_public?, t, round.number),
+      "boards" => boards(visible, nos, results_public?, t, {round.number, pending_ids}),
       "byes" => byes(round, visible, t, nos, results_public?)
     }
 
@@ -828,7 +849,7 @@ defmodule PairingsEngine.Snapshot do
   #
   # So the label travels too, and the rows travel in the order the arbiter
   # sees them, because the order is half of the disagreement.
-  defp boards(pairings, nos, results_public?, %Tournament{} = t, round_number) do
+  defp boards(pairings, nos, results_public?, %Tournament{} = t, {round_number, pending_ids}) do
     pairings
     |> Enum.filter(&(&1.white_player_id && &1.black_player_id))
     # Both seats must resolve to a published `no`. `publishable_players/1`
@@ -856,8 +877,27 @@ defmodule PairingsEngine.Snapshot do
       }
       |> maybe_put_postponed(p, results_public?)
       |> maybe_put_points(p, round_number, t, results_public?)
+      |> maybe_put_pending(p, MapSet.member?(pending_ids, p.id), round_number, t, results_public?)
     end)
   end
+
+  # Added 2026-10-15 (`docs/postponed-rethink.md`). An overdue board - a
+  # round-robin blank a later complete round has moved past - is counted by
+  # the standings as an unnamed postponed game, so it carries what a
+  # postponed board carries: `points` and `postponed_as`, so a running total
+  # on the results site adds up to the table beside it, and `pending: true`
+  # to say why. Not `postponed: true` - nobody postponed it, and the
+  # arbiter may simply not have typed in a game that was played. Absent on
+  # every other board, and withheld with the results.
+  defp maybe_put_pending(row, pairing, true = _pending?, round_number, t, true = _public?) do
+    pending = PostponedGames.as_pending(pairing, t)
+
+    row
+    |> Map.put("pending", true)
+    |> maybe_put_points(pending, round_number, t, true)
+  end
+
+  defp maybe_put_pending(row, _pairing, _pending?, _round_number, _t, _public?), do: row
 
   # Added 2026-10-02. What each seat scored on this board, as OpenPairings
   # scores it - `Standings.pairing_award/3`, the arithmetic the standings and
@@ -1224,7 +1264,9 @@ defmodule PairingsEngine.Snapshot do
 
     entries =
       t
-      |> Standings.standings(through_round: after_round)
+      # `pending: true` - overdue boards count as the games still to be
+      # played they are, as `put_provisional/3` says above the table.
+      |> Standings.standings(through_round: after_round, pending: true)
       # The arbiter's hand-set order, when they have taken it over, is the
       # authority - same call and same restriction (never Keizer) as the
       # arbiter's own standings page.
@@ -1331,13 +1373,25 @@ defmodule PairingsEngine.Snapshot do
   # the results site never labels them final: `provisional: true` and how
   # many games are open. Additive and absent when there are none, so final
   # standings read exactly as they always did.
+  #
+  # `pending_games` (added 2026-10-15, `docs/postponed-rethink.md`): every
+  # game these standings count before it has a result - the postponed ones
+  # AND the overdue boards (`boards[].pending`) - which is the number a
+  # reader should print. `postponed_games` keeps meaning postponed boards
+  # only, and is left out when there are none, so a reader that knows only
+  # it never says "0 postponed games".
   defp put_provisional(standings, %Tournament{} = t, after_round) do
-    open = t |> PostponedGames.open_games() |> Enum.count(&(&1.round <= after_round))
+    postponed = t |> PostponedGames.open_games() |> Enum.count(&(&1.round <= after_round))
+    overdue = t |> PostponedGames.overdue_blanks() |> Enum.count(&(&1.round <= after_round))
 
-    if open > 0,
-      do: Map.merge(standings, %{"provisional" => true, "postponed_games" => open}),
-      else: standings
+    standings
+    |> put_count("postponed_games", postponed)
+    |> put_count("pending_games", postponed + overdue)
+    |> then(&if(postponed + overdue > 0, do: Map.put(&1, "provisional", true), else: &1))
   end
+
+  defp put_count(map, _key, 0), do: map
+  defp put_count(map, key, n), do: Map.put(map, key, n)
 
   # Player ids never cross this boundary, so an opponent becomes their
   # pairing number. An opponent who is not in the published roster at all
