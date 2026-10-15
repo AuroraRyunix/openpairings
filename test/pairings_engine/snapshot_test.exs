@@ -566,6 +566,27 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "build/1 - the screen_links display key" do
+    test "travels as true by default and false when unticked" do
+      tournament =
+        Repo.insert!(%Tournament{
+          name: "Screen links",
+          type: "swiss",
+          pairing_system: "swiss",
+          rounds_count: 3,
+          standings_through: 0,
+          public_slug: "screenlinks1"
+        })
+
+      assert Snapshot.build(tournament)["tournament"]["display"]["screen_links"] == true
+
+      {:ok, hidden} =
+        Tournaments.set_public_display(tournament, %{all_shown() | "screen_links" => "false"})
+
+      assert Snapshot.build(hidden)["tournament"]["display"]["screen_links"] == false
+    end
+  end
+
   describe "build/1 - the publisher field (2026-09-14)" do
     test "absent when the tournament has no owner" do
       {tournament, _} = swiss_fixture()

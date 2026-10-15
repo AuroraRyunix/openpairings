@@ -78,6 +78,9 @@ Three rules hold it together:
 Names, board numbers, results and placings are not togglable. They are the
 tournament; an arbiter who does not want them public does not publish.
 
+`screen_links` hides only the two link cards (projector view, hall display)
+under the overview pages; `/t/:slug/projector` and `/t/:slug/hall` stay open.
+
 Hiding a column is a display rule, not an access rule - except for
 `player_cards`, which OpenResults enforces in its controller as well as its
 markup, because a link is a courtesy and a bookmarked URL is not.

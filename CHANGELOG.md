@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] The results site's two screen cards (projector view, hall display) can be switched off: a new tick, "Projector and hall display links", under Settings - Results site - Pages. It hides the cards and nothing else, because the screens are addresses, not decorations, and a hall that already has one open on a TV should not lose it to a tidy-up. Ticked unless you say otherwise, so every tournament already published keeps its cards. Travels in the snapshot as `display.screen_links`.
+
 ## [0.87.0] - 2026-10-15
 
 - [Feature] **A Mac app again, and this time an app.** Every push builds `OpenPairings.app` for Apple Silicon (M1 and later) only, and a release attaches it as `openpairings_app_macos_aarch64.zip` - a fixed name, so a link to the latest one stays right. Double-click it and a small window says OpenPairings is running, the browser opens once the server answers, a second double-click opens a tab instead of a second server, and *Stop OpenPairings* stops it, the way closing the window does on Windows. The data stays in `~/Library/Application Support/OpenPairings`, where the Mac builds always kept it, so replacing or binning the app touches nothing. Not signed by Apple yet: the first start needs *Open Anyway* in Privacy & Security, which `docs/macos.md` and the manual's chapter 1 (English and Dutch) walk through. Updates on a Mac are a link to the download, not a button. Nobody on the project owns a Mac, so the build proves it starts on GitHub's; whether it starts on a person's is the test list at the end of `docs/macos.md`.

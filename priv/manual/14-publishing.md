@@ -95,6 +95,7 @@ tie-break column does not change the order it decides, and the page says
 when the order used a tie-break that is hidden. The tie-break working
 answers a spectator's *why am I fourth* (the opponent of each round and its value).
 The *Rounds-present* column is public only if you tick it.
+*Projector and hall display links* controls the two cards under the standings, pairings and crosstable that open the projector view and the hall display; it is on unless you untick it. Unticking hides the cards only, the screens still open from their own address.
 *Federation flags* draws a small flag beside each player's name and
 federation code; it is on unless you untick it. It is part of *Federations*:
 the tick sits attached to that one and is only offered while *Federations*
