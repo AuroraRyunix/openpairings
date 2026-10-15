@@ -194,7 +194,8 @@ defmodule PairingsEngine.Updates do
   cached because they can change between two checks 30 minutes apart: which
   install this is (`PairingsEngine.Updates.InstallKind`) and whether a
   tournament currently has a round paired but unfinished
-  (`PairingsEngine.Tournaments.running_tournament_names/0`). Called once per
+  (`PairingsEngine.Tournaments.engine_paired_running_tournament_names/0`: round robin and
+  Keizer are left out, no update can change how they pair). Called once per
   mount by `PairingsEngineWeb.UpdateNotice`, not on every render - see that
   module's moduledoc for why it must not be cheaper-but-wrong there.
 
@@ -214,7 +215,7 @@ defmodule PairingsEngine.Updates do
               version: version,
               url: url,
               install_kind: InstallKind.detect(),
-              running: Tournaments.running_tournament_names()
+              running: Tournaments.engine_paired_running_tournament_names()
             }
           end
       end

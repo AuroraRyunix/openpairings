@@ -72,6 +72,11 @@ defmodule PairingsEngine.PublicDisplay do
   did nothing and then go looking for the flags.
   """
 
+  # Labels and hints are read at call time, so they follow the locale of whoever
+  # is looking (the arbiter's settings page), never the one the app booted in.
+  # The `key`s are the wire contract and stay English.
+  use Gettext, backend: PairingsEngineWeb.Gettext
+
   # Sub-option -> the key it needs. One level deep, and `show?/2` relies on
   # that: a parent with a parent of its own would want a loop here.
   @parents %{"flags" => "federation"}
@@ -106,146 +111,160 @@ defmodule PairingsEngine.PublicDisplay do
       %{
         key: "player_cards",
         group: :pages,
-        label: "Player cards",
+        label: gettext("Player cards"),
         hint:
-          "A page per player: every round, who they played and how it went. Off leaves " <>
-            "no way to follow one player through the event."
+          gettext(
+            "A page per player: every round, who they played and how it went. Off leaves " <>
+              "no way to follow one player through the event."
+          )
       },
       %{
         key: "byes",
         group: :pages,
-        label: "Byes",
-        hint: "The table of players sitting a round out, and why."
+        label: gettext("Byes"),
+        hint: gettext("The table of players sitting a round out, and why.")
       },
       %{
         key: "screen_links",
         group: :pages,
-        label: "Projector and hall display links",
+        label: gettext("Projector and hall display links"),
         hint:
-          "The two cards under the standings, pairings and crosstable that open the " <>
-            "projector view and the hall display. Off hides the cards only; the screens " <>
-            "themselves still open from their own address."
+          gettext(
+            "The two cards under the standings, pairings and crosstable that open the " <>
+              "projector view and the hall display. Off hides the cards only; the screens " <>
+              "themselves still open from their own address."
+          )
       },
 
       # ---- about each player ----
       %{
         key: "rating",
         group: :player,
-        label: "Ratings",
-        hint: "Each player's Elo, on the standings, the pairings and their card."
+        label: gettext("Ratings"),
+        hint: gettext("Each player's Elo, on the standings, the pairings and their card.")
       },
       %{
         key: "title",
         group: :player,
-        label: "Titles",
-        hint: "GM, IM, WFM and the rest, shown before a player's name."
+        label: gettext("Titles"),
+        hint: gettext("GM, IM, WFM and the rest, shown before a player's name.")
       },
       %{
         key: "federation",
         group: :player,
-        label: "Federations",
-        hint: "The three-letter country code."
+        label: gettext("Federations"),
+        hint: gettext("The three-letter country code.")
       },
       %{
         key: "flags",
         group: :player,
-        label: "Federation flags",
+        label: gettext("Federation flags"),
         # On unless switched off, like its neighbours: a flag is the
         # federation code drawn, not a new fact about anybody. A sub-option
         # of "Federations" (`parent/1`): not offered, and not sent, while
         # that is off.
         hint:
-          "A small flag beside each player's name and federation code. Part of " <>
-            "Federations: not offered while that is off. None for a player under " <>
-            "the FIDE flag."
+          gettext(
+            "A small flag beside each player's name and federation code. Part of " <>
+              "Federations: not offered while that is off. None for a player under " <>
+              "the FIDE flag."
+          )
       },
       %{
         key: "club",
         group: :player,
-        label: "Clubs",
-        hint: "Which club a player belongs to."
+        label: gettext("Clubs"),
+        hint: gettext("Which club a player belongs to.")
       },
       %{
         key: "category",
         group: :player,
-        label: "Categories",
-        hint: "The tournament's own groupings, where it has them."
+        label: gettext("Categories"),
+        hint: gettext("The tournament's own groupings, where it has them.")
       },
 
       # ---- about the tournament ----
       %{
         key: "city",
         group: :tournament,
-        label: "City",
-        hint: "Where it is being played."
+        label: gettext("City"),
+        hint: gettext("Where it is being played.")
       },
       %{
         key: "dates",
         group: :tournament,
-        label: "Dates",
-        hint: "The tournament's own dates, and each round's."
+        label: gettext("Dates"),
+        hint: gettext("The tournament's own dates, and each round's.")
       },
       %{
         key: "arbiter",
         group: :tournament,
-        label: "Arbiter",
-        hint: "The chief arbiter's name, as a printed pairing sheet carries it."
+        label: gettext("Arbiter"),
+        hint: gettext("The chief arbiter's name, as a printed pairing sheet carries it.")
       },
       %{
         key: "deputy",
         group: :tournament,
-        label: "Deputy arbiter",
-        hint: "The deputy's name, where there is one."
+        label: gettext("Deputy arbiter"),
+        hint: gettext("The deputy's name, where there is one.")
       },
       %{
         key: "time_control",
         group: :tournament,
-        label: "Time control",
-        hint: "The tempo, as the arbiter wrote it."
+        label: gettext("Time control"),
+        hint: gettext("The tempo, as the arbiter wrote it.")
       },
       %{
         key: "fide_badge",
         group: :tournament,
-        label: "FIDE-rated badge",
-        hint: "The note saying this event is submitted for FIDE rating."
+        label: gettext("FIDE-rated badge"),
+        hint: gettext("The note saying this event is submitted for FIDE rating.")
       },
 
       # ---- columns inside a page ----
       %{
         key: "tiebreaks",
         group: :columns,
-        label: "Tiebreak columns",
+        label: gettext("Tiebreak columns"),
         hint:
-          "The numbers behind the placings. The order itself is unaffected - this hides " <>
-            "the arithmetic, not the result."
+          gettext(
+            "The numbers behind the placings. The order itself is unaffected - this hides " <>
+              "the arithmetic, not the result."
+          )
       },
       %{
         key: "tiebreak_working",
         group: :columns,
-        label: "How the tie-breaks were reached",
+        label: gettext("How the tie-breaks were reached"),
         hint:
-          "The round-by-round breakdown behind each tie-break on a player's card. Publishing " <>
-            "the numbers and publishing where they came from are separate decisions."
+          gettext(
+            "The round-by-round breakdown behind each tie-break on a player's card. Publishing " <>
+              "the numbers and publishing where they came from are separate decisions."
+          )
       },
       %{
         key: "rounds_played",
         group: :columns,
         # The one opt-in key - see the moduledoc.
         default: false,
-        label: "Rounds-present column",
+        label: gettext("Rounds-present column"),
         hint:
-          "How many rounds each player was there for: games played, a bye given because the " <>
-            "field was odd, and a win by forfeit. For a prize for attending every round. Off " <>
-            "unless you ask for it, and independent of the \"Rds\" column tick on your own " <>
-            "screens."
+          gettext(
+            "How many rounds each player was there for: games played, a bye given because the " <>
+              "field was odd, and a win by forfeit. For a prize for attending every round. Off " <>
+              "unless you ask for it, and independent of the \"Rds\" column tick on your own " <>
+              "screens."
+          )
       },
       %{
         key: "pairing_scores",
         group: :columns,
-        label: "Scores on the pairings",
+        label: gettext("Scores on the pairings"),
         hint:
-          "The points each player carried into the round, which is what explains why " <>
-            "those two are on that board."
+          gettext(
+            "The points each player carried into the round, which is what explains why " <>
+              "those two are on that board."
+          )
       }
     ]
   end
@@ -256,10 +275,11 @@ defmodule PairingsEngine.PublicDisplay do
   @spec groups() :: [{group(), String.t(), String.t()}]
   def groups do
     [
-      {:pages, "Pages", "Which pages exist at all."},
-      {:player, "About each player", "Shown beside every name."},
-      {:tournament, "About the tournament", "The header line a printed pairing sheet carries."},
-      {:columns, "Columns", "Extra detail inside a page that is shown."}
+      {:pages, gettext("Pages"), gettext("Which pages exist at all.")},
+      {:player, gettext("About each player"), gettext("Shown beside every name.")},
+      {:tournament, gettext("About the tournament"),
+       gettext("The header line a printed pairing sheet carries.")},
+      {:columns, gettext("Columns"), gettext("Extra detail inside a page that is shown.")}
     ]
   end
 
