@@ -17,6 +17,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] The tick boxes under Settings - Results site (labels, hints and the group headings above them) were English in the Dutch interface, a language the rest of the page had already learned. They are translated now. The keys they travel under in the snapshot are the same as before; only what the arbiter reads changed.
 - [Feature] The results site's two screen cards (projector view, hall display) can be switched off: a new tick, "Projector and hall display links", under Settings - Results site - Pages. It hides the cards and nothing else, because the screens are addresses, not decorations, and a hall that already has one open on a TV should not lose it to a tidy-up. Ticked unless you say otherwise, so every tournament already published keeps its cards. Travels in the snapshot as `display.screen_links`.
 
 ## [0.87.0] - 2026-10-15

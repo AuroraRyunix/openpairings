@@ -1104,4 +1104,32 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       refute html =~ "A publishing key came with this file"
     end
   end
+
+  describe "the display ticks follow the interface language" do
+    test "in Dutch the labels, hints and group headings are Dutch", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      conn = get(conn, ~p"/locale/nl?redirect_to=/")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(
+               lv,
+               "#display-toggle-screen_links",
+               "Links naar projectorweergave en zaalscherm"
+             )
+
+      assert has_element?(lv, "#display-toggle-player_cards", "Spelerskaarten")
+      assert html =~ "Over elke speler"
+      refute html =~ "Projector and hall display links"
+      refute html =~ "About each player"
+    end
+
+    test "in English they stay English", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(lv, "#display-toggle-screen_links", "Projector and hall display links")
+    end
+  end
 end
