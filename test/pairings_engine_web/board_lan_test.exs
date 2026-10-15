@@ -371,6 +371,17 @@ defmodule PairingsEngineWeb.BoardLanTest do
                ask(port, "/api/boards/v1/link", secret: secret, method: :head)
     end
 
+    test "the launcher's details are not on it, even with the launcher's secret", %{port: port} do
+      Application.put_env(:pairings_engine, :launcher_token, "a-launcher-secret-for-this-test")
+      on_exit(fn -> Application.delete_env(:pairings_engine, :launcher_token) end)
+
+      assert {:ok, %{status: 404}} =
+               Req.get("http://127.0.0.1:#{port}/_launcher/stats",
+                 headers: [{"x-launcher-token", "a-launcher-secret-for-this-test"}],
+                 retry: false
+               )
+    end
+
     test "the arbiter's own listener is untouched by all this", %{conn: conn, tournament: t} do
       # The pages are where they were, for the same signed-in arbiter.
       assert conn |> get(~p"/t/#{t.id}/settings/boards") |> html_response(200)
