@@ -117,13 +117,15 @@ releasepagina. De controle kan worden uitgeschakeld op de pagina Verbindingen.
 ### Details: wat het programma doet {#details-what-the-program-is-doing}
 
 Lijkt iets traag of vreemd en wil je zeggen wat, klik dan op *Details* in het
-kleine venster (Windows). Het venster wordt langer en toont de uitvoer van het
+kleine venster (Windows) of op de Mac (er opent een eigen venster). Op
+Windows wordt het venster langer en toont het de uitvoer van het
 programma zelf (het einde van `launcher.log`, elke seconde bijgewerkt) en een
 paar cijfers over het draaiende programma: versie, hoe lang het al draait, hoe
 druk de processor is, geheugen, en hoe snel de database antwoordt. *Copy*
 zet de cijfers en de laatste 200 regels van het log op het klembord, klaar om
-in een mail te plakken; *Open log folder* toont het bestand zelf. Het venster
-is in het Engels. Tot het programma gestart is, staat er "—" bij de cijfers.
+in een mail te plakken; *Open log folder* toont het bestand zelf. Op de Mac is
+het log `logs/server.log` in de gegevensmap. Het Windows-venster is in het
+Engels, dat van de Mac volgt de taal van je Mac. Tot het programma gestart is, staat er "—" bij de cijfers.
 
 Op Linux is hetzelfde een opdracht in de map die je hebt uitgepakt:
 `./openpairings.sh details` werkt elke twee seconden bij (druk op `q` om te

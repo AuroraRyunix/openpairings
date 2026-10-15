@@ -115,12 +115,14 @@ switched off on the Connections page.
 ### Details: what the program is doing
 
 When something seems slow or odd and you want to say what, click *Details*
-in the small window (Windows). The window grows downwards and shows the
+in the small window (Windows) or on the Mac (a window of its own opens). On
+Windows the window grows downwards and shows the
 program's own output (the end of `launcher.log`, refreshed every second) and a
 few numbers about the running program: version, how long it has run, how busy
 the processor is, memory, and how long the database takes to answer. *Copy*
 puts the numbers and the last 200 lines of the log on the clipboard, ready to
-paste into a mail; *Open log folder* shows the file itself. The numbers read
+paste into a mail; *Open log folder* shows the file itself. On the Mac the
+log is `logs/server.log` in the data folder. The numbers read
 "—" until the program has started.
 
 On Linux the same is a command in the folder you unzipped:

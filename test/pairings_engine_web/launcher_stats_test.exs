@@ -55,6 +55,13 @@ defmodule PairingsEngineWeb.LauncherStatsTest do
     assert conn.status == 404
   end
 
+  test "a proxy header on a loopback request: 404 (a tunnel in front of a desktop copy)" do
+    for header <- ~w(x-forwarded-for forwarded x-real-ip cf-connecting-ip x-forwarded-host) do
+      conn = build_conn() |> put_req_header(header, "203.0.113.9") |> ask(@token)
+      assert conn.status == 404, header
+    end
+  end
+
   test "a hosted server: 404 with the secret, from loopback", %{conn: conn} do
     Application.put_env(:pairings_engine, :local_mode, false)
     assert ask(conn, @token).status == 404
@@ -70,6 +77,10 @@ defmodule PairingsEngineWeb.LauncherStatsTest do
     assert conn.status == 200
     assert ["application/json" <> _] = get_resp_header(conn, "content-type")
     assert get_resp_header(conn, "cache-control") == ["no-store"]
+
+    # Nothing in the answer is a secret: not this start's, not a key.
+    refute conn.resp_body =~ @token
+    refute conn.resp_body =~ ~r/secret|password|api_key/i
 
     body = Jason.decode!(conn.resp_body)
 

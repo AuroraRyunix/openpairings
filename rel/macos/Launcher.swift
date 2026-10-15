@@ -69,6 +69,9 @@ let releasePath = resources.appendingPathComponent(releaseInResources).path
 let port = Int(environment["PORT"] ?? "") ?? defaultPort
 let browserURL = URL(string: "http://localhost:\(port)")!
 let probeURL = URL(string: "http://127.0.0.1:\(port)\(probePath)")!
+// The Details window asks the server about itself here, with this start's secret.
+let launcherTokenEnv = "OPENPAIRINGS_LAUNCHER_TOKEN"
+let statsURL = URL(string: "http://127.0.0.1:\(port)/_launcher/stats?lang=\(dutch ? "nl" : "en")")!
 let version = (Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String) ?? ""
 let title = version.isEmpty ? appName : "\(appName) \(version)"
 
@@ -124,6 +127,245 @@ func runHeadless() -> Never {
 
 // MARK: - The app
 
+// MARK: - Details
+
+// The window behind the "Details" button: the numbers the running server
+// reports about itself (GET /_launcher/stats, a request from this machine
+// carrying this start's secret - docs/launcher-details.md) over the end of
+// its own log, with Copy and Open log folder. A window of its own rather than
+// a section of the small one, so the small one never changes size. While it
+// is closed nothing here runs.
+let logReadBytes: UInt64 = 128 * 1024
+let logTailLines = 500
+let copyLogLines = 200
+
+final class DetailsWindow: NSObject, NSWindowDelegate {
+    let session: URLSession
+    let token: String
+    let logPath: String
+
+    var window: NSWindow!
+    var statsView: NSTextView!
+    var logView: NSTextView!
+    var logScroll: NSScrollView!
+    var copyButton: NSButton!
+    var timer: Timer?
+    var ticks = 0
+    var asking = false
+    var statsShown = ""
+    var logSeenSize: UInt64 = UInt64.max
+
+    let statsFont = NSFont.systemFont(ofSize: 12)
+    let logFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+
+    init(session: URLSession, token: String, logPath: String) {
+        self.session = session
+        self.token = token
+        self.logPath = logPath
+        super.init()
+    }
+
+    var waitingText: String {
+        return tr("Waiting for \(appName) to answer...", "Wachten tot \(appName) antwoordt...")
+    }
+
+    // MARK: Window
+
+    func makeTextArea(frame: NSRect) -> (NSScrollView, NSTextView) {
+        let scroll = NSTextView.scrollableTextView()
+        scroll.frame = frame
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        let text = (scroll.documentView as? NSTextView) ?? NSTextView(frame: frame)
+        text.isEditable = false
+        text.isSelectable = true
+        text.isRichText = false
+        text.textContainerInset = NSSize(width: 4, height: 4)
+        return (scroll, text)
+    }
+
+    func build() {
+        let width: CGFloat = 600
+        let height: CGFloat = 560
+        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+                          styleMask: [.titled, .closable, .miniaturizable, .resizable],
+                          backing: .buffered, defer: false)
+        window.title = tr("\(appName) details", "\(appName) details")
+        window.isReleasedWhenClosed = false
+        window.minSize = NSSize(width: 480, height: 420)
+        window.delegate = self
+
+        let content = NSView(frame: NSRect(x: 0, y: 0, width: width, height: height))
+        window.contentView = content
+
+        // Bottom to top: the buttons, the log (takes the extra height), the
+        // numbers (pinned to the top).
+        let (statsScroll, stats) = makeTextArea(
+            frame: NSRect(x: 16, y: 350, width: width - 32, height: 194))
+        statsScroll.autoresizingMask = [.width, .minYMargin]
+        statsView = stats
+        content.addSubview(statsScroll)
+
+        let (log, logText) = makeTextArea(
+            frame: NSRect(x: 16, y: 52, width: width - 32, height: 288))
+        log.autoresizingMask = [.width, .height]
+        logScroll = log
+        logView = logText
+        content.addSubview(log)
+
+        copyButton = NSButton(title: tr("Copy", "Kopieer"), target: self, action: #selector(copyClicked(_:)))
+        copyButton.bezelStyle = .rounded
+        copyButton.frame = NSRect(x: 16, y: 12, width: 130, height: 28)
+        content.addSubview(copyButton)
+
+        let folder = NSButton(title: tr("Open log folder", "Open logmap"), target: self,
+                              action: #selector(folderClicked(_:)))
+        folder.bezelStyle = .rounded
+        folder.frame = NSRect(x: 156, y: 12, width: 150, height: 28)
+        content.addSubview(folder)
+
+        window.center()
+    }
+
+    func fill(_ view: NSTextView, _ text: String, font: NSFont) {
+        let attributes: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: NSColor.textColor]
+        view.textStorage?.setAttributedString(NSAttributedString(string: text, attributes: attributes))
+    }
+
+    // MARK: Show and hide
+
+    func show() {
+        if window == nil { build() }
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+
+        timer?.invalidate()
+        ticks = 0
+        fill(statsView, statsShown.isEmpty ? waitingText : statsShown, font: statsFont)
+        refreshLog(force: true)
+        askServer()
+        let repeating = Timer(timeInterval: 1, target: self, selector: #selector(tick),
+                              userInfo: nil, repeats: true)
+        RunLoop.main.add(repeating, forMode: .common)
+        timer = repeating
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        timer?.invalidate()
+        timer = nil
+    }
+
+    @objc func tick() {
+        ticks += 1
+        refreshLog(force: false)
+        if ticks % 2 == 0 { askServer() }
+    }
+
+    // MARK: The numbers
+
+    func askServer() {
+        guard !asking else { return }
+        asking = true
+        var request = URLRequest(url: statsURL)
+        request.setValue(token, forHTTPHeaderField: "x-launcher-token")
+        request.timeoutInterval = 2
+        session.dataTask(with: request) { [weak self] data, response, error in
+            var text: String? = nil
+            if error == nil, (response as? HTTPURLResponse)?.statusCode == 200, let body = data,
+               let json = try? JSONSerialization.jsonObject(with: body),
+               let object = json as? [String: Any],
+               let lines = object["summary"] as? [[String: Any]] {
+                let rows = lines.compactMap { line -> String? in
+                    guard let label = line["label"] as? String,
+                          let value = line["value"] as? String else { return nil }
+                    return "\(label): \(value)"
+                }
+                if !rows.isEmpty { text = rows.joined(separator: "\n") }
+            }
+            DispatchQueue.main.async { self?.gotStats(text) }
+        }.resume()
+    }
+
+    func gotStats(_ text: String?) {
+        asking = false
+        // An answer replaces what is shown; no answer leaves the last one,
+        // or says it is waiting if there never was one.
+        if let answer = text {
+            if answer != statsShown {
+                statsShown = answer
+                fill(statsView, answer, font: statsFont)
+            }
+        } else if statsShown.isEmpty {
+            fill(statsView, waitingText, font: statsFont)
+        }
+    }
+
+    // MARK: The log
+
+    // The last `maxLines` lines of the log, read from the end so a long log
+    // costs no more than a short one, and the file's size at the time.
+    func tailLog(maxLines: Int) -> (text: String, size: UInt64)? {
+        guard let handle = FileHandle(forReadingAtPath: logPath) else { return nil }
+        defer { try? handle.close() }
+        do {
+            let size = try handle.seekToEnd()
+            let from: UInt64 = size > logReadBytes ? size - logReadBytes : 0
+            try handle.seek(toOffset: from)
+            let data = try handle.readToEnd() ?? Data()
+            var lines = String(decoding: data, as: UTF8.self).components(separatedBy: "\n")
+            // Started in the middle of a line: drop the fragment.
+            if from > 0 && !lines.isEmpty { lines.removeFirst() }
+            if let last = lines.last, last.isEmpty { lines.removeLast() }
+            if lines.count > maxLines { lines = Array(lines.suffix(maxLines)) }
+            return (lines.joined(separator: "\n"), size)
+        } catch {
+            return nil
+        }
+    }
+
+    func atBottom() -> Bool {
+        return logScroll.contentView.bounds.maxY >= logView.frame.height - 24
+    }
+
+    func refreshLog(force: Bool) {
+        // Somebody is selecting, or has scrolled up to read: leave it alone.
+        if !force && (logView.selectedRange().length > 0 || !atBottom()) { return }
+        guard let tail = tailLog(maxLines: logTailLines) else {
+            if force {
+                fill(logView, tr("No log yet:", "Nog geen logboek:") + "\n" + logPath, font: logFont)
+            }
+            return
+        }
+        if !force && tail.size == logSeenSize { return }
+        logSeenSize = tail.size
+        fill(logView, tail.text, font: logFont)
+        logView.scrollToEndOfDocument(nil)
+    }
+
+    // MARK: The buttons
+
+    @objc func copyClicked(_ sender: Any?) {
+        let log = tailLog(maxLines: copyLogLines)?.text ?? ""
+        let text = "\(title)\n\n\(statsShown)\n\n\(logPath)\n\(log)\n"
+        let board = NSPasteboard.general
+        board.clearContents()
+        board.setString(text, forType: .string)
+        copyButton.title = tr("Copied", "Gekopieerd")
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+            self?.copyButton.title = tr("Copy", "Kopieer")
+        }
+    }
+
+    @objc func folderClicked(_ sender: Any?) {
+        let file = URL(fileURLWithPath: logPath)
+        if FileManager.default.fileExists(atPath: logPath) {
+            NSWorkspace.shared.activateFileViewerSelecting([file])
+        } else {
+            NSWorkspace.shared.open(file.deletingLastPathComponent())
+        }
+    }
+}
+
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     enum State { case starting, running, stopping, stopped }
 
@@ -133,6 +375,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
     var hintLabel: NSTextField!
     var openButton: NSButton!
     var stopButton: NSButton!
+    var detailsButton: NSButton!
+    var details: DetailsWindow?
+    // This start's secret for the stats endpoint; handed to the server in its
+    // environment, never written anywhere.
+    var launcherToken = ""
     var child: Process?
     var pollTimer: Timer?
     var probing = false
@@ -224,6 +471,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         var env = environment
         env[dataEnv] = data
         env["PORT"] = String(port)
+        launcherToken = (UUID().uuidString + UUID().uuidString).replacingOccurrences(of: "-", with: "")
+        env[launcherTokenEnv] = launcherToken
         env.removeValue(forKey: headlessEnv)
         server.environment = env
         server.standardOutput = log
@@ -409,6 +658,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         openBrowser()
     }
 
+    @objc func detailsClicked(_ sender: Any?) {
+        if details == nil {
+            details = DetailsWindow(session: session, token: launcherToken, logPath: logPath)
+        }
+        details?.show()
+    }
+
     func openBrowser() {
         NSWorkspace.shared.open(browserURL)
     }
@@ -417,6 +673,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 
     var openText: String { tr("Open in browser", "Openen in browser") }
     var stopText: String { tr("Stop \(appName)", "\(appName) stoppen") }
+    var detailsText: String { tr("Details", "Details") }
     var keepText: String { tr("Keep running", "Laten draaien") }
     var confirmText: String { "" }
 
@@ -459,13 +716,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         window.makeKeyAndOrderFront(nil)
     }
 
-    // The window is a vertical stack of sections. Today it holds one: the
-    // summary (icon, name, status, hint, the two buttons), laid out by hand
-    // in a fixed-size view. A later section - a collapsible "Details" with
-    // the server's log (logPath) and its numbers - goes in with
-    // `sections.addArrangedSubview(...)` below the summary and is shown or
-    // hidden with `isHidden`; the stack's constraints resize the window, and
-    // nothing in the summary moves.
+    // The window is a vertical stack of sections; today it holds one, the
+    // summary (icon, name, status, hint, the buttons), laid out by hand in a
+    // fixed-size view. Details is a window of its own (DetailsWindow), so
+    // this one never changes size.
     var sections: NSStackView!
 
     func buildWindow() {
@@ -537,6 +791,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         stopButton.frame = NSRect(x: openButton.frame.minX - 10 - stopWidth, y: 14, width: stopWidth, height: 32)
         content.addSubview(openButton)
         content.addSubview(stopButton)
+
+        detailsButton = NSButton(title: detailsText, target: self, action: #selector(detailsClicked(_:)))
+        detailsButton.bezelStyle = .rounded
+        detailsButton.frame = NSRect(x: 20, y: 14, width: 100, height: 32)
+        content.addSubview(detailsButton)
         return content
     }
 
@@ -576,6 +835,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         let open = windowMenu.addItem(withTitle: openText, action: #selector(openClicked(_:)),
                                       keyEquivalent: "o")
         open.target = self
+        let detailsItem = windowMenu.addItem(withTitle: detailsText, action: #selector(detailsClicked(_:)),
+                                             keyEquivalent: "d")
+        detailsItem.target = self
         windowItem.submenu = windowMenu
 
         NSApp.mainMenu = main

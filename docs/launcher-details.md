@@ -6,7 +6,7 @@ endpoint with the same shape; only the app-specific block differs.
 
 ## Who gets an answer
 
-All three, or a plain `404 Not Found` with no hint which one failed:
+All four, or a plain `404 Not Found` with no hint which one failed:
 
 1. **A desktop copy.** `PairingsEngine.Authz.local_mode?/0`. The hosted
    service never answers: its requests arrive from a proxy on loopback, so
@@ -14,6 +14,11 @@ All three, or a plain `404 Not Found` with no hint which one failed:
 2. **From this machine.** The socket's peer address is `127.0.0.0/8` or
    `::1`. Forwarded headers are never read.
 3. **With this start's secret** in the header `x-launcher-token`.
+4. **Without a proxy header** (`x-forwarded-for`, `forwarded`, `x-real-ip`,
+   `cf-connecting-ip`, `x-forwarded-host`). A desktop copy somebody put behind
+   a tunnel sees its public traffic arrive from loopback; those requests carry
+   one of these and get the 404. The launcher and the terminal command talk to
+   the socket directly and send none.
 
 It is `GET` only, sits in the endpoint ahead of the request logger (polling
 does not fill the log it shows), and is not on the board network listener
@@ -102,6 +107,13 @@ Fields are added, not renamed; a reader ignores what it does not know.
   writes are never blocked; left alone while somebody has scrolled up or
   selected), *Copy* (title, summary, log path and the last 200 log lines to
   the clipboard) and *Open log folder*. Dashes until the server answers.
+- **macOS** (`rel/macos/Launcher.swift`): the small window's *Details* button
+  opens a window of its own with the summary (every 2 s, `URLSession`, asked
+  with `?lang=` the Mac's language), the end of `<data>/logs/server.log`
+  (every second; left alone while selected or scrolled up), *Copy* and
+  *Open log folder* (Finder, file selected). The app makes the secret itself
+  (two random UUIDs) and passes it to the server in
+  `OPENPAIRINGS_LAUNCHER_TOKEN`; nothing is written to disk.
 - **Linux and macOS terminals** (`./openpairings.sh details`, built on
   `bin/pairings_engine_portable eval`): refreshes every 2 s with the last 20
   log lines below (`q` or Ctrl-C quits); `--once` prints one snapshot,

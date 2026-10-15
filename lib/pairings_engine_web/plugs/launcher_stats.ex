@@ -4,7 +4,7 @@ defmodule PairingsEngineWeb.Plugs.LauncherStats do
   `openpairings.sh details` and for nothing else. See
   `PairingsEngine.LauncherDetails` and `docs/launcher-details.md`.
 
-  Answered only when all three hold, and a 404 like any missing page
+  Answered only when all four hold, and a 404 like any missing page
   otherwise - no hint which of the three failed:
 
     1. this is a desktop copy (`PairingsEngine.Authz.local_mode?/0`). A
@@ -12,7 +12,13 @@ defmodule PairingsEngineWeb.Plugs.LauncherStats do
        loopback, so rule 2 alone would mean nothing there;
     2. the peer is this machine, read from the socket and never from a
        forwarded header;
-    3. the request carries this start's secret in `x-launcher-token`.
+    3. the request carries this start's secret in `x-launcher-token`;
+    4. no proxy header is on it (`x-forwarded-for`, `forwarded`, `x-real-ip`,
+       `cf-connecting-ip`). The launcher and the terminal command talk to the
+       socket directly. A desktop copy that somebody put behind a tunnel or a
+       reverse proxy sees its public traffic arrive from loopback, with one of
+       those headers; that traffic gets a 404 even if it somehow had the
+       secret.
 
   It sits in the endpoint ahead of the request logger, so a panel left open
   for an afternoon does not write a log line every two seconds into the very
@@ -37,7 +43,7 @@ defmodule PairingsEngineWeb.Plugs.LauncherStats do
   @impl true
   def call(%Plug.Conn{path_info: @path} = conn, _opts) do
     if conn.method == "GET" and PairingsEngine.Authz.local_mode?() and loopback?(conn) and
-         LauncherDetails.authorized?(given_token(conn)) do
+         not proxied?(conn) and LauncherDetails.authorized?(given_token(conn)) do
       conn = fetch_query_params(conn)
 
       conn
@@ -61,6 +67,10 @@ defmodule PairingsEngineWeb.Plugs.LauncherStats do
       [] -> nil
     end
   end
+
+  @proxy_headers ~w(x-forwarded-for forwarded x-real-ip cf-connecting-ip x-forwarded-host)
+
+  defp proxied?(conn), do: Enum.any?(@proxy_headers, &(get_req_header(conn, &1) != []))
 
   defp loopback?(conn) do
     case get_peer_data(conn) do
