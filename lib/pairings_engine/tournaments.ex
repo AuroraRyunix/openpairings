@@ -7504,6 +7504,29 @@ defmodule PairingsEngine.Tournaments do
     )
   end
 
+  @doc """
+  `running_tournament_names/0`, minus the tournaments an update cannot touch.
+
+  What `PairingsEngine.Updates.notice_for_render/0` asks. The update notice
+  warns about a live round because an update can change Ainalrami between two
+  rounds of the same event (see the `PairingsEngine.Updates` moduledoc). That
+  only matters where Ainalrami does the pairing. A round robin is read off
+  OpenPairings' own Berger table (`PairingsEngine.RoundRobin.schedule/4`), a
+  pure function of player count, cycles and round number, and Keizer is
+  ranked and paired by `PairingsEngine.Keizer` without consulting a Swiss
+  engine (see `engine_name/1`): neither can come out differently after an
+  update, so warning about them is crying wolf. Team round robins are
+  `pairing_system: "round_robin"` too and go with them.
+  """
+  def engine_paired_running_tournament_names do
+    Repo.all(
+      from t in Tournament,
+        where: t.status == "running" and t.pairing_system not in ["round_robin", "keizer"],
+        order_by: t.name,
+        select: t.name
+    )
+  end
+
   defp derive_status(%Tournament{} = tournament) do
     paired = Repo.aggregate(from(r in Round, where: r.tournament_id == ^tournament.id), :count)
 

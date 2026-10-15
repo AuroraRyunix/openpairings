@@ -54,8 +54,14 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
 
   defp local_mode(on?), do: Application.put_env(:pairings_engine, :local_mode, on?)
 
-  defp running_tournament(name) do
-    Repo.insert!(%Tournament{name: name, type: "swiss", rounds_count: 5, status: "running"})
+  defp running_tournament(name, pairing_system \\ "swiss") do
+    Repo.insert!(%Tournament{
+      name: name,
+      type: "swiss",
+      pairing_system: pairing_system,
+      rounds_count: 5,
+      status: "running"
+    })
   end
 
   describe "on a hosted server" do
@@ -130,6 +136,38 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
 
       assert html =~ "Bruges Open"
       assert html =~ "is paired but not finished"
+    end
+
+    test "a running round robin does not trigger the warning: no update can re-pair it", %{
+      conn: conn
+    } do
+      seed_notice()
+      running_tournament("Berger Cup", "round_robin")
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      refute html =~ "Berger Cup"
+      refute html =~ "is paired but not finished"
+    end
+
+    test "a running Keizer does not trigger the warning either", %{conn: conn} do
+      seed_notice()
+      running_tournament("Ladder League", "keizer")
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      refute html =~ "Ladder League"
+    end
+
+    test "a round robin beside a Swiss names only the Swiss", %{conn: conn} do
+      seed_notice()
+      running_tournament("Berger Cup", "round_robin")
+      running_tournament("Bruges Open")
+
+      {:ok, _lv, html} = live(conn, ~p"/")
+
+      assert html =~ "Bruges Open"
+      refute html =~ "Berger Cup"
     end
 
     test "says nothing about tournaments when none are running", %{conn: conn} do
