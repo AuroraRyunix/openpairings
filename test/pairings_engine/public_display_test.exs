@@ -24,6 +24,17 @@ defmodule PairingsEngine.PublicDisplayTest do
       assert PublicDisplay.show?(%{"rounds_played" => true}, "rounds_played")
     end
 
+    test "the screen-card links are shown by default and hidden when unticked" do
+      assert "screen_links" in PublicDisplay.keys()
+      assert PublicDisplay.show?(nil, "screen_links")
+      assert PublicDisplay.show?(%{}, "screen_links")
+      refute PublicDisplay.show?(%{"screen_links" => false}, "screen_links")
+      assert PublicDisplay.resolve(nil)["screen_links"] == true
+      assert PublicDisplay.resolve(%{"screen_links" => false})["screen_links"] == false
+      assert PublicDisplay.cast(%{}, nil)["screen_links"] == false
+      refute Map.has_key?(PublicDisplay.cast(%{"screen_links" => "true"}, nil), "screen_links")
+    end
+
     test "only an explicit false hides a column" do
       refute PublicDisplay.show?(%{"club" => false}, "club")
       assert PublicDisplay.show?(%{"club" => true}, "club")

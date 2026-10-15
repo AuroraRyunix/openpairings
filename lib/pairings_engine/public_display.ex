@@ -117,6 +117,15 @@ defmodule PairingsEngine.PublicDisplay do
         label: "Byes",
         hint: "The table of players sitting a round out, and why."
       },
+      %{
+        key: "screen_links",
+        group: :pages,
+        label: "Projector and hall display links",
+        hint:
+          "The two cards under the standings, pairings and crosstable that open the " <>
+            "projector view and the hall display. Off hides the cards only; the screens " <>
+            "themselves still open from their own address."
+      },
 
       # ---- about each player ----
       %{
