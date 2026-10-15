@@ -4846,18 +4846,67 @@ defmodule PairingsEngine.Tournaments do
   withholding round 2 would withhold only its pairings while its results
   leaked out of the table beside them.
   """
+  #
+  # "Complete" became "settled" (`round_settled?/2`) on 2026-10-15: in a
+  # round robin a blank the tournament has moved past is an overdue board,
+  # counted and labelled as a game still to be played rather than holding
+  # the public standings at the round before it for a season. See
+  # `docs/postponed-rethink.md`.
   @spec standings_through_round(Tournament.t()) :: non_neg_integer()
   def standings_through_round(%Tournament{} = tournament) do
+    overdue = overdue_by_round(tournament)
+
     ready =
       tournament.id
       |> list_rounds()
       |> Enum.filter(fn round ->
-        round_published?(tournament, round) and
-          PairingsEngine.Pairing.round_complete?(tournament.id, round.number)
+        round_published?(tournament, round) and settled?(tournament, round.number, overdue)
       end)
       |> MapSet.new(& &1.number)
 
     contiguous_from(ready, 0)
+  end
+
+  @doc """
+  Whether round `number` of `tournament` is settled enough for standings
+  to go through it: every board has a result, is a postponed game, or is
+  an overdue board (`PairingsEngine.PostponedGames.overdue_blanks/1` - a
+  round-robin blank in a round a later complete round has moved past).
+  Everything that is not a plain result is counted and labelled as
+  pending wherever the standings are shown.
+
+  A blank that is not overdue - the round being played tonight, a vacated
+  seat - still unsettles its round. Outside an individual round robin this
+  is exactly `PairingsEngine.Pairing.round_complete?/2`.
+  """
+  @spec round_settled?(Tournament.t(), non_neg_integer()) :: boolean()
+  def round_settled?(%Tournament{} = tournament, number),
+    do: settled?(tournament, number, overdue_by_round(tournament))
+
+  defp settled?(tournament, number, overdue) do
+    case Map.get(overdue, number, 0) do
+      0 ->
+        PairingsEngine.Pairing.round_complete?(tournament.id, number)
+
+      # Every blank of the round is one of its overdue boards - a vacated
+      # seat, which is never overdue, would make the counts differ.
+      n ->
+        blanks =
+          Repo.aggregate(
+            from(p in Pairing,
+              join: r in Round,
+              on: p.round_id == r.id,
+              where: r.tournament_id == ^tournament.id and r.number == ^number and p.result == ""
+            ),
+            :count
+          )
+
+        blanks == n
+    end
+  end
+
+  defp overdue_by_round(tournament) do
+    tournament |> PostponedGames.overdue_blanks() |> Enum.frequencies_by(& &1.round)
   end
 
   defp contiguous_from(published, n) do
@@ -5094,7 +5143,7 @@ defmodule PairingsEngine.Tournaments do
       not round_published?(tournament, round) ->
         {:error, :pairings_not_public}
 
-      not PairingsEngine.Pairing.round_complete?(tournament.id, round.number) ->
+      not round_settled?(tournament, round.number) ->
         {:error, :round_not_complete}
 
       true ->
@@ -5320,13 +5369,19 @@ defmodule PairingsEngine.Tournaments do
   answers "how far has the tournament actually got", not "how far may its
   standings travel". `0` before round 1 has a single result in, same
   convention as `standings_through_round/1`.
+
+  "Complete" is `round_settled?/2`'s since 2026-10-15, the same test the
+  public bound applies: a round whose only blanks are overdue round-robin
+  boards counts, so the control offers what the bound would publish.
   """
   @spec latest_complete_round(Tournament.t()) :: non_neg_integer()
   def latest_complete_round(%Tournament{} = tournament) do
+    overdue = overdue_by_round(tournament)
+
     complete =
       tournament.id
       |> list_rounds()
-      |> Enum.filter(&PairingsEngine.Pairing.round_complete?(tournament.id, &1.number))
+      |> Enum.filter(&settled?(tournament, &1.number, overdue))
       |> MapSet.new(& &1.number)
 
     contiguous_from(complete, 0)
@@ -5549,7 +5604,7 @@ defmodule PairingsEngine.Tournaments do
       standings_public?(tournament, round.number) ->
         nil
 
-      not PairingsEngine.Pairing.round_complete?(tournament.id, round.number) ->
+      not round_settled?(tournament, round.number) ->
         :round_not_complete
 
       latest_complete_round(tournament) < round.number ->
@@ -6071,12 +6126,11 @@ defmodule PairingsEngine.Tournaments do
   end
 
   # A postponed code is written only where the tournament allows postponed
-  # games - the option is not even offered otherwise, and this is the
-  # enforcement behind that courtesy.
-  defp ensure_postponed_allowed(%Tournament{postponed_games: true}, _result), do: :ok
-
-  defp ensure_postponed_allowed(%Tournament{}, result) do
-    if PairingsEngine.Results.postponed?(result),
+  # games (`Tournament.postponed_allowed?/1`: the tick, or any round robin) -
+  # the option is not even offered otherwise, and this is the enforcement
+  # behind that courtesy.
+  defp ensure_postponed_allowed(%Tournament{} = tournament, result) do
+    if PairingsEngine.Results.postponed?(result) and not Tournament.postponed_allowed?(tournament),
       do: {:error, :postponed_games_off},
       else: :ok
   end

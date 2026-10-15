@@ -125,7 +125,9 @@ A game that cannot be played in its round (moved by agreement or adjourned)
 is **postponed**. The tournament goes on.
 
 **Turn it on.** Settings, Scoring, *Postponed games*: **Allow postponed
-games**. With it off, no postponed result is offered anywhere. The same
+games**. With it off, no postponed result is offered anywhere, except in a
+round robin, which always offers it: its schedule does not depend on scores,
+so the switch is shown on and cannot be turned off there. The same
 page sets what a postponed game counts as until it is played, for the player
 who postponed it and for the opponent: a draw for both by default. The value is
 saved on each game when it is postponed, so changing the setting later
@@ -144,6 +146,20 @@ postponed and pair round N**. Pairing a round while a postponed game from an
 earlier round is open asks for a confirmation that names the players: they
 are paired on a provisional score.
 
+**Boards nobody entered, in a round robin.** A round robin pairs every round
+in advance, so a game that is not played often just stays without a result.
+Once a *later* round has all its results, such a board counts as a postponed
+game nobody asked for: both players get what the setting gives the opponent
+(a draw by default) in the standings and the tie-breaks, the standings say how
+many games are still open, and the results site shows *Result not yet in* on
+the board. Nothing is written on the board: the TRF and the files for rating
+still see a board without a result, and the round cannot be sent until it has
+one. A game played early in a later round does not count as that round having
+its results; the round must be complete. To have the standings go on the same
+evening, mark the board *postponed by White* or *postponed by Black* yourself.
+Swiss, Keizer and team tournaments do not do this: there, the next round cannot
+be paired past an empty board anyway.
+
 **Open games.** The Pairings page lists the open postponed games with a
 button to their round. Each game may carry the agreed date (never a deadline;
 nothing becomes overdue) and a short history of changes. A game can be played
@@ -157,7 +173,13 @@ date can be downloaded from the same list.
 
 **Everywhere the standings go.** While a game is open the standings, the prints and the
 published standings say that they are *not final*, mark the player or team
-with *1 pending*, and the tournament stays running. Archiving the tournament
+with *1 pending*, and the tournament stays running. A round with an open
+postponed game, or with only the round-robin boards described above left
+without a result, does not stop the published standings: they go through the
+latest such round and say how many games are still to be played (on the
+results site: *Provisional: 2 games have no result yet and count as draws
+until they have*). A round that is still being played does stop them, as
+before. Archiving the tournament
 tells you how many games are still unplayed.
 
 **Reporting.** In FIDE mode there is no TRF that holds the round of a

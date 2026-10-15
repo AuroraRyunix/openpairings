@@ -66,6 +66,11 @@ ladder the program moves each round by itself:
 - **+ standings when the round is finished**: the standings go public once
   the round and every round before it are finished.
 
+*Finished* means every board has a result or is a postponed game. In a round
+robin, a board nobody has entered stops holding the standings back once a later
+round is finished: it then counts as a postponed game and the standings say so
+(see [Postponed games](07-results.md#postponed-games)).
+
 The automation only ever moves a round up; you can always take a round down
 by hand, and it stays where you put it.
 

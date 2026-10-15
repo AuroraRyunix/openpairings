@@ -21,6 +21,10 @@ instelling *Spelers die nog gelijk staan delen een plaats* (zie hieronder).
   Keizer-punten) in plaats van de tiebreaktabel.
 - Onder een kop *Niet definitief* waarschuwt de pagina wanneer een partij is
   uitgesteld en nog moet worden gespeeld, of wanneer borden geen resultaat hebben.
+  In een round robin telt een bord zonder uitslag in een ronde waar een
+  latere, volledige ronde al voorbij is, als een uitgestelde partij, en de
+  waarschuwing zegt hoeveel dat er zijn (zie
+  [Uitgestelde partijen](07-results.md#postponed-games)).
 - Een speler die zich heeft teruggetrokken, houdt zijn rij, met de punten die tot
   dan zijn behaald, en is naast de naam gemarkeerd als *teruggetrokken* (ook in de
   afgedrukte stand). In een rondetoernooi kan de regel hieronder die resultaten van

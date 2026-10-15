@@ -385,8 +385,11 @@ defmodule PairingsEngineWeb.StandingsLive do
       if keizer? do
         Keizer.standings(tournament)
       else
+        # `pending: true`: an overdue round-robin board counts as the
+        # postponed game it is read as, the way the published standings
+        # count it (`docs/postponed-rethink.md`).
         tournament
-        |> Standings.standings()
+        |> Standings.standings(pending: true)
         |> with_expected_score(tournament)
         |> Standings.apply_manual_ranking(tournament)
       end
@@ -396,6 +399,7 @@ defmodule PairingsEngineWeb.StandingsLive do
 
     socket = assign_team_standings(socket, tournament)
     postponed_open = PostponedGames.open_games(tournament)
+    overdue = PostponedGames.overdue_blanks(tournament)
 
     assign(socket,
       keizer?: keizer?,
@@ -418,12 +422,15 @@ defmodule PairingsEngineWeb.StandingsLive do
       # Boards with no result at all: the standings are not final either
       # (VCL4THP Q161), whether or not postponed games are in use.
       missing_results_count: Tournaments.count_missing_results(tournament.id),
+      # The ones a later complete round has moved past, counted as postponed
+      # games (`PostponedGames.overdue_blanks/1`).
+      overdue_count: length(overdue),
       # Listed under the banner, each a link to where its result is entered,
       # and marked beside the players still to play one ("1 pending") - a
       # provisional place must not be read as a final one, above all when
       # the prizes are handed out from this page.
       postponed_open: postponed_open,
-      pending_by_player: PostponedGames.pending_by_player(postponed_open),
+      pending_by_player: PostponedGames.pending_by_player(postponed_open ++ overdue),
       # FIDE mode, every round paired and a postponed game still open
       # (VCL4THP Q169): these would be the final standings, and FIDE allows
       # none until every game has a result - so the page lists the games
@@ -816,7 +823,10 @@ defmodule PairingsEngineWeb.StandingsLive do
           </label>
         </form>
       </div>
-      <PairingsEngineWeb.Postponed.missing_results_banner count={@missing_results_count} />
+      <PairingsEngineWeb.Postponed.missing_results_banner
+        count={@missing_results_count}
+        overdue={@overdue_count}
+      />
       <PairingsEngineWeb.Postponed.final_standings_refused
         :if={@final_refused}
         tournament={@tournament}

@@ -415,13 +415,34 @@ defmodule PairingsEngineWeb.Postponed do
     )
   end
 
-  @doc "The page form of `missing_results_text/1`. Renders nothing at zero."
+  @doc """
+  What a standings view adds when `count` of those games are overdue boards
+  (`PairingsEngine.PostponedGames.overdue_blanks/1`): a round robin has
+  finished a later round since, so they are counted as postponed games
+  until their results are in. See `docs/postponed-rethink.md`.
+  """
+  def overdue_text(count) do
+    ngettext(
+      "One of them is in a round a later complete round has moved past: it counts as a postponed game until its result is entered, and the published standings say it has no result yet.",
+      "%{count} of them are in rounds a later complete round has moved past: they count as postponed games until their results are entered, and the published standings say they have no result yet.",
+      count
+    )
+  end
+
+  @doc """
+  The page form of `missing_results_text/1`, with `overdue_text/1` under it
+  when `overdue` is above zero. Renders nothing at zero.
+  """
   attr :count, :integer, required: true
+  attr :overdue, :integer, default: 0
 
   def missing_results_banner(assigns) do
     ~H"""
     <div :if={@count > 0} id="missing-results-not-final" class="card postponed-guard" role="status">
       <strong>{missing_results_text(@count)}</strong>
+      <p :if={@overdue > 0} id="missing-results-overdue" style="margin: 4px 0 0">
+        {overdue_text(@overdue)}
+      </p>
     </div>
     """
   end

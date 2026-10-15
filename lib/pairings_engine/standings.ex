@@ -41,6 +41,13 @@ defmodule PairingsEngine.Standings do
   administrative bonus points never leak into another player's tiebreak
   inputs.
 
+  Accepts `pending: true` to count each overdue board (a round-robin blank
+  that a later complete round has moved past -
+  `PairingsEngine.PostponedGames.overdue_blanks/1`) as the unnamed postponed
+  game it is read as, valued at the tournament's postponed setting. For the
+  views that show standings to people; nothing that writes a file asks for
+  it. See `docs/postponed-rethink.md`.
+
   Accepts `through_round: n` to compute standings using only rounds `<= n`
   (and byes recorded for those rounds) - i.e. "standings as they stood right
   after round n". This is exactly the same code path ordinary standings use
@@ -793,7 +800,11 @@ defmodule PairingsEngine.Standings do
     # may lie after it (`LateEntry.effective_start_round/4`).
     taken = LateEntry.taken_from(rounds, byes)
 
-    rounds = through(rounds, & &1.number, through_round)
+    rounds =
+      rounds
+      |> through(& &1.number, through_round)
+      |> with_pending(tournament, Keyword.get(opts, :pending, false))
+
     byes = through(byes, & &1.round, through_round)
 
     # The rounds before a late entrant joined, as the absences they count as
@@ -838,6 +849,35 @@ defmodule PairingsEngine.Standings do
       end
 
     {Repo.all(rounds_query), byes_by_player_round(tournament.id, through_round)}
+  end
+
+  # `pending: true`: the overdue boards (`PostponedGames.overdue_blanks/1`,
+  # a round-robin blank a later complete round has moved past) become the
+  # unnamed postponed games they are read as, before anything is scored -
+  # so they score, break ties and count towards `completed_rounds/2`
+  # exactly as a `*` would, through the same `pairing_records/4`. Asked for
+  # by the views that SHOW standings (the snapshot, the Standings page, the
+  # print); never by a TRF, the SWAR upload or a norm check, which must not
+  # carry a valuation nobody entered. See `docs/postponed-rethink.md`.
+  defp with_pending(rounds, _tournament, false), do: rounds
+
+  defp with_pending(rounds, tournament, true) do
+    ids = PairingsEngine.PostponedGames.overdue_ids(tournament)
+
+    if MapSet.size(ids) == 0 do
+      rounds
+    else
+      Enum.map(rounds, fn round ->
+        pairings =
+          Enum.map(round.pairings, fn p ->
+            if MapSet.member?(ids, p.id),
+              do: PairingsEngine.PostponedGames.as_pending(p, tournament),
+              else: p
+          end)
+
+        %{round | pairings: pairings}
+      end)
+    end
   end
 
   defp through(list, _round_of, nil), do: list

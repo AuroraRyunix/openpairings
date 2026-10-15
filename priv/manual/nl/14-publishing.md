@@ -54,6 +54,8 @@ Instellingen, OpenResults, **Automatisch**: één instelling voor hoe ver de lad
 - **+ resultaten live**: de resultaten worden openbaar naarmate ze worden ingevoerd.
 - **+ standen wanneer de ronde klaar is**: de standen worden openbaar zodra de ronde en elke ronde ervoor klaar zijn.
 
+*Klaar* betekent dat elk bord een uitslag heeft of een uitgestelde partij is. In een round robin houdt een bord dat niemand ingevuld heeft de stand niet meer tegen zodra een latere ronde klaar is: het telt dan als een uitgestelde partij, en de stand zegt dat (zie [Uitgestelde partijen](07-results.md#postponed-games)).
+
 De automatisering verplaatst een ronde alleen omhoog; je kunt een ronde altijd met de hand terugzetten, en ze blijft staan waar je haar zet.
 
 **Vóór ronde 1 ziet het publiek de startrangschikking** (standaard uit). Zonder die ziet het publiek, zodra een ronde openbaar is, alleen de lijst van spelers. Zodra een ronde openbaar is, is de instelling niet meer van toepassing en zegt de pagina dat; wat het publiek dan ziet, bepaalt het niveau van elke ronde op de pagina Paringen. Stond ze aan nadat een ronde openbaar werd, dan kun je ze nog uitzetten.

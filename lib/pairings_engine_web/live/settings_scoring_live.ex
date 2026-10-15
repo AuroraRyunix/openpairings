@@ -663,19 +663,38 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
           <.setting_group>
             <label class="set-toggle">
-              <input type="hidden" name="tournament[postponed_games]" value="false" />
+              <%!-- A round robin offers postponed results whatever the tick
+                    says (`Tournament.postponed_allowed?/1`), so it is shown
+                    ticked and locked there. The stored value is left alone:
+                    no hidden input, nothing posted, nothing changed. --%>
+              <input
+                :if={@tournament.pairing_system != "round_robin"}
+                type="hidden"
+                name="tournament[postponed_games]"
+                value="false"
+              />
               <input
                 type="checkbox"
                 id="postponed-games-toggle"
                 name="tournament[postponed_games]"
                 value="true"
-                checked={@tournament.postponed_games}
+                checked={Tournament.postponed_allowed?(@tournament)}
+                disabled={@tournament.pairing_system == "round_robin"}
               />
               <span class="set-toggle-text">
                 {gettext("Allow postponed games")}
                 <span class="hint">
                   {gettext(
                     "Off (the default) = no postponed option is offered anywhere. On = the result lists offer \"postponed by White\" and \"postponed by Black\", and a Postponed games page lists them and exports their TRF."
+                  )}
+                </span>
+                <span
+                  :if={@tournament.pairing_system == "round_robin"}
+                  class="hint"
+                  id="postponed-games-round-robin"
+                >
+                  {gettext(
+                    "Always on in a round robin: its schedule does not depend on scores, and a game moved to another evening is part of a season."
                   )}
                 </span>
               </span>

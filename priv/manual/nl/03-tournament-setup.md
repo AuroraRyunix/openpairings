@@ -362,7 +362,8 @@ vol punt is, met het antwoord dat de punten hierboven geven al aangeduid; zie
 resultaat aan op de pagina Paringen. Totdat een uitgestelde partij is gespeeld,
 telt ze voor de speler die haar heeft uitgesteld, en voor de tegenstander, zoals
 hier is ingesteld (standaard een remise voor beide spelers, wat de FIDE-regel is).
-Zie [Resultaten](07-results.md).
+Een round robin biedt uitgestelde resultaten altijd aan, dus daar staat de
+schakelaar aan en vast; de waarden gelden nog altijd. Zie [Resultaten](07-results.md).
 
 ## Pagina Data {#dates-page}
 

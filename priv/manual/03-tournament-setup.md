@@ -348,7 +348,9 @@ with the answer the points above give already picked; see
 **Postponed games.** *Allow postponed games* offers a postponed result on the
 Pairings page. Until a postponed game is played it counts for the player who
 postponed it, and for the opponent, as set here (a draw for both by default,
-which is the FIDE rule). See [Results](07-results.md).
+which is the FIDE rule). A round robin always offers postponed results, so
+there the switch is shown on and locked; the values still apply. See
+[Results](07-results.md).
 
 ## Dates page
 
