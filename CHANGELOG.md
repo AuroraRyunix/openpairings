@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.88.1] - 2026-10-16
+
+- [Security] Bandit 1.12.5 → 1.13.1 (EEF-CVE-2026-105660, EEF-CVE-2026-105659) and decimal 3.1.1 → 3.2.0 (EEF-CVE-2026-97853, a `Decimal.round/3` that would allocate whatever it was asked to). The web server and the arithmetic were both willing to be talked into things; neither is now. No behaviour changes, which is the point.
+
 ## [0.88.0] - 2026-10-15
 
 - [Change] **One unplayed game no longer freezes a round robin's public standings for the season.** Standings used to stop at the last round with every result in, which is honest, and in a club championship with one game rescheduled in round 3 meant "standings after round 2" until spring, which is honest and useless. Now a round-robin board nobody has entered, in a round a later *complete* round has moved past, is read as a postponed game nobody asked for: it counts as the Scoring page says a postponed game counts for the opponent (a draw, unless you said otherwise), the standings go through the latest round, and every place that shows them says how many games are still open and marks the players who have one. Nothing is written on the board, so the TRF, the send check and the rating report see exactly the blank they always saw, and no game can end up rated twice. A game played early does not make its round complete; the round has to be in. Swiss, Keizer and team events are unchanged. The reasoning, the alternatives and the C.07 tie-break arithmetic are in `docs/postponed-rethink.md`.
