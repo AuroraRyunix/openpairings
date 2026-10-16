@@ -133,11 +133,14 @@ nummeren](#numbering-the-players-of-a-round-robin)); daarna paart het.
 
 > [!WARNING]
 > Het schema kan achteraf niet meer worden gewijzigd, en spelers die later worden
-> toegevoegd, staan er niet in.
+> toegevoegd, staan er niet in. Alleen de volgorde waarin de rondes worden
+> gespeeld kan nog veranderen: zie [Rondes in een andere volgorde
+> spelen](#playing-rounds-out-of-table-order).
 
 De rondes volgen de Berger-tabellen van FIDE (C.05). Bij een oneven aantal
-spelers rust elke speler één ronde uit met een bye van nul punten. Een dubbele
-cyclus speelt de tabel tweemaal met omgekeerde kleuren (met de laatste twee
+spelers rust elke speler per cyclus één ronde uit met een bye van nul punten.
+Elke volgende cyclus speelt de tabel opnieuw, met de kleuren omgekeerd ten
+opzichte van de vorige cyclus (bij een dubbel rondetoernooi met de laatste twee
 rondes van de eerste cyclus in omgekeerde volgorde, als die optie aanstaat). Een
 speler die afwezig is of zich heeft teruggetrokken, blijft in het schema: voer
 voor zijn partijen een forfaitresultaat in. De Berger-tabellen paren op de
@@ -152,6 +155,28 @@ Zodra er een ronde bestaat, luidt de hoofdknop *De resterende rondes paren
 rondes de tabel hebben verlaten en haar volgende ronde twee spelers zou paren
 die elkaar in die cyclus al ontmoetten: dan weigert hij en zegt hij welke
 twee.
+
+### Rondes in een andere volgorde spelen {#playing-rounds-out-of-table-order}
+
+Moet de tabel in een andere volgorde worden gespeeld - de zaal is bezet, een
+ploeg kan dat weekend niet reizen - dan wisselt **Rondes wisselen…** in de
+rondebalk twee rondes: kies de twee rondenummers en *Wissel de rondes*. Hun
+borden ruilen van plaats, zodat de rondenummers de volgorde volgen waarin je
+echt speelt: ronde 4 is de vierde avond, hoe de tabel ze ook noemt, en de
+stand, de afdrukken en de resultatensite volgen. Elke partij houdt de kleuren
+die de tabel haar geeft, de data blijven bij de rondenummers, en de uitleg bij
+de paring zegt welke tabelronde een gewisselde ronde bevat. Wissel dezelfde
+twee opnieuw om het ongedaan te maken.
+
+Het wordt geweigerd zolang een van beide rondes een uitslag, een forfait, een
+uitgestelde partij of een speeldatum heeft, of een bye voor een speler die in
+die ronde aan een bord zit - de melding noemt de ronde. Het wordt ook geweigerd
+in matchformaat, voordat het schema gepaard is, en als een van de twee gepaard
+is en de andere niet. In de FIDE-modus mag het (FIDE's eigen dubbel
+rondetoernooi wisselt zelf twee rondes), met een opmerking dat het het
+gepubliceerde schema verandert. Elke wissel staat in het auditlogboek, en een
+TRF van een gewisseld schema zegt `CUSTOM_ROUNDROBIN`, omdat geen Berger-code
+de gespeelde volgorde beschrijft.
 
 ### De spelers van een rondetoernooi nummeren {#numbering-the-players-of-a-round-robin}
 
@@ -479,7 +504,7 @@ Elk bord wordt gecontroleerd terwijl je het maakt, en een overtreding vraagt
 een eigen vinkje:
 
 - **Twee spelers die elkaar in deze cyclus al ontmoeten** - in een enkel
-  rondetoernooi ontmoet iedereen iedereen precies één keer, in een dubbel één
+  rondetoernooi ontmoet iedereen iedereen precies één keer, met meer cycli één
   keer per cyclus.
 - **Een derde keer dezelfde kleur op rij** - een speler die in drie
   opeenvolgende rondes wit (of zwart) krijgt. De Berger-tabel doet dat binnen

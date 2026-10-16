@@ -9,7 +9,7 @@ defmodule PairingsEngine.TeamRoundRobin do
   reimplemented: `RoundRobin.schedule/3` and `RoundRobin.match_schedule/2` are
   pure functions of `(count, cycles, round)` and are called with the team
   count, so a team event gets the same Berger tables, the same odd-count bye
-  and the same second-cycle colour reversal an individual one does. See
+  and the same colour reversal in every next cycle an individual one does. See
   `docs/team-tournaments.md`.
 
   ## Pairing numbers
@@ -165,17 +165,21 @@ defmodule PairingsEngine.TeamRoundRobin do
         {:error, {:all_rounds_paired, tournament.rounds_count}}
 
       true ->
+        # The table round this played round holds, after any swaps
+        # (`PairingsEngine.RoundSwap`).
+        table = RoundRobin.table_round_number(tournament, next_number)
+
         schedule =
           cond do
             match?({:rounds, _}, size) ->
               {:rounds, rounds} = size
-              {:ok, listed_round(Enum.at(rounds, next_number - 1, []), teams)}
+              {:ok, listed_round(Enum.at(rounds, table - 1, []), teams)}
 
             tournament.rr_match_format ->
-              RoundRobin.match_schedule(size, next_number)
+              RoundRobin.match_schedule(size, table)
 
             true ->
-              RoundRobin.schedule(size, tournament.rr_cycles, next_number)
+              RoundRobin.schedule(size, tournament.rr_cycles, table)
           end
 
         with {:ok, entries} <- schedule,

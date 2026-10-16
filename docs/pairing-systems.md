@@ -423,8 +423,11 @@ the click on generated 301- and 451-player events.
 
 ## Round robin (Berger) - available
 
-Each player meets every other player once (single cycle, `rr_cycles: 1`) or
-twice with colours reversed (double cycle, `rr_cycles: 2`). Implemented in
+Each player meets every other player `rr_cycles` times: once for a single
+cycle, twice for a double, and so on up to `Tournament.max_rr_cycles/0`
+(10). Every cycle is the same Berger table, its colours reversed relative to
+the cycle before (C.05 Annex 1), so odd cycles have the table's colours and
+even ones the opposite. Implemented in
 `PairingsEngine.RoundRobin`, which `PairingsEngine.Pairing.pair_next_round/1`
 dispatches to.
 
@@ -453,6 +456,42 @@ before round m-1 is paired, and written to the TRF as
 `FIDE_DOUBLEROUNDROBIN` (plain double round robins stay
 `BERGER_ROUNDROBIN_G2`). Tournaments created before it, imports that do not
 name that code, SWAR imports and team round robins keep the plain order.
+
+Only a double round robin has the swap: FIDE describes it for two cycles,
+and TRF26 has a code for it (`FIDE_DOUBLEROUNDROBIN`) in no other length.
+`schedule/4` ignores the option for any other cycle count, switching to one
+does turn it off, and a double round robin whose round m-1 is already
+paired with the swap cannot change its cycle count at all
+(`Tournaments.update_tournament/3` refuses on `rr_cycles`): the rounds on
+the board would stop being the schedule's.
+
+**Three cycles and more.** Exported to the TRF as `BERGER_ROUNDROBIN_Gn`
+(and imported from it; a file asking for more than the maximum is clamped
+and says so). SWAR has no type for them: the export writes SWAR's double
+round robin (type 6, the table repeated with colours reversed) with every
+round played, and the export screen says the cycles past the second do not
+survive.
+
+**Rounds played out of table order.** `PairingsEngine.RoundSwap` lets the
+arbiter exchange two result-free rounds, so the round numbers follow the
+order the table is actually played in. The rows keep their ids and trade
+`rounds.number` (boards, matches, the stored explanation and the hand edits
+go with them, and so do the sitting-out byes and any board announcements);
+what belongs to the evening - the date, the Chess960 position and the
+publication state - stays with the number. `tournaments.rr_round_map`
+records which table round each played round holds (nil: the table's own
+order), and `RoundRobin.table_round_number/2` is the one place that reads
+it: the schedule, the team schedule, `table_round/2` for the by-hand
+checks, `ManualRoundRobin`'s cycle membership and `PairingRationale` all go
+through it. The map numbers `schedule/4`'s rounds, so FIDE's reversed last
+two rounds of a double round robin are applied first and the swap on top -
+the two never double up. Refused for match format, before round 1 exists,
+when only one of the two rounds is paired, and when either has a result,
+forfeit, postponed mark, date played or a bye for a seated player. A
+cycle-count change that would cut the schedule inside a swap is refused on
+`rr_cycles`. The TRF writes a swapped schedule as `CUSTOM_ROUNDROBIN`
+(individual events; a team round robin keeps its `BERGER_TEAM_ROUNDROBIN_Gn`),
+and the app's own export carries the map.
 
 **Odd player counts.** A phantom player numbered N+1 is added to make the
 count even (FIDE's own rule: "where there is an odd number of players, the
@@ -512,7 +551,7 @@ entered.
 
 **Cross table print.** `GET /t/:id/print/crosstable` renders the classic
 players×players round-robin grid (rows/columns ordered by `pairing_number`,
-one cell per opponent, both cycles shown for a double round robin) instead
+one cell per opponent, every cycle's result in it) instead
 of the round-by-round Swiss cross table Swiss/Keizer tournaments get - see
 `docs/printing.md`.
 

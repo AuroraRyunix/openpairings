@@ -407,6 +407,12 @@ defmodule PairingsEngine.RoundRobin do
   however many `cycles` the tournament plays - see `tournaments.rr_cycles`)
   over `player_count` schedulable (frozen) players numbered 1..player_count.
 
+  Every cycle is the same table, its colours reversed relative to the cycle
+  before it (FIDE C.05 Annex 1: each following cycle reverses the colours)
+  - odd cycles as the table has them, even ones swapped, for as many
+  cycles as asked. Round K is the same pairing
+  whatever the cycle count, so lengthening a schedule only adds rounds.
+
   Pure: touches no database, depends only on these three integers. Returns
   `{:ok, matches}` where each entry is `{:pairing, white_number,
   black_number}` (both 1-indexed pairing numbers) or `{:bye, player_number}`
@@ -423,8 +429,11 @@ defmodule PairingsEngine.RoundRobin do
   in the first cycle's last round and the second cycle's first two does
   not. The second cycle is the table's own order, colours reversed - TRF26's
   FIDE_DOUBLEROUNDROBIN, and `Ainalrami.Berger.round/4`'s construction.
-  Ignored for a single cycle and for a cycle shorter than two rounds;
-  without it the schedule is exactly what it always was.
+  Only a DOUBLE round robin has it: FIDE describes it for two cycles and
+  nothing else, and the TRF has no code for the swap in any other length,
+  so it is ignored for one cycle, for three or more, and for a cycle
+  shorter than two rounds; without it the schedule is exactly what it
+  always was.
   """
   @spec schedule(pos_integer(), pos_integer(), pos_integer(), keyword()) ::
           {:ok, [{:pairing, pos_integer(), pos_integer()} | {:bye, pos_integer()}]}
@@ -445,7 +454,7 @@ defmodule PairingsEngine.RoundRobin do
       reverse_colours? = rem(cycle_index, 2) == 1
 
       r =
-        if Keyword.get(opts, :reverse_last_two?, false) and cycles >= 2 and cycle_index == 0 and
+        if Keyword.get(opts, :reverse_last_two?, false) and cycles == 2 and cycle_index == 0 and
              cycle_length >= 2,
            do: swap_last_two(r, cycle_length),
            else: r
@@ -484,8 +493,8 @@ defmodule PairingsEngine.RoundRobin do
   end
 
   @doc """
-  The rounds a round robin of `size` needs with these settings - one cycle,
-  two, or match format (`match_total_rounds/1`). `settings` is anything
+  The rounds a round robin of `size` needs with these settings - its cycles
+  times one cycle's length, or match format (`match_total_rounds/1`). `settings` is anything
   with `rr_cycles` and `rr_match_format`.
   """
   def rounds_needed(size, %{rr_match_format: true}), do: match_total_rounds(size)
@@ -679,7 +688,7 @@ defmodule PairingsEngine.RoundRobin do
             {:error,
              "A round robin with #{frozen_count} players needs #{correct} rounds, " <>
                "which is above the #{Tournament.max_rounds()}-round maximum this app supports. " <>
-               "Reduce the field, or use a single cycle instead of a double."}
+               "Reduce the field, or play fewer cycles."}
         end
     end
   end
@@ -748,14 +757,81 @@ defmodule PairingsEngine.RoundRobin do
     end)
   end
 
-  defp group_schedule(tournament, count, next_number) do
+  # `number` is the PLAYED round; the table round it holds comes from the
+  # arbiter's swaps (`table_round_number/2`), and only then does the
+  # schedule - FIDE's reversed last two rounds included - say what that
+  # table round is.
+  defp group_schedule(tournament, count, number) do
+    table = table_round_number(tournament, number)
+
     if tournament.rr_match_format do
-      match_schedule(count, next_number)
+      match_schedule(count, table)
     else
-      schedule(count, tournament.rr_cycles, next_number,
+      schedule(count, tournament.rr_cycles, table,
         reverse_last_two?: tournament.rr_reverse_last_two == true
       )
     end
+  end
+
+  ## ---------- rounds played out of table order ----------
+
+  @doc """
+  The table round played as round `played`: `tournaments.rr_round_map`,
+  position `played - 1`, after the arbiter swapped rounds
+  (`PairingsEngine.RoundSwap`) - `played` itself while the rounds are played
+  in the table's order, and for any round past the map's end. "Table round"
+  is the round `schedule/4` numbers, so a double round robin's reversed last
+  two rounds are already inside it and the map is applied on top.
+  """
+  def table_round_number(%{rr_round_map: [_ | _] = map}, played) when is_integer(played) do
+    case Enum.at(map, played - 1) do
+      table when is_integer(table) and table > 0 -> table
+      _ -> played
+    end
+  end
+
+  def table_round_number(_tournament, played), do: played
+
+  @doc """
+  `map` written out to `length` rounds: the rounds past its end are played
+  in table order. `nil` is the table's own order.
+  """
+  def full_round_map(map, length) do
+    map = map || []
+    map ++ Enum.to_list((length(map) + 1)..length//1)
+  end
+
+  @doc """
+  Whether `map` is a round map at all: every round of `1..length(map)`
+  exactly once.
+  """
+  def valid_round_map?(map) when is_list(map) and map != [],
+    do: Enum.all?(map, &is_integer/1) and Enum.sort(map) == Enum.to_list(1..length(map))
+
+  def valid_round_map?(_map), do: false
+
+  @doc """
+  Whether a schedule of `rounds` rounds still has every table round the map
+  sends a played round to - false when the swaps reach past its end, which
+  a shorter schedule would leave without a round to play.
+  """
+  def round_map_fits?(nil, _rounds), do: true
+
+  def round_map_fits?(map, rounds) do
+    map
+    |> full_round_map(rounds)
+    |> Enum.take(rounds)
+    |> Enum.sort() == Enum.to_list(1..rounds//1)
+  end
+
+  @doc """
+  A round map from a file: kept when it is one (`valid_round_map?/1`) and
+  is not simply the table's order, otherwise nil.
+  """
+  def round_map_or_nil(value) do
+    if valid_round_map?(value) and value != Enum.to_list(1..length(value)),
+      do: value,
+      else: nil
   end
 
   @doc """

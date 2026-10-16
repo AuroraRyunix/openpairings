@@ -41,7 +41,7 @@ for the highest-of or typed-by-hand methods.
 | **Standings** | The ranking with the points and the tie-breaks. |
 | **Result cards** | One card per board of a round, eight to an A4 page, with the names, ratings, pairing numbers and the three results to circle, a line for another result, and signature boxes. Byes are skipped. |
 | **Score sheets** | One pre-filled sheet per board: names, ratings, move columns and signatures. |
-| **Cross table** | The full results grid. A Swiss or Keizer tournament gets one row per player in standing order and one column per round; each cell reads *opponent's pairing number, colour, result* (`12w1`: White against number 12, won). A round robin gets the classic players-by-players grid, with both cycles in a cell of a double round robin. |
+| **Cross table** | The full results grid. A Swiss or Keizer tournament gets one row per player in standing order and one column per round; each cell reads *opponent's pairing number, colour, result* (`12w1`: White against number 12, won). A round robin gets the classic players-by-players grid, with every cycle's result in the same cell when everyone plays everyone more than once. |
 | **Place cards** | One folded tent card per player on a full A4 page (see below). From the Players page. |
 | **Postponed-game notices** | One slip per player of every open postponed game ([Entering results](07-results.md)). |
 | **Next-round preview** | The boards that are fixed whatever the open results are, with a list by name for name cards ([Pairing a round](06-pairing.md)). |

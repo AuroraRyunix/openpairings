@@ -1724,7 +1724,11 @@ defmodule PairingsEngine.TrfExport do
       t.pairing_system == "keizer" ->
         "CUSTOM_SWISS"
 
-      t.pairing_system == "round_robin" and t.rr_match_format ->
+      # Match format, and a table whose rounds the arbiter played out of
+      # order (`PairingsEngine.RoundSwap`): the games are written in the
+      # order played, which is no Berger code's order, and a checker told
+      # otherwise would compare them with the wrong rounds.
+      t.pairing_system == "round_robin" and (t.rr_match_format or t.rr_round_map != nil) ->
         "CUSTOM_ROUNDROBIN"
 
       # FIDE C.05 Annex 1's double round robin, its first cycle's last two

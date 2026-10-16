@@ -151,12 +151,13 @@ defmodule PairingsEngine.AppPathAudit2Test do
   # Two constructions of C.05 Annex 1, written apart: the one the app pairs
   # a round robin with and the one `ainalrami -c` checks its report against.
   # Every size to 30, one to three cycles, the double round robin's reversed
-  # last two rounds of the first cycle. (A single cycle has nothing to
-  # reverse for the app, which ignores the switch there.)
+  # last two rounds of the first cycle. (Only a double round robin has the
+  # reversal in the app, which ignores the switch for any other length and
+  # writes no TRF code that would ask the checker for it there.)
   test "RoundRobin.schedule/4 is Ainalrami.Berger.round/4, round for round" do
     for n <- 2..30,
         cycles <- 1..3,
-        reverse? <- if(cycles == 1, do: [false], else: [false, true]),
+        reverse? <- if(cycles == 2, do: [false, true], else: [false]),
         round <- 1..RoundRobin.total_rounds(n, cycles) do
       {:ok, matches} = RoundRobin.schedule(n, cycles, round, reverse_last_two?: reverse?)
       {:ok, pairs, free} = Ainalrami.Berger.round(n, cycles, round, reverse_last_two?: reverse?)

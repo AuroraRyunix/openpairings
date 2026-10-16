@@ -14,7 +14,7 @@ Tournaments, **New tournament**.
 | Name | Required. |
 | Pairing system | **Swiss - FIDE Dutch**, **Round robin (Berger)** or **Keizer**. It cannot be changed after the first round is paired. |
 | Rounds | 1 to 99. A round robin works out its own number of rounds from the players and the cycles. |
-| Cycles | (round robin only) single or double. |
+| Cycles | (round robin only) how many times everyone plays everyone: 1 to 10. |
 | Team tournament | Makes it a team event: Swiss teams (FIDE C.04.6) or round robin teams. Keizer cannot be a team event. See [Teams](12-teams.md). |
 | Place | The city. |
 | Date from | Seeds every round with this date; refine it on the Dates page. |
@@ -227,9 +227,14 @@ used is shown on the Pairings page under round 1.
 > [!FIDE] C.04.3 5.1
 > Drawing the initial colour by lot is the FIDE rule.
 
-**Cycles** (round robin): single or double. **Play the last two rounds of the
-first cycle in reverse order** follows FIDE C.05. A single cycle can be made
-double until the second cycle has begun.
+**Cycles** (round robin): how many times everyone plays everyone, any number
+from 1 to 10 - 1 is a single round robin, 2 a double, 3 a triple. Every cycle
+plays the Berger table again with the colours reversed from the cycle before.
+**Play the last two rounds of the first cycle in reverse order** follows
+FIDE C.05 and is offered for a double round robin only (FIDE describes it
+for two cycles, and the TRF has no code for it in any other length). The
+number of cycles can still be raised until the second cycle has begun; a
+double round robin whose reversed rounds are already paired stays double.
 
 **Keizer top value**: the value of the top rung of the Keizer ladder, or
 blank for the automatic value.

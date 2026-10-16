@@ -1400,6 +1400,35 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       assert html =~ ~r/Dave<\/strong><\/td>.*?<td class="num">0 0<\/td>/s
     end
 
+    test "a triple round robin shows all three cycles' results in one cell", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, players} = round_robin_fixture(scope, 3)
+      names = Map.keys(players)
+
+      # Alice wins every game, whatever her colour; everyone else draws.
+      results =
+        for w <- names, b <- names, w != b, into: %{} do
+          result =
+            cond do
+              w == "Alice" -> "1-0"
+              b == "Alice" -> "0-1"
+              true -> "1/2-1/2"
+            end
+
+          {{w, b}, result}
+        end
+
+      for _ <- 1..9, do: pair_and_score(tournament, players, results)
+
+      html = get(conn, ~p"/t/#{tournament.id}/print/crosstable") |> html_response(200)
+
+      assert html =~ ~r/Alice<\/strong><\/td>.*?<td class="num">1 1 1<\/td>/s
+      assert html =~ ~r/Dave<\/strong><\/td>.*?<td class="num">0 0 0<\/td>/s
+      assert html =~ "½ ½ ½"
+    end
+
     test "a forfeit shows +/- rather than a played result", %{conn: conn, scope: scope} do
       {tournament, players} = round_robin_fixture(scope, 1)
 

@@ -389,6 +389,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 4, "changed" => 3}
     ],
     "pairing.chess960_drawn" => [%{"round" => 2, "position" => 518}],
+    "pairing.rounds_swapped" => [%{"rounds" => [4, 5], "table_rounds" => [5, 4]}, %{}],
     "standings.lots_drawn" => [%{"players" => 3}, %{"players" => 1}],
     "pairing.results_imported" => [
       %{"round" => 2, "results_set" => 8},

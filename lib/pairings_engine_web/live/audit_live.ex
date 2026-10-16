@@ -105,7 +105,7 @@ defmodule PairingsEngineWeb.AuditLive do
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.tpn_order_accepted
-        pairing.chess960_drawn pairing.results_imported pairing.players_swapped pairing.player_substituted
+        pairing.chess960_drawn pairing.rounds_swapped pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
@@ -729,6 +729,22 @@ defmodule PairingsEngineWeb.AuditLive do
       gettext(
         "Kept numbering late entrants at the end, when asked whether to switch to by rating."
       )
+
+  def describe("pairing.rounds_swapped", d) do
+    case {d["rounds"], d["table_rounds"]} do
+      {[a, b], [ta, tb]} ->
+        gettext(
+          "Swapped rounds %{a} and %{b}: round %{a} now plays table round %{ta}, round %{b} table round %{tb}.",
+          a: a,
+          b: b,
+          ta: ta,
+          tb: tb
+        )
+
+      _ ->
+        gettext("Swapped two rounds of the round robin.")
+    end
+  end
 
   def describe("pairing.chess960_drawn", d),
     do:

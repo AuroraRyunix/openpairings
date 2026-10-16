@@ -15,7 +15,7 @@ Toernooien, **Nieuw toernooi**.
 | Naam | Verplicht. |
 | Paringssysteem | **Zwitsers - FIDE Dutch**, **Rondetoernooi (Berger)** of **Keizer**. Het kan niet worden veranderd nadat de eerste ronde is gepaard. |
 | Rondes | 1 tot 99. Een rondetoernooi berekent zelf het aantal rondes uit de spelers en de cycli. |
-| Cycli | (alleen rondetoernooi) enkel of dubbel. |
+| Aantal keer dat iedereen tegen iedereen speelt | (alleen rondetoernooi) 1 tot 10. |
 | Ploegentoernooi | Maakt er een ploegenevenement van: Zwitserse ploegen (FIDE C.04.6) of rondetoernooi-ploegen. Keizer kan geen ploegentoernooi zijn. Zie [Ploegen](12-teams.md). |
 | Plaats | De stad. |
 | Datum vanaf | Vult elke ronde met deze datum; verfijn dit op de pagina Data. |
@@ -236,9 +236,15 @@ kleur wordt op de pagina Paringen onder ronde 1 getoond.
 > [!FIDE] C.04.3 5.1
 > Het bepalen van de beginkleur door loting is de FIDE-regel.
 
-**Cycli** (rondetoernooi): enkel of dubbel. **De laatste twee rondes van de
-eerste cyclus in omgekeerde volgorde spelen** volgt FIDE C.05. Een enkele cyclus
-kan dubbel worden gemaakt zolang de tweede cyclus nog niet is begonnen.
+**Aantal keer dat iedereen tegen iedereen speelt** (rondetoernooi): elk getal
+van 1 tot 10 - 1 is een enkel rondetoernooi, 2 een dubbel, 3 een drievoudig.
+Elke cyclus speelt de Berger-tabel opnieuw, met de kleuren omgekeerd ten
+opzichte van de vorige cyclus. **De laatste twee rondes van de eerste cyclus in
+omgekeerde volgorde spelen** volgt FIDE C.05 en kan je alleen bij een dubbel
+rondetoernooi kiezen (FIDE beschrijft het voor twee cycli, en de TRF heeft er
+voor geen ander aantal een code voor). Je kan het aantal cycli verhogen zolang
+de tweede cyclus nog niet is begonnen; een dubbel rondetoernooi waarvan de
+omgekeerde rondes al gepaard zijn, blijft dubbel.
 
 **Keizer-topwaarde**: de waarde van de hoogste trede van de Keizerladder, of leeg
 voor de automatische waarde.
