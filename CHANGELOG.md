@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The TRF sent for rating has its legend line back.** The `DDD SSSS sTTT NNNN... IIIIIIIIIII BBBB/BB/BB PPPP RRRR  1111 1 1` line Swiss-Manager puts above the players, the one a rating officer reads the columns by, went missing on 3 October when the file was trimmed to look like SWAR's. It now sits above the first player again, in round reports and in the postponed-games file. No rulers: Swiss-Manager does not send those either. Downloads and copies keep both.
+- [Fix] **An absence entered several rounds ahead no longer writes empty rounds into the TRF.** A player marked absent for round 6 while round 2 was the last one paired got `240 H 006`, correctly, and three `0000 -` columns on their `001` line for rounds 3 to 5, which had not happened and now never will in that file. The padding that held the bye's place leaves with the bye (Ainalrami v0.43.2).
+
 ## [0.88.1] - 2026-10-16
 
 - [Security] Bandit 1.12.5 → 1.13.1 (EEF-CVE-2026-105660, EEF-CVE-2026-105659) and decimal 3.1.1 → 3.2.0 (EEF-CVE-2026-97853, a `Decimal.round/3` that would allocate whatever it was asked to). The web server and the arithmetic were both willing to be talked into things; neither is now. No behaviour changes, which is the point.

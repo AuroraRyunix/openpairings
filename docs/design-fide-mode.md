@@ -660,7 +660,8 @@ not a policy of ours. What was built:
   N` (or "before Round 1 was paired") after the header in the TRF26 dialect.
   Post-processed like the copy mark (4.1), not in Ainalrami - the pin cannot
   move in this pass. Not in the file sent for rating, which by the
-  arbiter's decision holds only records, as SWAR's accepted FIDE files do
+  arbiter's decision holds no comment line (records and Swiss-Manager's
+  `DDD` legend line only)
   (`TrfExport.export/3`'s `for: :rating`, `docs/import-export.md`); copies
   and TRF26 downloads still carry it.
 - **The permanent indication** (Q46): one muted line on every page of a

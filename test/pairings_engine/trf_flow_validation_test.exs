@@ -14,7 +14,7 @@ defmodule PairingsEngine.TrfFlowValidationTest do
   file's own fixed-column reading of the `001` records and its own table of
   which stored result becomes which TRF code - never the app's builder:
 
-    * every file holds only records: no column ruler, no `DDD` legend, no
+    * every file holds only records and the `DDD` legend line: no column ruler, no
       comment line (`###`), no `162` with `X`, and no `?` anywhere;
     * every stored game of the file's rounds is on both players' lines, in
       its round's column, opponent and colour and code right; nothing else is;
@@ -634,16 +634,20 @@ defmodule PairingsEngine.TrfFlowValidationTest do
     end
   end
 
-  # A file for rating holds only records - as SWAR's accepted FIDE files do.
+  # A file for rating holds only records, and the one legend line
+  # Swiss-Manager puts above the players.
   defp check_only_records(st, tag, text) do
-    lines = text |> String.split(["\r\n", "\n"]) |> Enum.reject(&(&1 == ""))
+    lines =
+      text
+      |> String.split(["\r\n", "\n"])
+      |> Enum.reject(&(&1 == "" or String.starts_with?(&1, "DDD SSSS sTTT NNNN")))
 
     cond do
       bad = Enum.find(lines, &(not Regex.match?(~r/^\d{3}( |$)/, &1))) ->
         fail(st, "#{tag}: a line that is not a record: #{inspect(bad)}")
 
-      text =~ "###" or text =~ "DDD" ->
-        fail(st, "#{tag}: a comment or legend line")
+      text =~ "###" or Enum.any?(lines, &String.starts_with?(&1, "1234567890")) ->
+        fail(st, "#{tag}: a comment or ruler line")
 
       Enum.any?(lines, &(String.starts_with?(&1, "162") and &1 =~ "X")) ->
         fail(st, "#{tag}: a 162 record with X")

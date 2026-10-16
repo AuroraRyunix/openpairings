@@ -3,8 +3,8 @@ defmodule PairingsEngine.TrfRatingFileTest do
   The file SENT FOR RATING (`TrfExport.export/3` with `for: :rating`, and
   the postponed-games file sent with `PostponedGames.send_late_games/3`):
 
-    * only real records, as SWAR's accepted FIDE files - no column ruler, no
-      `DDD` legend, no comment line (`###`);
+    * only real records plus Swiss-Manager's one `DDD` legend line above
+      the players - no column ruler, no comment line (`###`);
     * no unknown result: a postponed game whose result is not known is not
       played in it, `0000 - Z` for both players, worth zero, and there is no
       `?` and no `X` in a `162`; the game is rated once, in the
@@ -99,16 +99,50 @@ defmodule PairingsEngine.TrfRatingFileTest do
   defp points(line), do: line |> String.slice(80, 4) |> String.trim() |> String.to_float()
   defp place(line), do: line |> String.slice(85, 4) |> String.trim() |> String.to_integer()
 
-  # Nothing but records: no ruler, no legend, no comment, no unknown result.
+  # Records and Swiss-Manager's one legend line above the players: no
+  # ruler, no comment, no unknown result.
   defp assert_only_records(text) do
-    for line <- lines(text), line != "" do
+    all = lines(text)
+    legends = Enum.filter(all, &String.starts_with?(&1, "DDD SSSS sTTT NNNN"))
+    assert [legend] = legends, "expected exactly one legend line"
+
+    assert Enum.find_index(all, &(&1 == legend)) + 1 ==
+             Enum.find_index(all, &String.starts_with?(&1, "001 "))
+
+    for line <- all, line != "", line != legend do
       assert line =~ ~r/^\d{3}( |$)/, "not a record: #{inspect(line)}"
     end
 
     refute text =~ "###"
-    refute text =~ "DDD"
+    refute Enum.any?(all, &String.starts_with?(&1, "1234567890"))
     refute Enum.any?(lines(text), &String.starts_with?(&1, "162"))
     refute Enum.any?(lines(text), &(String.starts_with?(&1, "001") and &1 =~ "?"))
+  end
+
+  describe "an absence entered several rounds ahead" do
+    test "is a 240 record for its round, with no empty columns before it" do
+      {t, players} =
+        tournament(~w(Alice Bob Carol Dave),
+          rounds_count: 5,
+          abs_value: 0.5,
+          round_dates: ~w(2026-09-01 2026-09-08 2026-09-15 2026-09-22 2026-09-29)
+        )
+
+      round1 = pair!(t)
+      for board <- round1.pairings, do: result!(board, "1-0")
+
+      {:ok, _} = Tournaments.update_player(players["Alice"], %{absent_rounds: "4"})
+
+      text = send!(t, [1])
+      rank = rank_of(t, players["Alice"].id)
+      line = line_of(text, rank)
+
+      assert "240 H 004 #{String.pad_leading(Integer.to_string(rank), 4)}" in lines(text)
+      # Round 1's column and nothing after it: no `0000 -` for rounds 2 and 3.
+      assert block(line, 2) == ""
+      refute String.slice(line, 101..-1//1) =~ "0000"
+      assert_only_records(text)
+    end
   end
 
   describe "a postponed game whose result is not known" do

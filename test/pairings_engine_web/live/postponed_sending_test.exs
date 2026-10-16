@@ -80,9 +80,10 @@ defmodule PairingsEngineWeb.PostponedSendingTest do
       sent = post(conn, ~p"/t/#{t.id}/export/trf", %{"rounds" => "1", "finalise" => "true"})
       assert disposition(sent) =~ "_r1.trf"
       refute disposition(sent) =~ "COPY"
-      # The file sent holds only records: no comment line, no ruler.
+      # The file sent holds no comment line and no ruler, only the legend line.
       refute response(sent, 200) =~ "###"
-      refute response(sent, 200) =~ "DDD"
+      assert response(sent, 200) =~ ~r/^DDD SSSS sTTT/m
+      refute response(sent, 200) =~ "1234567890"
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#trf-download-copy", "not for rating")

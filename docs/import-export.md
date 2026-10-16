@@ -209,9 +209,12 @@ write a draw that never happened.
 
 **The file sent for rating.** Both files "Send…" hands out -
 `TrfExport.export/3` with `for: :rating`, and `TrfExport.postponed_export/2`
-without `copy: true` - look like the FIDE files SWAR sends, which the
-FRBE→FIDE path accepts (SWAR v6.65, `EnvoiFIDE.cpp`): **only records**. No
-column ruler, no `DDD` legend line and no comment line of any kind (`###`):
+without `copy: true` - hold **records, and Swiss-Manager's one legend
+line** (`DDD SSSS sTTT NNN... RRRR FFF IIIIIIIIIII BBBB/BB/BB PPPP RRRR  1111 1 1`)
+directly above the first `001` line, as Swiss-Manager's rating files do. (From
+0.80-something to 0.88.1 the legend was left out too, to look like SWAR's
+`EnvoiFIDE.cpp` files; the arbiter wanted it back.) No column ruler and no
+comment line of any kind (`###`):
 no copy mark, no "FIDE mode exited" note, no manual-alteration (`### MPA @
 Round r: ...`) line, no receipt line. The other TRF26
 records (`142`, `152`, `162` for a point system other than 1/half/0, `192`,

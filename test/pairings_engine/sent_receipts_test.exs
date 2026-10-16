@@ -197,7 +197,8 @@ defmodule PairingsEngine.SentReceiptsTest do
       assert receipt.kind == "postponed" and receipt.period == ~D[2026-09-01]
       assert receipt.code =~ ~r/^P·[0-9A-F]{4}$/
       refute text =~ "###"
-      refute text =~ "DDD"
+      assert text =~ "DDD SSSS sTTT"
+      refute text =~ "1234567890"
       assert receipt.final_sha256 == SentReceipts.sha256(text)
       assert %{players: [_ | _]} = Ainalrami.Trf.parse(text)
     end

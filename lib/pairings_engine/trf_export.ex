@@ -55,9 +55,10 @@ defmodule PairingsEngine.TrfExport do
 
   ## The file sent for rating
 
-  Only real records, the way SWAR's accepted FIDE files are
-  (`EnvoiFIDE.cpp`): no column ruler, no `DDD` legend line and no comment
-  line (`###`) of any kind - no copy mark, no FIDE-mode note, no receipt.
+  Records, plus the one `DDD SSSS sTTT NNN...` legend line Swiss-Manager
+  writes above the players (the arbiter wants it, and has had to ask for it
+  twice): no column ruler and no comment line (`###`) of any kind - no copy
+  mark, no FIDE-mode note, no receipt.
 
   And no unknown result. A postponed game whose result is not known when
   its round is sent - or one already sent that way, whose result went or
@@ -820,9 +821,11 @@ defmodule PairingsEngine.TrfExport do
       # a pairing program that reads the older `XX*`/`BB*` spelling.
       dialect: dialect,
       xxc: dialect == :engine,
-      # The ruler and `DDD` legend are for a person reading the file; the
-      # file sent for rating holds only records, as SWAR's do.
-      column_legend: not rating?,
+      # The file sent for rating carries the `DDD SSSS ... NNN` legend line
+      # above the players, as Swiss-Manager's rating files do - the line a
+      # rating officer reads the columns by, and one we already removed
+      # once in the name of looking like SWAR. Downloads keep both rulers too.
+      column_legend: if(rating?, do: :line, else: true),
       # This file leaves the building - it is what an arbiter submits to
       # FIDE - so it must survive a byte-oriented reader. See
       # `Trf.serialize/2`'s `:ascii` option.
@@ -1061,7 +1064,7 @@ defmodule PairingsEngine.TrfExport do
     * `copy: true` - a copy to download (the Export page's link): marked
       as one in `###` lines and given the column ruler. Without it this is
       the file sent for rating (`PostponedGames.send_late_games/3`), which
-      holds only records - no ruler, no `DDD` legend, no comment line - as
+      holds records and the `DDD` legend line - no ruler, no comment line - as
       `export/3`'s `for: :rating` does. It never holds a `?`: every game in
       it has its result.
   """
@@ -1188,8 +1191,9 @@ defmodule PairingsEngine.TrfExport do
         players: rows
       },
       dialect: :trf26,
-      # Only a copy has the ruler: the file sent for rating holds only records.
-      column_legend: copy?,
+      # A copy has the rulers; the file sent for rating has the legend line
+      # alone, as Swiss-Manager writes it (see `export/3`).
+      column_legend: if(copy?, do: true, else: :line),
       ascii: true
     )
   end
