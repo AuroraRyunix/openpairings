@@ -113,6 +113,61 @@ defmodule PairingsEngineWeb.BoardLinkLiveTest do
       refute has_element?(lv, "#boards-live-toggle")
     end
 
+    test "account-wide links that reach the tournament are listed, read-only",
+         %{conn: conn, scope: scope, tournament: t} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/boards")
+      refute has_element?(lv, "#account-codes")
+
+      {:ok, link, _secret} = BoardLink.connect(scope, label: "Hall box")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/boards")
+
+      assert has_element?(lv, "#account-codes")
+      assert has_element?(lv, "#account-code-#{link.id}", "Hall box")
+      assert has_element?(lv, "#account-code-meta-#{link.id}", scope.user.email)
+      assert has_element?(lv, "#account-code-meta-#{link.id}", "Never used")
+      assert has_element?(lv, "#account-code-withdraw-#{link.id}[href='/users/settings']")
+      refute has_element?(lv, "#board-link-#{link.id}")
+    end
+
+    test "an account link of somebody else has no withdraw link", %{
+      conn: conn,
+      scope: scope,
+      tournament: t
+    } do
+      other = user_fixture()
+      other_scope = PairingsEngine.Accounts.Scope.for_user(other)
+
+      {:ok, _} =
+        %PairingsEngine.Tournaments.Collaborator{}
+        |> PairingsEngine.Tournaments.Collaborator.changeset(%{
+          tournament_id: t.id,
+          user_id: other.id,
+          email: other.email,
+          status: "accepted"
+        })
+        |> Repo.insert()
+
+      {:ok, link, _secret} = BoardLink.connect(other_scope, label: "Their box")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/boards")
+
+      assert has_element?(lv, "#account-code-#{link.id}")
+      assert has_element?(lv, "#account-code-other-#{link.id}")
+      refute has_element?(lv, "#account-code-withdraw-#{link.id}")
+      assert scope.user.id != other.id
+    end
+
+    test "somebody who may not open the tournament never sees account links", %{
+      scope: scope,
+      tournament: t
+    } do
+      {:ok, _link, _secret} = BoardLink.connect(scope, label: "Hall box")
+      stranger = build_conn() |> log_in_user(user_fixture())
+
+      assert_raise Ecto.NoResultsError, fn ->
+        live(stranger, ~p"/t/#{t.id}/settings/boards")
+      end
+    end
+
     test "somebody who may not open the tournament gets nothing", %{tournament: t} do
       stranger = build_conn() |> log_in_user(user_fixture())
 

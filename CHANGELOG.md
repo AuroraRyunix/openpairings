@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **A tournament's Live boards page now admits that account-wide links exist.** The box that reaches a tournament through somebody's whole account used to be invisible exactly where an arbiter goes to ask who is reading the boards. The page lists them under Account-wide links: the box, the account, when it was made, when it last called, and a link to the account page where the owner of the link can withdraw it. Read-only, shown to the people who may edit the tournament, and absent when there is nothing to show. The network listener still takes no account links, so there is nothing to list about them there either.
+
 ## [0.89.0] - 2026-10-16
 
 - [Change] **A round robin asks how many times everyone plays everyone, instead of offering "Single" or "Double".** The field is a number now, 1 to 10: somebody asked for triple, and a list that grows by one entry per request is a list that gets asked again. Every cycle is the Berger table once more with the colours reversed from the cycle before, standings and the cross table carry every cycle (a cell reads `1 ½ 0` for three), and the TRF writes and reads `BERGER_ROUNDROBIN_G3` and onwards. FIDE's reversed last two rounds stay what FIDE made them: a double round robin's option, so a double whose swapped rounds are already paired can no longer quietly change length and disown them. SWAR knows two cycles at most, so a third and beyond go there as its double round robin with every round played, and the export screen says so rather than letting SWAR discover it. The untranslated "Single" and "Double" are gone, which is one way to translate them.

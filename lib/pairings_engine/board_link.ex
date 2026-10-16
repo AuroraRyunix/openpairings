@@ -357,7 +357,7 @@ defmodule PairingsEngine.BoardLink do
   """
   def account_links(tournament_id) when is_integer(tournament_id) do
     if current?(tournament_id),
-      do: Repo.all(account_links_query(tournament_id) |> order_by([l], l.id)),
+      do: Repo.all(account_links_query(tournament_id) |> order_by([l], l.id) |> preload(:user)),
       else: []
   end
 
