@@ -423,8 +423,11 @@ the click on generated 301- and 451-player events.
 
 ## Round robin (Berger) - available
 
-Each player meets every other player once (single cycle, `rr_cycles: 1`) or
-twice with colours reversed (double cycle, `rr_cycles: 2`). Implemented in
+Each player meets every other player `rr_cycles` times: once for a single
+cycle, twice for a double, and so on up to `Tournament.max_rr_cycles/0`
+(10). Every cycle is the same Berger table, its colours reversed relative to
+the cycle before (C.05 Annex 1), so odd cycles have the table's colours and
+even ones the opposite. Implemented in
 `PairingsEngine.RoundRobin`, which `PairingsEngine.Pairing.pair_next_round/1`
 dispatches to.
 
@@ -453,6 +456,21 @@ before round m-1 is paired, and written to the TRF as
 `FIDE_DOUBLEROUNDROBIN` (plain double round robins stay
 `BERGER_ROUNDROBIN_G2`). Tournaments created before it, imports that do not
 name that code, SWAR imports and team round robins keep the plain order.
+
+Only a double round robin has the swap: FIDE describes it for two cycles,
+and TRF26 has a code for it (`FIDE_DOUBLEROUNDROBIN`) in no other length.
+`schedule/4` ignores the option for any other cycle count, switching to one
+does turn it off, and a double round robin whose round m-1 is already
+paired with the swap cannot change its cycle count at all
+(`Tournaments.update_tournament/3` refuses on `rr_cycles`): the rounds on
+the board would stop being the schedule's.
+
+**Three cycles and more.** Exported to the TRF as `BERGER_ROUNDROBIN_Gn`
+(and imported from it; a file asking for more than the maximum is clamped
+and says so). SWAR has no type for them: the export writes SWAR's double
+round robin (type 6, the table repeated with colours reversed) with every
+round played, and the export screen says the cycles past the second do not
+survive.
 
 **Odd player counts.** A phantom player numbered N+1 is added to make the
 count even (FIDE's own rule: "where there is an odd number of players, the
@@ -512,7 +530,7 @@ entered.
 
 **Cross table print.** `GET /t/:id/print/crosstable` renders the classic
 players×players round-robin grid (rows/columns ordered by `pairing_number`,
-one cell per opponent, both cycles shown for a double round robin) instead
+one cell per opponent, every cycle's result in it) instead
 of the round-by-round Swiss cross table Swiss/Keizer tournaments get - see
 `docs/printing.md`.
 

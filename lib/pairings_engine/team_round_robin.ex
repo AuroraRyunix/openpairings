@@ -9,7 +9,7 @@ defmodule PairingsEngine.TeamRoundRobin do
   reimplemented: `RoundRobin.schedule/3` and `RoundRobin.match_schedule/2` are
   pure functions of `(count, cycles, round)` and are called with the team
   count, so a team event gets the same Berger tables, the same odd-count bye
-  and the same second-cycle colour reversal an individual one does. See
+  and the same colour reversal in every next cycle an individual one does. See
   `docs/team-tournaments.md`.
 
   ## Pairing numbers

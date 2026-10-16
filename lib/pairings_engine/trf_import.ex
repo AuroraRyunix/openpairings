@@ -1124,12 +1124,13 @@ defmodule PairingsEngine.TrfImport do
     if baku?, do: Map.put(system, :acceleration, "baku"), else: system
   end
 
-  # `BERGER_ROUNDROBIN_Gn` - all games repeated n times. This app offers one
-  # or two cycles, so anything past two is clamped and the arbiter is not
-  # told a number the app cannot honour.
+  # `BERGER_ROUNDROBIN_Gn` - all games repeated n times. This app plays 1 to
+  # `Tournament.max_rr_cycles/0` cycles, so anything past that is clamped
+  # (and a G0 read as one) rather than imported as a number the app cannot
+  # honour.
   defp berger_cycles(base) do
     case Regex.run(~r/_G(\d+)$/, base) do
-      [_, n] -> min(String.to_integer(n), 2)
+      [_, n] -> n |> String.to_integer() |> max(1) |> min(Tournament.max_rr_cycles())
       nil -> 1
     end
   end
@@ -2798,13 +2799,16 @@ defmodule PairingsEngine.TrfImport do
         unknown =
           if known?, do: [], else: [adjustment(:unknown_system_code, [type_code: code] ++ system)]
 
-        # `BERGER_ROUNDROBIN_Gn`: n cycles asked for, two at most here
-        # (`berger_cycles/1`).
+        # `BERGER_ROUNDROBIN_Gn`: n cycles asked for, `Tournament.max_rr_cycles/0`
+        # at most here (`berger_cycles/1`).
         clamped =
           case Regex.run(~r/_G(\d+)$/, base) do
             [_, n] ->
-              if String.to_integer(n) > 2,
-                do: [adjustment(:rr_cycles_clamped, requested: String.to_integer(n), used: 2)],
+              requested = String.to_integer(n)
+              max = Tournament.max_rr_cycles()
+
+              if requested > max,
+                do: [adjustment(:rr_cycles_clamped, requested: requested, used: max)],
                 else: []
 
             nil ->

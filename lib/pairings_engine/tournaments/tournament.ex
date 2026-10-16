@@ -12,7 +12,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Which pairing engine PairingsEngine.Pairing.pair_next_round/1 dispatches
   # to - independent of `type` above (FIDE report classification).
   @pairing_systems ~w(swiss round_robin keizer)
-  @rr_cycles_values [1, 2]
+  # How many times everyone plays everyone in a round robin. Any whole
+  # number from 1 up to this: a list of allowed values only lasted until
+  # somebody wanted the one after its end. Ten is a sanity bound on a form
+  # field (ten cycles of even four players is already thirty rounds), not a
+  # regulation.
+  @max_rr_cycles 10
   # The Olympiad plays four boards and the largest national leagues ten; 20
   # is a sanity bound on a form field, not a regulation.
   @max_team_boards 20
@@ -739,14 +744,16 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # "swiss" | "round_robin" | "keizer". Locked in the UI once the
     # tournament has paired its first round (see SettingsLive).
     field :pairing_system, :string, default: "swiss"
-    # Round-robin only: 1 = single cycle, 2 = double.
+    # Round-robin only: how many times everyone plays everyone, 1 to
+    # `@max_rr_cycles`. Each cycle is the Berger table again, colours
+    # reversed relative to the one before (`RoundRobin.schedule/4`).
     field :rr_cycles, :integer, default: 1
     # Round-robin only: "match format" - round N and round N+1 are the SAME
     # pairing with colours reversed, played back-to-back as an immediate
     # two-game match (PairingsEngine.RoundRobin.match_schedule/2). This is a
     # different shape from `rr_cycles == 2` ("double round robin"), which
     # repeats a pairing a full cycle apart (season-style home/away) rather
-    # than immediately. Currently mutually exclusive with `rr_cycles == 2`
+    # than immediately. Currently mutually exclusive with `rr_cycles > 1`
     # (see the changeset validation below) - composing the two (an immediate
     # rematch *and* a season-style repeat) is a documented future extension,
     # not supported by this field yet. Locked in the UI once the tournament
@@ -1375,7 +1382,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:status, @statuses)
     |> validate_inclusion(:standard, @standards)
     |> validate_inclusion(:pairing_system, @pairing_systems)
-    |> validate_inclusion(:rr_cycles, @rr_cycles_values)
+    |> validate_required([:rr_cycles])
+    |> validate_number(:rr_cycles,
+      greater_than_or_equal_to: 1,
+      less_than_or_equal_to: @max_rr_cycles
+    )
     |> validate_inclusion(:publish_mode, @publish_modes)
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
     |> validate_inclusion(:soft_position, @soft_positions)
@@ -1553,7 +1564,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     end
   end
 
-  # `rr_match_format` (immediate two-game rematch) and `rr_cycles == 2`
+  # `rr_match_format` (immediate two-game rematch) and `rr_cycles > 1`
   # (season-style repeat a full cycle apart) are two different shapes of
   # "play everyone twice" that this codebase does not yet know how to
   # compose into a single schedule (see the field's doc comment above) - an
@@ -1562,11 +1573,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # combination they asked for, so this is rejected outright rather than
   # guessed at.
   defp validate_rr_match_format(changeset) do
-    if get_field(changeset, :rr_match_format) == true and get_field(changeset, :rr_cycles) == 2 do
+    if get_field(changeset, :rr_match_format) == true and
+         (get_field(changeset, :rr_cycles) || 1) > 1 do
       add_error(
         changeset,
         :rr_match_format,
-        "match format is not yet supported together with double round robin (rr_cycles=2)"
+        "match format is not yet supported together with more than one cycle (rr_cycles > 1)"
       )
     else
       changeset
@@ -2442,7 +2454,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def type_label(other), do: other
 
   def pairing_systems, do: @pairing_systems
-  def rr_cycles_values, do: @rr_cycles_values
+  def max_rr_cycles, do: @max_rr_cycles
   def soft_positions, do: @soft_positions
 
   def soft_position_label("strong"), do: "Strong - before the colour and float rules"
@@ -2454,10 +2466,6 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def pairing_system_label("round_robin"), do: "Round robin (Berger)"
   def pairing_system_label("keizer"), do: "Keizer"
   def pairing_system_label(other), do: other
-
-  def rr_cycles_label(1), do: "Single"
-  def rr_cycles_label(2), do: "Double"
-  def rr_cycles_label(other), do: to_string(other)
 
   @doc """
   This tournament's scoring, in the shape `Ainalrami.Pairing` takes.

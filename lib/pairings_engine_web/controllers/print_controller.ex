@@ -44,8 +44,8 @@ defmodule PairingsEngineWeb.PrintController do
       full Swiss cross table: one row per player (current standings order),
       one column per played round. For round-robin tournaments, instead the
       classic players×players grid: rows/columns ordered by pairing number,
-      cell (A, B) is A's result against B (both cycles' results for a
-      double round robin), diagonal hatched out.
+      cell (A, B) is A's result against B (every cycle's result for a
+      round robin of several cycles), diagonal hatched out.
   """
 
   use PairingsEngineWeb, :controller
@@ -1972,8 +1972,8 @@ defmodule PairingsEngineWeb.PrintController do
 
   # `row_entry`'s result(s) against `col_entry`, from `row_entry`'s own game
   # list (already filtered to that opponent) sorted by round ascending - for
-  # a double round robin (rr_cycles == 2) this naturally puts the first
-  # cycle's result before the second's, since cycle 1's rounds are always
+  # a round robin of several cycles (rr_cycles > 1) this naturally puts each
+  # cycle's result before the next one's, since an earlier cycle's rounds are always
   # numbered lower. A pairing with no result yet simply isn't in `.games`
   # (see `PairingsEngine.Standings.pairing_records/3`), so the cell is blank
   # rather than guessing.

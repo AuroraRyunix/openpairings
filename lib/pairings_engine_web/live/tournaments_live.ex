@@ -42,8 +42,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   @pairing_system_options for ps <- Tournament.pairing_systems(),
                               do: {ps, Tournament.pairing_system_label(ps)}
-  @rr_cycles_options for c <- Tournament.rr_cycles_values(),
-                         do: {c, Tournament.rr_cycles_label(c)}
 
   @impl true
   def mount(_params, _session, socket) do
@@ -2265,8 +2263,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
     Accounts.get_user!(socket.assigns.current_scope.user.id).tournament_defaults
   end
 
-  defp rr_cycles_options, do: @rr_cycles_options
-
   # A single-day tournament (the common case for a club event) has
   # start_date == end_date - showing "2026-08-12 → 2026-08-12" is just
   # noise, so collapse it to the one date. Free-text fields (no format
@@ -2500,16 +2496,16 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
 
           <label :if={@new_pairing_system == "round_robin"} class="field">
-            <span>{gettext("Cycles")}</span>
-            <select name="tournament[rr_cycles]">
-              <option
-                :for={{val, label} <- rr_cycles_options()}
-                value={val}
-                selected={to_string(val) == Map.get(@new_params, "rr_cycles", "1")}
-              >
-                {label}
-              </option>
-            </select>
+            <span>{gettext("Cycles (how many times everyone plays everyone)")}</span>
+            <input
+              type="number"
+              id="new-tournament-rr-cycles"
+              name="tournament[rr_cycles]"
+              value={Map.get(@new_params, "rr_cycles", "1")}
+              min="1"
+              max={Tournament.max_rr_cycles()}
+              step="1"
+            />
           </label>
 
           <%!-- The checkbox makes this a team event. With "Round robin" it

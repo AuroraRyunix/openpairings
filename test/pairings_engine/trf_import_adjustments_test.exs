@@ -128,13 +128,22 @@ defmodule PairingsEngine.TrfImportAdjustmentsTest do
       assert %{type_code: "FIDE_DUBOV"} = find(review!(text), :unknown_system_code)
     end
 
-    test "round-robin cycles over two" do
+    test "round-robin cycles over the maximum" do
+      text =
+        %{1 => [game(2, "w", "=")], 2 => [game(1, "b", "=")]}
+        |> trf(%{type: "roundrobin", type_code: "CUSTOM_SWISS"})
+        |> String.replace("192 CUSTOM_SWISS", "192 BERGER_ROUNDROBIN_G11")
+
+      assert %{requested: 11, used: 10} = find(review!(text), :rr_cycles_clamped)
+    end
+
+    test "three round-robin cycles are taken as they are" do
       text =
         %{1 => [game(2, "w", "=")], 2 => [game(1, "b", "=")]}
         |> trf(%{type: "roundrobin", type_code: "CUSTOM_SWISS"})
         |> String.replace("192 CUSTOM_SWISS", "192 BERGER_ROUNDROBIN_G3")
 
-      assert %{requested: 3, used: 2} = find(review!(text), :rr_cycles_clamped)
+      refute find(review!(text), :rr_cycles_clamped)
     end
 
     test "tie-breaks this app does not compute" do

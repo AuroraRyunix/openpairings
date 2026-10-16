@@ -319,10 +319,11 @@ that opponent:
 - `"1"` / `"½"` / `"0"` - a played win/draw/loss.
 - `"+"` / `"-"` - a forfeit win/loss (no game played).
 - blank - no result recorded yet for that pairing.
-- For a **double** round robin (`tournament.rr_cycles == 2`), both cycles'
-  results are shown space-separated, first cycle first (e.g. `"1 ½"`) -
-  this falls out of sorting A's games against B by round number ascending,
-  since cycle 1's rounds are always numbered lower than cycle 2's.
+- For a round robin of more than one cycle (`tournament.rr_cycles > 1`),
+  every cycle's result is shown space-separated, first cycle first (e.g.
+  `"1 ½ 0"` for three) - this falls out of sorting A's games against B by
+  round number ascending, since an earlier cycle's rounds are always
+  numbered lower than a later one's.
 
 The diagonal (a player against themself) is hatched out via a CSS
 `repeating-linear-gradient` (`.rr-diag`) rather than left blank, so it reads

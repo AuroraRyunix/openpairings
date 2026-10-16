@@ -1287,7 +1287,7 @@ can hold. What changed on the way:
 | `FideIdDe/AA/Id` (16) | event code (every id), FIDE id ranges (the usable ones) | the file's block while the tournament still derives the same ranges and code from it, else from the ranges, then any other id of the event code |
 | `FideArbitre1/2` | `swar_settings` | no: a v7 file has one string there |
 | `FideRemarques` | `swar_settings` | yes (the export wrote the deputy arbiter there) |
-| `Type` | tournament type, pairing system, cycles, match format | the file's type while it still reads the same (an accelerated or American Swiss is a plain Swiss here); else round robin 4, 5 (match format) or 6 (two cycles), Swiss 0, 1 (match format) or 3 (points other than 1/½/0) |
+| `Type` | tournament type, pairing system, cycles, match format | the file's type while it still reads the same (an accelerated or American Swiss is a plain Swiss here); else round robin 4, 5 (match format) or 6 (two cycles or more - SWAR has no type for three), Swiss 0, 1 (match format) or 3 (points other than 1/½/0) |
 | `SW321_*` | 3-2-1 point values and presence point (see "3-2-1 scoring") | the tournament's for a 3-2-1 file, else the file's own |
 | `TournoiStd` | standard | yes |
 | `ApparOrder` | initial colour (Swiss: 0 white, 1 black, 2 drawn by lot) | the initial colour, or the colour the lot drew; a round robin's as the file had it |

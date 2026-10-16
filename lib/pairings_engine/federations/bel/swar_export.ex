@@ -463,7 +463,11 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # ROBIN 4, ROBIN_DBL 5, ROBIN_AR 6, SW_AMERICAIN 7, SW_AMERICAIN_DBL 8.
   #
   # From the tournament: a round robin is 4, 5 in match format (each
-  # pairing twice in a row), 6 as a double round robin; a Swiss is 1 in
+  # pairing twice in a row), 6 as a double round robin. SWAR has nothing
+  # for three cycles or more, so those go as 6 too - its "aller-retour",
+  # the whole table repeated with the colours reversed, is the nearest
+  # shape, and the export screen says the extra cycles do not survive
+  # (`system_notes/1`); every round played is in the file regardless. A Swiss is 1 in
   # match format and 3 - SWAR's "3-2-1", the one type with its own point
   # values - when it scores other than 1/½/0 with a full-point bye (SWAR
   # scores every other type that way). A team tournament has no SWAR type
@@ -480,7 +484,7 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   defp derived_tournament_type(t) do
     cond do
       round_robin?(t) and t.rr_match_format -> 5
-      round_robin?(t) and t.rr_cycles == 2 -> 6
+      round_robin?(t) and (t.rr_cycles || 1) >= 2 -> 6
       round_robin?(t) -> 4
       t.swiss_match_format -> 1
       custom_points?(t) -> 3
@@ -1720,6 +1724,11 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
       t.manual_ranking &&
         gettext(
           "The standings order set by hand is not written: SWAR ranks by its own tie-breaks."
+        ),
+      (round_robin?(t) and !t.rr_match_format and (t.rr_cycles || 1) > 2) &&
+        gettext(
+          "SWAR knows a round robin of one or two cycles only: this one's %{count} cycles go as SWAR's double round robin. Every round already played is in the file, but SWAR will not pair the cycles after the second.",
+          count: t.rr_cycles
         ),
       Standings.ranked_separately?(t) !=
         (t.pair_by_category and t.categories_enabled and (t.categories || []) != []) &&

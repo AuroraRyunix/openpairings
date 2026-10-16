@@ -24,8 +24,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   @pairing_system_options for ps <- Tournament.pairing_systems(),
                               do: {ps, Tournament.pairing_system_label(ps)}
-  @rr_cycles_options for c <- Tournament.rr_cycles_values(),
-                         do: {c, Tournament.rr_cycles_label(c)}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -320,7 +318,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
 
   defp standard_options, do: RateOfPlay.standard_options()
   defp pairing_system_options, do: @pairing_system_options
-  defp rr_cycles_options, do: @rr_cycles_options
 
   # locked_overlay/1 + locked_hint_message/1 now live in SettingsSupport -
   # <.setting_toggle> needs them too.
@@ -648,23 +645,25 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
             </.setting_toggle>
 
             <.setting_field
-              label={gettext("Cycles")}
+              label={gettext("Cycles (how many times everyone plays everyone)")}
               hint={
                 gettext(
-                  "Round robin only - a Swiss plays the number of rounds set under Settings - Tournament, and never pairs the same opponents twice."
+                  "Round robin only, 1 to %{max}: 1 is a single round robin, 2 a double, and so on - each cycle with the colours reversed. A Swiss plays the number of rounds set under Settings - Tournament, and never pairs the same opponents twice.",
+                  max: Tournament.max_rr_cycles()
                 )
               }
             >
               <div class="locked-wrap">
-                <select name="tournament[rr_cycles]" disabled={@rr_cycles_locked?}>
-                  <option
-                    :for={{val, label} <- rr_cycles_options()}
-                    value={val}
-                    selected={@tournament.rr_cycles == val}
-                  >
-                    {label}
-                  </option>
-                </select>
+                <input
+                  type="number"
+                  id="settings-rr-cycles"
+                  name="tournament[rr_cycles]"
+                  value={@tournament.rr_cycles}
+                  min="1"
+                  max={Tournament.max_rr_cycles()}
+                  step="1"
+                  disabled={@rr_cycles_locked?}
+                />
                 <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
               </div>
 

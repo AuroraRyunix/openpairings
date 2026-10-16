@@ -914,7 +914,10 @@ defmodule PairingsEngine.Tournaments do
   # `rr_reverse_last_two` (FIDE C.05 Annex 1's reversed last two rounds of
   # the first cycle), unless the same save sets it: on while round m-1 of
   # the first cycle is still unpaired, off once it is - a round already on
-  # the board is never re-cut. Back to one cycle turns it off.
+  # the board is never re-cut. Any other cycle count turns it off, since
+  # only a double round robin has the swap (`RoundRobin.schedule/4`) - and
+  # so a double whose swapped rounds are already paired cannot become any
+  # other length: rounds m-1 and m would stop being the ones played.
   defp follow_round_robin_shape(changeset, %Tournament{} = before) do
     shape_changed? =
       Ecto.Changeset.changed?(changeset, :rr_cycles) or
@@ -934,22 +937,42 @@ defmodule PairingsEngine.Tournaments do
 
   defp default_reverse_last_two(changeset, before, paired, size) do
     explicit? = Map.has_key?(changeset.params || %{}, "rr_reverse_last_two")
+    cycle = RoundRobin.total_rounds(max(size, 2), 1)
 
     cond do
-      explicit? or not Ecto.Changeset.changed?(changeset, :rr_cycles) or Tournament.team?(before) ->
+      not Ecto.Changeset.changed?(changeset, :rr_cycles) or Tournament.team?(before) ->
         changeset
 
-      Ecto.Changeset.get_field(changeset, :rr_cycles) == 2 ->
-        cycle = RoundRobin.total_rounds(max(size, 2), 1)
+      Ecto.Changeset.get_field(changeset, :rr_cycles) != 2 ->
+        changeset
+        |> Ecto.Changeset.put_change(:rr_reverse_last_two, false)
+        |> refuse_recut_reversal(before, paired, cycle)
 
+      explicit? ->
+        changeset
+
+      true ->
         Ecto.Changeset.put_change(
           changeset,
           :rr_reverse_last_two,
           paired == 0 or paired < cycle - 1
         )
+    end
+  end
 
-      true ->
-        Ecto.Changeset.put_change(changeset, :rr_reverse_last_two, false)
+  # A double round robin that already played its swapped round m-1 leaving
+  # two cycles would have the schedule disown that round.
+  defp refuse_recut_reversal(changeset, before, paired, cycle) do
+    if before.rr_cycles == 2 and before.rr_reverse_last_two and cycle >= 2 and
+         paired >= cycle - 1 do
+      Ecto.Changeset.add_error(
+        changeset,
+        :rr_cycles,
+        "must stay 2: round %{round} was paired with the first cycle's last two rounds reversed, which only a double round robin does",
+        round: cycle - 1
+      )
+    else
+      changeset
     end
   end
 

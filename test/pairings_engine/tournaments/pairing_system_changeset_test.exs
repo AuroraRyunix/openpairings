@@ -104,50 +104,49 @@ defmodule PairingsEngine.Tournaments.PairingSystemChangesetTest do
       assert get_field(changeset, :rr_cycles) == 2
     end
 
-    test "rejects 0" do
-      changeset =
-        Tournament.changeset(%Tournament{}, %{
-          "name" => "Test",
-          "type" => "swiss",
-          "rr_cycles" => 0
-        })
-
-      refute changeset.valid?
-      assert %{rr_cycles: ["is invalid"]} = errors_on(changeset)
+    defp cycles_changeset(value) do
+      Tournament.changeset(%Tournament{}, %{
+        "name" => "Test",
+        "type" => "swiss",
+        "rr_cycles" => value
+      })
     end
 
-    test "rejects 3" do
-      changeset =
-        Tournament.changeset(%Tournament{}, %{
-          "name" => "Test",
-          "type" => "swiss",
-          "rr_cycles" => 3
-        })
-
+    test "rejects 0" do
+      changeset = cycles_changeset(0)
       refute changeset.valid?
-      assert %{rr_cycles: ["is invalid"]} = errors_on(changeset)
+      assert %{rr_cycles: ["must be greater than or equal to 1"]} = errors_on(changeset)
     end
 
     test "rejects negative values" do
-      changeset =
-        Tournament.changeset(%Tournament{}, %{
-          "name" => "Test",
-          "type" => "swiss",
-          "rr_cycles" => -1
-        })
-
+      changeset = cycles_changeset(-1)
       refute changeset.valid?
-      assert %{rr_cycles: ["is invalid"]} = errors_on(changeset)
+      assert %{rr_cycles: ["must be greater than or equal to 1"]} = errors_on(changeset)
     end
 
-    test "rejects large values" do
-      changeset =
-        Tournament.changeset(%Tournament{}, %{
-          "name" => "Test",
-          "type" => "swiss",
-          "rr_cycles" => 10
-        })
+    test "a blank value leaves the cycles as they were" do
+      changeset = cycles_changeset("")
+      assert get_field(changeset, :rr_cycles) == 1
+    end
 
+    test "accepts any whole number up to the maximum, 3 and 5 among them" do
+      for n <- [3, 5, Tournament.max_rr_cycles()] do
+        changeset = cycles_changeset(n)
+        assert changeset.valid?, "#{n} cycles"
+        assert get_field(changeset, :rr_cycles) == n
+      end
+    end
+
+    test "rejects one more than the maximum" do
+      changeset = cycles_changeset(Tournament.max_rr_cycles() + 1)
+      refute changeset.valid?
+
+      assert %{rr_cycles: ["must be less than or equal to " <> max]} = errors_on(changeset)
+      assert max == to_string(Tournament.max_rr_cycles())
+    end
+
+    test "rejects a non-integer" do
+      changeset = cycles_changeset("2.5")
       refute changeset.valid?
       assert %{rr_cycles: ["is invalid"]} = errors_on(changeset)
     end
@@ -174,7 +173,7 @@ defmodule PairingsEngine.Tournaments.PairingSystemChangesetTest do
       assert get_field(changeset, :rr_cycles) == 1
     end
 
-    test "rejects rr_match_format=true together with rr_cycles=2" do
+    test "rejects rr_match_format=true together with more than one cycle" do
       changeset =
         Tournament.changeset(%Tournament{}, %{
           "name" => "Test",
@@ -188,7 +187,7 @@ defmodule PairingsEngine.Tournaments.PairingSystemChangesetTest do
 
       assert %{
                rr_match_format: [
-                 "match format is not yet supported together with double round robin (rr_cycles=2)"
+                 "match format is not yet supported together with more than one cycle (rr_cycles > 1)"
                ]
              } = errors_on(changeset)
     end

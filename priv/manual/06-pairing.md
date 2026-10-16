@@ -128,9 +128,10 @@ robin](#numbering-the-players-of-a-round-robin)); after that, it pairs.
 > not in it.
 
 The rounds follow FIDE's Berger tables (C.05); for an odd number of
-players each player sits out one round with a zero-point bye; a double
-cycle plays the table twice with the colours reversed (with the last two
-rounds of the first cycle in reverse order, if that option is on). A player
+players each player sits out one round per cycle with a zero-point bye;
+every further cycle plays the table again with the colours reversed from
+the cycle before (in a double round robin with the last two rounds of the
+first cycle in reverse order, if that option is on). A player
 who is absent or withdrawn stays in the schedule: enter a forfeit result for
 their games. The Berger tables pair on the players' starting numbers, which
 you choose at the first pairing (below) or beforehand on the Players page
@@ -448,7 +449,7 @@ pairing-allocated bye is not offered in a round robin.
 Each board is checked as you make it, and a breach needs its own tick:
 
 - **Two players who already meet in this cycle** - in a single round robin
-  everyone meets everyone exactly once, in a double one once per cycle.
+  everyone meets everyone exactly once, with more cycles once per cycle.
 - **A third same colour running** - a player given White (or Black) in
   three consecutive rounds. The Berger table never does that within a
   cycle; a hand easily does.

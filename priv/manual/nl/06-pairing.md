@@ -136,8 +136,9 @@ nummeren](#numbering-the-players-of-a-round-robin)); daarna paart het.
 > toegevoegd, staan er niet in.
 
 De rondes volgen de Berger-tabellen van FIDE (C.05). Bij een oneven aantal
-spelers rust elke speler één ronde uit met een bye van nul punten. Een dubbele
-cyclus speelt de tabel tweemaal met omgekeerde kleuren (met de laatste twee
+spelers rust elke speler per cyclus één ronde uit met een bye van nul punten.
+Elke volgende cyclus speelt de tabel opnieuw, met de kleuren omgekeerd ten
+opzichte van de vorige cyclus (bij een dubbel rondetoernooi met de laatste twee
 rondes van de eerste cyclus in omgekeerde volgorde, als die optie aanstaat). Een
 speler die afwezig is of zich heeft teruggetrokken, blijft in het schema: voer
 voor zijn partijen een forfaitresultaat in. De Berger-tabellen paren op de
@@ -479,7 +480,7 @@ Elk bord wordt gecontroleerd terwijl je het maakt, en een overtreding vraagt
 een eigen vinkje:
 
 - **Twee spelers die elkaar in deze cyclus al ontmoeten** - in een enkel
-  rondetoernooi ontmoet iedereen iedereen precies één keer, in een dubbel één
+  rondetoernooi ontmoet iedereen iedereen precies één keer, met meer cycli één
   keer per cyclus.
 - **Een derde keer dezelfde kleur op rij** - een speler die in drie
   opeenvolgende rondes wit (of zwart) krijgt. De Berger-tabel doet dat binnen
