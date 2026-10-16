@@ -50,7 +50,7 @@ msgstr ""
 #: lib/pairings_engine_web/components/layouts.ex:1152
 #: lib/pairings_engine_web/components/layouts.ex:1153
 #: lib/pairings_engine_web/components/layouts.ex:1158
-#: lib/pairings_engine_web/live/user_live/settings.ex:889
+#: lib/pairings_engine_web/live/user_live/settings.ex:936
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr ""
@@ -114,7 +114,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1065
 #: lib/pairings_engine_web/components/layouts.ex:1066
-#: lib/pairings_engine_web/live/user_live/settings.ex:914
+#: lib/pairings_engine_web/live/user_live/settings.ex:961
 #, elixir-autogen, elixir-format
 msgid "Accent colour"
 msgstr ""
@@ -211,14 +211,14 @@ msgid "Assign categories?"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:221
-#: lib/pairings_engine_web/live/audit_live.ex:2678
+#: lib/pairings_engine_web/live/audit_live.ex:2694
 #: lib/pairings_engine_web/live/history_live.ex:647
 #: lib/pairings_engine_web/live/history_live.ex:757
 #, elixir-autogen, elixir-format
 msgid "Audit trail"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2751
+#: lib/pairings_engine_web/live/audit_live.ex:2767
 #, elixir-autogen, elixir-format
 msgid "Audit trail - every change, who made it, and when"
 msgstr ""
@@ -291,7 +291,7 @@ msgstr ""
 msgid "Category list"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:734
+#: lib/pairings_engine_web/live/user_live/settings.ex:781
 #, elixir-autogen, elixir-format
 msgid "Change Email"
 msgstr ""
@@ -344,7 +344,7 @@ msgid "Claimed title"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_dates_live.ex:249
-#: lib/pairings_engine_web/live/user_live/settings.ex:1056
+#: lib/pairings_engine_web/live/user_live/settings.ex:1103
 #, elixir-autogen, elixir-format
 msgid "Clear all"
 msgstr ""
@@ -390,7 +390,7 @@ msgstr ""
 #: lib/pairings_engine_web/components/layouts.ex:1208
 #: lib/pairings_engine_web/components/layouts.ex:1209
 #: lib/pairings_engine_web/components/layouts.ex:1214
-#: lib/pairings_engine_web/live/user_live/settings.ex:899
+#: lib/pairings_engine_web/live/user_live/settings.ex:946
 #, elixir-autogen, elixir-format
 msgid "Colour theme"
 msgstr ""
@@ -425,7 +425,7 @@ msgstr ""
 msgid "Confirm and sign in only this time"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:787
+#: lib/pairings_engine_web/live/user_live/settings.ex:834
 #, elixir-autogen, elixir-format
 msgid "Confirm new password"
 msgstr ""
@@ -555,7 +555,7 @@ msgid "Elo bands (rating:bonus, comma-separated)"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:1129
-#: lib/pairings_engine_web/live/user_live/settings.ex:700
+#: lib/pairings_engine_web/live/user_live/settings.ex:747
 #, elixir-autogen, elixir-format
 msgid "Email address"
 msgstr ""
@@ -768,9 +768,10 @@ msgstr ""
 msgid "Go back to this point"
 msgstr ""
 
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:101
 #: lib/pairings_engine_web/live/invite_live.ex:129
 #: lib/pairings_engine_web/live/invite_live.ex:147
-#: lib/pairings_engine_web/live/user_live/settings.ex:1247
+#: lib/pairings_engine_web/live/user_live/settings.ex:1346
 #, elixir-autogen, elixir-format
 msgid "Go to Tournaments"
 msgstr ""
@@ -1000,7 +1001,7 @@ msgstr ""
 msgid "New category name"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:779
+#: lib/pairings_engine_web/live/user_live/settings.ex:826
 #, elixir-autogen, elixir-format
 msgid "New password"
 msgstr ""
@@ -1021,7 +1022,7 @@ msgstr ""
 msgid "No Paid"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2794
+#: lib/pairings_engine_web/live/audit_live.ex:2810
 #, elixir-autogen, elixir-format
 msgid "No audit events recorded yet."
 msgstr ""
@@ -1064,7 +1065,7 @@ msgstr ""
 msgid "No round has been paired yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2715
+#: lib/pairings_engine_web/live/audit_live.ex:2731
 #, elixir-autogen, elixir-format
 msgid "No rounds have been paired yet, so there is nothing to explain."
 msgstr ""
@@ -1130,7 +1131,7 @@ msgstr ""
 msgid "Officials & arbiter candidate"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2826
+#: lib/pairings_engine_web/live/audit_live.ex:2842
 #, elixir-autogen, elixir-format
 msgid "Older →"
 msgstr ""
@@ -1176,7 +1177,7 @@ msgid "Pairing fairness"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:225
-#: lib/pairings_engine_web/live/audit_live.ex:2685
+#: lib/pairings_engine_web/live/audit_live.ex:2701
 #, elixir-autogen, elixir-format
 msgid "Pairing rationale"
 msgstr ""
@@ -1184,7 +1185,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_options_live.ex:442
 #: lib/pairings_engine_web/live/settings_support.ex:565
 #: lib/pairings_engine_web/live/tournaments_live.ex:2462
-#: lib/pairings_engine_web/live/user_live/settings.ex:969
+#: lib/pairings_engine_web/live/user_live/settings.ex:1016
 #, elixir-autogen, elixir-format
 msgid "Pairing system"
 msgstr ""
@@ -1215,7 +1216,7 @@ msgstr ""
 msgid "Person responsible for pairings"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2709
+#: lib/pairings_engine_web/live/audit_live.ex:2725
 #, elixir-autogen, elixir-format
 msgid "Pick a paired round to see its pairing rationale"
 msgstr ""
@@ -1316,7 +1317,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/settings_options_live.ex:895
 #: lib/pairings_engine_web/live/tournaments_live.ex:2587
-#: lib/pairings_engine_web/live/user_live/settings.ex:991
+#: lib/pairings_engine_web/live/user_live/settings.ex:1038
 #, elixir-autogen, elixir-format
 msgid "Rate of play"
 msgstr ""
@@ -1408,7 +1409,7 @@ msgstr ""
 msgid "Save FIDE settings"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:799
+#: lib/pairings_engine_web/live/user_live/settings.ex:846
 #, elixir-autogen, elixir-format
 msgid "Save Password"
 msgstr ""
@@ -1843,7 +1844,7 @@ msgid "e.g. Chess Club A, Chess Club B"
 msgstr ""
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:2568
-#: lib/pairings_engine_web/live/user_live/settings.ex:1003
+#: lib/pairings_engine_web/live/user_live/settings.ex:1050
 #, elixir-autogen, elixir-format
 msgid "e.g. Gent"
 msgstr ""
@@ -1998,7 +1999,7 @@ msgstr ""
 msgid "…or fill the details in by hand below."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2817
+#: lib/pairings_engine_web/live/audit_live.ex:2833
 #, elixir-autogen, elixir-format
 msgid "← Newer"
 msgstr ""
@@ -2449,14 +2450,14 @@ msgid_plural "%{count} edges"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2771
+#: lib/pairings_engine_web/live/audit_live.ex:2787
 #, elixir-autogen, elixir-format
 msgid "%{count} event total in this category."
 msgid_plural "%{count} events total in this category."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2769
+#: lib/pairings_engine_web/live/audit_live.ex:2785
 #, elixir-autogen, elixir-format
 msgid "%{count} event total."
 msgid_plural "%{count} events total."
@@ -2641,7 +2642,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:3179
 #: lib/pairings_engine_web/live/tournaments_live.ex:3193
-#: lib/pairings_engine_web/live/user_live/settings.ex:1180
+#: lib/pairings_engine_web/live/user_live/settings.ex:1279
 #, elixir-autogen, elixir-format
 msgid "Archived"
 msgstr ""
@@ -2699,7 +2700,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/pairings_live.ex:7538
 #: lib/pairings_engine_web/live/settings_export_live.ex:1301
 #: lib/pairings_engine_web/live/teams_live.ex:933
-#: lib/pairings_engine_web/live/user_live/settings.ex:1397
+#: lib/pairings_engine_web/live/user_live/settings.ex:1496
 #, elixir-autogen, elixir-format
 msgid "Board"
 msgstr ""
@@ -2723,6 +2724,7 @@ msgstr ""
 msgid "Bye"
 msgstr ""
 
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:71
 #: lib/pairings_engine_web/live/admin_live.ex:297
 #: lib/pairings_engine_web/live/badge_events_live.ex:151
 #: lib/pairings_engine_web/live/categories_live.ex:1039
@@ -2802,7 +2804,7 @@ msgstr ""
 msgid "Changelog"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:732
+#: lib/pairings_engine_web/live/user_live/settings.ex:779
 #, elixir-autogen, elixir-format
 msgid "Changing..."
 msgstr ""
@@ -3022,7 +3024,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/players_live.ex:3236
 #: lib/pairings_engine_web/live/rating_lists_live.ex:307
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1232
-#: lib/pairings_engine_web/live/user_live/settings.ex:1008
+#: lib/pairings_engine_web/live/user_live/settings.ex:1055
 #, elixir-autogen, elixir-format
 msgid "Federation"
 msgstr ""
@@ -3060,7 +3062,7 @@ msgid "Following"
 msgstr ""
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:2604
-#: lib/pairings_engine_web/live/user_live/settings.ex:984
+#: lib/pairings_engine_web/live/user_live/settings.ex:1031
 #, elixir-autogen, elixir-format
 msgid "Format"
 msgstr ""
@@ -3081,7 +3083,7 @@ msgid "Gratis"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:217
-#: lib/pairings_engine_web/live/audit_live.ex:2671
+#: lib/pairings_engine_web/live/audit_live.ex:2687
 #: lib/pairings_engine_web/live/history_live.ex:633
 #, elixir-autogen, elixir-format
 msgid "History"
@@ -3204,7 +3206,7 @@ msgid "Norm"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:213
-#: lib/pairings_engine_web/live/audit_live.ex:2664
+#: lib/pairings_engine_web/live/audit_live.ex:2680
 #: lib/pairings_engine_web/live/settings_fide_live.ex:414
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:619
 #, elixir-autogen, elixir-format
@@ -3271,12 +3273,12 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/norms_live.ex:885
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1108
-#: lib/pairings_engine_web/live/user_live/settings.ex:1017
+#: lib/pairings_engine_web/live/user_live/settings.ex:1064
 #, elixir-autogen, elixir-format
 msgid "Organizer"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2819
+#: lib/pairings_engine_web/live/audit_live.ex:2835
 #, elixir-autogen, elixir-format
 msgid "Page %{n}"
 msgstr ""
@@ -3328,7 +3330,7 @@ msgid "Pairings - round %{n}"
 msgstr ""
 
 #: lib/pairings_engine_web/live/user_live/login.ex:215
-#: lib/pairings_engine_web/live/user_live/settings.ex:743
+#: lib/pairings_engine_web/live/user_live/settings.ex:790
 #, elixir-autogen, elixir-format
 msgid "Password"
 msgstr ""
@@ -3346,7 +3348,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/standings_live.ex:984
 #: lib/pairings_engine_web/live/standings_live.ex:1194
 #: lib/pairings_engine_web/live/tournaments_live.ex:2564
-#: lib/pairings_engine_web/live/user_live/settings.ex:1002
+#: lib/pairings_engine_web/live/user_live/settings.ex:1049
 #, elixir-autogen, elixir-format
 msgid "Place"
 msgstr ""
@@ -3580,7 +3582,7 @@ msgstr ""
 #: lib/pairings_engine_web/live/tools_norms_live.ex:972
 #: lib/pairings_engine_web/live/tournaments_live.ex:2492
 #: lib/pairings_engine_web/live/tournaments_live.ex:3110
-#: lib/pairings_engine_web/live/user_live/settings.ex:976
+#: lib/pairings_engine_web/live/user_live/settings.ex:1023
 #, elixir-autogen, elixir-format
 msgid "Rounds"
 msgstr ""
@@ -3623,9 +3625,9 @@ msgstr ""
 msgid "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:650
-#: lib/pairings_engine_web/live/user_live/settings.ex:797
-#: lib/pairings_engine_web/live/user_live/settings.ex:1045
+#: lib/pairings_engine_web/live/user_live/settings.ex:697
+#: lib/pairings_engine_web/live/user_live/settings.ex:844
+#: lib/pairings_engine_web/live/user_live/settings.ex:1092
 #, elixir-autogen, elixir-format
 msgid "Saving..."
 msgstr ""
@@ -3745,9 +3747,9 @@ msgid "Syncing…"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1222
-#: lib/pairings_engine_web/live/audit_live.ex:2631
+#: lib/pairings_engine_web/live/audit_live.ex:2647
 #: lib/pairings_engine_web/live/tournaments_live.ex:3108
-#: lib/pairings_engine_web/live/user_live/settings.ex:1392
+#: lib/pairings_engine_web/live/user_live/settings.ex:1491
 #, elixir-autogen, elixir-format
 msgid "System"
 msgstr ""
@@ -3894,7 +3896,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:1652
 #: lib/pairings_engine_web/live/tournaments_live.ex:2300
-#: lib/pairings_engine_web/live/user_live/settings.ex:1174
+#: lib/pairings_engine_web/live/user_live/settings.ex:1273
 #, elixir-autogen, elixir-format
 msgid "Tournaments"
 msgstr ""
@@ -3954,7 +3956,7 @@ msgid "Version %{version} - %[whats_new]"
 msgstr ""
 
 #: lib/pairings_engine_web/live/admin_live.ex:354
-#: lib/pairings_engine_web/live/audit_live.ex:2786
+#: lib/pairings_engine_web/live/audit_live.ex:2802
 #, elixir-autogen, elixir-format
 msgid "What"
 msgstr ""
@@ -3965,7 +3967,7 @@ msgid "What a round a player sits out is worth, and how many of them are paid. T
 msgstr ""
 
 #: lib/pairings_engine_web/live/admin_live.ex:350
-#: lib/pairings_engine_web/live/audit_live.ex:2782
+#: lib/pairings_engine_web/live/audit_live.ex:2798
 #, elixir-autogen, elixir-format
 msgid "When"
 msgstr ""
@@ -4004,7 +4006,7 @@ msgid "White"
 msgstr ""
 
 #: lib/pairings_engine_web/live/admin_live.ex:352
-#: lib/pairings_engine_web/live/audit_live.ex:2784
+#: lib/pairings_engine_web/live/audit_live.ex:2800
 #, elixir-autogen, elixir-format
 msgid "Who"
 msgstr ""
@@ -4320,6 +4322,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/components/connection_status.ex:330
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1027
+#: lib/pairings_engine_web/live/user_live/settings.ex:1556
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr ""
@@ -4802,14 +4805,14 @@ msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:448
 #: lib/pairings_engine_web/live/admin_live.ex:234
-#: lib/pairings_engine_web/live/user_live/settings.ex:94
-#: lib/pairings_engine_web/live/user_live/settings.ex:571
+#: lib/pairings_engine_web/live/user_live/settings.ex:105
+#: lib/pairings_engine_web/live/user_live/settings.ex:614
 #, elixir-autogen, elixir-format
 msgid "Account"
 msgstr ""
 
 #: lib/pairings_engine_web/live/admin_live.ex:385
-#: lib/pairings_engine_web/live/audit_live.ex:2389
+#: lib/pairings_engine_web/live/audit_live.ex:2405
 #, elixir-autogen, elixir-format
 msgid "Account owner"
 msgstr ""
@@ -4827,8 +4830,8 @@ msgid "Admin"
 msgstr ""
 
 #: lib/pairings_engine_web/live/admin_live.ex:383
-#: lib/pairings_engine_web/live/audit_live.ex:2387
-#: lib/pairings_engine_web/live/user_live/settings.ex:1361
+#: lib/pairings_engine_web/live/audit_live.ex:2403
+#: lib/pairings_engine_web/live/user_live/settings.ex:1460
 #, elixir-autogen, elixir-format
 msgid "Administrator"
 msgstr ""
@@ -4872,8 +4875,8 @@ msgid "Running as"
 msgstr ""
 
 #: lib/pairings_engine_web/live/admin_live.ex:384
-#: lib/pairings_engine_web/live/audit_live.ex:2388
-#: lib/pairings_engine_web/live/user_live/settings.ex:1362
+#: lib/pairings_engine_web/live/audit_live.ex:2404
+#: lib/pairings_engine_web/live/user_live/settings.ex:1461
 #, elixir-autogen, elixir-format
 msgid "Support"
 msgstr ""
@@ -5409,8 +5412,8 @@ msgstr ""
 msgid "Bulk club update"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:248
-#: lib/pairings_engine_web/live/user_live/settings.ex:317
+#: lib/pairings_engine_web/live/user_live/settings.ex:270
+#: lib/pairings_engine_web/live/user_live/settings.ex:339
 #, elixir-autogen, elixir-format
 msgid "Could not save that. Please try again."
 msgstr ""
@@ -5425,13 +5428,13 @@ msgstr ""
 msgid "Features"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:604
-#: lib/pairings_engine_web/live/user_live/settings.ex:1072
+#: lib/pairings_engine_web/live/user_live/settings.ex:647
+#: lib/pairings_engine_web/live/user_live/settings.ex:1119
 #, elixir-autogen, elixir-format
 msgid "Federation features"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1086
+#: lib/pairings_engine_web/live/user_live/settings.ex:1133
 #, elixir-autogen, elixir-format
 msgid "It hides buttons. Everything already imported - players, clubs, scores, categories - stays exactly as it is, and scores exactly as it did."
 msgstr ""
@@ -5466,7 +5469,7 @@ msgstr ""
 msgid "SWAR import is switched off for your account. Turn it on under Features to import a .swar file."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1075
+#: lib/pairings_engine_web/live/user_live/settings.ex:1122
 #, elixir-autogen, elixir-format
 msgid "Some national federations have their own member list, their own file format, and their own habits. Switch on the ones you work with; leave the rest off and they stay out of your way."
 msgstr ""
@@ -5491,17 +5494,17 @@ msgstr ""
 msgid "The KBSB player lookup is switched off for your account. Turn it on under Features."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1145
+#: lib/pairings_engine_web/live/user_live/settings.ex:1192
 #, elixir-autogen, elixir-format
 msgid "The player lookup and the bulk club update read the member list the rating list sync downloads. They work with the sync switched off - they just search whatever was last downloaded, which may be an old list, or nothing at all if this machine has never synced."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1084
+#: lib/pairings_engine_web/live/user_live/settings.ex:1131
 #, elixir-autogen, elixir-format
 msgid "Turning a feature off never changes your tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1500
+#: lib/pairings_engine_web/live/user_live/settings.ex:1610
 #, elixir-autogen, elixir-format
 msgid "%{on} of %{total} on"
 msgstr ""
@@ -5561,7 +5564,7 @@ msgstr ""
 msgid "Boards up to %{to}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2381
+#: lib/pairings_engine_web/live/audit_live.ex:2397
 #: lib/pairings_engine_web/live/live_round_live.ex:153
 #, elixir-autogen, elixir-format
 msgid "Deputy"
@@ -5572,7 +5575,7 @@ msgstr ""
 msgid "Deputy - enter and correct, any round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2382
+#: lib/pairings_engine_web/live/audit_live.ex:2398
 #: lib/pairings_engine_web/live/live_round_live.ex:154
 #, elixir-autogen, elixir-format
 msgid "Helper"
@@ -6042,7 +6045,7 @@ msgstr ""
 msgid "%{a} playing %{b}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2186
+#: lib/pairings_engine_web/live/audit_live.ex:2202
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:4103
 #, elixir-autogen, elixir-format
 msgid "%{count} board"
@@ -6279,7 +6282,7 @@ msgstr ""
 msgid "No legal round exists for the remaining players."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1153
+#: lib/pairings_engine_web/live/user_live/settings.ex:1200
 #, elixir-autogen, elixir-format
 msgid "No other federations are packaged yet. Everything else in the application - FIDE ratings, TRF files, the FIDE report forms - is available to everyone and needs no switch."
 msgstr ""
@@ -6832,7 +6835,7 @@ msgstr ""
 msgid "Checks GitHub for a newer OpenPairings release every few hours, and shows a banner at the top of every page when one is out. It only ever notifies - nothing is downloaded or installed automatically, because an update can change the pairing engine's version, and this decides when that happens, not a background timer."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2524
+#: lib/pairings_engine_web/live/audit_live.ex:2540
 #: lib/pairings_engine_web/live/categories_live.ex:756
 #: lib/pairings_engine_web/live/fide_live.ex:1038
 #: lib/pairings_engine_web/live/fide_live.ex:1071
@@ -6845,7 +6848,7 @@ msgstr ""
 msgid "Off"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2523
+#: lib/pairings_engine_web/live/audit_live.ex:2539
 #: lib/pairings_engine_web/live/categories_live.ex:756
 #: lib/pairings_engine_web/live/fide_live.ex:1038
 #: lib/pairings_engine_web/live/settings_boards_live.ex:533
@@ -7496,14 +7499,14 @@ msgstr ""
 msgid "Waiting for the first copy of this tournament to reach the results site. Its link and QR code appear here once it has arrived."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2187
+#: lib/pairings_engine_web/live/audit_live.ex:2203
 #, elixir-autogen, elixir-format
 msgid "%{count} bye"
 msgid_plural "%{count} byes"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2188
+#: lib/pairings_engine_web/live/audit_live.ex:2204
 #, elixir-autogen, elixir-format
 msgid "%{count} floater"
 msgid_plural "%{count} floaters"
@@ -7535,7 +7538,7 @@ msgstr ""
 msgid "%{setting} took this tournament out of FIDE handling in round %{round} (%{code})."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2541
+#: lib/pairings_engine_web/live/audit_live.ex:2557
 #, elixir-autogen, elixir-format
 msgid "(unnamed)"
 msgstr ""
@@ -7578,82 +7581,82 @@ msgstr[1] ""
 msgid "Archived tournament %{name} - it is now read-only."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2069
+#: lib/pairings_engine_web/live/audit_live.ex:2085
 #, elixir-autogen, elixir-format
 msgid "Attempted to clear the result on board %{board} (round %{round}) - refused."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2221
+#: lib/pairings_engine_web/live/audit_live.ex:2237
 #, elixir-autogen, elixir-format
 msgid "Bye awarded to %{player}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2258
+#: lib/pairings_engine_web/live/audit_live.ex:2274
 #, elixir-autogen, elixir-format
 msgid "Changed result on board %{board} (round %{round}) from %{from} to %{to}: %{player} (bye)."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2268
+#: lib/pairings_engine_web/live/audit_live.ex:2284
 #, elixir-autogen, elixir-format
 msgid "Changed result on board %{board} (round %{round}) from %{from} to %{to}: %{white} vs %{black}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2158
+#: lib/pairings_engine_web/live/audit_live.ex:2174
 #, elixir-autogen, elixir-format
 msgid "Changed the address given to spectators from %{from} to %{to}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2164
+#: lib/pairings_engine_web/live/audit_live.ex:2180
 #, elixir-autogen, elixir-format
 msgid "Changed the address given to spectators."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2167
+#: lib/pairings_engine_web/live/audit_live.ex:2183
 #, elixir-autogen, elixir-format
 msgid "Changed the address given to spectators: %{changes}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2142
+#: lib/pairings_engine_web/live/audit_live.ex:2158
 #, elixir-autogen, elixir-format
 msgid "Changed the publishing address from %{from} to %{to}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2148
+#: lib/pairings_engine_web/live/audit_live.ex:2164
 #, elixir-autogen, elixir-format
 msgid "Changed the publishing address."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2151
+#: lib/pairings_engine_web/live/audit_live.ex:2167
 #, elixir-autogen, elixir-format
 msgid "Changed the publishing address: %{changes}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2119
+#: lib/pairings_engine_web/live/audit_live.ex:2135
 #, elixir-autogen, elixir-format
 msgid "Changed the role of %{email} from %{from} to %{to}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2128
+#: lib/pairings_engine_web/live/audit_live.ex:2144
 #, elixir-autogen, elixir-format
 msgid "Changed the role of %{email}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2131
+#: lib/pairings_engine_web/live/audit_live.ex:2147
 #, elixir-autogen, elixir-format
 msgid "Changed the role of %{email}: %{changes}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2172
+#: lib/pairings_engine_web/live/audit_live.ex:2188
 #, elixir-autogen, elixir-format
 msgid "Cleared the publishing token."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2279
+#: lib/pairings_engine_web/live/audit_live.ex:2295
 #, elixir-autogen, elixir-format
 msgid "Cleared the result on board %{board} (round %{round}) (was %{from}): %{player} (bye)."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2288
+#: lib/pairings_engine_web/live/audit_live.ex:2304
 #, elixir-autogen, elixir-format
 msgid "Cleared the result on board %{board} (round %{round}) (was %{from}): %{white} vs %{black}."
 msgstr ""
@@ -7668,12 +7671,12 @@ msgstr ""
 msgid "Collaborators"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2101
+#: lib/pairings_engine_web/live/audit_live.ex:2117
 #, elixir-autogen, elixir-format
 msgid "Could not publish the SWAR results page: %{error}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2089
+#: lib/pairings_engine_web/live/audit_live.ex:2105
 #, elixir-autogen, elixir-format
 msgid "Could not upload the SWAR results page to the federation's results site: %{error}"
 msgstr ""
@@ -7718,7 +7721,7 @@ msgstr ""
 msgid "Disabled manual standings ordering."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2137
+#: lib/pairings_engine_web/live/audit_live.ex:2153
 #, elixir-autogen, elixir-format
 msgid "Downloaded a backup (%{filename})."
 msgstr ""
@@ -7733,12 +7736,12 @@ msgstr ""
 msgid "Enabled manual standings ordering."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2239
+#: lib/pairings_engine_web/live/audit_live.ex:2255
 #, elixir-autogen, elixir-format
 msgid "Entered result %{result} on board %{board} (round %{round}): %{player} (bye)."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2248
+#: lib/pairings_engine_web/live/audit_live.ex:2264
 #, elixir-autogen, elixir-format
 msgid "Entered result %{result} on board %{board} (round %{round}): %{white} vs %{black}."
 msgstr ""
@@ -7825,27 +7828,27 @@ msgstr ""
 msgid "Overrode the round-1 freeze on %{field}: %{from} → %{to}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2193
+#: lib/pairings_engine_web/live/audit_live.ex:2209
 #, elixir-autogen, elixir-format
 msgid "Paired round %{round}: %{boards}, %{byes}, %{floaters}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2201
+#: lib/pairings_engine_web/live/audit_live.ex:2217
 #, elixir-autogen, elixir-format
 msgid "Paired round %{round}: %{boards}, %{byes}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2208
+#: lib/pairings_engine_web/live/audit_live.ex:2224
 #, elixir-autogen, elixir-format
 msgid "Paired round %{round}: %{boards}, %{floaters}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2215
+#: lib/pairings_engine_web/live/audit_live.ex:2231
 #, elixir-autogen, elixir-format
 msgid "Paired round %{round}: %{boards}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2076
+#: lib/pairings_engine_web/live/audit_live.ex:2092
 #, elixir-autogen, elixir-format
 msgid "Published the SWAR results page to the federation's results site (guid %{guid})."
 msgstr ""
@@ -7892,7 +7895,7 @@ msgstr ""
 msgid "Removed the tournament logo."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2171
+#: lib/pairings_engine_web/live/audit_live.ex:2187
 #, elixir-autogen, elixir-format
 msgid "Replaced the publishing token."
 msgstr ""
@@ -7922,7 +7925,7 @@ msgstr ""
 msgid "Saved a restore point: \"%{label}\"."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2175
+#: lib/pairings_engine_web/live/audit_live.ex:2191
 #, elixir-autogen, elixir-format
 msgid "Started a FIDE rating list sync."
 msgstr ""
@@ -7997,27 +8000,27 @@ msgstr ""
 msgid "Uploaded a tournament logo."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2095
+#: lib/pairings_engine_web/live/audit_live.ex:2111
 #, elixir-autogen, elixir-format
 msgid "Uploaded the SWAR results page, but the federation's results site did not confirm it was indexed: %{error}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2326
+#: lib/pairings_engine_web/live/audit_live.ex:2342
 #, elixir-autogen, elixir-format
 msgid "Via phone enrollment #%{id} (%{level})."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2323
+#: lib/pairings_engine_web/live/audit_live.ex:2339
 #, elixir-autogen, elixir-format
 msgid "Via phone enrollment #%{id}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2320
+#: lib/pairings_engine_web/live/audit_live.ex:2336
 #, elixir-autogen, elixir-format
 msgid "Via the phone \"%{label}\" (%{level})."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2317
+#: lib/pairings_engine_web/live/audit_live.ex:2333
 #, elixir-autogen, elixir-format
 msgid "Via the phone \"%{label}\"."
 msgstr ""
@@ -8036,12 +8039,12 @@ msgid_plural "Added category %{category} to every player (%{count} players)."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2438
+#: lib/pairings_engine_web/live/audit_live.ex:2454
 #, elixir-autogen, elixir-format
 msgid "Agreed to publish on %{host}, the results site run by %{operator}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2435
+#: lib/pairings_engine_web/live/audit_live.ex:2451
 #, elixir-autogen, elixir-format
 msgid "Agreed to publish on %{host}."
 msgstr ""
@@ -8068,7 +8071,7 @@ msgstr ""
 msgid "Changed what the public page shows."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2062
+#: lib/pairings_engine_web/live/audit_live.ex:2078
 #, elixir-autogen, elixir-format
 msgid "Declined to publish on %{host}: nothing was sent, and publishing was switched off for this tournament."
 msgstr ""
@@ -8247,7 +8250,7 @@ msgid_plural "Recomputed the pairing rationale of %{count} rounds from the board
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2400
+#: lib/pairings_engine_web/live/audit_live.ex:2416
 #, elixir-autogen, elixir-format
 msgid "Recorded as \"%{summary}\"."
 msgstr ""
@@ -8266,7 +8269,7 @@ msgid_plural "Removed category %{category} from every player (%{count} players).
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2016
+#: lib/pairings_engine_web/live/audit_live.ex:2032
 #, elixir-autogen, elixir-format
 msgid "Removed this tournament from the results site (address %{slug}): its page, its history there and any entries collected for it were deleted. Nothing here was touched."
 msgstr ""
@@ -8293,12 +8296,12 @@ msgstr ""
 msgid "The state it replaced was saved as a restore point first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2451
+#: lib/pairings_engine_web/live/audit_live.ex:2467
 #, elixir-autogen, elixir-format
 msgid "This computer may now register there for a key of its own, for every tournament it publishes."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2447
+#: lib/pairings_engine_web/live/audit_live.ex:2463
 #, elixir-autogen, elixir-format
 msgid "This computer's old key was thrown away, so it registers there again for a new one."
 msgstr ""
@@ -8308,7 +8311,7 @@ msgstr ""
 msgid "This copy is now the one in use, and the copy it came from stays locked until it is given back."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2043
+#: lib/pairings_engine_web/live/audit_live.ex:2059
 #, elixir-autogen, elixir-format
 msgid "Took over publishing the tournament the imported backup came from (address %{slug}). This copy now publishes there, and can remove it."
 msgstr ""
@@ -8323,12 +8326,12 @@ msgstr ""
 msgid "Took the pairings of every round off the public page."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2406
+#: lib/pairings_engine_web/live/audit_live.ex:2422
 #, elixir-autogen, elixir-format
 msgid "Took the pairings of round %{round} and every later round off the public page."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2412
+#: lib/pairings_engine_web/live/audit_live.ex:2428
 #, elixir-autogen, elixir-format
 msgid "Took the standings after round %{round} and every later round off the public page, together with any public pairings of later rounds."
 msgstr ""
@@ -8363,7 +8366,7 @@ msgstr ""
 msgid "Worked out every alternative in the pairing rationale of round %{round}. No pairing was changed."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2050
+#: lib/pairings_engine_web/live/audit_live.ex:2066
 #, elixir-autogen, elixir-format
 msgid "Threw away the publishing key the imported backup carried. This copy publishes to its own address, and can neither update nor remove the tournament the backup came from."
 msgstr ""
@@ -8506,12 +8509,12 @@ msgstr ""
 msgid "Waiting a moment"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2029
+#: lib/pairings_engine_web/live/audit_live.ex:2045
 #, elixir-autogen, elixir-format
 msgid "Kept the old address of this tournament (%{slug}) off the results site after a restore: it had moved to a new address after the backup was made. Publishing is off, and the next publish goes to a new address."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2034
+#: lib/pairings_engine_web/live/audit_live.ex:2050
 #, elixir-autogen, elixir-format
 msgid "Kept this tournament off the results site after a restore: it had been removed from there (address %{slug}) after the backup was made. Publishing is off until somebody turns it on again."
 msgstr ""
@@ -8540,7 +8543,7 @@ msgid "Account and display"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1043
-#: lib/pairings_engine_web/live/user_live/settings.ex:1410
+#: lib/pairings_engine_web/live/user_live/settings.ex:1509
 #, elixir-autogen, elixir-format
 msgid "Blue"
 msgstr ""
@@ -8562,43 +8565,43 @@ msgid "Clear the result"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1049
-#: lib/pairings_engine_web/live/user_live/settings.ex:1416
+#: lib/pairings_engine_web/live/user_live/settings.ex:1515
 #, elixir-autogen, elixir-format
 msgid "Cyan"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1106
-#: lib/pairings_engine_web/live/user_live/settings.ex:1394
+#: lib/pairings_engine_web/live/user_live/settings.ex:1493
 #, elixir-autogen, elixir-format
 msgid "Dark"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1050
-#: lib/pairings_engine_web/live/user_live/settings.ex:1417
+#: lib/pairings_engine_web/live/user_live/settings.ex:1516
 #, elixir-autogen, elixir-format
 msgid "Fuchsia"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1042
-#: lib/pairings_engine_web/live/user_live/settings.ex:1409
+#: lib/pairings_engine_web/live/user_live/settings.ex:1508
 #, elixir-autogen, elixir-format
 msgid "Green"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1111
-#: lib/pairings_engine_web/live/user_live/settings.ex:1399
+#: lib/pairings_engine_web/live/user_live/settings.ex:1498
 #, elixir-autogen, elixir-format
 msgid "High Contrast"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1048
-#: lib/pairings_engine_web/live/user_live/settings.ex:1415
+#: lib/pairings_engine_web/live/user_live/settings.ex:1514
 #, elixir-autogen, elixir-format
 msgid "Indigo"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1105
-#: lib/pairings_engine_web/live/user_live/settings.ex:1393
+#: lib/pairings_engine_web/live/user_live/settings.ex:1492
 #, elixir-autogen, elixir-format
 msgid "Light"
 msgstr ""
@@ -8619,7 +8622,7 @@ msgid "Move %{tiebreak} up"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1108
-#: lib/pairings_engine_web/live/user_live/settings.ex:1396
+#: lib/pairings_engine_web/live/user_live/settings.ex:1495
 #, elixir-autogen, elixir-format
 msgid "Paper"
 msgstr ""
@@ -8651,7 +8654,7 @@ msgid "Resume cycling"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1046
-#: lib/pairings_engine_web/live/user_live/settings.ex:1413
+#: lib/pairings_engine_web/live/user_live/settings.ex:1512
 #, elixir-autogen, elixir-format
 msgid "Rose"
 msgstr ""
@@ -8663,14 +8666,14 @@ msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1047
 #: lib/pairings_engine_web/components/layouts.ex:1107
-#: lib/pairings_engine_web/live/user_live/settings.ex:1395
-#: lib/pairings_engine_web/live/user_live/settings.ex:1414
+#: lib/pairings_engine_web/live/user_live/settings.ex:1494
+#: lib/pairings_engine_web/live/user_live/settings.ex:1513
 #, elixir-autogen, elixir-format
 msgid "Slate"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1044
-#: lib/pairings_engine_web/live/user_live/settings.ex:1411
+#: lib/pairings_engine_web/live/user_live/settings.ex:1510
 #, elixir-autogen, elixir-format
 msgid "Teal"
 msgstr ""
@@ -8681,7 +8684,7 @@ msgid "Type RESTORE to confirm"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1045
-#: lib/pairings_engine_web/live/user_live/settings.ex:1412
+#: lib/pairings_engine_web/live/user_live/settings.ex:1511
 #, elixir-autogen, elixir-format
 msgid "Violet"
 msgstr ""
@@ -9476,7 +9479,7 @@ msgstr ""
 msgid "This team Swiss pairs player by player"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2471
+#: lib/pairings_engine_web/live/audit_live.ex:2487
 #: lib/pairings_engine_web/live/pairings_live.ex:2973
 #: lib/pairings_engine_web/live/pairings_live.ex:2987
 #: lib/pairings_engine_web/live/standings_live.ex:518
@@ -11103,17 +11106,17 @@ msgid_plural "Confirmed over the warning that it took away or changed %{count} g
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2354
+#: lib/pairings_engine_web/live/audit_live.ex:2370
 #, elixir-autogen, elixir-format
 msgid "Confirmed over the warning that the game was postponed and had counted provisionally for pairing."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2366
+#: lib/pairings_engine_web/live/audit_live.ex:2382
 #, elixir-autogen, elixir-format
 msgid "Confirmed over the warning that the result had already been sent in a TRF finalised for sending."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2372
+#: lib/pairings_engine_web/live/audit_live.ex:2388
 #, elixir-autogen, elixir-format
 msgid "Confirmed over the warning that the round had already been sent in a TRF finalised for sending."
 msgstr ""
@@ -12645,66 +12648,66 @@ msgstr ""
 msgid "What spectators see on the results site"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:935
+#: lib/pairings_engine_web/live/user_live/settings.ex:982
 #, elixir-autogen, elixir-format
 msgid "\"This device decides\" leaves each browser with the theme and accent picked in its own top bar. Choose one here to use it everywhere; the top-bar pickers then change it everywhere too."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1445
+#: lib/pairings_engine_web/live/user_live/settings.ex:1544
 #, elixir-autogen, elixir-format
 msgid "%{browser} on %{system}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1471
+#: lib/pairings_engine_web/live/user_live/settings.ex:1581
 #, elixir-autogen, elixir-format
 msgid "%{count} of its tournaments is in the recycle bin, where it can still be restored."
 msgid_plural "%{count} of its tournaments are in the recycle bin, where they can still be restored."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2629
+#: lib/pairings_engine_web/live/audit_live.ex:2645
 #: lib/pairings_engine_web/live/history_live.ex:557
 #, elixir-autogen, elixir-format
 msgid "%{who} (account deleted)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:532
+#: lib/pairings_engine_web/live/user_live/settings.ex:575
 #, elixir-autogen, elixir-format
 msgid "A link to confirm your email change has been sent to the new address."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:706
+#: lib/pairings_engine_web/live/user_live/settings.ex:753
 #, elixir-autogen, elixir-format
 msgid "A new address takes effect once you click the link we send to it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:589
+#: lib/pairings_engine_web/live/user_live/settings.ex:632
 #, elixir-autogen, elixir-format
 msgid "Account sections"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:749
+#: lib/pairings_engine_web/live/user_live/settings.ex:796
 #, elixir-autogen, elixir-format
 msgid "At least 12 characters. Changing it signs every other browser out, including this one for a moment."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1369
+#: lib/pairings_engine_web/live/user_live/settings.ex:1468
 #, elixir-autogen, elixir-format
 msgid "Automatic (the browser's language)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:680
+#: lib/pairings_engine_web/live/user_live/settings.ex:727
 #, elixir-autogen, elixir-format
 msgid "Changing your address or password and signing other browsers out ask you to confirm it's you first, because you signed in a while ago."
 msgstr ""
 
 #: lib/pairings_engine_web/live/user_live/login.ex:134
-#: lib/pairings_engine_web/live/user_live/settings.ex:1325
+#: lib/pairings_engine_web/live/user_live/settings.ex:1424
 #, elixir-autogen, elixir-format
 msgid "Confirm it's you"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:191
+#: lib/pairings_engine_web/live/user_live/settings.ex:213
 #, elixir-autogen, elixir-format
 msgid "Confirm it's you first - it has been a while since you signed in."
 msgstr ""
@@ -12719,63 +12722,63 @@ msgstr ""
 msgid "Confirm it's you first - then download again."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:612
-#: lib/pairings_engine_web/live/user_live/settings.ex:1220
+#: lib/pairings_engine_web/live/user_live/settings.ex:659
+#: lib/pairings_engine_web/live/user_live/settings.ex:1319
 #, elixir-autogen, elixir-format
 msgid "Delete account"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1299
+#: lib/pairings_engine_web/live/user_live/settings.ex:1398
 #, elixir-autogen, elixir-format
 msgid "Delete my account"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1243
+#: lib/pairings_engine_web/live/user_live/settings.ex:1342
 #, elixir-autogen, elixir-format
 msgid "Delete the tournaments you no longer need and empty the recycle bin on the Tournaments page, or ask a collaborator to keep a copy from a backup first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1223
+#: lib/pairings_engine_web/live/user_live/settings.ex:1322
 #, elixir-autogen, elixir-format
 msgid "Deletes this account for good. There is no undo, so download your data first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1233
+#: lib/pairings_engine_web/live/user_live/settings.ex:1332
 #, elixir-autogen, elixir-format
 msgid "Deleting it would delete everything it owns with it, so it has to own nothing first:"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1273
+#: lib/pairings_engine_web/live/user_live/settings.ex:1372
 #, elixir-autogen, elixir-format
 msgid "Deleting the account asks you to confirm it's you first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:640
+#: lib/pairings_engine_web/live/user_live/settings.ex:687
 #, elixir-autogen, elixir-format
 msgid "Display name"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1205
+#: lib/pairings_engine_web/live/user_live/settings.ex:1304
 #, elixir-autogen, elixir-format
 msgid "Download everything (.zip)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1201
+#: lib/pairings_engine_web/live/user_live/settings.ex:1300
 #, elixir-autogen, elixir-format
 msgid "Downloading everything asks you to confirm it's you first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:82
+#: lib/pairings_engine_web/live/user_live/settings.ex:93
 #, elixir-autogen, elixir-format
 msgid "Email change link is invalid or it has expired."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:79
+#: lib/pairings_engine_web/live/user_live/settings.ex:90
 #, elixir-autogen, elixir-format
 msgid "Email changed successfully."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:812
+#: lib/pairings_engine_web/live/user_live/settings.ex:859
 #, elixir-autogen, elixir-format
 msgid "Every browser that can open this account without signing in again. Sign out any you don't recognise, or a computer you have finished with."
 msgstr ""
@@ -12785,158 +12788,158 @@ msgstr ""
 msgid "Filled in from %[link]. Anything you change here applies to this tournament only."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:624
+#: lib/pairings_engine_web/live/user_live/settings.ex:671
 #, elixir-autogen, elixir-format
 msgid "How you appear to the people you share tournaments with: in the audit log, the history, the sharing list and the invitations you send."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1186
+#: lib/pairings_engine_web/live/user_live/settings.ex:1285
 #, elixir-autogen, elixir-format
 msgid "In the recycle bin"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1479
+#: lib/pairings_engine_web/live/user_live/settings.ex:1589
 #, elixir-autogen, elixir-format
 msgid "It is the only administrator. Make somebody else an administrator on the Admin page first."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1463
+#: lib/pairings_engine_web/live/user_live/settings.ex:1573
 #, elixir-autogen, elixir-format
 msgid "It owns %{count} tournament (archived ones included)."
 msgid_plural "It owns %{count} tournaments (archived ones included)."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:646
+#: lib/pairings_engine_web/live/user_live/settings.ex:693
 #, elixir-autogen, elixir-format
 msgid "Leave it empty to show your email address instead."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:736
+#: lib/pairings_engine_web/live/user_live/settings.ex:783
 #, elixir-autogen, elixir-format
 msgid "Link sent"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:723
+#: lib/pairings_engine_web/live/user_live/settings.ex:770
 #, elixir-autogen, elixir-format
 msgid "New email address"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:600
-#: lib/pairings_engine_web/live/user_live/settings.ex:949
+#: lib/pairings_engine_web/live/user_live/settings.ex:643
+#: lib/pairings_engine_web/live/user_live/settings.ex:996
 #, elixir-autogen, elixir-format
 msgid "New tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1431
+#: lib/pairings_engine_web/live/user_live/settings.ex:1530
 #, elixir-autogen, elixir-format
 msgid "No default"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:596
-#: lib/pairings_engine_web/live/user_live/settings.ex:873
+#: lib/pairings_engine_web/live/user_live/settings.ex:639
+#: lib/pairings_engine_web/live/user_live/settings.ex:920
 #, elixir-autogen, elixir-format
 msgid "Preferences"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:590
-#: lib/pairings_engine_web/live/user_live/settings.ex:621
+#: lib/pairings_engine_web/live/user_live/settings.ex:633
+#: lib/pairings_engine_web/live/user_live/settings.ex:668
 #, elixir-autogen, elixir-format
 msgid "Profile"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1046
+#: lib/pairings_engine_web/live/user_live/settings.ex:1093
 #, elixir-autogen, elixir-format
 msgid "Save defaults"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:651
+#: lib/pairings_engine_web/live/user_live/settings.ex:698
 #, elixir-autogen, elixir-format
 msgid "Save profile"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1338
+#: lib/pairings_engine_web/live/user_live/settings.ex:1437
 #, elixir-autogen, elixir-format
 msgid "Saved"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:743
+#: lib/pairings_engine_web/live/user_live/settings.ex:790
 #, elixir-autogen, elixir-format
 msgid "Set a password"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:349
+#: lib/pairings_engine_web/live/user_live/settings.ex:371
 #, elixir-autogen, elixir-format
 msgid "Several confirmation links went out just now. Try again in an hour."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:858
+#: lib/pairings_engine_web/live/user_live/settings.ex:905
 #, elixir-autogen, elixir-format
 msgid "Sign out"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:824
+#: lib/pairings_engine_web/live/user_live/settings.ex:871
 #, elixir-autogen, elixir-format
 msgid "Sign out every other browser? This one stays signed in."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:826
+#: lib/pairings_engine_web/live/user_live/settings.ex:873
 #, elixir-autogen, elixir-format
 msgid "Sign out everywhere else"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:592
-#: lib/pairings_engine_web/live/user_live/settings.ex:666
+#: lib/pairings_engine_web/live/user_live/settings.ex:635
+#: lib/pairings_engine_web/live/user_live/settings.ex:713
 #, elixir-autogen, elixir-format
 msgid "Sign-in & security"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1457
+#: lib/pairings_engine_web/live/user_live/settings.ex:1567
 #, elixir-autogen, elixir-format
 msgid "Signed in %{count} day ago"
 msgid_plural "Signed in %{count} days ago"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1455
+#: lib/pairings_engine_web/live/user_live/settings.ex:1565
 #, elixir-autogen, elixir-format
 msgid "Signed in today"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:580
-#: lib/pairings_engine_web/live/user_live/settings.ex:689
+#: lib/pairings_engine_web/live/user_live/settings.ex:623
+#: lib/pairings_engine_web/live/user_live/settings.ex:736
 #, elixir-autogen, elixir-format
 msgid "Signed in with 02cloud"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1456
+#: lib/pairings_engine_web/live/user_live/settings.ex:1566
 #, elixir-autogen, elixir-format
 msgid "Signed in yesterday"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:453
+#: lib/pairings_engine_web/live/user_live/settings.ex:475
 #, elixir-autogen, elixir-format
 msgid "Signed out of %{count} other session."
 msgid_plural "Signed out of %{count} other sessions."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1193
+#: lib/pairings_engine_web/live/user_live/settings.ex:1292
 #, elixir-autogen, elixir-format
 msgid "Some of these are published on the results site, and their backups carry the publishing key: anyone holding the zip can update or delete those pages. Keep it somewhere private."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:876
+#: lib/pairings_engine_web/live/user_live/settings.ex:923
 #, elixir-autogen, elixir-format
 msgid "Stored on your account, so they follow you to every computer you sign in on. Saved as you choose."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:414
+#: lib/pairings_engine_web/live/user_live/settings.ex:436
 #, elixir-autogen, elixir-format
 msgid "That is this browser - use Log out to end it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:425
+#: lib/pairings_engine_web/live/user_live/settings.ex:447
 #, elixir-autogen, elixir-format
 msgid "That session has been signed out."
 msgstr ""
@@ -12956,99 +12959,99 @@ msgstr ""
 msgid "The account still owns tournaments, so it was not deleted."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:893
+#: lib/pairings_engine_web/live/user_live/settings.ex:940
 #, elixir-autogen, elixir-format
 msgid "The language picker in the top bar changes this too. \"Automatic\" uses whatever each browser asks for."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1233
+#: lib/pairings_engine_web/live/user_live/settings.ex:1332
 #, elixir-autogen, elixir-format
 msgid "This account can't be deleted yet."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:710
+#: lib/pairings_engine_web/live/user_live/settings.ex:757
 #, elixir-autogen, elixir-format
 msgid "This account is also linked to 02cloud sign-in, which keeps working."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:849
+#: lib/pairings_engine_web/live/user_live/settings.ex:896
 #, elixir-autogen, elixir-format
 msgid "This browser"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:583
+#: lib/pairings_engine_web/live/user_live/settings.ex:626
 #, elixir-autogen, elixir-format
 msgid "This computer"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1376
-#: lib/pairings_engine_web/live/user_live/settings.ex:1383
+#: lib/pairings_engine_web/live/user_live/settings.ex:1475
+#: lib/pairings_engine_web/live/user_live/settings.ex:1482
 #, elixir-autogen, elixir-format
 msgid "This device decides"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1256
+#: lib/pairings_engine_web/live/user_live/settings.ex:1355
 #, elixir-autogen, elixir-format
 msgid "Tournaments shared with you stay with their owners; you are removed from them, and each one's audit log says you left."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1288
+#: lib/pairings_engine_web/live/user_live/settings.ex:1387
 #, elixir-autogen, elixir-format
 msgid "Type %{email} to confirm"
 msgstr ""
 
 #: lib/pairings_engine_web/controllers/account_controller.ex:115
-#: lib/pairings_engine_web/live/user_live/settings.ex:494
+#: lib/pairings_engine_web/live/user_live/settings.ex:537
 #, elixir-autogen, elixir-format
 msgid "Type your email address exactly to delete the account."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1442
+#: lib/pairings_engine_web/live/user_live/settings.ex:1541
 #, elixir-autogen, elixir-format
 msgid "Unknown browser"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:985
+#: lib/pairings_engine_web/live/user_live/settings.ex:1032
 #, elixir-autogen, elixir-format
 msgid "Usual default (Standard)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:970
+#: lib/pairings_engine_web/live/user_live/settings.ex:1017
 #, elixir-autogen, elixir-format
 msgid "Usual default (Swiss)"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:546
+#: lib/pairings_engine_web/live/user_live/settings.ex:589
 #, elixir-autogen, elixir-format
 msgid "We could not send the confirmation email. Please try again shortly."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:952
+#: lib/pairings_engine_web/live/user_live/settings.ex:999
 #, elixir-autogen, elixir-format
 msgid "What \"New tournament\" starts with, so a club that runs the same event every week doesn't type it every week. Leave a field empty to keep the usual default. Existing tournaments and imports are not affected."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1262
+#: lib/pairings_engine_web/live/user_live/settings.ex:1361
 #, elixir-autogen, elixir-format
 msgid "What you changed in other people's tournaments stays in their audit logs under your address - it is their record of who did what."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:809
+#: lib/pairings_engine_web/live/user_live/settings.ex:856
 #, elixir-autogen, elixir-format
 msgid "Where you're signed in"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1252
+#: lib/pairings_engine_web/live/user_live/settings.ex:1351
 #, elixir-autogen, elixir-format
 msgid "You are signed out everywhere, and this address can register again."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:703
+#: lib/pairings_engine_web/live/user_live/settings.ex:750
 #, elixir-autogen, elixir-format
 msgid "You sign in as %[email]."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:753
+#: lib/pairings_engine_web/live/user_live/settings.ex:800
 #, elixir-autogen, elixir-format
 msgid "You sign in with an email link. A password lets you sign in without waiting for one. At least 12 characters."
 msgstr ""
@@ -13058,28 +13061,28 @@ msgstr ""
 msgid "Your account has been deleted."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:691
+#: lib/pairings_engine_web/live/user_live/settings.ex:738
 #, elixir-autogen, elixir-format
 msgid "Your address (%{email}) and your password are managed by 02cloud. Change them there; this account follows."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:669
+#: lib/pairings_engine_web/live/user_live/settings.ex:716
 #, elixir-autogen, elixir-format
 msgid "Your address, your password, and every browser that is signed in to this account."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1267
+#: lib/pairings_engine_web/live/user_live/settings.ex:1366
 #, elixir-autogen, elixir-format
 msgid "Your badge events are deleted with the account."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:608
-#: lib/pairings_engine_web/live/user_live/settings.ex:1162
+#: lib/pairings_engine_web/live/user_live/settings.ex:655
+#: lib/pairings_engine_web/live/user_live/settings.ex:1261
 #, elixir-autogen, elixir-format
 msgid "Your data"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:641
+#: lib/pairings_engine_web/live/user_live/settings.ex:688
 #, elixir-autogen, elixir-format
 msgid "e.g. Jan Peeters"
 msgstr ""
@@ -13089,7 +13092,7 @@ msgstr ""
 msgid "your defaults for new tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1165
+#: lib/pairings_engine_web/live/user_live/settings.ex:1264
 #, elixir-autogen, elixir-format
 msgid "One zip with your account settings and a backup of every tournament you can open. Each backup is the same file a tournament's Settings - Export gives you, and goes back in with \"Import backup (JSON)\" on the Tournaments page."
 msgstr ""
@@ -13297,7 +13300,7 @@ msgstr ""
 msgid "On the results site:"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1030
+#: lib/pairings_engine_web/live/user_live/settings.ex:1077
 #, elixir-autogen, elixir-format
 msgid "Pairings after (minutes)"
 msgstr ""
@@ -13312,7 +13315,7 @@ msgstr ""
 msgid "Pairings once paired"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1022
+#: lib/pairings_engine_web/live/user_live/settings.ex:1069
 #, elixir-autogen, elixir-format
 msgid "Publish automatically"
 msgstr ""
@@ -13347,7 +13350,7 @@ msgstr ""
 msgid "Results go live from now on - including the results of rounds whose pairings are already public. Continue?"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1039
+#: lib/pairings_engine_web/live/user_live/settings.ex:1086
 #, elixir-autogen, elixir-format
 msgid "Rounds go public without you pressing anything."
 msgstr ""
@@ -13432,7 +13435,7 @@ msgstr ""
 msgid "This tournament will appear on the results site's front page."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1023
+#: lib/pairings_engine_web/live/user_live/settings.ex:1070
 #, elixir-autogen, elixir-format
 msgid "Usual default (by hand)"
 msgstr ""
@@ -13452,7 +13455,7 @@ msgstr ""
 msgid "Who plays whom, once a round is paired"
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1039
+#: lib/pairings_engine_web/live/user_live/settings.ex:1086
 #, elixir-autogen, elixir-format
 msgid "With no delay the field sees a pairing at the same moment you do. You can always take a round back down on the Pairings page."
 msgstr ""
@@ -14567,7 +14570,7 @@ msgstr ""
 msgid "Nothing is sent again on its own. If the change is right, tell the rating officer; the round stays marked as sent."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2494
+#: lib/pairings_engine_web/live/audit_live.ex:2510
 #, elixir-autogen, elixir-format
 msgid "Receipt %{codes}."
 msgid_plural "Receipts %{codes}."
@@ -15997,7 +16000,7 @@ msgstr ""
 msgid "Compared with the FIDE list of %{period} (valid on %{date})."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2360
+#: lib/pairings_engine_web/live/audit_live.ex:2376
 #, elixir-autogen, elixir-format
 msgid "Confirmed over the warning that a later round had already been paired with the old result."
 msgstr ""
@@ -17372,12 +17375,12 @@ msgstr[1] ""
 msgid "Adds \"Preview next round\" to the Pairings page: while the last games of a round are still being played, it works out which boards of the next round are already certain, whatever those games' results, so name cards can go out early. Can be printed."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1100
+#: lib/pairings_engine_web/live/user_live/settings.ex:1147
 #, elixir-autogen, elixir-format
 msgid "Extra tools for any federation, none of which changes how a tournament is paired or scored. Off until you switch them on."
 msgstr ""
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1097
+#: lib/pairings_engine_web/live/user_live/settings.ex:1144
 #, elixir-autogen, elixir-format
 msgid "Optional tools"
 msgstr ""
@@ -17807,6 +17810,7 @@ msgstr ""
 
 #: lib/pairings_engine_web/live/pairings_live.ex:3061
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1051
+#: lib/pairings_engine_web/live/user_live/settings.ex:1247
 #, elixir-autogen, elixir-format
 msgid "Withdraw"
 msgstr ""
@@ -17823,15 +17827,15 @@ msgid_plural "Withdrew the announcement of round %{round} (%{count} boards)."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2464
-#: lib/pairings_engine_web/live/audit_live.ex:2477
+#: lib/pairings_engine_web/live/audit_live.ex:2480
+#: lib/pairings_engine_web/live/audit_live.ex:2493
 #: lib/pairings_engine_web/live/pairings_live.ex:2980
 #: lib/pairings_engine_web/live/pairings_live.ex:2994
 #, elixir-autogen, elixir-format
 msgid "board %{b}: %{white} – %{black}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2474
+#: lib/pairings_engine_web/live/audit_live.ex:2490
 #: lib/pairings_engine_web/live/pairings_live.ex:2990
 #, elixir-autogen, elixir-format
 msgid "board %{b}: %{white}, bye"
@@ -18058,7 +18062,7 @@ msgid "Round %{round} of the Berger table pairs %{a} and %{b}, who already met i
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1110
-#: lib/pairings_engine_web/live/user_live/settings.ex:1398
+#: lib/pairings_engine_web/live/user_live/settings.ex:1497
 #, elixir-autogen, elixir-format
 msgid "Tom W"
 msgstr ""
@@ -19101,16 +19105,18 @@ msgstr ""
 #: lib/pairings_engine_web/live/settings_boards_live.ex:476
 #: lib/pairings_engine_web/live/settings_results_live.ex:1406
 #: lib/pairings_engine_web/live/settings_support.ex:95
+#: lib/pairings_engine_web/live/user_live/settings.ex:651
+#: lib/pairings_engine_web/live/user_live/settings.ex:1209
 #, elixir-autogen, elixir-format
 msgid "Live boards"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2007
+#: lib/pairings_engine_web/live/audit_live.ex:2023
 #, elixir-autogen, elixir-format
 msgid "Said this tournament has live boards: the results site links its pages to them."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:2009
+#: lib/pairings_engine_web/live/audit_live.ex:2025
 #, elixir-autogen, elixir-format
 msgid "Said this tournament has no live boards: the results site stops linking to them."
 msgstr ""
@@ -19608,7 +19614,7 @@ msgstr[1] ""
 msgid "%{n} s ago"
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1958
+#: lib/pairings_engine_web/live/audit_live.ex:1974
 #, elixir-autogen, elixir-format
 msgid "A board box used its connect code for the first time: %{box} (code ending in %{hint})."
 msgstr ""
@@ -19719,6 +19725,7 @@ msgid "Moves"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1025
+#: lib/pairings_engine_web/live/user_live/settings.ex:1552
 #, elixir-autogen, elixir-format
 msgid "Never used"
 msgstr ""
@@ -19778,12 +19785,12 @@ msgstr ""
 msgid "Remove the relay key? The box stops receiving it, and can no longer send moves to the results site once it notices."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1930
+#: lib/pairings_engine_web/live/audit_live.ex:1946
 #, elixir-autogen, elixir-format
 msgid "Removed the results site's relay key."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1927
+#: lib/pairings_engine_web/live/audit_live.ex:1943
 #, elixir-autogen, elixir-format
 msgid "Saved the results site's relay key, to be handed to the board box."
 msgstr ""
@@ -20014,7 +20021,7 @@ msgstr ""
 msgid "The box worked out %{reconstructed} of these moves after the fact, guessed %{guessed} and rewrote %{rewritten}. A guessed move is the box's best reading of an unclear board, not something it saw; a rewritten move was first read as another move of the same piece."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1954
+#: lib/pairings_engine_web/live/audit_live.ex:1970
 #, elixir-autogen, elixir-format
 msgid "Asked the results site for a new permission for the board box."
 msgstr ""
@@ -20084,7 +20091,7 @@ msgstr ""
 msgid "The results site did not hand out a new one: %{reason}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1948
+#: lib/pairings_engine_web/live/audit_live.ex:1964
 #, elixir-autogen, elixir-format
 msgid "The results site did not hand out the board box's permission to send moves (%{reason})."
 msgstr ""
@@ -20094,12 +20101,12 @@ msgstr ""
 msgid "The results site does not show this tournament yet. This is tried again by itself once it does."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1935
+#: lib/pairings_engine_web/live/audit_live.ex:1951
 #, elixir-autogen, elixir-format
 msgid "The results site handed out a new permission for the board box (relay key ending in %{hint}); the previous one no longer works."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1940
+#: lib/pairings_engine_web/live/audit_live.ex:1956
 #, elixir-autogen, elixir-format
 msgid "The results site handed out the board box's permission to send moves (relay key ending in %{hint})."
 msgstr ""
@@ -20324,14 +20331,14 @@ msgstr ""
 msgid "Ready at %{address}, and closed until there is a code for a box on the network: no code, no open port. Make one below."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1996
+#: lib/pairings_engine_web/live/audit_live.ex:2012
 #, elixir-autogen, elixir-format
 msgid "Removed %{count} game reported by a board, because its pairing no longer exists. The board box keeps its own copy."
 msgid_plural "Removed %{count} games reported by the boards, because their pairings no longer exist. The board box keeps its own copy."
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1972
+#: lib/pairings_engine_web/live/audit_live.ex:1988
 #, elixir-autogen, elixir-format
 msgid "Set the address on which this computer answers board boxes on the network to %{where}."
 msgstr ""
@@ -20341,13 +20348,13 @@ msgstr ""
 msgid "Switch this off? Boxes on the network are disconnected at once. Their codes are kept and work again when you switch it back on."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1984
-#: lib/pairings_engine_web/live/audit_live.ex:1991
+#: lib/pairings_engine_web/live/audit_live.ex:2000
+#: lib/pairings_engine_web/live/audit_live.ex:2007
 #, elixir-autogen, elixir-format
 msgid "Switched off \"Let boards on this network connect\"."
 msgstr ""
 
-#: lib/pairings_engine_web/live/audit_live.ex:1978
+#: lib/pairings_engine_web/live/audit_live.ex:1994
 #, elixir-autogen, elixir-format
 msgid "Switched on \"Let boards on this network connect\": this computer answers board boxes at %{where}, and nothing else there."
 msgstr ""
@@ -20564,7 +20571,7 @@ msgstr ""
 msgid "This pairs every round of the schedule at once and locks in who is playing: anyone added afterwards is not in it, and the schedule cannot be changed once it exists."
 msgstr ""
 
-#: lib/pairings_engine/trf_export.ex:544
+#: lib/pairings_engine/trf_export.ex:545
 #, elixir-autogen, elixir-format
 msgid "%{count} player holds extra points that neither count in the standings nor reach the pairing. A TRF carries only points that do one or the other, so these are not in the file, and a tournament imported from it has none."
 msgid_plural "%{count} players hold extra points that neither count in the standings nor reach the pairing. A TRF carries only points that do one or the other, so these are not in the file, and a tournament imported from it has none."
@@ -20809,3 +20816,132 @@ msgid "One of them is in a round a later complete round has moved past: it count
 msgid_plural "%{count} of them are in rounds a later complete round has moved past: they count as postponed games until their results are entered, and the published standings say they have no result yet."
 msgstr[0] ""
 msgstr[1] ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:17
+#, elixir-autogen, elixir-format
+msgid "%{box} asks to read your tournaments."
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1225
+#, elixir-autogen, elixir-format
+msgid "A board box"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:19
+#, elixir-autogen, elixir-format
+msgid "A board box asks to read your tournaments."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:81
+#, elixir-autogen, elixir-format
+msgid "Allow"
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1212
+#, elixir-autogen, elixir-format
+msgid "Board boxes connected to your account, from the box's own \"Connect an OpenPairings account\". Each reads every tournament you may edit that is current - not finished, or finished within the last %{days} days - and reports what its boards see beside the pairings. A board never enters a result. A code for one tournament or one group is made on that tournament's Settings, Live boards, instead."
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1228
+#, elixir-autogen, elixir-format
+msgid "Code …%{hint}"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_controller.ex:43
+#: lib/pairings_engine_web/controllers/board_connect_controller.ex:77
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:13
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:95
+#, elixir-autogen, elixir-format
+msgid "Connect a board box"
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:1930
+#, elixir-autogen, elixir-format
+msgid "Connected a board box to their account: %{box} (code ends in %{hint})."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:56
+#, elixir-autogen, elixir-format
+msgid "Did not ask for this yourself? Cancel."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:23
+#, elixir-autogen, elixir-format
+msgid "If you allow it, you will be sent to:"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:33
+#, elixir-autogen, elixir-format
+msgid "It sees every tournament you may edit that is current: not finished, or finished within the last %{days} days. One you lose access to, or archive, drops off at once."
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1559
+#, elixir-autogen, elixir-format
+msgid "Last contact %{n} days ago"
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1558
+#, elixir-autogen, elixir-format
+msgid "Last contact %{n} h ago"
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1557
+#, elixir-autogen, elixir-format
+msgid "Last contact %{n} min ago"
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1253
+#, elixir-autogen, elixir-format
+msgid "No board box is connected to your account."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:26
+#, elixir-autogen, elixir-format
+msgid "This address is plain http. That is normal for a box on this computer or in the hall, and nowhere else."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:97
+#, elixir-autogen, elixir-format
+msgid "This request does not say where to go back to, or names an address that is not a web address. Nothing was connected. Start again from the box."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:39
+#, elixir-autogen, elixir-format
+msgid "What its boards see is shown beside the pairings. A board never enters a result; you still do."
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1242
+#, elixir-autogen, elixir-format
+msgid "Withdraw this box? It is refused from its next request on, and needs to be connected again."
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:1255
+#, elixir-autogen, elixir-format
+msgid "Withdrawn"
+msgstr ""
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:497
+#, elixir-autogen, elixir-format
+msgid "Withdrawn. That box is refused from its next request on."
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:1937
+#, elixir-autogen, elixir-format
+msgid "Withdrew a board box from their account: %{box} (code ended in %{hint})."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:44
+#, elixir-autogen, elixir-format
+msgid "You can withdraw it at any time on your account page, under Live boards."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/board_connect_html.ex:49
+#, elixir-autogen, elixir-format
+msgid "Your account already has %{max} board boxes connected. Withdraw one on your account page first."
+msgstr ""
+
+#: lib/pairings_engine_web/live/audit_live.ex:1931
+#: lib/pairings_engine_web/live/audit_live.ex:1938
+#, elixir-autogen, elixir-format
+msgid "a box"
+msgstr ""

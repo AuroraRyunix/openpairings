@@ -70,7 +70,8 @@ in de eigen documentatie van Alnasl.
 ## Een kastje koppelen {#connecting-a-box}
 
 *Gebouwd.* Een kastje wordt met een koppelcode aan OpenPairings gekoppeld. In
-OpenPairings: Instellingen, **Live borden**. Hetzelfde, als stappen, staat in
+OpenPairings: Instellingen, **Live borden** - of, helemaal zonder code, door
+[je account te koppelen](#connecting-your-account). Hetzelfde, als stappen, staat in
 [Elektronische borden installeren](18-setting-up-boards.md).
 
 ### Een code voor het toernooi {#a-code-for-the-tournament}
@@ -100,6 +101,34 @@ bereikt het kastje zonder nieuwe scan.
 Een groepscode geeft toegang tot de toernooien van de groep die **de persoon die
 de code maakte** mag openen, en tot geen andere. Een afdeling van een andere
 arbiter, die je niet kunt openen, gaat ook niet naar je kastje.
+
+### Je account koppelen {#connecting-your-account}
+
+De derde manier heeft helemaal geen code nodig. Op het kastje stuurt Alnasl via
+**Instellingen -> Toernooien -> Een OpenPairings-account koppelen** je browser
+hierheen. Je meldt je aan als je dat nog niet was, en een pagina vraagt of dat
+kastje je toernooien mag lezen. Ze noemt het kastje en, in grote letters, het
+adres waar je naar teruggestuurd wordt: kijk na dat het je eigen kastje is
+voor je op **Toestaan** drukt. **Annuleren** koppelt niets.
+
+Een accountkoppeling bereikt elk toernooi dat je mag bewerken - je eigen en de
+toernooien die met je gedeeld zijn - dat **actueel** is: niet afgelopen, of
+afgelopen in de laatste 14 dagen (gerekend vanaf de datum van de laatste ronde).
+Een toernooi zonder ronde telt als actueel, net als een toernooi dat nog op een
+uitgestelde partij wacht. Gearchiveerde en overgedragen toernooien bereiken het
+kastje nooit, en een toernooi waar je geen toegang meer toe hebt, valt weg bij
+het volgende verzoek van het kastje. Een toernooi dat je volgende week maakt,
+verschijnt vanzelf op het kastje.
+
+De koppelingen van je account staan op je **accountpagina, Live borden**: de
+naam van het kastje, wanneer het laatst belde en de laatste tekens van zijn
+code. **Intrekken** sluit een kastje af vanaf zijn volgende verzoek. Een account
+kan tot 8 kastjes gekoppeld hebben. Een koppeling maken en intrekken staan in
+het auditlogboek van de installatie, omdat ze bij geen enkel toernooi horen.
+
+Op een desktopkopie werkt dit voor een kastjesprogramma op dezelfde computer.
+Een kastje elders op het zaalnetwerk heeft nog altijd een netwerkcode nodig
+(hieronder): de netwerkluisteraar neemt geen accountkoppelingen aan.
 
 ### Een kastje elders op het netwerk {#boxes-on-the-network}
 

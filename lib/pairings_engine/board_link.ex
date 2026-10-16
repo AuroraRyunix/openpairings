@@ -23,6 +23,12 @@ defmodule PairingsEngine.BoardLink do
       its maker may open, read at the moment the box asks. A tournament
       added to the group next week reaches the box without a new scan; one
       the maker loses access to stops reaching it.
+    * a code for an account (`connect/2`): every tournament that account
+      may edit and that is still current, read the same way. It is not
+      typed or scanned: the box sends the arbiter's browser to a consent
+      page here, and gets the code back through a one-time grant
+      (`redeem_grant/1`). It is the group code with the account as the
+      group, and goes through the same paths.
 
   The secret is random, shown once and kept as a SHA-256. Losing it costs a
   click (`create_link/2` again); having it in a readable column would cost
@@ -33,6 +39,15 @@ defmodule PairingsEngine.BoardLink do
   carries the PC's network address, it is the only kind the network
   listener accepts, and it stops working thirty days after it was made,
   because its secret crosses the hall in plain http.
+
+  ## Current, for an account code
+
+  An account code would otherwise hand a box every tournament its owner
+  ever ran. It reaches the ones that are still current: not finished, or
+  finished no more than fourteen days ago (by the last round's date, or by
+  the last change to a tournament that has no dates). A tournament without
+  a round yet is current; so is one that is "running" because a postponed
+  game is still to be played, however old.
 
   ## Who may
 
@@ -55,12 +70,22 @@ defmodule PairingsEngine.BoardLink do
 
   alias PairingsEngine.{Audit, Publishing, Repo, Results, TournamentGroups, Tournaments}
   alias PairingsEngine.Accounts.{Scope, User}
-  alias PairingsEngine.BoardLink.{Document, Game, Link, RelayKeys}
+  alias PairingsEngine.BoardLink.{Document, Game, Grant, Link, RelayKeys}
   alias PairingsEngine.TournamentGroups.Member
-  alias PairingsEngine.Tournaments.{Pairing, Round, Tournament}
+  alias PairingsEngine.Tournaments.{Collaborator, Pairing, Round, Tournament}
 
   @tournament_prefix "oplt_"
   @group_prefix "oplg_"
+  @account_prefix "oplu_"
+
+  # How long a grant waits for the box to trade it in. The browser carries
+  # it straight back, so the box asks within seconds; two minutes covers a
+  # slow hall network and nothing else.
+  @grant_seconds 120
+
+  # A finished tournament stays on an account code this long: long enough
+  # for a late correction, short enough that last season is not on the box.
+  @finished_days 14
 
   # 256 bits, like the publishing key next door: it is sized against
   # guessing, not against enumeration.
@@ -81,8 +106,14 @@ defmodule PairingsEngine.BoardLink do
 
   ## ---------- codes ----------
 
-  @doc "How many codes one tournament, or one group, may have at a time."
+  @doc "How many codes one tournament, one group, or one account may have at a time."
   def max_links, do: @max_links
+
+  @doc "How long a grant is good for, in seconds."
+  def grant_seconds, do: @grant_seconds
+
+  @doc "How many days after it finished a tournament still reaches an account code."
+  def finished_days, do: @finished_days
 
   @doc """
   Makes a connect code for `tournament`. `{:ok, link, secret}` - the secret
@@ -139,6 +170,138 @@ defmodule PairingsEngine.BoardLink do
     end
   end
 
+  ## ---------- account codes ----------
+
+  @doc """
+  "Allow" on the consent page: makes an account code for `scope`'s account
+  and a grant for it. `{:ok, link, grant}` - the grant goes back to the box
+  in the browser's address bar and is traded for the code by
+  `redeem_grant/1`, once, within #{@grant_seconds} seconds.
+
+  `label: "Alnasl - Hall A"` is what the box asked to be called, kept for
+  the account page. `{:error, :too_many_codes}` past #{@max_links}.
+  """
+  @spec connect(Scope.t(), keyword()) :: {:ok, Link.t(), String.t()} | {:error, atom()}
+  def connect(%Scope{user: %User{} = user} = scope, opts \\ []) do
+    label = clip(Keyword.get(opts, :label), 80)
+
+    with :ok <- room(from(l in Link, where: l.user_id == ^user.id)) do
+      {link, secret} = insert_link(scope, @account_prefix, user_id: user.id, label: label)
+      grant = issue_grant(link, secret)
+
+      Audit.log_system(scope, "boards.account_code_created", %{
+        hint: link.secret_hint,
+        box: label
+      })
+
+      Publishing.Drain.nudge()
+      {:ok, link, grant}
+    end
+  end
+
+  @doc "The account codes of `scope`'s account, oldest first."
+  def list_account_links(%Scope{user: %User{id: user_id}}),
+    do: Repo.all(from l in Link, where: l.user_id == ^user_id, order_by: l.id)
+
+  def list_account_links(_scope), do: []
+
+  @doc """
+  Withdraws account code `link_id`, which must be `scope`'s own. The box
+  holding it is refused from the next request on.
+  """
+  @spec revoke_account_link(Scope.t(), term()) :: {:ok, Link.t()} | {:error, :not_found}
+  def revoke_account_link(%Scope{user: %User{id: user_id}} = scope, link_id) do
+    with id when is_integer(id) <- to_id(link_id),
+         %Link{} = link <-
+           Repo.one(from l in Link, where: l.id == ^id and l.user_id == ^user_id) do
+      reached = covered_ids(link)
+      Repo.delete!(link)
+
+      Audit.log_system(scope, "boards.account_code_revoked", %{
+        hint: link.secret_hint,
+        box: link.label || link.box_name
+      })
+
+      Enum.each(reached, &notify/1)
+      {:ok, link}
+    else
+      _none -> {:error, :not_found}
+    end
+  end
+
+  # The secret, sealed under a key only the grant can make. The grant itself
+  # is kept as a hash, like every secret here.
+  defp issue_grant(%Link{} = link, secret) do
+    grant = Base.url_encode64(:crypto.strong_rand_bytes(@secret_bytes), padding: false)
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.insert!(%Grant{
+      grant_hash: hash(grant),
+      link_id: link.id,
+      sealed: seal(secret, grant),
+      expires_at: DateTime.add(now, @grant_seconds, :second)
+    })
+
+    grant
+  end
+
+  @doc """
+  Trades a grant for the secret of the account code it stands for:
+  `{:ok, secret}` the first time, within #{@grant_seconds} seconds, and
+  `:error` ever after - used, run out, never issued, or for a code that has
+  been withdrawn since. Like `authenticate/2`, it does not say which.
+  """
+  @spec redeem_grant(term()) :: {:ok, String.t()} | :error
+  def redeem_grant(grant) when is_binary(grant) and byte_size(grant) in 20..200 do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+    # Whatever has run out goes first, so an old grant is not merely
+    # refused but gone.
+    Repo.delete_all(from g in Grant, where: g.expires_at <= ^now)
+
+    with %Grant{} = row <- Repo.get_by(Grant, grant_hash: hash(grant)),
+         # The delete is the use: of two requests with the same grant, the
+         # one whose delete removed the row is the one that gets the code.
+         {1, _} <- Repo.delete_all(from g in Grant, where: g.id == ^row.id),
+         %Link{} <- Repo.get(Link, row.link_id),
+         {:ok, secret} <- unseal(row.sealed, grant) do
+      {:ok, secret}
+    else
+      _refused -> :error
+    end
+  end
+
+  def redeem_grant(_other), do: :error
+
+  @grant_aad "board-link-grant"
+
+  defp grant_key(grant), do: :crypto.hash(:sha256, "board-link-grant-key:" <> grant)
+
+  defp seal(secret, grant) do
+    iv = :crypto.strong_rand_bytes(12)
+
+    {cipher, tag} =
+      :crypto.crypto_one_time_aead(:aes_256_gcm, grant_key(grant), iv, secret, @grant_aad, true)
+
+    iv <> tag <> cipher
+  end
+
+  defp unseal(<<iv::binary-12, tag::binary-16, cipher::binary>>, grant) do
+    case :crypto.crypto_one_time_aead(
+           :aes_256_gcm,
+           grant_key(grant),
+           iv,
+           cipher,
+           @grant_aad,
+           tag,
+           false
+         ) do
+      secret when is_binary(secret) -> {:ok, secret}
+      :error -> :error
+    end
+  end
+
+  defp unseal(_other, _grant), do: :error
+
   @doc """
   Withdraws code `link_id`, which must be one of `tournament`'s own or one
   of its group's. The box holding it is refused from the next request on.
@@ -184,7 +347,45 @@ defmodule PairingsEngine.BoardLink do
   """
   def connected?(tournament_id) when is_integer(tournament_id) do
     Repo.exists?(reaching(tournament_id)) or
-      Repo.exists?(from g in Game, where: g.tournament_id == ^tournament_id)
+      Repo.exists?(from g in Game, where: g.tournament_id == ^tournament_id) or
+      account_reaches?(tournament_id)
+  end
+
+  @doc """
+  The account codes that reach `tournament_id` now: those of its owner and
+  of its accepted collaborators, while it is current (see the moduledoc).
+  """
+  def account_links(tournament_id) when is_integer(tournament_id) do
+    if current?(tournament_id),
+      do: Repo.all(account_links_query(tournament_id) |> order_by([l], l.id)),
+      else: []
+  end
+
+  defp account_reaches?(tournament_id),
+    do: Repo.exists?(account_links_query(tournament_id)) and current?(tournament_id)
+
+  defp current?(tournament_id),
+    do: Repo.exists?(current(live_tournaments()) |> where([t], t.id == ^tournament_id))
+
+  # The rule `Tournaments.authorized_tournament_ids/1` applies, turned round:
+  # not "which tournaments may this account open" but "which accounts may
+  # open this tournament". The tests hold the two against each other.
+  defp account_links_query(tournament_id) do
+    from l in Link,
+      join: u in User,
+      as: :user,
+      on: u.id == l.user_id,
+      join: t in Tournament,
+      on: t.id == ^tournament_id,
+      where: is_nil(t.deleted_at),
+      where:
+        t.user_id == u.id or
+          exists(
+            from c in Collaborator,
+              where:
+                c.tournament_id == ^tournament_id and c.status == "accepted" and
+                  (c.user_id == parent_as(:user).id or c.email == parent_as(:user).email)
+          )
   end
 
   # The codes that reach a tournament: its own, and its group's if it is in
@@ -445,6 +646,26 @@ defmodule PairingsEngine.BoardLink do
     end
   end
 
+  # An account code: the group code's rule with the account as the group -
+  # every tournament the account may open, as it stands at this request -
+  # and only the current ones.
+  def covered(%Link{user_id: user_id}) when is_integer(user_id) do
+    case Repo.get(User, user_id) do
+      %User{} = user ->
+        allowed = Tournaments.authorized_tournament_ids(Scope.for_user(user))
+
+        Repo.all(
+          from t in current(live_tournaments()),
+            where: t.id in subquery(allowed),
+            order_by: [asc: t.id],
+            select: %{tournament: t, label: nil}
+        )
+
+      nil ->
+        []
+    end
+  end
+
   # A group code whose maker's account is gone reaches nothing: there is
   # nobody left whose access it could be borrowing.
   def covered(%Link{}), do: []
@@ -452,6 +673,24 @@ defmodule PairingsEngine.BoardLink do
   defp live_tournaments do
     from t in Tournament,
       where: is_nil(t.deleted_at) and is_nil(t.archived_at) and is_nil(t.handed_off_at)
+  end
+
+  # Not finished, or finished recently. `end_date` is the last round's date
+  # as ISO text, which compares as a date; a tournament without dates is
+  # judged by when it last changed - and finishing it was a change.
+  defp current(query) do
+    cutoff =
+      DateTime.utc_now()
+      |> DateTime.add(-@finished_days * 86_400, :second)
+      |> DateTime.truncate(:second)
+
+    cutoff_date = cutoff |> DateTime.to_date() |> Date.to_iso8601()
+
+    from t in query,
+      where:
+        t.status != "finished" or
+          (t.end_date != "" and t.end_date >= ^cutoff_date) or
+          ((is_nil(t.end_date) or t.end_date == "") and t.updated_at >= ^cutoff)
   end
 
   defp covered_ids(%Link{} = link), do: Enum.map(covered(link), & &1.tournament.id)
@@ -472,7 +711,7 @@ defmodule PairingsEngine.BoardLink do
     group = link.group_id && Repo.get(TournamentGroups.Group, link.group_id)
 
     %{
-      "kind" => if(link.group_id, do: "group", else: "tournament"),
+      "kind" => kind(link),
       "group" => group && %{"name" => group.name},
       "tournaments" =>
         Enum.map(covered(link), fn %{tournament: t, label: label} ->
@@ -486,6 +725,10 @@ defmodule PairingsEngine.BoardLink do
         end)
     }
   end
+
+  defp kind(%Link{group_id: id}) when is_integer(id), do: "group"
+  defp kind(%Link{user_id: id}) when is_integer(id), do: "account"
+  defp kind(%Link{}), do: "tournament"
 
   ## ---------- the relay key ----------
 

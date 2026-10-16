@@ -1923,6 +1923,22 @@ defmodule PairingsEngineWeb.AuditLive do
         )
   end
 
+  # Account codes are the account's, not a tournament's: these two are
+  # machine-wide rows (`Audit.log_system/3`).
+  def describe("boards.account_code_created", d),
+    do:
+      gettext("Connected a board box to their account: %{box} (code ends in %{hint}).",
+        box: d["box"] || gettext("a box"),
+        hint: d["hint"] || "?"
+      )
+
+  def describe("boards.account_code_revoked", d),
+    do:
+      gettext("Withdrew a board box from their account: %{box} (code ended in %{hint}).",
+        box: d["box"] || gettext("a box"),
+        hint: d["hint"] || "?"
+      )
+
   def describe("boards.relay_key_saved", _d),
     do: gettext("Saved the results site's relay key, to be handed to the board box.")
 

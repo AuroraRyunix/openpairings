@@ -69,7 +69,8 @@ Alnasl's own documentation.
 ## Connecting a box {#connecting-a-box}
 
 *Built.* A box is connected to OpenPairings with a connect code. In
-OpenPairings: Settings, **Live boards**. The same, as steps, is in
+OpenPairings: Settings, **Live boards** - or, with no code at all, by
+[connecting your account](#connecting-your-account). The same, as steps, is in
 [Setting up electronic boards](18-setting-up-boards.md).
 
 ### A code for the tournament {#a-code-for-the-tournament}
@@ -99,6 +100,33 @@ scan.
 A group code reaches the tournaments of the group that **the person who made
 the code** may open, and no others. A section run by another arbiter, which you
 cannot open, is not handed to your box either.
+
+### Connecting your account {#connecting-your-account}
+
+The third way needs no code at all. On the box, Alnasl's **Setup ->
+Tournaments -> Connect an OpenPairings account** sends your browser here. You
+sign in if you were not, and a page asks whether that box may read your
+tournaments. It names the box and, in large letters, the address you will be
+sent back to: check that it is your box before you press **Allow**. **Cancel**
+connects nothing.
+
+An account connection reaches every tournament you may edit - your own and the
+ones shared with you - that is **current**: not finished, or finished within
+the last 14 days (counted from the last round's date). A tournament with no
+round yet counts as current, and so does one still waiting for a postponed
+game. Archived and handed-off tournaments never reach it, and one you lose
+access to drops off at the box's next request. A tournament you make next week
+appears on the box by itself.
+
+The connections of your account are on your **account page, Live boards**:
+the box's name, when it last called, and the last characters of its code.
+**Withdraw** cuts a box off from its next request on. An account can have up
+to 8 boxes connected. Making and withdrawing one are in the installation's
+audit trail, since they belong to no single tournament.
+
+On a desktop copy this works for a box program on the same computer. A box
+elsewhere on the hall network still needs a network code (below): the network
+listener does not take account connections.
 
 ### A box elsewhere on the network {#boxes-on-the-network}
 

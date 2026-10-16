@@ -1,8 +1,12 @@
 defmodule PairingsEngine.BoardLink.Link do
   @moduledoc """
   One connect code for a hall box (`PairingsEngine.BoardLink`): for one
-  tournament (`tournament_id`) or for one tournament group (`group_id`),
-  exactly one of the two.
+  tournament (`tournament_id`), for one tournament group (`group_id`), or
+  for an account (`user_id`) - exactly one of the three.
+
+  An account code reaches every current tournament its account may edit,
+  read at the moment the box asks; `label` is what the box called itself
+  when it asked for the code (`PairingsEngine.BoardLink.Grant`).
 
   `secret_hash` is the SHA-256 of the secret the box presents, in lowercase
   hex. The secret itself is shown once, when the code is made, and is not
@@ -36,10 +40,12 @@ defmodule PairingsEngine.BoardLink.Link do
     field :reach, :string
     field :address, :string
     field :expires_at, :utc_datetime
+    field :label, :string
 
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :group, PairingsEngine.TournamentGroups.Group
     belongs_to :created_by, PairingsEngine.Accounts.User
+    belongs_to :user, PairingsEngine.Accounts.User
 
     timestamps(type: :utc_datetime)
   end
