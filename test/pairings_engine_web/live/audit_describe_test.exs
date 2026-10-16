@@ -706,6 +706,14 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"hint" => "x7Qa", "group" => false, "box" => "Zaal A"},
       %{"hint" => "x7Qa", "group" => true, "box" => nil}
     ],
+    "boards.account_code_created" => [
+      %{"hint" => "x7Qa", "box" => "Alnasl - Zaal A"},
+      %{"hint" => "x7Qa", "box" => nil}
+    ],
+    "boards.account_code_revoked" => [
+      %{"hint" => "x7Qa", "box" => "Alnasl - Zaal A"},
+      %{"hint" => "x7Qa", "box" => nil}
+    ],
     "boards.relay_key_saved" => [%{}],
     "boards.relay_key_cleared" => [%{}],
     "boards.relay_key_fetched" => [

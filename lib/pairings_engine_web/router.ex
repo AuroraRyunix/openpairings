@@ -313,6 +313,33 @@ defmodule PairingsEngineWeb.Router do
     post "/tournaments/:id/games", BoardLinkController, :games
   end
 
+  # Trading a grant for an account code (`BoardConnectController.grant/2`).
+  # Its own scope, outside the four above: it is not a request a code makes
+  # - the grant is the credential, and the controller checks it and rate
+  # limits it - and it is deliberately NOT on the desktop copy's network
+  # listener, whose router mirrors the scope above and nothing else. An
+  # account code is for this listener only, as every non-network code is.
+  scope "/api/boards/v1", PairingsEngineWeb do
+    pipe_through [:api]
+
+    post "/grant", BoardConnectController, :grant
+  end
+
+  # The consent page of that flow: a box sends the arbiter's browser here to
+  # ask for an account code. `:require_authenticated_user` because it hands
+  # out a credential for everything the account may edit: somebody signed
+  # out is sent to sign in and brought back to this very address, query
+  # string and all. Controller routes rather than a LiveView, because "Allow"
+  # must end in a redirect to another site with a CSP widened for that one
+  # page (`CSP.allow_form_action/2`), which a socket cannot do. `:browser`
+  # brings the CSRF token the two buttons post with.
+  scope "/boards", PairingsEngineWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/connect", BoardConnectController, :new
+    post "/connect", BoardConnectController, :create
+  end
+
   # Installed theme packs' stylesheets and fonts (`PairingsEngine.ThemePacks`).
   # No pipeline: they are files, the sign-in page needs them as much as any
   # other, and a session would change nothing about what is served. The

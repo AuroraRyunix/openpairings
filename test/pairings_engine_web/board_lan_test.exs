@@ -555,11 +555,21 @@ defmodule PairingsEngineWeb.BoardLanTest do
 
   describe "the routes" do
     test "the network listener's router has the board link's routes, the same ones, and no others" do
+      # The grant of the account flow is the one board route the listener
+      # does not have, on purpose: account codes are not for the network.
       board = fn router ->
         for route <- Phoenix.Router.routes(router),
             String.starts_with?(route.path, "/api/boards/v1"),
+            route.path != "/api/boards/v1/grant",
             do: {route.verb, route.path, route.plug, route.plug_opts}
       end
+
+      refute Enum.any?(Phoenix.Router.routes(BoardLan.Router), &(&1.path =~ "grant"))
+
+      assert Enum.any?(
+               Phoenix.Router.routes(PairingsEngineWeb.Router),
+               &(&1.path == "/api/boards/v1/grant")
+             )
 
       everything = Phoenix.Router.routes(BoardLan.Router)
 

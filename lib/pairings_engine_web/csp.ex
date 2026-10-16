@@ -74,6 +74,27 @@ defmodule PairingsEngineWeb.CSP do
   @spec nonce() :: String.t()
   def nonce, do: Process.get(@process_key, "")
 
+  @doc """
+  The same policy, with `origin` (`https://hall.example.org`) added to
+  `form-action` for this one response.
+
+  For the board connect page (`PairingsEngineWeb.BoardConnectController`)
+  and nothing else: its two buttons post here and are answered with a
+  redirect to the box that asked, and a browser holds that redirect to the
+  `form-action` of the page the form was on. The origin is the one the
+  person is shown on that page, in large letters, before they press.
+  """
+  @spec allow_form_action(Plug.Conn.t(), String.t()) :: Plug.Conn.t()
+  def allow_form_action(conn, origin) when is_binary(origin) do
+    nonce = conn.assigns[:csp_nonce] || nonce()
+
+    put_resp_header(
+      conn,
+      "content-security-policy",
+      String.replace(policy(nonce), "form-action 'self'", "form-action 'self' #{origin}")
+    )
+  end
+
   defp policy(nonce) do
     [
       "default-src 'self'",

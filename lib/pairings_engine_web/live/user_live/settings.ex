@@ -6,7 +6,8 @@ defmodule PairingsEngineWeb.UserLive.Settings do
   ## One page, in the order people look for things
 
   Profile, then signing in, then how the app looks, then what a new
-  tournament starts with, then the federation packs, then the account's
+  tournament starts with, then the federation packs, then the board boxes
+  connected to the account, then the account's
   data, then deleting it. Each section is a card with a sentence saying
   what it is for, and the rail beside them (a row of chips on a phone)
   jumps between them. The cards reuse the Settings pages' own vocabulary -
@@ -50,7 +51,17 @@ defmodule PairingsEngineWeb.UserLive.Settings do
 
   import PairingsEngineWeb.SettingsSupport, only: [setting_toggle: 1, auto_publish_label: 1]
 
-  alias PairingsEngine.{Accounts, Authz, Features, Publishing, RateLimit, RateOfPlay, Tournaments}
+  alias PairingsEngine.{
+    Accounts,
+    Authz,
+    BoardLink,
+    Features,
+    Publishing,
+    RateLimit,
+    RateOfPlay,
+    Tournaments
+  }
+
   alias PairingsEngine.Accounts.{Preferences, TournamentDefaults, User}
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.{Locale, UserAgent, UserAuth}
@@ -102,7 +113,18 @@ defmodule PairingsEngineWeb.UserLive.Settings do
      |> assign_user(user)
      |> assign_sessions()
      |> assign_data_counts()
+     |> assign_board_boxes()
      |> assign(delete_form: to_form(%{"confirm" => ""}, as: :account))}
+  end
+
+  # The board boxes connected to this account (`BoardLink.connect/2`). Read
+  # when the page opens and after a withdrawal; "last contact" is as fresh
+  # as the page, which is what a settings page promises.
+  defp assign_board_boxes(socket) do
+    assign(socket,
+      board_boxes: BoardLink.list_account_links(socket.assigns.current_scope),
+      now: DateTime.utc_now()
+    )
   end
 
   # Everything derived from the account row, re-run after every save so the
@@ -459,6 +481,27 @@ defmodule PairingsEngineWeb.UserLive.Settings do
     end
   end
 
+  ## ---------- live boards ----------
+
+  # No recent sign-in asked: withdrawing a box takes access away from a
+  # machine, it gives none to anybody.
+  def handle_event("revoke_board_box", %{"id" => id}, socket) do
+    case BoardLink.revoke_account_link(socket.assigns.current_scope, id) do
+      {:ok, _link} ->
+        {:noreply,
+         socket
+         |> assign_board_boxes()
+         |> assign(saved: :board_boxes)
+         |> put_flash(
+           :info,
+           gettext("Withdrawn. That box is refused from its next request on.")
+         )}
+
+      {:error, :not_found} ->
+        {:noreply, assign_board_boxes(socket)}
+    end
+  end
+
   ## ---------- deleting the account ----------
 
   def handle_event("delete_input", %{"account" => %{"confirm" => confirm}}, socket) do
@@ -602,6 +645,10 @@ defmodule PairingsEngineWeb.UserLive.Settings do
 
             <a href="#features">
               <.icon name="hero-flag-micro" class="size-4" /> {gettext("Federation features")}
+            </a>
+
+            <a href="#live-boards">
+              <.icon name="hero-signal-micro" class="size-4" /> {gettext("Live boards")}
             </a>
 
             <a href="#your-data">
@@ -1155,6 +1202,62 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 )}
               </p>
             </section>
+            <%!-- ============ Live boards ============ --%>
+            <section
+              id="live-boards"
+              class="set-card acct-section"
+              aria-labelledby="live-boards-title"
+            >
+              <div class="acct-section-head">
+                <div>
+                  <h2 id="live-boards-title">{gettext("Live boards")}</h2>
+
+                  <p class="hint">
+                    {gettext(
+                      "Board boxes connected to your account, from the box's own \"Connect an OpenPairings account\". Each reads every tournament you may edit that is current - not finished, or finished within the last %{days} days - and reports what its boards see beside the pairings. A board never enters a result. A code for one tournament or one group is made on that tournament's Settings, Live boards, instead.",
+                      days: BoardLink.finished_days()
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <ul :if={@board_boxes != []} class="acct-boards" id="board-box-list">
+                <li :for={link <- @board_boxes} id={"board-box-#{link.id}"} class="acct-board">
+                  <.icon name="hero-signal" class="size-5 acct-session-icon" />
+                  <div class="acct-board-text">
+                    <span class="acct-board-name">
+                      {link.label || link.box_name || gettext("A board box")}
+                    </span>
+                    <span class="acct-board-meta" id={"board-box-meta-#{link.id}"}>
+                      {gettext("Code …%{hint}", hint: link.secret_hint)} · {board_box_seen(
+                        link,
+                        @now
+                      )}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="pe-btn danger-link"
+                    id={"board-box-revoke-#{link.id}"}
+                    phx-click="revoke_board_box"
+                    phx-value-id={link.id}
+                    data-confirm={
+                      gettext(
+                        "Withdraw this box? It is refused from its next request on, and needs to be connected again."
+                      )
+                    }
+                  >
+                    {gettext("Withdraw")}
+                  </button>
+                </li>
+              </ul>
+
+              <p :if={@board_boxes == []} class="hint" id="board-box-none">
+                {gettext("No board box is connected to your account.")}
+              </p>
+              <.saved :if={@saved == :board_boxes} id="board-boxes-saved" text={gettext("Withdrawn")} />
+            </section>
             <%!-- ============ Your data ============ --%>
             <section id="your-data" class="set-card acct-section" aria-labelledby="your-data-title">
               <div class="acct-section-head">
@@ -1448,6 +1551,17 @@ defmodule PairingsEngineWeb.UserLive.Settings do
 
   defp device_icon(ua) do
     if UserAgent.mobile?(ua), do: "hero-device-phone-mobile", else: "hero-computer-desktop"
+  end
+
+  defp board_box_seen(%{last_seen_at: nil}, _now), do: gettext("Never used")
+
+  defp board_box_seen(%{last_seen_at: at}, now) do
+    case DateTime.diff(now, at) do
+      s when s < 120 -> gettext("Connected")
+      s when s < 7200 -> gettext("Last contact %{n} min ago", n: div(s, 60))
+      s when s < 172_800 -> gettext("Last contact %{n} h ago", n: div(s, 3600))
+      s -> gettext("Last contact %{n} days ago", n: div(s, 86_400))
+    end
   end
 
   defp signed_in_label(%DateTime{} = at) do

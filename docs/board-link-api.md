@@ -52,7 +52,8 @@ https://pairings.example.org/api/boards/v1#oplt_Zq3...43 characters...
 - Everything before `#` is the **API root**. Every path below is appended to
   it (`<root>/link`, `<root>/tournaments/17`).
 - Everything after `#` is the **secret**: `oplt_` (a code for one tournament)
-  or `oplg_` (a code for a tournament group), followed by 43 characters of
+  `oplg_` (a code for a tournament group) or `oplu_` (a code for an account,
+  see [Connecting an account](#connecting-an-account)), followed by 43 characters of
   base64url (32 random bytes). Treat the whole string after `#` as opaque.
 - The secret is in the URL fragment on purpose: pasted into a browser, it is
   not sent anywhere.
@@ -122,7 +123,8 @@ know. Nothing unknown is stored.
 | moves in one game | 1000 plies |
 | one move | 2 to 10 characters from `A-Z a-z 0-9 + # = -` |
 | `pgn` | 100 000 bytes |
-| codes per tournament, and per group | 8 |
+| codes per tournament, per group, and per account | 8 |
+| a grant (`POST /grant`) | good once, for 120 seconds; refused grants share the refused-codes budget of the client address |
 
 ## Errors
 
@@ -168,7 +170,7 @@ What this code gives access to. This is the request to poll.
 |---|---|
 | `api` | `1`. A box that sees a number it does not know should say so and stop |
 | `poll_seconds` | how often to ask. Honour it |
-| `kind` | `"tournament"` or `"group"` |
+| `kind` | `"tournament"`, `"group"` or `"account"` (an additive value of v1: a box that does not know it treats the code like a group code, which is what it is) |
 | `group` | `{ "name" }` for a group code, else `null` |
 | `tournaments[].id` | integer; the `:id` of the routes below |
 | `tournaments[].label` | the tournament's short label inside its group, or `null` |
@@ -179,7 +181,10 @@ A tournament code lists one tournament, or none once it is deleted or
 archived. A group code lists every tournament of the group that the person
 who made the code may open, in the group's order. **A tournament added to the
 group later appears here without a new code**; one that leaves the group, or
-that the maker loses access to, disappears. An empty list is not an error.
+that the maker loses access to, disappears. An account code lists every
+tournament the account may edit (owner or accepted collaborator) that is
+current, in id order, with `label: null` - see
+[Connecting an account](#connecting-an-account). An empty list is not an error.
 
 ### Polling
 
@@ -576,6 +581,95 @@ seat filled is listed with `kind: "bye"` until the other is.
 - Writes the code's first use to the tournament's audit trail, with the box's
   name and version.
 
+## Connecting an account
+
+Added to API version 1 without changing anything above: a box that never uses
+it is unaffected. A third kind of code, `oplu_`, belongs to an OpenPairings
+account rather than to a tournament or a group, and is obtained without
+anybody copying a secret: the box sends the arbiter's browser to a consent
+page, and gets the code back through a one-time grant. Think of it as a group
+code whose group is "everything this account may edit".
+
+### What an account code reaches
+
+At the moment of each request, every tournament the account may edit - it
+owns it, or it is an accepted collaborator - that is not in the recycle bin,
+not archived, not handed off, and **current**: not finished, or finished no
+more than 14 days ago, counted from the last round's date (from its last
+change, for a tournament without dates). A tournament with no round yet is
+current; so is one still `running` because a postponed game is open. A
+tournament the account loses access to, or that stops being current, leaves
+the listing at once and is `404 tournament_not_found` from then on. Reports,
+`game` keys, `pairing_gone`/`pairing_changed`, the relay key and "a board
+never enters a result" are exactly as for a group code. An account has at
+most 8 account codes.
+
+### The flow
+
+```
+box                      browser                         OpenPairings
+ |  redirect ----------->  GET <server>/boards/connect?return_to=..&state=..&box=..
+ |                         (sign in if needed)  -------> consent page: box, host of return_to
+ |                         Allow -----------------------> POST /boards/connect
+ |  <------------------- 302 return_to?grant=G&state=S
+ |  POST <root>/grant {"grant": G} -------------------------------------------->
+ |  <-------------------------------------- 200 {"code": "<root>#oplu_..."}
+```
+
+1. **Send the browser** to `<server>/boards/connect` (the server address,
+   not the API root) with three query parameters:
+
+   | | |
+   |---|---|
+   | `return_to` | the box's own address to come back to. `http` or `https` only, with a host, no user name or password, no fragment, at most 2000 bytes. Anything else is refused with a page of its own, and the browser is sent nowhere |
+   | `state` | an unguessable value of the box's, at most 512 bytes. Handed back untouched; the box checks it against what it stored (a session) before it does anything with the answer |
+   | `box` | what the box calls itself, shown to the person and kept as the code's label. At most 80 characters; longer is cut |
+
+2. **The person decides.** They sign in if they were not (and are brought back
+   to the same address). The page shows the box's label and, prominently, the
+   host and port of `return_to`.
+3. **The browser comes back** to `return_to` with the box's existing query
+   parameters kept and these added:
+
+   | | |
+   |---|---|
+   | `grant`, `state` | allowed. The account code exists from this moment (the person sees it on their account page) |
+   | `error=denied`, `state` | the person pressed Cancel. Nothing was made |
+   | `error=too_many_codes`, `state` | the account already has 8 account codes. Nothing was made |
+
+4. **Trade the grant for the code**, from the box, not the browser:
+
+   ```
+   POST <root>/grant
+   Content-Type: application/json
+
+   {"grant": "<the grant>"}
+   ```
+
+   `200 {"code": "<root>#oplu_...", "kind": "account"}` the first time, within
+   120 seconds. Store the code as any other and use it from here on. Every
+   other answer is `401 {"error": "invalid_grant"}` - used, run out, never
+   issued, or its code withdrawn in the meantime; the box does not learn
+   which. `429 rate_limited` with `Retry-After: 600` past 30 refused grants or
+   codes from one address in 10 minutes. No `Authorization` header: the grant
+   is the credential.
+
+The person sees the box's connections on their account page (Live boards),
+with the label, last contact and the code's last characters, and can withdraw
+one; from then on the code is `401` like any withdrawn code. Making and
+withdrawing an account code are machine-wide rows of the audit trail.
+
+### A desktop copy
+
+The flow works against a desktop copy at `http://127.0.0.1:<port>` for a box
+program on the same computer: the consent page and `POST /grant` are on the
+same loopback listener as everything else, the desktop copy's owner is already
+signed in, and the code that comes back says `http://127.0.0.1:<port>`.
+
+The network listener (next section) has neither the consent page nor
+`/grant`, and refuses an account code like any code that was not made for the
+network. A box elsewhere in the hall uses a network code.
+
 ## A desktop copy on the hall's network
 
 The desktop edition binds to loopback, and that is a safety property of having
@@ -591,7 +685,7 @@ What a box can rely on:
 | address | `http://<one private IPv4 address of the PC>:<port>`, default port `4747`. The arbiter picks the address when the PC has several, and may change the port |
 | what answers there | the four requests of this document. Every other method and path is `404 {"error": "not_found"}`: no pages, no websocket, no static files |
 | who may call | addresses of a local network only (10/8, 172.16/12, 192.168/16, 169.254/16, loopback, and their IPv6 counterparts). Anybody else is `403 {"error": "forbidden"}` |
-| which codes | only a code made *for a box on the network*. A code made for a box on the same PC is `401` there |
+| which codes | only a code made *for a box on the network*. A code made for a box on the same PC, and every account code, is `401` there |
 | how long | a network code has no expiry: it works until it is withdrawn, then `401` |
 | when it is open | while the switch is on, the chosen address is still the PC's, and at least one network code exists. Otherwise the port is closed: a box sees a refused connection or a timeout, not an HTTP answer |
 | transport | plain http. No TLS, no certificate. The secret is readable on the wire |
