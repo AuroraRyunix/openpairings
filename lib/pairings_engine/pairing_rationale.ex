@@ -942,8 +942,12 @@ defmodule PairingsEngine.PairingRationale do
         deterministic: true
       }
     else
-      cycle = div(round_number - 1, cycle_length) + 1
-      cycle_round = Integer.mod(round_number - 1, cycle_length) + 1
+      # The table round this played round holds, after any swaps
+      # (`PairingsEngine.RoundSwap`) - the schedule's numbering, which the
+      # reversed last two rounds below then read as the table's.
+      table = PairingsEngine.RoundRobin.table_round_number(tournament, round_number)
+      cycle = div(table - 1, cycle_length) + 1
+      cycle_round = Integer.mod(table - 1, cycle_length) + 1
 
       # The Berger table's round: FIDE C.05's reversed last two rounds of
       # a double round robin's first cycle play each other's table rounds
@@ -959,6 +963,8 @@ defmodule PairingsEngine.PairingRationale do
         cycle: cycle,
         cycle_round: cycle_round,
         total_cycles: tournament.rr_cycles,
+        played_as: round_number,
+        swapped: table != round_number,
         deterministic: true
       }
     end

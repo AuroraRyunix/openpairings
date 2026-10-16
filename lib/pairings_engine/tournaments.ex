@@ -1004,6 +1004,16 @@ defmodule PairingsEngine.Tournaments do
           paired: paired
         )
 
+      # Rounds swapped with one past the new end would be left holding a
+      # table round the shorter schedule no longer has (`RoundSwap`).
+      not RoundRobin.round_map_fits?(Ecto.Changeset.get_field(changeset, :rr_round_map), rounds) ->
+        Ecto.Changeset.add_error(
+          changeset,
+          :rr_cycles,
+          "would end the schedule after round %{count}, but a round up to there was swapped with one after it; swap them back first",
+          count: rounds
+        )
+
       true ->
         Ecto.Changeset.put_change(changeset, :rounds_count, rounds)
     end

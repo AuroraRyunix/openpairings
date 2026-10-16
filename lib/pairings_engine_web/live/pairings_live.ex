@@ -26,6 +26,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     PostponedGames,
     ResultsImport,
     RoundRobin,
+    RoundSwap,
     Snapshots,
     Standings,
     StartingNumbers,
@@ -170,6 +171,9 @@ defmodule PairingsEngineWeb.PairingsLive do
        # pairing (or before its first round is made by hand): the choice, the
        # list it gives and the draw's seed. See "Round-robin starting numbers".
        rr_numbers: nil,
+       # The "Swap rounds" dialog of a round robin (`PairingsEngine.RoundSwap`):
+       # nil while closed, else what is typed in it and the refusal, if any.
+       rr_swap: nil,
        manual_round_offer: false,
        rr_by_hand: false,
        # The automatic rating check's notice (see
@@ -878,6 +882,56 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   def handle_event("late_entry_notice_" <> answer, _params, socket),
     do: {:noreply, socket |> LateEntryNotice.answer(answer) |> refresh()}
+
+  ## ---------- Swapping two rounds of a round robin ----------
+  #
+  # `PairingsEngine.RoundSwap`: two result-free rounds trade their boards,
+  # so the round numbers follow the order the table is actually played in.
+
+  def handle_event("rr_swap_open", _params, socket),
+    do: {:noreply, assign(socket, rr_swap: %{a: "", b: "", error: nil})}
+
+  def handle_event("rr_swap_cancel", _params, socket),
+    do: {:noreply, assign(socket, rr_swap: nil)}
+
+  def handle_event("rr_swap", %{"swap" => %{"a" => a, "b" => b}}, socket) do
+    t = socket.assigns.tournament
+
+    with {a_n, ""} <- Integer.parse(String.trim(a)),
+         {b_n, ""} <- Integer.parse(String.trim(b)) do
+      Snapshots.capture(t, "pairing.rounds_swapped", socket.assigns.current_scope,
+        summary: "Before swapping rounds #{a_n} and #{b_n}"
+      )
+
+      case RoundSwap.swap(t, a_n, b_n) do
+        {:ok, updated} ->
+          Audit.log(
+            t.id,
+            socket.assigns.current_scope,
+            "pairing.rounds_swapped",
+            RoundSwap.audit_details(updated, a_n, b_n)
+          )
+
+          {:noreply,
+           socket
+           |> assign(tournament: updated, rr_swap: nil, error: nil)
+           |> put_flash(
+             :info,
+             gettext("Rounds %{a} and %{b} swapped.", a: a_n, b: b_n)
+           )
+           |> refresh()}
+
+        {:error, message} ->
+          {:noreply, assign(socket, rr_swap: %{a: a, b: b, error: message})}
+      end
+    else
+      _ ->
+        {:noreply,
+         assign(socket,
+           rr_swap: %{a: a, b: b, error: gettext("Enter two round numbers.")}
+         )}
+    end
+  end
 
   def handle_event("unpair", _params, socket) do
     %{tournament: t, round_number: round_number} = socket.assigns
@@ -5466,6 +5520,94 @@ defmodule PairingsEngineWeb.PairingsLive do
     """
   end
 
+  # Two round numbers to play in each other's place (`RoundSwap`).
+  attr :swap, :map, required: true
+  attr :tournament, :map, required: true
+
+  defp rr_swap_dialog(assigns) do
+    ~H"""
+    <div class="pe-modal" phx-window-keydown="rr_swap_cancel" phx-key="escape">
+      <div
+        class="pe-modal-card"
+        phx-click-away="rr_swap_cancel"
+        id="rr-swap-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="rr-swap-title"
+        tabindex="-1"
+        phx-hook="DialogFocus"
+        data-dialog
+      >
+        <.form for={%{}} as={:swap} id="rr-swap-form" phx-submit="rr_swap">
+          <header class="pe-modal-head">
+            <h2 id="rr-swap-title">{gettext("Swap two rounds")}</h2>
+
+            <p>
+              {gettext(
+                "The two rounds trade their boards, so the round numbers follow the order you play the table in. Each game keeps its colours; the dates stay with the round numbers. Both rounds must still be without results."
+              )}
+            </p>
+          </header>
+
+          <div class="pe-modal-body">
+            <div class="form-grid">
+              <label class="field">
+                <span>{gettext("Round")}</span>
+                <input
+                  type="number"
+                  id="rr-swap-a"
+                  name="swap[a]"
+                  value={@swap.a}
+                  min="1"
+                  max={@tournament.rounds_count}
+                  required
+                />
+              </label>
+
+              <label class="field">
+                <span>{gettext("with round")}</span>
+                <input
+                  type="number"
+                  id="rr-swap-b"
+                  name="swap[b]"
+                  value={@swap.b}
+                  min="1"
+                  max={@tournament.rounds_count}
+                  required
+                />
+              </label>
+            </div>
+
+            <p
+              :if={PairingsEngine.Compliance.fide_mode?(@tournament)}
+              id="rr-swap-fide-note"
+              class="pe-modal-note"
+            >
+              {gettext(
+                "FIDE mode allows this - FIDE's own double round robin swaps two rounds - but it changes the published schedule, so tell the players."
+              )}
+            </p>
+
+            <p :if={@swap.error} id="rr-swap-error" class="error-note" role="alert">
+              {@swap.error}
+            </p>
+          </div>
+
+          <footer class="pe-modal-foot">
+            <button type="button" id="rr-swap-cancel" class="pe-btn" phx-click="rr_swap_cancel">
+              {gettext("Cancel")}
+            </button>
+
+            <button type="submit" id="rr-swap-confirm" class="pe-btn primary pe-modal-go">
+              {gettext("Swap the rounds")}
+            </button>
+          </footer>
+        </.form>
+      </div>
+    </div>
+    """
+  end
+
   # The four ways of numbering and the list the chosen one gives; shared by
   # the pair dialog and the "pair round 1 by hand" dialog.
   attr :numbers, :map, required: true
@@ -6426,6 +6568,17 @@ defmodule PairingsEngineWeb.PairingsLive do
             {gettext("Pair round %{n} by hand…", n: @round_number)}
           </button>
 
+          <button
+            :if={RoundSwap.available?(@tournament) && @paired_rounds > 0 && !@tournament.archived_at}
+            type="button"
+            class="pe-btn"
+            id="rr-swap-open"
+            phx-click="rr_swap_open"
+            disabled={@mpa_open != nil}
+          >
+            {gettext("Swap rounds…")}
+          </button>
+
           <%!-- The last round still has boards without a result, and every
                 one of them has two players: pairing can record them as
                 postponed and go ahead (VCL4THP Q159), once the arbiter has
@@ -7286,6 +7439,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       </div>
       <.mpa_dialog :if={@mpa_dialog} dialog={@mpa_dialog} numbers={@rr_numbers} />
       <.rr_numbers_dialog :if={@rr_numbers && @rr_numbers.purpose == :pair} numbers={@rr_numbers} />
+      <.rr_swap_dialog :if={@rr_swap} swap={@rr_swap} tournament={@tournament} />
       <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">

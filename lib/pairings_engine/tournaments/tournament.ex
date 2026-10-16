@@ -770,6 +770,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # for everything created before it existed, and for imports that do not
     # say so, so a schedule already under way never changes.
     field :rr_reverse_last_two, :boolean, default: false
+    # Round robin: which table round each played round holds, after the
+    # arbiter swapped rounds (`PairingsEngine.RoundSwap`) - position `n - 1`
+    # is the table round played as round `n`, in `RoundRobin.schedule/4`'s
+    # numbering (so on top of `rr_reverse_last_two`, never instead of it).
+    # nil while the table is played in its own order. Not cast: only
+    # `RoundSwap` writes it, and the import carries it across by hand.
+    field :rr_round_map, {:array, :integer}
     # Keizer only: nil means "automatic" (2 x player count), computed by
     # PairingsEngine.Keizer.
     field :keizer_top_value, :integer

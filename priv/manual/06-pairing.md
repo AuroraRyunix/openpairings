@@ -125,7 +125,8 @@ robin](#numbering-the-players-of-a-round-robin)); after that, it pairs.
 
 > [!WARNING]
 > The schedule cannot be changed afterwards and players added later are
-> not in it.
+> not in it. Only the order its rounds are played in can still change:
+> see [Playing rounds out of table order](#playing-rounds-out-of-table-order).
 
 The rounds follow FIDE's Berger tables (C.05); for an odd number of
 players each player sits out one round per cycle with a zero-point bye;
@@ -144,6 +145,27 @@ round exists, the main button reads *Pair the remaining rounds (Berger)*
 and pairs the rest from the table - unless the rounds made by hand have
 left the table behind, and its next round would pair two players who
 already met in that cycle: then it refuses and says which two.
+
+### Playing rounds out of table order
+
+When the table has to be played in another order - a hall booked out, a
+team that cannot travel that weekend - **Swap rounds…** in the round bar
+exchanges two rounds: pick the two round numbers and *Swap the rounds*.
+Their boards trade places, so the round numbers follow the order you
+actually play in: round 4 is the fourth evening, whatever the table calls
+it, and the standings, the prints and the results site follow. Every game
+keeps the colours the table gives it, the dates stay with the round
+numbers, and the pairing explanation says which table round a swapped
+round holds. Swap the same two again to undo it.
+
+It is refused while either round has a result, a forfeit, a postponed
+game or a date played, or a bye for a player who has a board in it - the
+message names the round. It is also refused in match format, before the
+schedule is paired, and when one of the two is paired and the other is
+not. In FIDE mode it is allowed (FIDE's own double round robin swaps two
+rounds), with a note that it changes the published schedule. Each swap
+is in the audit trail, and a TRF of a swapped schedule says
+`CUSTOM_ROUNDROBIN`, since no Berger code describes the order played.
 
 ### Numbering the players of a round robin
 

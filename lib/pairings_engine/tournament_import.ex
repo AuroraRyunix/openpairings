@@ -276,7 +276,10 @@ defmodule PairingsEngine.TournamentImport do
         # A logged PIBE is never un-logged by a restore: an entry that
         # predates the field keeps the live record.
         import_findings:
-          map_or_nil(Map.get(t_attrs, "import_findings")) || tournament.import_findings
+          map_or_nil(Map.get(t_attrs, "import_findings")) || tournament.import_findings,
+        # The rounds swapped out of table order (`PairingsEngine.RoundSwap`),
+        # not cast: the restore point's, which is the order its rounds are in.
+        rr_round_map: PairingsEngine.RoundRobin.round_map_or_nil(Map.get(t_attrs, "rr_round_map"))
       )
       # Same reasoning, and the same three fields, as `import_tournament!/2`
       # - see the comment there. A restore point taken before this shipped
@@ -556,7 +559,11 @@ defmodule PairingsEngine.TournamentImport do
         # entry, not `t_attrs`. It is not a tournament field and is not cast,
         # which is what makes "an import never adopts a key" a property of
         # the schema rather than a rule this function has to remember.
-        openresults_claim: dormant_claim(t_data)
+        openresults_claim: dormant_claim(t_data),
+        # Which table round each round of the file is, when its rounds were
+        # swapped (`PairingsEngine.RoundSwap`) - not cast, and anything that
+        # is not a whole permutation of rounds is the table's own order.
+        rr_round_map: PairingsEngine.RoundRobin.round_map_or_nil(Map.get(t_attrs, "rr_round_map"))
       )
       # `public_listed`/`public_display`/`public_hidden_tiebreaks` are
       # display preferences `TournamentExport` writes (see its own doc for

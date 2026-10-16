@@ -63,10 +63,12 @@ defmodule PairingsEngine.ManualRoundRobin do
 
   defp do_warnings(t, frozen, round_number, boards, opts) do
     cycle_len = RoundRobin.total_rounds(length(frozen), 1)
-    cycle = div(round_number - 1, cycle_len)
-    span = (cycle * cycle_len + 1)..(cycle * cycle_len + cycle_len)
+    cycle = cycle_of(t, round_number, cycle_len)
     others = other_rounds(t.id, round_number)
-    in_cycle = Enum.filter(others, fn {number, _pairs} -> number in span end)
+
+    in_cycle =
+      Enum.filter(others, fn {number, _pairs} -> cycle_of(t, number, cycle_len) == cycle end)
+
     frozen_set = MapSet.new(frozen)
     pairs = for {w, b} <- boards, is_integer(w) and is_integer(b), do: {w, b}
 
@@ -103,11 +105,13 @@ defmodule PairingsEngine.ManualRoundRobin do
   """
   def table_conflict(%Tournament{} = t, number, table) do
     cycle_len = RoundRobin.total_rounds(length(Engine.full_roster_players(t.id)), 1)
-    cycle = div(number - 1, cycle_len)
-    span = (cycle * cycle_len + 1)..(cycle * cycle_len + cycle_len)
+    cycle = cycle_of(t, number, cycle_len)
 
     met =
-      for {n, pairs} <- other_rounds(t.id, number), n in span, {a, b} <- pairs, into: %{} do
+      for {n, pairs} <- other_rounds(t.id, number),
+          cycle_of(t, n, cycle_len) == cycle,
+          {a, b} <- pairs,
+          into: %{} do
         {key(a, b), n}
       end
 
@@ -122,6 +126,12 @@ defmodule PairingsEngine.ManualRoundRobin do
         nil
     end)
   end
+
+  # The cycle (0-based) played round `number` belongs to: its TABLE round's,
+  # so a round the arbiter swapped in from another cycle is judged with the
+  # cycle it came from (`RoundRobin.table_round_number/2`).
+  defp cycle_of(t, number, cycle_len),
+    do: div(RoundRobin.table_round_number(t, number) - 1, cycle_len)
 
   # Every round of the tournament but `except`, as `{number, [{white, black}]}`.
   defp other_rounds(tournament_id, except) do

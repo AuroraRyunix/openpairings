@@ -757,14 +757,81 @@ defmodule PairingsEngine.RoundRobin do
     end)
   end
 
-  defp group_schedule(tournament, count, next_number) do
+  # `number` is the PLAYED round; the table round it holds comes from the
+  # arbiter's swaps (`table_round_number/2`), and only then does the
+  # schedule - FIDE's reversed last two rounds included - say what that
+  # table round is.
+  defp group_schedule(tournament, count, number) do
+    table = table_round_number(tournament, number)
+
     if tournament.rr_match_format do
-      match_schedule(count, next_number)
+      match_schedule(count, table)
     else
-      schedule(count, tournament.rr_cycles, next_number,
+      schedule(count, tournament.rr_cycles, table,
         reverse_last_two?: tournament.rr_reverse_last_two == true
       )
     end
+  end
+
+  ## ---------- rounds played out of table order ----------
+
+  @doc """
+  The table round played as round `played`: `tournaments.rr_round_map`,
+  position `played - 1`, after the arbiter swapped rounds
+  (`PairingsEngine.RoundSwap`) - `played` itself while the rounds are played
+  in the table's order, and for any round past the map's end. "Table round"
+  is the round `schedule/4` numbers, so a double round robin's reversed last
+  two rounds are already inside it and the map is applied on top.
+  """
+  def table_round_number(%{rr_round_map: [_ | _] = map}, played) when is_integer(played) do
+    case Enum.at(map, played - 1) do
+      table when is_integer(table) and table > 0 -> table
+      _ -> played
+    end
+  end
+
+  def table_round_number(_tournament, played), do: played
+
+  @doc """
+  `map` written out to `length` rounds: the rounds past its end are played
+  in table order. `nil` is the table's own order.
+  """
+  def full_round_map(map, length) do
+    map = map || []
+    map ++ Enum.to_list((length(map) + 1)..length//1)
+  end
+
+  @doc """
+  Whether `map` is a round map at all: every round of `1..length(map)`
+  exactly once.
+  """
+  def valid_round_map?(map) when is_list(map) and map != [],
+    do: Enum.all?(map, &is_integer/1) and Enum.sort(map) == Enum.to_list(1..length(map))
+
+  def valid_round_map?(_map), do: false
+
+  @doc """
+  Whether a schedule of `rounds` rounds still has every table round the map
+  sends a played round to - false when the swaps reach past its end, which
+  a shorter schedule would leave without a round to play.
+  """
+  def round_map_fits?(nil, _rounds), do: true
+
+  def round_map_fits?(map, rounds) do
+    map
+    |> full_round_map(rounds)
+    |> Enum.take(rounds)
+    |> Enum.sort() == Enum.to_list(1..rounds//1)
+  end
+
+  @doc """
+  A round map from a file: kept when it is one (`valid_round_map?/1`) and
+  is not simply the table's order, otherwise nil.
+  """
+  def round_map_or_nil(value) do
+    if valid_round_map?(value) and value != Enum.to_list(1..length(value)),
+      do: value,
+      else: nil
   end
 
   @doc """

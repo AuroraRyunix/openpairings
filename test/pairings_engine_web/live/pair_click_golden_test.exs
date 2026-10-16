@@ -123,6 +123,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   a Group B winner. Compared term by term with the file before: 82
   differences, every one of them in those three rows and those fields. No
   board, no TRF, no export, no snapshot.
+
+  And for round robins played out of table order (round swap, 2026-10):
+  every JSON export gains `tournament.rr_round_map` (nil in the three
+  scenarios - none is a round robin). With that key taken out the
+  regenerated file is equal, term for term, to the one before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

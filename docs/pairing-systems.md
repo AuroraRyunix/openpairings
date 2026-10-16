@@ -472,6 +472,27 @@ round robin (type 6, the table repeated with colours reversed) with every
 round played, and the export screen says the cycles past the second do not
 survive.
 
+**Rounds played out of table order.** `PairingsEngine.RoundSwap` lets the
+arbiter exchange two result-free rounds, so the round numbers follow the
+order the table is actually played in. The rows keep their ids and trade
+`rounds.number` (boards, matches, the stored explanation and the hand edits
+go with them, and so do the sitting-out byes and any board announcements);
+what belongs to the evening - the date, the Chess960 position and the
+publication state - stays with the number. `tournaments.rr_round_map`
+records which table round each played round holds (nil: the table's own
+order), and `RoundRobin.table_round_number/2` is the one place that reads
+it: the schedule, the team schedule, `table_round/2` for the by-hand
+checks, `ManualRoundRobin`'s cycle membership and `PairingRationale` all go
+through it. The map numbers `schedule/4`'s rounds, so FIDE's reversed last
+two rounds of a double round robin are applied first and the swap on top -
+the two never double up. Refused for match format, before round 1 exists,
+when only one of the two rounds is paired, and when either has a result,
+forfeit, postponed mark, date played or a bye for a seated player. A
+cycle-count change that would cut the schedule inside a swap is refused on
+`rr_cycles`. The TRF writes a swapped schedule as `CUSTOM_ROUNDROBIN`
+(individual events; a team round robin keeps its `BERGER_TEAM_ROUNDROBIN_Gn`),
+and the app's own export carries the map.
+
 **Odd player counts.** A phantom player numbered N+1 is added to make the
 count even (FIDE's own rule: "where there is an odd number of players, the
 highest number counts as a bye"). Whichever real player is scheduled

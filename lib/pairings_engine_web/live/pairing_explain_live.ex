@@ -3655,6 +3655,19 @@ defmodule PairingsEngineWeb.PairingExplainLive do
             round: @rationale.berger.cycle_round
           )}
         </p>
+
+        <p
+          :if={!@rationale.berger.match_format && @rationale.berger[:swapped]}
+          id="berger-swapped"
+          style="margin: 6px 0 0"
+        >
+          {gettext(
+            "Played as round %{played}: the arbiter swapped rounds, so this round holds the table's round %{round} of cycle %{cycle}, colours as the table gives them.",
+            played: @rationale.berger.played_as,
+            round: @rationale.berger.cycle_round,
+            cycle: @rationale.berger.cycle
+          )}
+        </p>
       </div>
 
       <div
