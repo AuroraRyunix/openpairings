@@ -465,414 +465,413 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page
+        tournament={@tournament}
+        active={:boards}
+        subtitle={gettext("Settings - Live boards")}
+        show_status={false}
+      >
+        <div class="card" id="boards-intro">
+          <h2>{gettext("Live boards")}</h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - Live boards")}</p>
-        </div>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:boards} />
-      <div class="card" id="boards-intro">
-        <h2>{gettext("Live boards")}</h2>
+          <p class="hint" style="margin-top: 0">
+            <.rich_text text={
+              gettext(
+                "A box in the playing hall reads the electronic boards. Give it a code from this page and it fetches the pairings by itself, starts each round when you pair it, and reports back what the boards saw. A board never enters a result: you do, and the Pairings page shows the board's beside yours. See %[link]."
+              )
+            }>
+              <:part name="link">
+                <.link
+                  id="boards-manual-link"
+                  href={PairingsEngineWeb.Components.ManualLink.path(:board_link)}
+                  target="_blank"
+                  rel="noopener"
+                >
+                  {gettext("the manual")}
+                </.link>
+              </:part>
+            </.rich_text>
+          </p>
 
-        <p class="hint" style="margin-top: 0">
-          <.rich_text text={
-            gettext(
-              "A box in the playing hall reads the electronic boards. Give it a code from this page and it fetches the pairings by itself, starts each round when you pair it, and reports back what the boards saw. A board never enters a result: you do, and the Pairings page shows the board's beside yours. See %[link]."
-            )
-          }>
-            <:part name="link">
-              <.link
-                id="boards-manual-link"
-                href={PairingsEngineWeb.Components.ManualLink.path(:board_link)}
-                target="_blank"
-                rel="noopener"
-              >
-                {gettext("the manual")}
-              </.link>
-            </:part>
-          </.rich_text>
-        </p>
-
-        <p class="hint" id="boards-address">
-          <%= if BoardLinkAddress.reachable_from_other_machines?() do %>
-            {gettext("The box calls this server at %{address}.",
-              address: BoardLinkAddress.base_url()
-            )}
-          <% else %>
-            <%= if BoardLan.usable?(@lan) do %>
-              {gettext(
-                "A box program on this computer calls %{address}. A box elsewhere on the hall's network calls %{lan}, which answers the boards and nothing else.",
-                address: BoardLinkAddress.base_url(),
-                lan: @lan.base_url
-              )}
-            <% else %>
-              {gettext(
-                "This copy answers on this computer only: a box program on this computer calls %{address}. A box elsewhere on the network cannot reach it until you switch on \"Let boards on this network connect\" below.",
+          <p class="hint" id="boards-address">
+            <%= if BoardLinkAddress.reachable_from_other_machines?() do %>
+              {gettext("The box calls this server at %{address}.",
                 address: BoardLinkAddress.base_url()
               )}
+            <% else %>
+              <%= if BoardLan.usable?(@lan) do %>
+                {gettext(
+                  "A box program on this computer calls %{address}. A box elsewhere on the hall's network calls %{lan}, which answers the boards and nothing else.",
+                  address: BoardLinkAddress.base_url(),
+                  lan: @lan.base_url
+                )}
+              <% else %>
+                {gettext(
+                  "This copy answers on this computer only: a box program on this computer calls %{address}. A box elsewhere on the network cannot reach it until you switch on \"Let boards on this network connect\" below.",
+                  address: BoardLinkAddress.base_url()
+                )}
+              <% end %>
             <% end %>
-          <% end %>
-        </p>
-      </div>
-
-      <div :if={@lan.available?} class="card" id="boards-lan" data-state={@lan.state}>
-        <h2>{gettext("Boxes elsewhere on this network")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "For a box that is not on this computer: a Raspberry Pi beside the boards, a second laptop. This is a setting of this computer, for every tournament on it."
-          )}
-        </p>
-
-        <div class="set-field solo">
-          <.publish_toggle
-            id="boards-lan-toggle"
-            label={gettext("Let boards on this network connect")}
-            state={if @lan.enabled?, do: :public, else: :not_public}
-            on_text={gettext("On")}
-            off_text={gettext("Off")}
-            phx-click="lan_switch"
-            confirm={
-              gettext(
-                "Switch this off? Boxes on the network are disconnected at once. Their codes are kept and work again when you switch it back on."
-              )
-            }
-          />
+          </p>
         </div>
 
-        <p id="boards-lan-warning">
-          <.icon name="hero-exclamation-triangle" class="size-4" /> {gettext(
-            "What this does: it opens one extra door on this computer, on the network address you choose, that answers the board box and nothing else. Your tournaments, these pages and everything else stay reachable from this computer only, as before. The door is plain http: the code of a box travels over the network readable. On a cable between two machines, or a network of your own, that is fine. On a wifi the players are on too, anybody who knows how can read the code and then see the pairings and send in moves as if they were a board. They cannot enter a result; a board never does. Prefer a cable or your own network, and withdraw the code after the event."
-          )}
-        </p>
+        <div :if={@lan.available?} class="card" id="boards-lan" data-state={@lan.state}>
+          <h2>{gettext("Boxes elsewhere on this network")}</h2>
 
-        <%= if @lan.enabled? do %>
-          <p
-            id="boards-lan-state"
-            role={if @lan.state in [:idle, :listening], do: "status", else: "alert"}
-            class={@lan.state not in [:idle, :listening] && "board-mismatch-text"}
-          >
-            {lan_state(@lan)}
-          </p>
-
-          <.form
-            :if={@lan.addresses != []}
-            for={to_form(%{"address" => @lan.address, "port" => @lan.port}, as: :lan)}
-            id="boards-lan-form"
-            phx-submit="lan_choose"
-            class="group-inline-form"
-          >
-            <.input
-              type="select"
-              name="lan[address]"
-              id="boards-lan-address"
-              label={gettext("This computer's address for boxes")}
-              options={@lan.addresses}
-              value={if @lan.address in @lan.addresses, do: @lan.address, else: hd(@lan.addresses)}
-            />
-            <.input
-              type="number"
-              name="lan[port]"
-              id="boards-lan-port"
-              label={gettext("Port")}
-              value={@lan.port}
-              min="1024"
-              max="65535"
-            />
-            <button type="submit" class="pe-btn" id="boards-lan-save">{gettext("Use these")}</button>
-          </.form>
-
-          <p class="hint" id="boards-lan-addresses">
-            {ngettext(
-              "This computer has one address on a local network. A code for a box on the network carries it.",
-              "This computer is on %{count} local networks. Pick the address of the one the box is on: only that one is opened, and a code for a box on the network carries it.",
-              length(@lan.addresses)
-            )} {gettext(
-              "If the network gives this computer another address tomorrow, the codes made today point nowhere; this page says so when it happens. A fixed address for this computer, set in the router or in Windows, prevents it."
-            )}
-          </p>
-
-          <p class="hint" id="boards-lan-firewall">
+          <p class="hint" style="margin-top: 0">
             {gettext(
-              "Windows will ask. The first time this is used, Windows shows \"Windows Security: do you want to allow this app to communicate on these networks?\". Tick Private networks and choose Allow. This program cannot answer that for you. If you chose Cancel, or never saw the question, boxes get no answer: allow OpenPairings under Windows Security, Firewall, Allow an app through firewall."
-            )}
-          </p>
-
-          <p class="hint" id="boards-lan-limits" style="margin-bottom: 0">
-            {gettext(
-              "It answers addresses on a local network only, accepts only codes made for a box on the network, and closes by itself when no such code exists. Such a code works until it is withdrawn."
-            )}
-          </p>
-        <% end %>
-      </div>
-
-      <.codes_card
-        id="tournament-codes"
-        scope="tournament"
-        title={gettext("Codes for this tournament")}
-        hint={gettext("One code per box. A code reaches this tournament and nothing else.")}
-        links={@links.tournament}
-        fresh={@fresh}
-        now={@now}
-        tournament={@tournament}
-        lan={@lan}
-      />
-      <.codes_card
-        :if={@group}
-        id="group-codes"
-        scope="group"
-        title={gettext("Codes for the group %{name}", name: @group.group.name)}
-        hint={
-          gettext(
-            "One scan sets the box up for every tournament of the group that the maker of the code may open - also one added to the group later. Which table plays in which tournament is decided on the box."
-          )
-        }
-        links={@links.group}
-        fresh={@fresh}
-        now={@now}
-        tournament={@tournament}
-        lan={@lan}
-      />
-      <.account_links_card
-        :if={@account_links != []}
-        links={@account_links}
-        current_scope={@current_scope}
-        now={@now}
-      />
-      <div class="card" id="boards-results-site">
-        <h2>{gettext("The results site")}</h2>
-
-        <%= if @target do %>
-          <p class="hint" style="margin-top: 0" id="boards-target">
-            {gettext(
-              "Connected to %{server} as %{slug}. The box sends the moves there and learns both over the link.",
-              server: @target["server_url"],
-              slug: @target["slug"]
+              "For a box that is not on this computer: a Raspberry Pi beside the boards, a second laptop. This is a setting of this computer, for every tournament on it."
             )}
           </p>
 
           <div class="set-field solo">
             <.publish_toggle
-              id="boards-live-toggle"
-              label={gettext("Live link on the results site")}
-              state={if @tournament.public_live_boards, do: :public, else: :not_public}
+              id="boards-lan-toggle"
+              label={gettext("Let boards on this network connect")}
+              state={if @lan.enabled?, do: :public, else: :not_public}
               on_text={gettext("On")}
               off_text={gettext("Off")}
-              phx-click="toggle_live_boards"
+              phx-click="lan_switch"
+              confirm={
+                gettext(
+                  "Switch this off? Boxes on the network are disconnected at once. Their codes are kept and work again when you switch it back on."
+                )
+              }
             />
-            <p class="hint" style="margin: 6px 0 0">
-              {gettext(
-                "Connecting a box does not switch this on. It puts a Live link on the public pages, and that is yours to say."
-              )}
-            </p>
           </div>
 
-          <h3 style="margin-top: 20px">{gettext("May the box send moves there?")}</h3>
+          <p id="boards-lan-warning">
+            <.icon name="hero-exclamation-triangle" class="size-4" /> {gettext(
+              "What this does: it opens one extra door on this computer, on the network address you choose, that answers the board box and nothing else. Your tournaments, these pages and everything else stay reachable from this computer only, as before. The door is plain http: the code of a box travels over the network readable. On a cable between two machines, or a network of your own, that is fine. On a wifi the players are on too, anybody who knows how can read the code and then see the pairings and send in moves as if they were a board. They cannot enter a result; a board never does. Prefer a cable or your own network, and withdraw the code after the event."
+            )}
+          </p>
 
-          <div id="boards-permission" data-state={@relay.state}>
-            <%= case @relay.state do %>
-              <% :held -> %>
-                <p id="relay-key-held" style="margin-top: 0">
-                  <.icon name="hero-check-circle" class="size-4" /> {gettext(
-                    "Yes. The box may send moves there."
-                  )}
-                </p>
-
-                <p class="hint" id="relay-key-origin">
-                  <%= if @relay.origin == :fetched do %>
-                    {gettext(
-                      "This copy fetched the permission from the results site on %{date} (relay key ending in %{hint}) and hands it to the box over the link. Nothing to copy.",
-                      date: Calendar.strftime(@relay.at, "%d-%m-%Y %H:%M UTC"),
-                      hint: @relay.hint
-                    )}
-                  <% else %>
-                    {gettext(
-                      "With a relay key that was pasted here (ending in %{hint}). The box receives it over the link.",
-                      hint: @relay.hint
-                    )}
-                  <% end %>
-                </p>
-
-                <p :if={@relay.replacing?} class="hint" id="relay-key-replacing" role="status">
-                  {gettext(
-                    "Getting a new permission from the results site… The box keeps the old one until the new one is here."
-                  )}
-                </p>
-
-                <p :if={@relay.problem && !@relay.replacing?} class="hint" id="relay-key-problem">
-                  {gettext("The results site did not hand out a new one: %{reason}.",
-                    reason: relay_reason(@relay.problem)
-                  )}
-                </p>
-
-                <button
-                  :if={!@relay.replacing?}
-                  type="button"
-                  id="relay-key-replace"
-                  class="pe-btn"
-                  phx-click="replace_relay_key"
-                  data-confirm={
-                    gettext(
-                      "Replace the box's permission? The results site hands out a new one and stops accepting the old one. A box that is connected picks the new one up within seconds; one that is switched off picks it up when it is back."
-                    )
-                  }
-                  disabled={!is_nil(@tournament.archived_at)}
-                >
-                  {gettext("Replace the box's permission")}
-                </button>
-              <% :fetching -> %>
-                <p id="relay-key-fetching" style="margin-top: 0" role="status">
-                  <.icon name="hero-arrow-path" class="size-4" /> {gettext(
-                    "Getting permission from the results site…"
-                  )}
-                </p>
-
-                <p :if={relay_waiting(@relay.reason)} class="hint" id="relay-key-waiting">
-                  {relay_waiting(@relay.reason)}
-                </p>
-
-                <p class="hint">
-                  {gettext(
-                    "Until it is here the box reads the boards and reports to this page, and sends nothing to the results site."
-                  )}
-                </p>
-              <% :refused -> %>
-                <p id="relay-key-refused" style="margin-top: 0" role="alert">
-                  <.icon name="hero-exclamation-triangle" class="size-4" /> {gettext(
-                    "Not yet. The results site did not give permission: %{reason}.",
-                    reason: relay_reason(@relay.reason)
-                  )}
-                </p>
-
-                <p class="hint">
-                  {gettext(
-                    "The box reads the boards and reports to this page, and sends nothing to the results site."
-                  )}
-                </p>
-
-                <button
-                  type="button"
-                  id="relay-key-retry"
-                  class="pe-btn"
-                  phx-click="retry_relay_key"
-                  disabled={!is_nil(@tournament.archived_at)}
-                >
-                  {gettext("Try again")}
-                </button>
-              <% _idle -> %>
-                <p class="hint" id="relay-key-idle" style="margin-top: 0">
-                  {gettext(
-                    "Not asked yet. This copy asks the results site for the box's permission by itself as soon as there is a connect code on this page, or the live link above is on. There is nothing to copy or paste."
-                  )}
-                </p>
-            <% end %>
-          </div>
-
-          <div :if={@relay.fallback?} id="relay-key-fallback" style="margin-top: 16px">
-            <p class="hint" style="margin-top: 0">
-              {gettext(
-                "This results site is an older version that cannot hand out the box's permission by itself. Until it is updated, ask its administrator for a relay key for this tournament (Tournaments, the tournament, Relay keys) and paste it here once; the box receives it over the link. It is kept on this machine, is not in an export, and is not shown again."
-              )}
+          <%= if @lan.enabled? do %>
+            <p
+              id="boards-lan-state"
+              role={if @lan.state in [:idle, :listening], do: "status", else: "alert"}
+              class={@lan.state not in [:idle, :listening] && "board-mismatch-text"}
+            >
+              {lan_state(@lan)}
             </p>
 
             <.form
-              for={@relay_form}
-              id="relay-key-form"
-              phx-submit="save_relay_key"
+              :if={@lan.addresses != []}
+              for={to_form(%{"address" => @lan.address, "port" => @lan.port}, as: :lan)}
+              id="boards-lan-form"
+              phx-submit="lan_choose"
               class="group-inline-form"
             >
               <.input
-                field={@relay_form[:key]}
-                type="password"
-                label={gettext("Relay key")}
-                autocomplete="off"
-                placeholder="orrk_…"
+                type="select"
+                name="lan[address]"
+                id="boards-lan-address"
+                label={gettext("This computer's address for boxes")}
+                options={@lan.addresses}
+                value={if @lan.address in @lan.addresses, do: @lan.address, else: hd(@lan.addresses)}
               />
-              <button
-                type="submit"
-                class="pe-btn"
-                id="relay-key-save"
-                disabled={!is_nil(@tournament.archived_at)}
-              >
-                {gettext("Save")}
-              </button>
+              <.input
+                type="number"
+                name="lan[port]"
+                id="boards-lan-port"
+                label={gettext("Port")}
+                value={@lan.port}
+                min="1024"
+                max="65535"
+              />
+              <button type="submit" class="pe-btn" id="boards-lan-save">{gettext("Use these")}</button>
             </.form>
 
-            <button
-              :if={@relay.state == :held and @relay.origin == :pasted}
-              type="button"
-              id="relay-key-clear"
-              class="pe-btn danger-link"
-              phx-click="clear_relay_key"
-              data-confirm={
+            <p class="hint" id="boards-lan-addresses">
+              {ngettext(
+                "This computer has one address on a local network. A code for a box on the network carries it.",
+                "This computer is on %{count} local networks. Pick the address of the one the box is on: only that one is opened, and a code for a box on the network carries it.",
+                length(@lan.addresses)
+              )} {gettext(
+                "If the network gives this computer another address tomorrow, the codes made today point nowhere; this page says so when it happens. A fixed address for this computer, set in the router or in Windows, prevents it."
+              )}
+            </p>
+
+            <p class="hint" id="boards-lan-firewall">
+              {gettext(
+                "Windows will ask. The first time this is used, Windows shows \"Windows Security: do you want to allow this app to communicate on these networks?\". Tick Private networks and choose Allow. This program cannot answer that for you. If you chose Cancel, or never saw the question, boxes get no answer: allow OpenPairings under Windows Security, Firewall, Allow an app through firewall."
+              )}
+            </p>
+
+            <p class="hint" id="boards-lan-limits" style="margin-bottom: 0">
+              {gettext(
+                "It answers addresses on a local network only, accepts only codes made for a box on the network, and closes by itself when no such code exists. Such a code works until it is withdrawn."
+              )}
+            </p>
+          <% end %>
+        </div>
+
+        <.codes_card
+          id="tournament-codes"
+          scope="tournament"
+          title={gettext("Codes for this tournament")}
+          hint={gettext("One code per box. A code reaches this tournament and nothing else.")}
+          links={@links.tournament}
+          fresh={@fresh}
+          now={@now}
+          tournament={@tournament}
+          lan={@lan}
+        />
+        <.codes_card
+          :if={@group}
+          id="group-codes"
+          scope="group"
+          title={gettext("Codes for the group %{name}", name: @group.group.name)}
+          hint={
+            gettext(
+              "One scan sets the box up for every tournament of the group that the maker of the code may open - also one added to the group later. Which table plays in which tournament is decided on the box."
+            )
+          }
+          links={@links.group}
+          fresh={@fresh}
+          now={@now}
+          tournament={@tournament}
+          lan={@lan}
+        />
+        <.account_links_card
+          :if={@account_links != []}
+          links={@account_links}
+          current_scope={@current_scope}
+          now={@now}
+        />
+        <div class="card" id="boards-results-site">
+          <h2>{gettext("The results site")}</h2>
+
+          <%= if @target do %>
+            <p class="hint" style="margin-top: 0" id="boards-target">
+              {gettext(
+                "Connected to %{server} as %{slug}. The box sends the moves there and learns both over the link.",
+                server: @target["server_url"],
+                slug: @target["slug"]
+              )}
+            </p>
+
+            <div class="set-field solo">
+              <.publish_toggle
+                id="boards-live-toggle"
+                label={gettext("Live link on the results site")}
+                state={if @tournament.public_live_boards, do: :public, else: :not_public}
+                on_text={gettext("On")}
+                off_text={gettext("Off")}
+                phx-click="toggle_live_boards"
+              />
+              <p class="hint" style="margin: 6px 0 0">
+                {gettext(
+                  "Connecting a box does not switch this on. It puts a Live link on the public pages, and that is yours to say."
+                )}
+              </p>
+            </div>
+
+            <h3 style="margin-top: 20px">{gettext("May the box send moves there?")}</h3>
+
+            <div id="boards-permission" data-state={@relay.state}>
+              <%= case @relay.state do %>
+                <% :held -> %>
+                  <p id="relay-key-held" style="margin-top: 0">
+                    <.icon name="hero-check-circle" class="size-4" /> {gettext(
+                      "Yes. The box may send moves there."
+                    )}
+                  </p>
+
+                  <p class="hint" id="relay-key-origin">
+                    <%= if @relay.origin == :fetched do %>
+                      {gettext(
+                        "This copy fetched the permission from the results site on %{date} (relay key ending in %{hint}) and hands it to the box over the link. Nothing to copy.",
+                        date: Calendar.strftime(@relay.at, "%d-%m-%Y %H:%M UTC"),
+                        hint: @relay.hint
+                      )}
+                    <% else %>
+                      {gettext(
+                        "With a relay key that was pasted here (ending in %{hint}). The box receives it over the link.",
+                        hint: @relay.hint
+                      )}
+                    <% end %>
+                  </p>
+
+                  <p :if={@relay.replacing?} class="hint" id="relay-key-replacing" role="status">
+                    {gettext(
+                      "Getting a new permission from the results site… The box keeps the old one until the new one is here."
+                    )}
+                  </p>
+
+                  <p :if={@relay.problem && !@relay.replacing?} class="hint" id="relay-key-problem">
+                    {gettext("The results site did not hand out a new one: %{reason}.",
+                      reason: relay_reason(@relay.problem)
+                    )}
+                  </p>
+
+                  <button
+                    :if={!@relay.replacing?}
+                    type="button"
+                    id="relay-key-replace"
+                    class="pe-btn"
+                    phx-click="replace_relay_key"
+                    data-confirm={
+                      gettext(
+                        "Replace the box's permission? The results site hands out a new one and stops accepting the old one. A box that is connected picks the new one up within seconds; one that is switched off picks it up when it is back."
+                      )
+                    }
+                    disabled={!is_nil(@tournament.archived_at)}
+                  >
+                    {gettext("Replace the box's permission")}
+                  </button>
+                <% :fetching -> %>
+                  <p id="relay-key-fetching" style="margin-top: 0" role="status">
+                    <.icon name="hero-arrow-path" class="size-4" /> {gettext(
+                      "Getting permission from the results site…"
+                    )}
+                  </p>
+
+                  <p :if={relay_waiting(@relay.reason)} class="hint" id="relay-key-waiting">
+                    {relay_waiting(@relay.reason)}
+                  </p>
+
+                  <p class="hint">
+                    {gettext(
+                      "Until it is here the box reads the boards and reports to this page, and sends nothing to the results site."
+                    )}
+                  </p>
+                <% :refused -> %>
+                  <p id="relay-key-refused" style="margin-top: 0" role="alert">
+                    <.icon name="hero-exclamation-triangle" class="size-4" /> {gettext(
+                      "Not yet. The results site did not give permission: %{reason}.",
+                      reason: relay_reason(@relay.reason)
+                    )}
+                  </p>
+
+                  <p class="hint">
+                    {gettext(
+                      "The box reads the boards and reports to this page, and sends nothing to the results site."
+                    )}
+                  </p>
+
+                  <button
+                    type="button"
+                    id="relay-key-retry"
+                    class="pe-btn"
+                    phx-click="retry_relay_key"
+                    disabled={!is_nil(@tournament.archived_at)}
+                  >
+                    {gettext("Try again")}
+                  </button>
+                <% _idle -> %>
+                  <p class="hint" id="relay-key-idle" style="margin-top: 0">
+                    {gettext(
+                      "Not asked yet. This copy asks the results site for the box's permission by itself as soon as there is a connect code on this page, or the live link above is on. There is nothing to copy or paste."
+                    )}
+                  </p>
+              <% end %>
+            </div>
+
+            <div :if={@relay.fallback?} id="relay-key-fallback" style="margin-top: 16px">
+              <p class="hint" style="margin-top: 0">
+                {gettext(
+                  "This results site is an older version that cannot hand out the box's permission by itself. Until it is updated, ask its administrator for a relay key for this tournament (Tournaments, the tournament, Relay keys) and paste it here once; the box receives it over the link. It is kept on this machine, is not in an export, and is not shown again."
+                )}
+              </p>
+
+              <.form
+                for={@relay_form}
+                id="relay-key-form"
+                phx-submit="save_relay_key"
+                class="group-inline-form"
+              >
+                <.input
+                  field={@relay_form[:key]}
+                  type="password"
+                  label={gettext("Relay key")}
+                  autocomplete="off"
+                  placeholder="orrk_…"
+                />
+                <button
+                  type="submit"
+                  class="pe-btn"
+                  id="relay-key-save"
+                  disabled={!is_nil(@tournament.archived_at)}
+                >
+                  {gettext("Save")}
+                </button>
+              </.form>
+
+              <button
+                :if={@relay.state == :held and @relay.origin == :pasted}
+                type="button"
+                id="relay-key-clear"
+                class="pe-btn danger-link"
+                phx-click="clear_relay_key"
+                data-confirm={
+                  gettext(
+                    "Remove the relay key? The box stops receiving it, and can no longer send moves to the results site once it notices."
+                  )
+                }
+                disabled={!is_nil(@tournament.archived_at)}
+              >
+                {gettext("Remove the pasted relay key")}
+              </button>
+            </div>
+          <% else %>
+            <p class="hint" style="margin-top: 0" id="boards-no-target">
+              <.rich_text text={
                 gettext(
-                  "Remove the relay key? The box stops receiving it, and can no longer send moves to the results site once it notices."
+                  "Put the tournament on the results site first: Settings, %[link]. Until then the box has nowhere to send the moves; it still reads the boards and reports here. Once the tournament is there, this copy arranges the box's permission by itself."
                 )
-              }
-              disabled={!is_nil(@tournament.archived_at)}
-            >
-              {gettext("Remove the pasted relay key")}
-            </button>
-          </div>
-        <% else %>
-          <p class="hint" style="margin-top: 0" id="boards-no-target">
-            <.rich_text text={
-              gettext(
-                "Put the tournament on the results site first: Settings, %[link]. Until then the box has nowhere to send the moves; it still reads the boards and reports here. Once the tournament is there, this copy arranges the box's permission by itself."
-              )
-            }>
-              <:part name="link">
-                <.link navigate={~p"/t/#{@tournament.id}/settings/results"}>
-                  {gettext("OpenResults")}
-                </.link>
-              </:part>
-            </.rich_text>
-          </p>
-        <% end %>
-      </div>
+              }>
+                <:part name="link">
+                  <.link navigate={~p"/t/#{@tournament.id}/settings/results"}>
+                    {gettext("OpenResults")}
+                  </.link>
+                </:part>
+              </.rich_text>
+            </p>
+          <% end %>
+        </div>
 
-      <div class="card" id="boards-games">
-        <h2>{gettext("Games the boards reported")}</h2>
+        <div class="card" id="boards-games">
+          <h2>{gettext("Games the boards reported")}</h2>
 
-        <%= if @game_count == 0 do %>
-          <p class="hint" style="margin-top: 0" id="boards-no-games">
-            {gettext("None yet.")}
-          </p>
-        <% else %>
-          <p style="margin-top: 0" id="boards-game-count">
-            {ngettext("%{count} game.", "%{count} games.", @game_count)} {gettext(
-              "Each is kept with the tournament and is in its export. Open one from its row on the Pairings page."
-            )}
-          </p>
+          <%= if @game_count == 0 do %>
+            <p class="hint" style="margin-top: 0" id="boards-no-games">
+              {gettext("None yet.")}
+            </p>
+          <% else %>
+            <p style="margin-top: 0" id="boards-game-count">
+              {ngettext("%{count} game.", "%{count} games.", @game_count)} {gettext(
+                "Each is kept with the tournament and is in its export. Open one from its row on the Pairings page."
+              )}
+            </p>
 
-          <p>
-            <.link
-              id="boards-pgn-all"
-              class="pe-btn"
-              href={~p"/t/#{@tournament.id}/export/pgn?moves=1"}
-            >
-              {gettext("PGN, whole tournament")}
-            </.link>
+            <p>
+              <.link
+                id="boards-pgn-all"
+                class="pe-btn"
+                href={~p"/t/#{@tournament.id}/export/pgn?moves=1"}
+              >
+                {gettext("PGN, whole tournament")}
+              </.link>
 
-            <.link
-              :for={round <- @rounds}
-              id={"boards-pgn-round-#{round.number}"}
-              class="pe-btn"
-              href={~p"/t/#{@tournament.id}/export/pgn?moves=1&round=#{round.number}"}
-            >
-              {gettext("Round %{n}", n: round.number)}
-            </.link>
-          </p>
+              <.link
+                :for={round <- @rounds}
+                id={"boards-pgn-round-#{round.number}"}
+                class="pe-btn"
+                href={~p"/t/#{@tournament.id}/export/pgn?moves=1&round=#{round.number}"}
+              >
+                {gettext("Round %{n}", n: round.number)}
+              </.link>
+            </p>
 
-          <p class="hint" style="margin-bottom: 0">
-            {gettext(
-              "The result in a file is the one you entered, or * until you have. The moves are as the box reported them."
-            )}
-          </p>
-        <% end %>
-      </div>
+            <p class="hint" style="margin-bottom: 0">
+              {gettext(
+                "The result in a file is the one you entered, or * until you have. The moves are as the box reported them."
+              )}
+            </p>
+          <% end %>
+        </div>
+      </.settings_page>
     </Layouts.app>
     """
   end

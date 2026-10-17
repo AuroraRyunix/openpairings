@@ -205,57 +205,50 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page tournament={@tournament} active={:dates} subtitle={gettext("Settings - Dates")}>
+        <.stale_banner stale={@stale} />
+        <form id="round-dates-form" phx-submit="save" phx-change="rd_update">
+          <div class="card">
+            <h2>{gettext("Round dates")}</h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - Dates")}</p>
-        </div>
-        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:dates} /> <.stale_banner stale={@stale} />
-      <form id="round-dates-form" phx-submit="save" phx-change="rd_update">
-        <div class="card">
-          <h2>{gettext("Round dates")}</h2>
+            <p class="hint" style="margin-top: 0">
+              {gettext(
+                "One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can share the same date (e.g. a Saturday double round). The tournament's own start/end date is no longer entered separately - it's just the earliest and latest date set here:"
+              )}
+            </p>
 
-          <p class="hint" style="margin-top: 0">
-            {gettext(
-              "One date per round (SWAR Dates tab). Leave blank if unknown; two or more rounds can share the same date (e.g. a Saturday double round). The tournament's own start/end date is no longer entered separately - it's just the earliest and latest date set here:"
-            )}
-          </p>
+            <p class="hint" style="margin-top: 0">
+              <strong>{derived_range(@round_dates)}</strong>
+            </p>
 
-          <p class="hint" style="margin-top: 0">
-            <strong>{derived_range(@round_dates)}</strong>
-          </p>
+            <div class="set-rows">
+              <label :for={{date, i} <- Enum.with_index(@round_dates)} class="set-row">
+                <span class="set-row-label">
+                  {gettext("Round %{n}", n: i + 1)}
+                  <span :if={weekday_label(date)} class="hint">({weekday_label(date)})</span>
+                </span>
+                <input type="date" name="tournament[round_dates][]" value={date} />
+              </label>
+            </div>
 
-          <div class="set-rows">
-            <label :for={{date, i} <- Enum.with_index(@round_dates)} class="set-row">
-              <span class="set-row-label">
-                {gettext("Round %{n}", n: i + 1)}
-                <span :if={weekday_label(date)} class="hint">({weekday_label(date)})</span>
-              </span>
-              <input type="date" name="tournament[round_dates][]" value={date} />
-            </label>
+            <div class="actions" style="flex-wrap: wrap">
+              <button type="button" class="pe-btn" phx-click="rd_fill_sequential">
+                {gettext("Fill sequentially from round 1")}
+              </button>
+
+              <button type="button" class="pe-btn" phx-click="rd_calc">
+                {gettext("Calculate weekly from round 1")}
+              </button>
+              <button type="button" class="pe-btn" phx-click="rd_clear">{gettext("Clear all")}</button>
+            </div>
           </div>
 
-          <div class="actions" style="flex-wrap: wrap">
-            <button type="button" class="pe-btn" phx-click="rd_fill_sequential">
-              {gettext("Fill sequentially from round 1")}
-            </button>
-
-            <button type="button" class="pe-btn" phx-click="rd_calc">
-              {gettext("Calculate weekly from round 1")}
-            </button>
-            <button type="button" class="pe-btn" phx-click="rd_clear">{gettext("Clear all")}</button>
+          <div class="actions">
+            <button type="submit" class="pe-btn primary">{gettext("Save round dates")}</button>
+            <.save_status note={@note} error={@error} />
           </div>
-        </div>
-
-        <div class="actions">
-          <button type="submit" class="pe-btn primary">{gettext("Save round dates")}</button>
-          <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
-          <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
-        </div>
-      </form>
+        </form>
+      </.settings_page>
     </Layouts.app>
     """
   end

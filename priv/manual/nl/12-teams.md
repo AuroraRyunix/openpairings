@@ -24,7 +24,7 @@ Keizer kan geen ploegentoernooi zijn.
 5. **De volgorde van de ploegen.** De volgorde van de kaarten wordt de paringnummers van de ploegen
    wanneer ronde 1 gepaard wordt. Verplaats ploegen met de pijltjes of druk op **Rangschikken op rating**.
    Ploegen die je niet zelf verplaatst heeft, worden gerangschikt op rating wanneer ronde 1 gepaard wordt.
-   Hoe de rating van een ploeg berekend wordt, is de optie *Ploegrating voor de volgorde van de ploegen* op de pagina Opties:
+   Hoe de rating van een ploeg berekend wordt, is de optie *Ploegrating voor de volgorde van de ploegen* op de pagina Opties (geavanceerd):
    de standaard (olympiaderegel) is het gemiddelde van de hoogst gerate spelers, één per bord; de
    alternatieven zijn het gemiddelde van de eerste borden in bordvolgorde, het
    gemiddelde van de hele opstelling, of een rating die je per ploeg intypt. De rating van een ploeg

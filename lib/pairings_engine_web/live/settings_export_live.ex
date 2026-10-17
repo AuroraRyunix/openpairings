@@ -42,7 +42,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     end
 
     {:ok,
-     assign(socket,
+     socket
+     |> attach_advanced()
+     |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Settings · Export",
        bel_swar_export?: Features.enabled?(socket.assigns.current_scope, "bel_swar_export"),
@@ -961,975 +963,998 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page
+        tournament={@tournament}
+        active={:export}
+        subtitle={gettext("Settings - Export")}
+        advanced={
+          advanced(
+            @show_advanced,
+            changed_count(@tournament, [
+              @csv_cols != PlayerExport.default_columns(),
+              @csv_delimiter != "comma",
+              @csv_sort != "seed",
+              @csv_skip_absent,
+              !@csv_bom
+            ])
+          )
+        }
+      >
+        <div class="card" id="trf-export">
+          <h2>
+            {gettext("TRF (FIDE rating report)")}
+            <PairingsEngineWeb.Components.ManualLink.manual_link topic={:trf_export} />
+          </h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - Export")}</p>
-        </div>
-        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:export} />
-      <div class="card" id="trf-export">
-        <h2>
-          {gettext("TRF (FIDE rating report)")}
-          <PairingsEngineWeb.Components.ManualLink.manual_link topic={:trf_export} />
-        </h2>
+          <p class="hint" style="margin-top: 0">
+            {gettext(
+              "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or press Send. Send downloads the rating file to your computer and records its rounds as sent, so a round is never sent twice and a sent result asks for confirmation before it changes. The program delivers nothing: you send the downloaded file to your rating officer yourself."
+            )} {gettext(
+              "Only the file Send hands out is for rating. Every copy is named COPY-NOT-FOR-RATING and says so in a comment line inside."
+            )}
+          </p>
 
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "The file for the rating officer. Tick the rounds, then download a copy (nothing is marked) or press Send. Send downloads the rating file to your computer and records its rounds as sent, so a round is never sent twice and a sent result asks for confirmation before it changes. The program delivers nothing: you send the downloaded file to your rating officer yourself."
-          )} {gettext(
-            "Only the file Send hands out is for rating. Every copy is named COPY-NOT-FOR-RATING and says so in a comment line inside."
-          )}
-        </p>
-
-        <%!-- An imported copy of an event that may already have been
+          <%!-- An imported copy of an event that may already have been
               reported elsewhere (`Tournament.send_confirmation_needed`):
               nothing is sent until an arbiter says this is the copy that
               reports. Never cleared on its own. --%>
-        <div
-          :if={@tournament.send_confirmation_needed}
-          id="trf-copy-unconfirmed"
-          class="card"
-          role="alert"
-          style="display: block; margin: 0 0 12px; border-left: 3px solid var(--danger)"
-        >
-          <p style="margin-top: 0">
-            {copy_unconfirmed_text(@tournament.send_confirmation_needed)}
-          </p>
-
-          <button
-            type="button"
-            id="trf-confirm-copy"
-            class="pe-btn"
-            phx-click="confirm_sending"
-            data-confirm={
-              gettext(
-                "Confirm that this copy is the one that sends this tournament's results to the rating officer, and that no round in it was sent from anywhere else? A round sent twice is rated twice."
-              )
-            }
+          <div
+            :if={@tournament.send_confirmation_needed}
+            id="trf-copy-unconfirmed"
+            class="card"
+            role="alert"
+            style="display: block; margin: 0 0 12px; border-left: 3px solid var(--danger)"
           >
-            {gettext("This copy reports: allow sending")}
-          </button>
-        </div>
+            <p style="margin-top: 0">
+              {copy_unconfirmed_text(@tournament.send_confirmation_needed)}
+            </p>
 
-        <.fide_exit_dialog
-          id="fide-gate"
-          step={@fide_gate && @fide_gate.step}
-          reasons={(@fide_gate && @fide_gate.reasons) || []}
-        />
-        <%!-- FIDE mode, a postponed game still without a result (VCL4THP
+            <button
+              type="button"
+              id="trf-confirm-copy"
+              class="pe-btn"
+              phx-click="confirm_sending"
+              data-confirm={
+                gettext(
+                  "Confirm that this copy is the one that sends this tournament's results to the rating officer, and that no round in it was sent from anywhere else? A round sent twice is rated twice."
+                )
+              }
+            >
+              {gettext("This copy reports: allow sending")}
+            </button>
+          </div>
+
+          <.fide_exit_dialog
+            id="fide-gate"
+            step={@fide_gate && @fide_gate.step}
+            reasons={(@fide_gate && @fide_gate.reasons) || []}
+          />
+          <%!-- FIDE mode, a postponed game still without a result (VCL4THP
               Q169): no TRF that holds its round goes out, copy or for
               rating, until it has a result or is recorded as not played in
               this event - which asks twice and takes the tournament out of
               FIDE mode. Files of the rounds before it are unaffected. --%>
-        <div
-          :if={@blocking_postponed != []}
-          id="trf-open-postponed"
-          class="card"
-          role="alert"
-          style="display: block; margin: 0 0 12px; border-left: 3px solid var(--danger)"
-        >
-          <p style="margin-top: 0">
-            <strong>
-              {gettext(
-                "In FIDE mode no TRF holds a round with a postponed game that has no result, and there are no final standings: the FIDE rules allow neither until every game has one. A file of only the rounds before it can still be made."
-              )}
-            </strong>
-            {Postponed.what_to_do_text()}
+          <div
+            :if={@blocking_postponed != []}
+            id="trf-open-postponed"
+            class="card"
+            role="alert"
+            style="display: block; margin: 0 0 12px; border-left: 3px solid var(--danger)"
+          >
+            <p style="margin-top: 0">
+              <strong>
+                {gettext(
+                  "In FIDE mode no TRF holds a round with a postponed game that has no result, and there are no final standings: the FIDE rules allow neither until every game has one. A file of only the rounds before it can still be made."
+                )}
+              </strong>
+              {Postponed.what_to_do_text()}
+            </p>
+
+            <ul style="margin: 0; padding-left: 20px">
+              <li :for={game <- @blocking_postponed} id={"trf-open-postponed-#{game.pairing.id}"}>
+                <.link navigate={~p"/t/#{@tournament.id}/pairings?round=#{game.round}"}>
+                  {Postponed.game_text(game)}
+                </.link>
+
+                <button
+                  :if={!@tournament.archived_at}
+                  type="button"
+                  id={"trf-not-played-#{game.pairing.id}"}
+                  class="pe-btn"
+                  style="margin-left: 8px"
+                  phx-click="report_not_played"
+                  phx-value-id={game.pairing.id}
+                >
+                  {gettext("Not played in this event")}
+                </button>
+              </li>
+            </ul>
+          </div>
+
+          <p :if={@trf_rounds == []} class="hint" id="trf-no-rounds">
+            {gettext("No round is paired yet.")}
           </p>
 
-          <ul style="margin: 0; padding-left: 20px">
-            <li :for={game <- @blocking_postponed} id={"trf-open-postponed-#{game.pairing.id}"}>
-              <.link navigate={~p"/t/#{@tournament.id}/pairings?round=#{game.round}"}>
-                {Postponed.game_text(game)}
-              </.link>
+          <div :if={@trf_rounds != []}>
+            <p id="trf-summary" class="trf-summary">{trf_summary(@trf_rounds)}</p>
 
-              <button
-                :if={!@tournament.archived_at}
-                type="button"
-                id={"trf-not-played-#{game.pairing.id}"}
-                class="pe-btn"
-                style="margin-left: 8px"
-                phx-click="report_not_played"
-                phx-value-id={game.pairing.id}
-              >
-                {gettext("Not played in this event")}
-              </button>
-            </li>
-          </ul>
-        </div>
-
-        <p :if={@trf_rounds == []} class="hint" id="trf-no-rounds">
-          {gettext("No round is paired yet.")}
-        </p>
-
-        <div :if={@trf_rounds != []}>
-          <p id="trf-summary" class="trf-summary">{trf_summary(@trf_rounds)}</p>
-
-          <%!-- A sent round or postponed-games file that changed since: the
+            <%!-- A sent round or postponed-games file that changed since: the
                 rating officer has the old version. Named, never re-sent. --%>
-          <SentReceipt.drift_warning
-            :for={status <- @receipt_drift}
-            status={status}
-            id={"trf-receipt-drift-#{status.receipt.id}"}
-          />
-          <div class="card-table-wrap">
-            <table class="pe-table trf-rounds" id="trf-rounds">
-              <thead>
-                <tr>
-                  <th scope="col" class="trf-tick">
-                    <span class="sr-only">{gettext("Include")}</span>
-                  </th>
+            <SentReceipt.drift_warning
+              :for={status <- @receipt_drift}
+              status={status}
+              id={"trf-receipt-drift-#{status.receipt.id}"}
+            />
+            <div class="card-table-wrap">
+              <table class="pe-table trf-rounds" id="trf-rounds">
+                <thead>
+                  <tr>
+                    <th scope="col" class="trf-tick">
+                      <span class="sr-only">{gettext("Include")}</span>
+                    </th>
 
-                  <th scope="col">{gettext("Round")}</th>
+                    <th scope="col">{gettext("Round")}</th>
 
-                  <th scope="col">{gettext("Boards")}</th>
+                    <th scope="col">{gettext("Boards")}</th>
 
-                  <th scope="col">{gettext("State")}</th>
-                </tr>
-              </thead>
+                    <th scope="col">{gettext("State")}</th>
+                  </tr>
+                </thead>
 
-              <tbody>
-                <tr
-                  :for={r <- @trf_rounds}
-                  id={"trf-round-#{r.round}"}
-                  class={[
-                    "trf-row",
-                    trf_state_class(r),
-                    receipt_changed?(@receipt_reports, r.round) && "is-changed"
-                  ]}
-                >
-                  <td class="trf-tick">
-                    <input
-                      type="checkbox"
-                      id={"trf-tick-#{r.round}"}
-                      checked={MapSet.member?(@trf_selected, r.round)}
-                      phx-click="toggle_trf_round"
-                      phx-value-round={r.round}
-                      aria-label={gettext("Include round %{n}", n: r.round)}
-                    />
-                  </td>
+                <tbody>
+                  <tr
+                    :for={r <- @trf_rounds}
+                    id={"trf-round-#{r.round}"}
+                    class={[
+                      "trf-row",
+                      trf_state_class(r),
+                      receipt_changed?(@receipt_reports, r.round) && "is-changed"
+                    ]}
+                  >
+                    <td class="trf-tick">
+                      <input
+                        type="checkbox"
+                        id={"trf-tick-#{r.round}"}
+                        checked={MapSet.member?(@trf_selected, r.round)}
+                        phx-click="toggle_trf_round"
+                        phx-value-round={r.round}
+                        aria-label={gettext("Include round %{n}", n: r.round)}
+                      />
+                    </td>
 
-                  <td><label for={"trf-tick-#{r.round}"}>{r.round}</label></td>
+                    <td><label for={"trf-tick-#{r.round}"}>{r.round}</label></td>
 
-                  <td>{r.boards}</td>
+                    <td>{r.boards}</td>
 
-                  <td>
-                    <span class={["trf-state", trf_state_class(r)]}>
-                      <span class="trf-state-mark" aria-hidden="true"></span>
-                      <%= if r.state == :sent and receipt_of(@receipt_reports, r.round) do %>
-                        <SentReceipt.stamp
-                          receipt={receipt_of(@receipt_reports, r.round)}
-                          id={"trf-receipt-#{r.round}"}
-                        />
-                      <% else %>
-                        {trf_state_label(r)}
-                      <% end %>
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <% blocker =
-            trf_send_blocker(@trf_rounds, @trf_selected, @tournament, @blocking_postponed) %>
-          <div class="actions" style="align-items: center">
-            <a
-              id="trf-download-copy"
-              class={[
-                "pe-btn",
-                (MapSet.size(@trf_selected) == 0 or
-                   blocking_in(@blocking_postponed, @trf_selected) != []) &&
-                  "is-disabled"
-              ]}
-              href={
-                if MapSet.size(@trf_selected) > 0 and
-                     blocking_in(@blocking_postponed, @trf_selected) == [],
-                   do: ~p"/t/#{@tournament.id}/export/trf?rounds=#{trf_rounds_param(@trf_selected)}"
-              }
-              aria-disabled={
-                to_string(
-                  MapSet.size(@trf_selected) == 0 or
-                    blocking_in(@blocking_postponed, @trf_selected) != []
-                )
-              }
-              target="_blank"
-            >
-              {gettext("Download a copy (not for rating)")}
-            </a>
+                    <td>
+                      <span class={["trf-state", trf_state_class(r)]}>
+                        <span class="trf-state-mark" aria-hidden="true"></span>
+                        <%= if r.state == :sent and receipt_of(@receipt_reports, r.round) do %>
+                          <SentReceipt.stamp
+                            receipt={receipt_of(@receipt_reports, r.round)}
+                            id={"trf-receipt-#{r.round}"}
+                          />
+                        <% else %>
+                          {trf_state_label(r)}
+                        <% end %>
+                      </span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <% blocker =
+              trf_send_blocker(@trf_rounds, @trf_selected, @tournament, @blocking_postponed) %>
+            <div class="actions" style="align-items: center">
+              <a
+                id="trf-download-copy"
+                class={[
+                  "pe-btn",
+                  (MapSet.size(@trf_selected) == 0 or
+                     blocking_in(@blocking_postponed, @trf_selected) != []) &&
+                    "is-disabled"
+                ]}
+                href={
+                  if MapSet.size(@trf_selected) > 0 and
+                       blocking_in(@blocking_postponed, @trf_selected) == [],
+                     do: ~p"/t/#{@tournament.id}/export/trf?rounds=#{trf_rounds_param(@trf_selected)}"
+                }
+                aria-disabled={
+                  to_string(
+                    MapSet.size(@trf_selected) == 0 or
+                      blocking_in(@blocking_postponed, @trf_selected) != []
+                  )
+                }
+                target="_blank"
+              >
+                {gettext("Download a copy (not for rating)")}
+              </a>
 
-            <%!-- The TRF an arbiter SENDS - to the federation's rating office.
+              <%!-- The TRF an arbiter SENDS - to the federation's rating office.
                   POST, because it marks every exported result as sent
                   (`PostponedGames.finalise/2`), and a GET that could do that
                   would be fired by a link prefetch. --%>
-            <.form
-              for={%{}}
-              id="trf-send-form"
-              action={~p"/t/#{@tournament.id}/export/trf"}
-              method="post"
-              target="_blank"
-              style="margin: 0"
-            >
-              <input type="hidden" name="rounds" value={trf_rounds_param(@trf_selected)} />
-              <input type="hidden" name="finalise" value="true" />
-              <%!-- A round sent before with other games goes again only with
-                    this, after the confirmation below said so. --%>
-              <input
-                :if={sent_before_selected(@trf_rounds, @trf_selected) != []}
-                type="hidden"
-                name="acknowledged"
-                value="round_sent_before"
-              />
-              <button
-                type="submit"
-                id="trf-send"
-                class="pe-btn primary"
-                disabled={not is_nil(blocker)}
-                data-confirm={is_nil(blocker) && trf_send_confirm(@trf_selected, @trf_rounds)}
-              >
-                {gettext("Send…")}
-              </button>
-            </.form>
-            <span :if={blocker} id="trf-send-blocker" class="hint">{blocker}</span>
-            <%!-- The receipt of a sent file, as JSON: one link per send. --%>
-            <details :if={@receipt_files != []} id="receipt-json" class="receipt-json">
-              <summary class="pe-btn">{gettext("Receipt (JSON)")}</summary>
-
-              <ul class="receipt-list">
-                <li :for={receipt <- @receipt_files}>
-                  <a
-                    id={"receipt-json-#{receipt.id}"}
-                    href={~p"/t/#{@tournament.id}/export/receipts/#{receipt.id}/json"}
-                  >
-                    {SentReceipt.code_text(receipt)}
-                  </a>
-                  <span class="hint">· {SentReceipt.at_text(receipt.sent_at)}</span>
-                </li>
-              </ul>
-            </details>
-
-            <button
-              :if={@receipt_files == []}
-              type="button"
-              id="receipt-json-none"
-              class="pe-btn"
-              disabled
-              aria-disabled="true"
-              title={gettext("Nothing has been sent yet, so there is no receipt.")}
-            >
-              {gettext("Receipt (JSON)")}
-            </button>
-
-            <a
-              class="trf-all-link"
-              style="margin-left: auto"
-              href={~p"/t/#{@tournament.id}/export/trf"}
-              target="_blank"
-            >
-              {gettext("All rounds (TRF copy, not for rating)")}
-            </a>
-          </div>
-
-          <%!-- Under the button, always: "Send" sends nothing. It was read as
-                "the app mails my rating officer", which it has never done. --%>
-          <p id="trf-send-note" class="hint" style="margin: 8px 0 0">
-            {send_is_not_delivery_text()}
-            <%!-- The rating inbox is the rating officer's page (Admin, and the
-                  account menu). Here it is a footnote, for those who may
-                  open it, and nothing at all for those who may not. --%>
-            <.link
-              :if={@may_admin?}
-              id="rating-inbox-link"
-              navigate={~p"/admin/rating-inbox"}
-            >
-              {gettext("Open the rating inbox")}
-            </.link>
-          </p>
-
-          <%!-- The organiser's bye exclusions are not a FIDE rule and no TRF
-                line records them, so a checker replaying the file pairs
-                these rounds as FIDE's rules would - differently. --%>
-          <p :if={@bye_exclusion_rounds != []} id="trf-bye-exclusion-note" class="hint">
-            {ngettext(
-              "Round %{rounds} was paired with a player excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently.",
-              "Rounds %{rounds} were paired with players excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently.",
-              length(@bye_exclusion_rounds),
-              rounds: Enum.join(@bye_exclusion_rounds, ", ")
-            )}
-          </p>
-          <%!-- Nor are the players' bye preferences. --%>
-          <p :if={@bye_preference_rounds != []} id="trf-bye-preference-note" class="hint">
-            {ngettext(
-              "Round %{rounds} was changed by a player's bye preference (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently.",
-              "Rounds %{rounds} were changed by players' bye preferences (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently.",
-              length(@bye_preference_rounds),
-              rounds: Enum.join(@bye_preference_rounds, ", ")
-            )}
-          </p>
-
-          <%!-- Nor are extra points that do nothing: a TRF has a record for
-                points that count and for points the pairing uses, and
-                none for the rest. --%>
-          <p
-            :for={{note, i} <- Enum.with_index(@trf_export_notes)}
-            id={"trf-export-note-#{i}"}
-            class="hint"
-          >
-            {note}
-          </p>
-
-          <p :if={@sent_rounds != []} id="trf-sent-rounds" class="sr-only">
-            {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
-          </p>
-        </div>
-
-        <div
-          :if={Tournament.postponed_allowed?(@tournament)}
-          id="postponed-part"
-          class="trf-late-part"
-        >
-          <h3>{gettext("Postponed games")}</h3>
-
-          <div class="card-table-wrap">
-            <table class="pe-table" id="postponed-list">
-              <thead>
-                <tr>
-                  <th class="num">{gettext("Round")}</th>
-
-                  <th class="num">{gettext("Board")}</th>
-
-                  <th>{gettext("White")}</th>
-
-                  <th>{gettext("Black")}</th>
-
-                  <th>{gettext("Postponed by")}</th>
-
-                  <th>{gettext("Status")}</th>
-
-                  <th>{gettext("Sent")}</th>
-                </tr>
-              </thead>
-
-              <tbody>
-                <tr :if={@postponed_all == []}>
-                  <td colspan="7" class="empty">{gettext("No game has been postponed yet.")}</td>
-                </tr>
-
-                <tr :for={%{round: round, pairing: p} <- @postponed_all} id={"postponed-row-#{p.id}"}>
-                  <td class="num">{round}</td>
-
-                  <td class="num">{p.display_board || p.board}</td>
-
-                  <td>{late_player(p.white_player)}</td>
-
-                  <td>{late_player(p.black_player)}</td>
-
-                  <td>{postponed_by_text(p)}</td>
-
-                  <td>
-                    {postponed_status_text(p)}
-                    <form
-                      :if={
-                        !PairingsEngine.Results.postponed?(p.result) and
-                          is_nil(p.postponed_reported_at)
-                      }
-                      id={"played-on-form-#{p.id}"}
-                      phx-submit="set_played_on"
-                      class="played-on-form"
-                    >
-                      <input type="hidden" name="pairing-id" value={p.id} />
-                      <input
-                        type="date"
-                        name="played_on"
-                        value={p.played_on && Date.to_iso8601(p.played_on)}
-                        aria-label={gettext("Date played")}
-                      /> <button type="submit" class="pe-btn">{gettext("Save date")}</button>
-                    </form>
-                  </td>
-
-                  <td>{postponed_sent_text(p)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <%!-- The postponed-games file: games that went out unplayed in their
-                round's report and were played since. Its own file, as extra
-                rounds, so each game is sent exactly once. --%>
-          <div id="trf-late-games" class="trf-late">
-            <h3>{gettext("Postponed-games file")}</h3>
-
-            <%!-- Reported as a tournament of its own, as late games are in
-                  practice: its own name, FIDE tournament ID and dates, one
-                  file per rating period. --%>
-            <div id="postponed-report-identity" class="postponed-report-identity">
-              <p class="hint" style="margin: 0 0 8px">
-                {gettext(
-                  "The postponed-games file is reported to FIDE as a separate tournament: its own name and its own FIDE tournament ID (not this tournament's), dated from the first to the last day its games were played, with only those games, and one file per rating period."
-                )}
-              </p>
-
               <.form
-                for={@postponed_report_form}
-                id="postponed-report-form"
-                phx-submit="save_postponed_report"
-                class="postponed-report-form"
+                for={%{}}
+                id="trf-send-form"
+                action={~p"/t/#{@tournament.id}/export/trf"}
+                method="post"
+                target="_blank"
+                style="margin: 0"
               >
-                <.input
-                  field={@postponed_report_form[:postponed_report_name]}
-                  type="text"
-                  label={gettext("Tournament name of the postponed-games file")}
-                  placeholder={PostponedGames.default_report_name(@tournament)}
+                <input type="hidden" name="rounds" value={trf_rounds_param(@trf_selected)} />
+                <input type="hidden" name="finalise" value="true" />
+                <%!-- A round sent before with other games goes again only with
+                    this, after the confirmation below said so. --%>
+                <input
+                  :if={sent_before_selected(@trf_rounds, @trf_selected) != []}
+                  type="hidden"
+                  name="acknowledged"
+                  value="round_sent_before"
                 />
-                <.input
-                  field={@postponed_report_form[:postponed_fide_tournament_id]}
-                  type="text"
-                  label={gettext("Its FIDE tournament ID")}
-                />
-                <button type="submit" id="postponed-report-save" class="pe-btn">
-                  {gettext("Save")}
+                <button
+                  type="submit"
+                  id="trf-send"
+                  class="pe-btn primary"
+                  disabled={not is_nil(blocker)}
+                  data-confirm={is_nil(blocker) && trf_send_confirm(@trf_selected, @trf_rounds)}
+                >
+                  {gettext("Send…")}
                 </button>
               </.form>
+              <span :if={blocker} id="trf-send-blocker" class="hint">{blocker}</span>
+              <%!-- The receipt of a sent file, as JSON: one link per send. --%>
+              <details :if={@receipt_files != []} id="receipt-json" class="receipt-json">
+                <summary class="pe-btn">{gettext("Receipt (JSON)")}</summary>
 
-              <p id="postponed-report-summary" class="hint" style="margin: 4px 0 0">
-                {postponed_report_summary(@tournament)}
-              </p>
+                <ul class="receipt-list">
+                  <li :for={receipt <- @receipt_files}>
+                    <a
+                      id={"receipt-json-#{receipt.id}"}
+                      href={~p"/t/#{@tournament.id}/export/receipts/#{receipt.id}/json"}
+                    >
+                      {SentReceipt.code_text(receipt)}
+                    </a>
+                    <span class="hint">· {SentReceipt.at_text(receipt.sent_at)}</span>
+                  </li>
+                </ul>
+              </details>
+
+              <button
+                :if={@receipt_files == []}
+                type="button"
+                id="receipt-json-none"
+                class="pe-btn"
+                disabled
+                aria-disabled="true"
+                title={gettext("Nothing has been sent yet, so there is no receipt.")}
+              >
+                {gettext("Receipt (JSON)")}
+              </button>
+
+              <a
+                class="trf-all-link"
+                style="margin-left: auto"
+                href={~p"/t/#{@tournament.id}/export/trf"}
+                target="_blank"
+              >
+                {gettext("All rounds (TRF copy, not for rating)")}
+              </a>
             </div>
-            <%!-- Every postponed-games file sent, with its receipt. --%>
-            <ul :if={@receipt_postponed != []} id="postponed-receipts" class="receipt-list">
-              <li :for={%{receipt: receipt} <- @receipt_postponed}>
-                <SentReceipt.stamp receipt={receipt} id={"postponed-receipt-#{receipt.id}"} />
-                <span :if={receipt.period} class="hint">
-                  · {Postponed.month_text(receipt.period)}
-                </span>
 
-                <span :if={receipt.games} class="hint">
-                  · {ngettext("%{count} game", "%{count} games", length(receipt.games))}
-                </span>
-              </li>
-            </ul>
-
-            <p :if={@late_sendable_count == 0} id="postponed-trf-empty" class="hint" style="margin: 0">
-              {gettext("Nothing to send: no postponed game was played after its round was sent.")}
+            <%!-- Under the button, always: "Send" sends nothing. It was read as
+                "the app mails my rating officer", which it has never done. --%>
+            <p id="trf-send-note" class="hint" style="margin: 8px 0 0">
+              {send_is_not_delivery_text()}
+              <%!-- The rating inbox is the rating officer's page (Admin, and the
+                  account menu). Here it is a footnote, for those who may
+                  open it, and nothing at all for those who may not. --%>
+              <.link
+                :if={@may_admin?}
+                id="rating-inbox-link"
+                navigate={~p"/admin/rating-inbox"}
+              >
+                {gettext("Open the rating inbox")}
+              </.link>
             </p>
 
-            <div :if={@late_sendable_count > 0}>
-              <p class="hint" style="margin: 0 0 8px">
-                {ngettext(
-                  "%{count} postponed game played since its round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
-                  "%{count} postponed games played since their round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
-                  @late_sendable_count
-                )}
+            <%!-- The organiser's bye exclusions are not a FIDE rule and no TRF
+                line records them, so a checker replaying the file pairs
+                these rounds as FIDE's rules would - differently. --%>
+            <p :if={@bye_exclusion_rounds != []} id="trf-bye-exclusion-note" class="hint">
+              {ngettext(
+                "Round %{rounds} was paired with a player excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently.",
+                "Rounds %{rounds} were paired with players excluded from the pairing-allocated bye (an organiser's rule, not FIDE's), and the exclusion changed who got it. The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently.",
+                length(@bye_exclusion_rounds),
+                rounds: Enum.join(@bye_exclusion_rounds, ", ")
+              )}
+            </p>
+            <%!-- Nor are the players' bye preferences. --%>
+            <p :if={@bye_preference_rounds != []} id="trf-bye-preference-note" class="hint">
+              {ngettext(
+                "Round %{rounds} was changed by a player's bye preference (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair that round differently.",
+                "Rounds %{rounds} were changed by players' bye preferences (an organiser's wish, not a FIDE rule). The TRF cannot record that, so a FIDE checker replaying the file will pair those rounds differently.",
+                length(@bye_preference_rounds),
+                rounds: Enum.join(@bye_preference_rounds, ", ")
+              )}
+            </p>
+
+            <%!-- Nor are extra points that do nothing: a TRF has a record for
+                points that count and for points the pairing uses, and
+                none for the rest. --%>
+            <p
+              :for={{note, i} <- Enum.with_index(@trf_export_notes)}
+              id={"trf-export-note-#{i}"}
+              class="hint"
+            >
+              {note}
+            </p>
+
+            <p :if={@sent_rounds != []} id="trf-sent-rounds" class="sr-only">
+              {gettext("Already sent: round %{rounds}", rounds: Enum.join(@sent_rounds, ", "))}
+            </p>
+          </div>
+
+          <div
+            :if={Tournament.postponed_allowed?(@tournament)}
+            id="postponed-part"
+            class="trf-late-part"
+          >
+            <h3>{gettext("Postponed games")}</h3>
+
+            <div class="card-table-wrap">
+              <table class="pe-table" id="postponed-list">
+                <thead>
+                  <tr>
+                    <th class="num">{gettext("Round")}</th>
+
+                    <th class="num">{gettext("Board")}</th>
+
+                    <th>{gettext("White")}</th>
+
+                    <th>{gettext("Black")}</th>
+
+                    <th>{gettext("Postponed by")}</th>
+
+                    <th>{gettext("Status")}</th>
+
+                    <th>{gettext("Sent")}</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr :if={@postponed_all == []}>
+                    <td colspan="7" class="empty">{gettext("No game has been postponed yet.")}</td>
+                  </tr>
+
+                  <tr
+                    :for={%{round: round, pairing: p} <- @postponed_all}
+                    id={"postponed-row-#{p.id}"}
+                  >
+                    <td class="num">{round}</td>
+
+                    <td class="num">{p.display_board || p.board}</td>
+
+                    <td>{late_player(p.white_player)}</td>
+
+                    <td>{late_player(p.black_player)}</td>
+
+                    <td>{postponed_by_text(p)}</td>
+
+                    <td>
+                      {postponed_status_text(p)}
+                      <form
+                        :if={
+                          !PairingsEngine.Results.postponed?(p.result) and
+                            is_nil(p.postponed_reported_at)
+                        }
+                        id={"played-on-form-#{p.id}"}
+                        phx-submit="set_played_on"
+                        class="played-on-form"
+                      >
+                        <input type="hidden" name="pairing-id" value={p.id} />
+                        <input
+                          type="date"
+                          name="played_on"
+                          value={p.played_on && Date.to_iso8601(p.played_on)}
+                          aria-label={gettext("Date played")}
+                        /> <button type="submit" class="pe-btn">{gettext("Save date")}</button>
+                      </form>
+                    </td>
+
+                    <td>{postponed_sent_text(p)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <%!-- The postponed-games file: games that went out unplayed in their
+                round's report and were played since. Its own file, as extra
+                rounds, so each game is sent exactly once. --%>
+            <div id="trf-late-games" class="trf-late">
+              <h3>{gettext("Postponed-games file")}</h3>
+
+              <%!-- Reported as a tournament of its own, as late games are in
+                  practice: its own name, FIDE tournament ID and dates, one
+                  file per rating period. --%>
+              <div id="postponed-report-identity" class="postponed-report-identity">
+                <p class="hint" style="margin: 0 0 8px">
+                  {gettext(
+                    "The postponed-games file is reported to FIDE as a separate tournament: its own name and its own FIDE tournament ID (not this tournament's), dated from the first to the last day its games were played, with only those games, and one file per rating period."
+                  )}
+                </p>
+
+                <.form
+                  for={@postponed_report_form}
+                  id="postponed-report-form"
+                  phx-submit="save_postponed_report"
+                  class="postponed-report-form"
+                >
+                  <.input
+                    field={@postponed_report_form[:postponed_report_name]}
+                    type="text"
+                    label={gettext("Tournament name of the postponed-games file")}
+                    placeholder={PostponedGames.default_report_name(@tournament)}
+                  />
+                  <.input
+                    field={@postponed_report_form[:postponed_fide_tournament_id]}
+                    type="text"
+                    label={gettext("Its FIDE tournament ID")}
+                  />
+                  <button type="submit" id="postponed-report-save" class="pe-btn">
+                    {gettext("Save")}
+                  </button>
+                </.form>
+
+                <p id="postponed-report-summary" class="hint" style="margin: 4px 0 0">
+                  {postponed_report_summary(@tournament)}
+                </p>
+              </div>
+              <%!-- Every postponed-games file sent, with its receipt. --%>
+              <ul :if={@receipt_postponed != []} id="postponed-receipts" class="receipt-list">
+                <li :for={%{receipt: receipt} <- @receipt_postponed}>
+                  <SentReceipt.stamp receipt={receipt} id={"postponed-receipt-#{receipt.id}"} />
+                  <span :if={receipt.period} class="hint">
+                    · {Postponed.month_text(receipt.period)}
+                  </span>
+
+                  <span :if={receipt.games} class="hint">
+                    · {ngettext("%{count} game", "%{count} games", length(receipt.games))}
+                  </span>
+                </li>
+              </ul>
+
+              <p
+                :if={@late_sendable_count == 0}
+                id="postponed-trf-empty"
+                class="hint"
+                style="margin: 0"
+              >
+                {gettext("Nothing to send: no postponed game was played after its round was sent.")}
               </p>
 
-              <%!-- Which FIDE rating period each game falls in, and by when
+              <div :if={@late_sendable_count > 0}>
+                <p class="hint" style="margin: 0 0 8px">
+                  {ngettext(
+                    "%{count} postponed game played since its round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
+                    "%{count} postponed games played since their round was sent. Tick the ones to send now; the others wait for a later file. Each extra round is dated by its latest game unless you set a date.",
+                    @late_sendable_count
+                  )}
+                </p>
+
+                <%!-- Which FIDE rating period each game falls in, and by when
                     to send it - guidance, in plain words; nothing here is
                     enforced or ever marked overdue. --%>
-              <div id="postponed-rating-periods" class="rating-periods">
-                <ul>
-                  <li
-                    :for={period <- @late_periods}
-                    id={rating_period_id(period)}
-                    class={[period_date(period) == @late_period && "is-current"]}
-                  >
-                    {rating_period_text(period)}
-                    <button
-                      :if={period_date(period) && period_date(period) != @late_period}
-                      type="button"
-                      class="pe-btn"
-                      id={rating_period_id(period) <> "-select"}
-                      phx-click="select_late_period"
-                      phx-value-period={Date.to_iso8601(period_date(period))}
+                <div id="postponed-rating-periods" class="rating-periods">
+                  <ul>
+                    <li
+                      :for={period <- @late_periods}
+                      id={rating_period_id(period)}
+                      class={[period_date(period) == @late_period && "is-current"]}
                     >
-                      {gettext("Make this file")}
-                    </button>
+                      {rating_period_text(period)}
+                      <button
+                        :if={period_date(period) && period_date(period) != @late_period}
+                        type="button"
+                        class="pe-btn"
+                        id={rating_period_id(period) <> "-select"}
+                        phx-click="select_late_period"
+                        phx-value-period={Date.to_iso8601(period_date(period))}
+                      >
+                        {gettext("Make this file")}
+                      </button>
+                    </li>
+                  </ul>
+
+                  <p class="hint">
+                    {gettext(
+                      "FIDE rates games month by month, so a game belongs to the rating period of the month it was played in. The end of that month is shown as the date to send it by; your federation may ask for it sooner."
+                    )}
+                  </p>
+                </div>
+
+                <p :if={@late_period} id="postponed-trf-period" class="hint" style="margin: 8px 0">
+                  <strong>
+                    {gettext("This file: games played in %{month}.",
+                      month: Postponed.month_text(@late_period)
+                    )}
+                  </strong>
+                </p>
+
+                <ul class="late-games">
+                  <li :for={%{round: round, pairing: p} <- @late_sendable}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        id={"late-tick-#{p.id}"}
+                        checked={MapSet.member?(@late_selected, p.id)}
+                        phx-click="toggle_late_game"
+                        phx-value-id={p.id}
+                      /> {gettext("Round %{round}, board %{board}:",
+                        round: round,
+                        board: p.display_board || p.board
+                      )} {late_player(p.white_player)} - {late_player(p.black_player)}
+                      <strong>{p.result}</strong>
+                    </label>
                   </li>
                 </ul>
 
-                <p class="hint">
-                  {gettext(
-                    "FIDE rates games month by month, so a game belongs to the rating period of the month it was played in. The end of that month is shown as the date to send it by; your federation may ask for it sooner."
-                  )}
+                <ol :if={@late_packed != []} id="postponed-trf-rounds" class="late-rounds">
+                  <li
+                    :for={{games, i} <- Enum.with_index(@late_packed)}
+                    id={"postponed-trf-round-#{i + 1}"}
+                  >
+                    <form
+                      id={"late-date-form-#{i}"}
+                      phx-change="set_late_date"
+                      class="late-round-date"
+                    >
+                      <strong>
+                        {ngettext(
+                          "Extra round %{n}: %{count} game",
+                          "Extra round %{n}: %{count} games",
+                          length(games),
+                          n: i + 1
+                        )}
+                      </strong>
+                      <input type="hidden" name="round" value={i} />
+                      <input
+                        type="date"
+                        name="date"
+                        id={"late-date-#{i}"}
+                        value={late_round_date(games, @late_dates, i)}
+                        aria-label={gettext("Date of extra round %{n}", n: i + 1)}
+                      />
+                    </form>
+                  </li>
+                </ol>
+
+                <div class="actions" style="align-items: center">
+                  <a
+                    id="trf-late-copy"
+                    class={["pe-btn", @late_packed == [] && "is-disabled"]}
+                    href={
+                      @late_packed != [] &&
+                        ~p"/t/#{@tournament.id}/export/postponed-trf?#{[games: late_ids_param(@late_selected), dates: late_dates_param(@late_packed, @late_dates), period: @late_period && Date.to_iso8601(@late_period)]}"
+                    }
+                    target="_blank"
+                  >
+                    {gettext("Download a copy (not for rating)")}
+                  </a>
+
+                  <.form
+                    for={%{}}
+                    id="trf-late-send-form"
+                    action={~p"/t/#{@tournament.id}/export/postponed-trf"}
+                    method="post"
+                    target="_blank"
+                    style="margin: 0"
+                  >
+                    <input type="hidden" name="finalise" value="true" />
+                    <input
+                      type="hidden"
+                      name="period"
+                      value={@late_period && Date.to_iso8601(@late_period)}
+                    /> <input type="hidden" name="games" value={late_ids_param(@late_selected)} />
+                    <input
+                      type="hidden"
+                      name="dates"
+                      value={late_dates_param(@late_packed, @late_dates)}
+                    />
+                    <button
+                      type="submit"
+                      id="trf-late-send"
+                      class="pe-btn primary"
+                      disabled={
+                        @late_packed == [] or not is_nil(@tournament.send_confirmation_needed)
+                      }
+                      data-confirm={
+                        @late_packed != [] &&
+                          gettext(
+                            "Send the postponed-games file as the separate tournament %{name}? This downloads the file to your computer and records the ticked games as sent, so they are never sent again. Downloading is not sending: you still have to send the downloaded file to your rating officer yourself.",
+                            name: PostponedGames.report_name(@tournament)
+                          )
+                      }
+                    >
+                      {gettext("Send…")}
+                    </button>
+                  </.form>
+                </div>
+
+                <p id="trf-late-send-note" class="hint" style="margin: 8px 0 0">
+                  {send_is_not_delivery_text()}
                 </p>
               </div>
-
-              <p :if={@late_period} id="postponed-trf-period" class="hint" style="margin: 8px 0">
-                <strong>
-                  {gettext("This file: games played in %{month}.",
-                    month: Postponed.month_text(@late_period)
-                  )}
-                </strong>
-              </p>
-
-              <ul class="late-games">
-                <li :for={%{round: round, pairing: p} <- @late_sendable}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      id={"late-tick-#{p.id}"}
-                      checked={MapSet.member?(@late_selected, p.id)}
-                      phx-click="toggle_late_game"
-                      phx-value-id={p.id}
-                    /> {gettext("Round %{round}, board %{board}:",
-                      round: round,
-                      board: p.display_board || p.board
-                    )} {late_player(p.white_player)} - {late_player(p.black_player)}
-                    <strong>{p.result}</strong>
-                  </label>
-                </li>
-              </ul>
-
-              <ol :if={@late_packed != []} id="postponed-trf-rounds" class="late-rounds">
-                <li
-                  :for={{games, i} <- Enum.with_index(@late_packed)}
-                  id={"postponed-trf-round-#{i + 1}"}
-                >
-                  <form id={"late-date-form-#{i}"} phx-change="set_late_date" class="late-round-date">
-                    <strong>
-                      {ngettext(
-                        "Extra round %{n}: %{count} game",
-                        "Extra round %{n}: %{count} games",
-                        length(games),
-                        n: i + 1
-                      )}
-                    </strong>
-                    <input type="hidden" name="round" value={i} />
-                    <input
-                      type="date"
-                      name="date"
-                      id={"late-date-#{i}"}
-                      value={late_round_date(games, @late_dates, i)}
-                      aria-label={gettext("Date of extra round %{n}", n: i + 1)}
-                    />
-                  </form>
-                </li>
-              </ol>
-
-              <div class="actions" style="align-items: center">
-                <a
-                  id="trf-late-copy"
-                  class={["pe-btn", @late_packed == [] && "is-disabled"]}
-                  href={
-                    @late_packed != [] &&
-                      ~p"/t/#{@tournament.id}/export/postponed-trf?#{[games: late_ids_param(@late_selected), dates: late_dates_param(@late_packed, @late_dates), period: @late_period && Date.to_iso8601(@late_period)]}"
-                  }
-                  target="_blank"
-                >
-                  {gettext("Download a copy (not for rating)")}
-                </a>
-
-                <.form
-                  for={%{}}
-                  id="trf-late-send-form"
-                  action={~p"/t/#{@tournament.id}/export/postponed-trf"}
-                  method="post"
-                  target="_blank"
-                  style="margin: 0"
-                >
-                  <input type="hidden" name="finalise" value="true" />
-                  <input
-                    type="hidden"
-                    name="period"
-                    value={@late_period && Date.to_iso8601(@late_period)}
-                  /> <input type="hidden" name="games" value={late_ids_param(@late_selected)} />
-                  <input
-                    type="hidden"
-                    name="dates"
-                    value={late_dates_param(@late_packed, @late_dates)}
-                  />
-                  <button
-                    type="submit"
-                    id="trf-late-send"
-                    class="pe-btn primary"
-                    disabled={@late_packed == [] or not is_nil(@tournament.send_confirmation_needed)}
-                    data-confirm={
-                      @late_packed != [] &&
-                        gettext(
-                          "Send the postponed-games file as the separate tournament %{name}? This downloads the file to your computer and records the ticked games as sent, so they are never sent again. Downloading is not sending: you still have to send the downloaded file to your rating officer yourself.",
-                          name: PostponedGames.report_name(@tournament)
-                        )
-                    }
-                  >
-                    {gettext("Send…")}
-                  </button>
-                </.form>
-              </div>
-
-              <p id="trf-late-send-note" class="hint" style="margin: 8px 0 0">
-                {send_is_not_delivery_text()}
-              </p>
             </div>
           </div>
-        </div>
 
-        <p
-          :if={@tournament.manual_ranking}
-          class="hint"
-          style="margin: 8px 0 0"
-        >
-          {gettext(
-            "Manual ranking is on for this tournament, but the TRF export's rank column reflects the computed/starting-rank order, not the arbiter's hand-set display order."
-          )}
-        </p>
+          <p
+            :if={@tournament.manual_ranking}
+            class="hint"
+            style="margin: 8px 0 0"
+          >
+            {gettext(
+              "Manual ranking is on for this tournament, but the TRF export's rank column reflects the computed/starting-rank order, not the arbiter's hand-set display order."
+            )}
+          </p>
 
-        <%!-- Beside sending (`:sent_games_ambiguous_players`): the record of
+          <%!-- Beside sending (`:sent_games_ambiguous_players`): the record of
               sent games names a player with no FIDE ID by name, so two with
               one name are one player to it. It warns; sending still works. --%>
-        <div
-          :if={@ambiguous_players != []}
-          id="sent-games-ambiguous-players"
-          class="card"
-          role="status"
-          style="display: block; margin: 8px 0 0; border-left: 3px solid var(--warn)"
-        >
-          {Postponed.ambiguous_players_text(@ambiguous_players)}
-        </div>
+          <div
+            :if={@ambiguous_players != []}
+            id="sent-games-ambiguous-players"
+            class="card"
+            role="status"
+            style="display: block; margin: 8px 0 0; border-left: 3px solid var(--warn)"
+          >
+            {Postponed.ambiguous_players_text(@ambiguous_players)}
+          </div>
 
-        <%!-- FIDE mode, a team event with boards nobody sits at (optional
+          <%!-- FIDE mode, a team event with boards nobody sits at (optional
               line-ups): their results count for the teams but are no rated
               game, so the file does not carry them. It warns; sending still
               works. --%>
-        <div
-          :if={@empty_board_rounds != []}
-          id="trf-empty-boards-warning"
-          class="card"
-          role="status"
-          style="display: block; margin: 8px 0 0; border-left: 3px solid var(--warn)"
-        >
-          {gettext(
-            "FIDE mode: some boards of this event's team matches have an empty seat (%{rounds}). A board without two players is not a rated game: the file leaves it out of the players' games, while its result still counts in the team scores (record 310). Sending is not blocked - check this is what the rating officer expects.",
-            rounds:
-              Enum.map_join(@empty_board_rounds, ", ", fn {round, count} ->
-                ngettext("round %{round}: 1 board", "round %{round}: %{count} boards", count,
-                  round: round
-                )
-              end)
-          )}
-        </div>
-
-        <p
-          :if={@postponed_open != []}
-          id="postponed-trf-not-final"
-          class="hint"
-          style="margin: 8px 0 0"
-        >
-          {Postponed.trf_not_final_text(length(@postponed_open))}
-          <span
-            :if={
-              @tournament.postponed_requester_outcome != "draw" or
-                @tournament.postponed_opponent_outcome != "draw"
-            }
-            id="postponed-trf-counts-draw"
+          <div
+            :if={@empty_board_rounds != []}
+            id="trf-empty-boards-warning"
+            class="card"
+            role="status"
+            style="display: block; margin: 8px 0 0; border-left: 3px solid var(--warn)"
           >
             {gettext(
-              "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
+              "FIDE mode: some boards of this event's team matches have an empty seat (%{rounds}). A board without two players is not a rated game: the file leaves it out of the players' games, while its result still counts in the team scores (record 310). Sending is not blocked - check this is what the rating officer expects.",
+              rounds:
+                Enum.map_join(@empty_board_rounds, ", ", fn {round, count} ->
+                  ngettext("round %{round}: 1 board", "round %{round}: %{count} boards", count,
+                    round: round
+                  )
+                end)
             )}
-            <%!-- Checked against `TrfExport`: the TRF26 download writes `?`
+          </div>
+
+          <p
+            :if={@postponed_open != []}
+            id="postponed-trf-not-final"
+            class="hint"
+            style="margin: 8px 0 0"
+          >
+            {Postponed.trf_not_final_text(length(@postponed_open))}
+            <span
+              :if={
+                @tournament.postponed_requester_outcome != "draw" or
+                  @tournament.postponed_opponent_outcome != "draw"
+              }
+              id="postponed-trf-counts-draw"
+            >
+              {gettext(
+                "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
+              )}
+              <%!-- Checked against `TrfExport`: the TRF26 download writes `?`
                   but values it at a draw (`X` in 162), and the older spelling
                   writes the draw itself, so neither carries the provisional
                   points the rounds were paired with. --%>
-            <span id="postponed-trf-outside-checkers">
+              <span id="postponed-trf-outside-checkers">
+                {gettext(
+                  "So an outside pairing program or checker (bbpPairings, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
+                )}
+              </span>
+            </span>
+          </p>
+        </div>
+
+        <div class="card">
+          <h2>{gettext("Export / backup")}</h2>
+
+          <p class="hint" style="margin-top: 0">
+            <.rich_text text={
+              gettext(
+                "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one."
+              )
+            }>
+              <:part name="tournaments">
+                <.link navigate={~p"/"}>{gettext("Tournaments")}</.link>
+              </:part>
+            </.rich_text>
+
+            <span :if={@tournament.manual_ranking}>
               {gettext(
-                "So an outside pairing program or checker (bbpPairings, a FIDE pairing checker) cannot reproduce the rounds paired since from a downloaded TRF: both downloads count the game as a draw. The TRF26 download at least marks it as unknown (?, valued by X); the older one writes a plain draw."
+                "Note that its rank column is the computed order, not manual ranking's hand-set one."
               )}
             </span>
-          </span>
-        </p>
-      </div>
+          </p>
 
-      <div class="card">
-        <h2>{gettext("Export / backup")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          <.rich_text text={
-            gettext(
-              "A full JSON backup of this tournament - settings, officials, every player (including norm data), rounds, pairings/results, byes and forbidden pairings. Re-importing it (from the %[tournaments] page) always creates a brand-new tournament, never overwrites this one."
-            )
-          }>
-            <:part name="tournaments">
-              <.link navigate={~p"/"}>{gettext("Tournaments")}</.link>
-            </:part>
-          </.rich_text>
-
-          <span :if={@tournament.manual_ranking}>
-            {gettext(
-              "Note that its rank column is the computed order, not manual ranking's hand-set one."
-            )}
-          </span>
-        </p>
-
-        <%!-- Shown only when the file would actually carry the key, so that
+          <%!-- Shown only when the file would actually carry the key, so that
               the warning is never noise and is always true when it appears.
               It says what the key can DO rather than that the file is
               "sensitive" - a backup of a chess tournament reads as harmless,
               and the reason to guard this one is not obvious from the
               outside. --%>
-        <p :if={Publishing.published?(@tournament)} class="hint" style="color: var(--danger)">
-          {gettext(
-            "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
-          )}
-        </p>
+          <p :if={Publishing.published?(@tournament)} class="hint" style="color: var(--danger)">
+            {gettext(
+              "This backup carries this tournament's publishing key. Anyone who has the file can update its page on the results site, or delete that page along with its whole history and any entries collected for it. That is deliberate - it is how a rebuilt machine recovers control of what it published - but treat the file like a password."
+            )}
+          </p>
 
-        <div class="actions">
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/json"} target="_blank">
-            {gettext("Export full backup (JSON)")}
-          </a>
+          <div class="actions">
+            <a class="pe-btn" href={~p"/t/#{@tournament.id}/export/json"} target="_blank">
+              {gettext("Export full backup (JSON)")}
+            </a>
 
-          <%!-- Only for an account that switched the Belgian pack's SWAR
+            <%!-- Only for an account that switched the Belgian pack's SWAR
                 export on. The route refuses too - a link is not a gate - but
                 this is what stops the page offering a download that would
                 only bounce. See `PairingsEngine.Features`; the tournament
                 itself is untouched either way. --%>
-          <a
-            :if={@bel_swar_export?}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/export/swar"}
-            target="_blank"
-            title={
-              gettext(
-                "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
-              )
-            }
-          >
-            {gettext("Export .swar (v7, experimental)")}
-          </a>
+            <a
+              :if={@bel_swar_export?}
+              class="pe-btn"
+              href={~p"/t/#{@tournament.id}/export/swar"}
+              target="_blank"
+              title={
+                gettext(
+                  "A .swar file SWAR itself can open - never verified against a real SWAR install, see docs/swar-import.md"
+                )
+              }
+            >
+              {gettext("Export .swar (v7, experimental)")}
+            </a>
 
-          <%!-- Same gate, same reasoning, for the SWAR-compatible HTML
+            <%!-- Same gate, same reasoning, for the SWAR-compatible HTML
                 results page instead of the binary file - see
                 PairingsEngine.Federations.BEL.SwarPublish. This is only
                 the download; sending it to the federation itself is the
                 card below, gated the same way plus an administrator. --%>
-          <a
-            :if={@bel_swar_publish?}
-            class="pe-btn"
-            href={~p"/t/#{@tournament.id}/export/swar_html"}
-            target="_blank"
-            title={
-              gettext(
-                "The standings and round results, laid out the way the federation's results site expects."
-              )
-            }
-          >
-            {gettext("Export SWAR results page (.html)")}
-          </a>
-        </div>
+            <a
+              :if={@bel_swar_publish?}
+              class="pe-btn"
+              href={~p"/t/#{@tournament.id}/export/swar_html"}
+              target="_blank"
+              title={
+                gettext(
+                  "The standings and round results, laid out the way the federation's results site expects."
+                )
+              }
+            >
+              {gettext("Export SWAR results page (.html)")}
+            </a>
+          </div>
 
-        <%!-- What SWAR's format cannot hold of THIS tournament, said before
+          <%!-- What SWAR's format cannot hold of THIS tournament, said before
               the organiser opens the file in SWAR and finds out - each
               sentence says what SWAR will do instead. Nothing when the file
               holds it all. --%>
-        <div
-          :if={@bel_swar_export? and @swar_export_notes != []}
-          id="swar-export-notes"
-          class="hint"
-          style="margin-top: 10px"
-        >
-          <p style="margin: 0 0 4px">
-            <strong>{gettext("What the .swar file cannot hold of this tournament:")}</strong>
-          </p>
+          <div
+            :if={@bel_swar_export? and @swar_export_notes != []}
+            id="swar-export-notes"
+            class="hint"
+            style="margin-top: 10px"
+          >
+            <p style="margin: 0 0 4px">
+              <strong>{gettext("What the .swar file cannot hold of this tournament:")}</strong>
+            </p>
 
-          <ul style="margin: 0; padding-left: 18px">
-            <li :for={note <- @swar_export_notes}>{note}</li>
-          </ul>
+            <ul style="margin: 0; padding-left: 18px">
+              <li :for={note <- @swar_export_notes}>{note}</li>
+            </ul>
+          </div>
         </div>
-      </div>
 
-      <%!-- Publishes PUBLICLY, to the federation's own results site, not to
+        <%!-- Publishes PUBLICLY, to the federation's own results site, not to
             OpenResults - and cannot be taken back from here (see
             PairingsEngine.Federations.BEL.SwarUpload's moduledoc). Gated
             on the same feature as the download above, plus an
             administrator - see `may_admin?` in mount/3. --%>
-      <div :if={@bel_swar_publish?} class="card">
-        <h2>{gettext("Publish to the federation's results site")}</h2>
+        <div :if={@bel_swar_publish?} class="card">
+          <h2>{gettext("Publish to the federation's results site")}</h2>
 
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Sends the results page above to frbe-kbsb.be and asks the federation to index it - the same two steps SWAR itself performs. This is the federation's own public site, not OpenResults: the standings and results become visible there to anyone, immediately, and this machine cannot take that back down."
-          )}
-        </p>
+          <p class="hint" style="margin-top: 0">
+            {gettext(
+              "Sends the results page above to frbe-kbsb.be and asks the federation to index it - the same two steps SWAR itself performs. This is the federation's own public site, not OpenResults: the standings and results become visible there to anyone, immediately, and this machine cannot take that back down."
+            )}
+          </p>
 
-        <p :if={!@may_admin?} class="hint">
-          {gettext("Publishing to the federation needs an administrator.")}
-        </p>
+          <p :if={!@may_admin?} class="hint">
+            {gettext("Publishing to the federation needs an administrator.")}
+          </p>
 
-        <p :if={@tournament.swar_published_at} class="hint">
-          {gettext("Last published: %{when} UTC.",
-            when: Calendar.strftime(@tournament.swar_published_at, "%Y-%m-%d %H:%M")
-          )}
-        </p>
+          <p :if={@tournament.swar_published_at} class="hint">
+            {gettext("Last published: %{when} UTC.",
+              when: Calendar.strftime(@tournament.swar_published_at, "%Y-%m-%d %H:%M")
+            )}
+          </p>
 
-        <%!-- A PUT that lands followed by a GET that fails is a normal,
+          <%!-- A PUT that lands followed by a GET that fails is a normal,
               recoverable outcome, not a dead end - see SwarUpload's
               moduledoc. This is derived from the two persisted
               timestamps, so it survives a page reload rather than only
               living in this socket's memory. --%>
-        <p
-          :if={SwarUpload.staged_but_not_indexed?(@tournament)}
-          class="hint"
-          style="color: var(--danger)"
-        >
-          {gettext(
-            "The file was uploaded but the federation has not confirmed it is indexed yet. Press \"Finish indexing\" to retry just that step - no need to upload again."
-          )}
-        </p>
-
-        <p :if={@swar_publish_result} class="hint">
-          <strong style="color: var(--danger)">{swar_error_message(@swar_publish_result)}</strong>
-        </p>
-
-        <div class="actions">
-          <button
-            type="button"
-            class="pe-btn primary"
-            phx-click="swar_publish"
-            disabled={!@may_admin?}
-            data-confirm={
-              gettext(
-                "Publish \"%{name}\" to the federation's public results site (frbe-kbsb.be)? Its standings and results become visible to anyone there, immediately, and this cannot be undone from here.",
-                name: @tournament.name
-              )
-            }
-          >
-            {gettext("Publish to frbe-kbsb.be")}
-          </button>
-
-          <button
+          <p
             :if={SwarUpload.staged_but_not_indexed?(@tournament)}
-            type="button"
-            class="pe-btn"
-            phx-click="swar_retry_index"
-            disabled={!@may_admin?}
+            class="hint"
+            style="color: var(--danger)"
           >
-            {gettext("Finish indexing")}
-          </button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h2>{gettext("Export players (CSV)")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Choose the fields, put them in the order you want them, and pick what separates the columns. Excel splits on the list separator of the machine's locale - on a Belgian or Dutch Windows that is a semicolon, not a comma, and a comma-separated file opens as one column of text."
-          )}
-        </p>
-
-        <div class="set-group">
-          <span class="set-label">{gettext("Columns, in this order")}</span>
-          <p :if={@csv_cols == []} class="hint">
-            {gettext("Nothing chosen - the download falls back to the standard set.")}
+            {gettext(
+              "The file was uploaded but the federation has not confirmed it is indexed yet. Press \"Finish indexing\" to retry just that step - no need to upload again."
+            )}
           </p>
 
-          <div
-            :for={{key, index} <- Enum.with_index(@csv_cols)}
-            class="actions"
-            style="justify-content: space-between; align-items: center; padding: 2px 0"
-          >
-            <span>{index + 1}. {PlayerExport.label(key)}</span>
-            <span class="actions">
-              <button
-                type="button"
-                class="pe-btn"
-                phx-click="csv_up"
-                phx-value-key={key}
-                disabled={index == 0}
-                title={gettext("Move up")}
-              >
-                &uarr;
-              </button>
+          <p :if={@swar_publish_result} class="hint">
+            <strong style="color: var(--danger)">{swar_error_message(@swar_publish_result)}</strong>
+          </p>
 
-              <button
-                type="button"
-                class="pe-btn"
-                phx-click="csv_down"
-                phx-value-key={key}
-                disabled={index == length(@csv_cols) - 1}
-                title={gettext("Move down")}
-              >
-                &darr;
-              </button>
-
-              <button type="button" class="pe-btn" phx-click="csv_remove" phx-value-key={key}>
-                {gettext("Remove")}
-              </button>
-            </span>
-          </div>
-        </div>
-
-        <div class="set-group">
-          <span class="set-label">{gettext("Add a field")}</span>
-          <div class="round-picker" style="flex-wrap: wrap">
+          <div class="actions">
             <button
-              :for={{key, label, _kind} <- available_columns(@csv_cols)}
               type="button"
-              class="pe-btn filter-picker"
-              phx-click="csv_add"
-              phx-value-key={key}
+              class="pe-btn primary"
+              phx-click="swar_publish"
+              disabled={!@may_admin?}
+              data-confirm={
+                gettext(
+                  "Publish \"%{name}\" to the federation's public results site (frbe-kbsb.be)? Its standings and results become visible to anyone there, immediately, and this cannot be undone from here.",
+                  name: @tournament.name
+                )
+              }
             >
-              + {label}
+              {gettext("Publish to frbe-kbsb.be")}
+            </button>
+
+            <button
+              :if={SwarUpload.staged_but_not_indexed?(@tournament)}
+              type="button"
+              class="pe-btn"
+              phx-click="swar_retry_index"
+              disabled={!@may_admin?}
+            >
+              {gettext("Finish indexing")}
             </button>
           </div>
         </div>
 
-        <%!-- The id is not decoration: without one LiveView cannot recover
-              the form after a reconnect, and says so loudly. --%>
-        <form id="csv-options" phx-change="csv_opts">
-          <.setting_group>
-            <.setting_field label={gettext("Column separator")}>
-              <select name="delimiter">
-                <option
-                  :for={name <- PlayerExport.delimiter_names()}
-                  value={name}
-                  selected={name == @csv_delimiter}
+        <div class="card">
+          <h2>{gettext("Export players (CSV)")}</h2>
+
+          <p class="hint" style="margin-top: 0">
+            {gettext(
+              "Choose the fields, put them in the order you want them, and pick what separates the columns. Excel splits on the list separator of the machine's locale - on a Belgian or Dutch Windows that is a semicolon, not a comma, and a comma-separated file opens as one column of text."
+            )}
+          </p>
+
+          <div class="set-group tset-adv">
+            <span class="set-label">{gettext("Columns, in this order")}</span>
+            <p :if={@csv_cols == []} class="hint">
+              {gettext("Nothing chosen - the download falls back to the standard set.")}
+            </p>
+
+            <div
+              :for={{key, index} <- Enum.with_index(@csv_cols)}
+              class="actions"
+              style="justify-content: space-between; align-items: center; padding: 2px 0"
+            >
+              <span>{index + 1}. {PlayerExport.label(key)}</span>
+              <span class="actions">
+                <button
+                  type="button"
+                  class="pe-btn"
+                  phx-click="csv_up"
+                  phx-value-key={key}
+                  disabled={index == 0}
+                  title={gettext("Move up")}
                 >
-                  {delimiter_label(name)}
-                </option>
-              </select>
-            </.setting_field>
+                  &uarr;
+                </button>
 
-            <.setting_field label={gettext("Row order")}>
-              <select name="sort">
-                <option value="seed" selected={@csv_sort == "seed"}>
-                  {gettext("Seed - starting rank, then rating")}
-                </option>
+                <button
+                  type="button"
+                  class="pe-btn"
+                  phx-click="csv_down"
+                  phx-value-key={key}
+                  disabled={index == length(@csv_cols) - 1}
+                  title={gettext("Move down")}
+                >
+                  &darr;
+                </button>
 
-                <option value="name" selected={@csv_sort == "name"}>
-                  {gettext("Name - A to Z")}
-                </option>
-              </select>
-            </.setting_field>
+                <button type="button" class="pe-btn" phx-click="csv_remove" phx-value-key={key}>
+                  {gettext("Remove")}
+                </button>
+              </span>
+            </div>
+          </div>
 
-            <.setting_toggle
-              name="skip_absent"
-              label={gettext("Leave out players marked absent")}
-              checked={@csv_skip_absent}
-              hint={
-                gettext(
-                  "The permanent Absent checkbox only. Somebody who is just missing one round still appears."
-                )
-              }
-            />
-            <.setting_toggle
-              name="bom"
-              label={gettext("Excel-friendly (UTF-8 marker)")}
-              checked={@csv_bom}
-              hint={
-                gettext(
-                  "Without it Excel reads an accented name as mojibake. Switch it off if a script refuses the leading bytes."
-                )
-              }
-            />
-          </.setting_group>
-        </form>
+          <div class="set-group tset-adv">
+            <span class="set-label">{gettext("Add a field")}</span>
+            <div class="round-picker" style="flex-wrap: wrap">
+              <button
+                :for={{key, label, _kind} <- available_columns(@csv_cols)}
+                type="button"
+                class="pe-btn filter-picker"
+                phx-click="csv_add"
+                phx-value-key={key}
+              >
+                + {label}
+              </button>
+            </div>
+          </div>
 
-        <div class="actions">
-          <a class="pe-btn primary" href={csv_href(assigns)}>
-            {gettext("Download players (CSV)")}
-          </a>
+          <%!-- The id is not decoration: without one LiveView cannot recover
+              the form after a reconnect, and says so loudly. --%>
+          <form id="csv-options" class="tset-adv" phx-change="csv_opts">
+            <.setting_group>
+              <.setting_field label={gettext("Column separator")}>
+                <select name="delimiter">
+                  <option
+                    :for={name <- PlayerExport.delimiter_names()}
+                    value={name}
+                    selected={name == @csv_delimiter}
+                  >
+                    {delimiter_label(name)}
+                  </option>
+                </select>
+              </.setting_field>
+
+              <.setting_field label={gettext("Row order")}>
+                <select name="sort">
+                  <option value="seed" selected={@csv_sort == "seed"}>
+                    {gettext("Seed - starting rank, then rating")}
+                  </option>
+
+                  <option value="name" selected={@csv_sort == "name"}>
+                    {gettext("Name - A to Z")}
+                  </option>
+                </select>
+              </.setting_field>
+
+              <.setting_toggle
+                name="skip_absent"
+                label={gettext("Leave out players marked absent")}
+                checked={@csv_skip_absent}
+                hint={
+                  gettext(
+                    "The permanent Absent checkbox only. Somebody who is just missing one round still appears."
+                  )
+                }
+              />
+              <.setting_toggle
+                name="bom"
+                label={gettext("Excel-friendly (UTF-8 marker)")}
+                checked={@csv_bom}
+                hint={
+                  gettext(
+                    "Without it Excel reads an accented name as mojibake. Switch it off if a script refuses the leading bytes."
+                  )
+                }
+              />
+            </.setting_group>
+          </form>
+
+          <div class="actions">
+            <a class="pe-btn primary" href={csv_href(assigns)}>
+              {gettext("Download players (CSV)")}
+            </a>
+          </div>
         </div>
-      </div>
+      </.settings_page>
     </Layouts.app>
     """
   end

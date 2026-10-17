@@ -265,7 +265,7 @@ andere rating of titel voor N spelers*, met een knop **Bekijken** die dezelfde
 tabel opent. Het schrijft niets. De maand van de lijst moet overeenkomen met de
 startmaand van het toernooi; anders stelt het programma niets voor en zegt het
 waarom (alleen de huidige lijst wordt bewaard). De melding kan per toernooi worden
-uitgeschakeld (Instellingen, **FIDE**, *Consistentiecontroles*); de knop
+uitgeschakeld (Instellingen, **FIDE**, *Consistentiecontroles*, geavanceerd); de knop
 **Ratings vernieuwen** werkt nog steeds op verzoek. Vóór een gevraagde controle
 vraagt het programma aan FIDE of de lijst op deze machine actueel is en werkt die
 eerst bij, of meldt dat dat niet lukte.

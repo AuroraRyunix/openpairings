@@ -14,7 +14,7 @@ Settings, **FIDE**:
 - tick **This tournament is FIDE-homologated (rated/reportable)** when the
   event is to be rated; the FIDE tournament ID is then required;
 - **FIDE tournament ID**: the ID of the tournament; if different parts of the
-  event have different IDs, enter **Per-round FIDE-ID ranges** (from round, to
+  event have different IDs, enter **Per-round FIDE-ID ranges** (advanced until a row exists; from round, to
   round, ID);
 - **FIDE event code**.
 

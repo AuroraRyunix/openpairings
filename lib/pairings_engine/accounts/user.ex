@@ -41,6 +41,12 @@ defmodule PairingsEngine.Accounts.User do
     field :theme, :string
     field :accent, :string
 
+    # Whether the tournament Settings pages show their advanced settings -
+    # the switch at the top of each of them, remembered per account. Off
+    # means the common settings only, plus a note when an advanced one has
+    # been changed from its default.
+    field :settings_advanced, :boolean, default: false
+
     embeds_one :tournament_defaults, PairingsEngine.Accounts.TournamentDefaults,
       on_replace: :update
 

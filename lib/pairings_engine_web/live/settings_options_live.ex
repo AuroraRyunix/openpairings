@@ -36,6 +36,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     {:ok,
      socket
      |> attach_dirty_tracker()
+     |> attach_advanced()
      |> attach_fide_gate()
      |> assign(
        tournament: tournament,
@@ -258,15 +259,38 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     ~H"""
     <div class="actions form-actions">
       <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
-      <span :if={@note && @saved == @section} class="ok-note" style="align-self: center">
-        {@note}
-      </span>
-
-      <span :if={@error && @saved == @section} class="error-note" style="align-self: center">
-        {@error}
-      </span>
+      <.save_status note={@saved == @section && @note} error={@saved == @section && @error} />
     </div>
     """
+  end
+
+  # The advanced settings that are not at their defaults - only those of the
+  # pairing system in use, since the others are hidden whatever the switch
+  # says and mean nothing to this tournament. `round_one_absentees_late` is
+  # not counted: it is on for new tournaments and off for older ones, and
+  # neither is "changed".
+  defp advanced_changed(tournament) do
+    by_system =
+      case tournament.pairing_system do
+        "swiss" ->
+          [
+            :initial_colour,
+            :late_entry_numbering,
+            :acceleration,
+            :swiss_match_format
+          ]
+
+        "round_robin" ->
+          [:rr_match_format]
+
+        _ ->
+          []
+      end
+
+    teams =
+      if Tournament.team?(tournament), do: [:team_rating_method, :team_unrated_rating], else: []
+
+    changed_count(tournament, [:initial_order_tiebreak | by_system] ++ teams)
   end
 
   # `assigns.*_locked?` already factor in a deliberate "Unlock" click (see
@@ -414,518 +438,539 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page
+        tournament={@tournament}
+        active={:options}
+        subtitle={gettext("Settings - Options")}
+        advanced={advanced(@show_advanced, advanced_changed(@tournament))}
+      >
+        <.stale_banner stale={@stale} />
+        <PairingsEngineWeb.LateEntryNotice.notice show={@late_entry_notice} />
+        <.fide_exit_dialog
+          id="fide-gate"
+          step={@fide_gate && @fide_gate.step}
+          reasons={(@fide_gate && @fide_gate.reasons) || []}
+        /> <.compliance_notice tournament={@tournament} />
+        <form id="pairing-settings-form" phx-submit="save">
+          <input type="hidden" name="section" value="pairing" />
+          <div class="card">
+            <h2>{gettext("Pairing")}</h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - Options")}</p>
-        </div>
-        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:options} />
-      <.stale_banner stale={@stale} />
-      <PairingsEngineWeb.LateEntryNotice.notice show={@late_entry_notice} />
-      <.fide_exit_dialog
-        id="fide-gate"
-        step={@fide_gate && @fide_gate.step}
-        reasons={(@fide_gate && @fide_gate.reasons) || []}
-      /> <.compliance_notice tournament={@tournament} />
-      <form id="pairing-settings-form" phx-submit="save">
-        <input type="hidden" name="section" value="pairing" />
-        <div class="card">
-          <h2>{gettext("Pairing")}</h2>
+            <p class="hint">
+              {gettext(
+                "How the rounds are paired, and the rating that sets the pairing numbers. The settings of one pairing system show only while it is chosen."
+              )}
+            </p>
 
-          <.setting_group>
-            <.setting_field label={gettext("Pairing system")}>
-              <div class="locked-wrap">
-                <select name="tournament[pairing_system]" disabled={@pairing_system_locked?}>
+            <.setting_group>
+              <.setting_field label={gettext("Pairing system")}>
+                <div class="locked-wrap">
+                  <select name="tournament[pairing_system]" disabled={@pairing_system_locked?}>
+                    <option
+                      :for={{val, label} <- pairing_system_options()}
+                      value={val}
+                      selected={@tournament.pairing_system == val}
+                    >
+                      {label}
+                    </option>
+                  </select>
+                  <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
+                </div>
+
+                <.locked_hint_message
+                  field={:pairing_system}
+                  locked_hint={@locked_hint}
+                  warning={pairing_system_warning()}
+                  fide_path={fide_path(@tournament, @fide_locked, :pairing_system)}
+                />
+              </.setting_field>
+
+              <.setting_field
+                class="tset-adv tset-only-swiss"
+                label={gettext("Swiss engine")}
+                hint={
+                  gettext(
+                    "Swiss only - round robin and Keizer compute their own pairings and never consult this."
+                  )
+                }
+              >
+                <p id="swiss-engine-name">
+                  <strong>Ainalrami</strong>
+                </p>
+
+                <span class="hint">
+                  <.rich_text text={
+                    gettext(
+                      "%[engine] pairs every Swiss tournament here. It is built into the app - nothing to install - and it implements C.04.3 as it stands from %[date], the current edition."
+                    )
+                  }>
+                    <:part name="engine"><strong>Ainalrami</strong></:part>
+
+                    <:part name="date"><strong>{gettext("1 February 2026")}</strong></:part>
+                  </.rich_text>
+                </span>
+
+                <span class="hint">
+                  <.rich_text text={
+                    gettext(
+                      "Ainalrami is checked against bbpPairings, an independent implementation of the same 2026 rules, by replaying whole generated tournaments and diffing every board: %[pairings], with two disagreements that are both defects in bbpPairings. A third implementation agrees with it on both. Forbidden pairings, club and federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set."
+                    )
+                  }>
+                    <:part name="pairings">
+                      <strong>{gettext("2.5 billion individual pairings")}</strong>
+                    </:part>
+                  </.rich_text>
+                </span>
+              </.setting_field>
+
+              <.setting_field
+                class="tset-adv tset-only-swiss"
+                label={gettext("Initial colour")}
+                hint={
+                  gettext(
+                    "Swiss only. FIDE draws it by lot before round 1, and it decides who has White on round 1's boards. Left on drawn by lot, it is drawn when round 1 is paired and then kept."
+                  )
+                }
+              >
+                <div class="locked-wrap">
+                  <select
+                    id="initial-colour-select"
+                    name="tournament[initial_colour]"
+                    disabled={@initial_colour_locked?}
+                  >
+                    <option
+                      :for={value <- Tournament.initial_colours()}
+                      value={value}
+                      selected={@tournament.initial_colour == value}
+                    >
+                      {initial_colour_label(value)}
+                    </option>
+                  </select>
+                  <.locked_overlay field={:initial_colour} locked?={@initial_colour_locked?} />
+                </div>
+
+                <.locked_hint_message
+                  field={:initial_colour}
+                  locked_hint={@locked_hint}
+                  warning={initial_colour_warning()}
+                />
+                <span :if={initial_colour_status(@tournament)} id="initial-colour-status" class="hint">
+                  {initial_colour_status(@tournament)}
+                </span>
+              </.setting_field>
+
+              <.setting_field
+                label={gettext("Tournament rating")}
+                hint={
+                  gettext(
+                    "The rating that ranks the players and so gives them their pairing numbers, and that the rating-based tie-breaks read. A manual rating is typed per player on the Players page."
+                  )
+                }
+              >
+                <div class="locked-wrap">
+                  <select
+                    id="rating-method-select"
+                    name="tournament[rating_method]"
+                    disabled={@rating_method_locked?}
+                  >
+                    <option
+                      :for={value <- Tournament.rating_methods()}
+                      value={value}
+                      selected={@tournament.rating_method == value}
+                    >
+                      {rating_method_label(value)}
+                    </option>
+                  </select>
+                  <.locked_overlay field={:rating_method} locked?={@rating_method_locked?} />
+                </div>
+
+                <.locked_hint_message
+                  field={:rating_method}
+                  locked_hint={@locked_hint}
+                  warning={rating_method_warning()}
+                />
+              </.setting_field>
+
+              <.setting_field
+                class="tset-adv"
+                label={gettext("Equal rating and title")}
+                hint={
+                  gettext(
+                    "How players level on rating and FIDE title are ordered for their pairing numbers. FIDE orders them alphabetically unless the tournament announced another rule."
+                  )
+                }
+              >
+                <div class="locked-wrap">
+                  <select
+                    id="initial-order-tiebreak-select"
+                    name="tournament[initial_order_tiebreak]"
+                    disabled={@initial_order_tiebreak_locked?}
+                  >
+                    <option
+                      :for={value <- Tournament.initial_order_tiebreaks()}
+                      value={value}
+                      selected={@tournament.initial_order_tiebreak == value}
+                    >
+                      {initial_order_tiebreak_label(value)}
+                    </option>
+                  </select>
+
+                  <.locked_overlay
+                    field={:initial_order_tiebreak}
+                    locked?={@initial_order_tiebreak_locked?}
+                  />
+                </div>
+
+                <.locked_hint_message
+                  field={:initial_order_tiebreak}
+                  locked_hint={@locked_hint}
+                  warning={rating_method_warning()}
+                />
+              </.setting_field>
+
+              <.setting_field
+                class="tset-adv tset-only-swiss"
+                label={gettext("Late entrants' pairing numbers")}
+                hint={
+                  gettext(
+                    "Swiss only. By rating, the default, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards. After the field gives them the next free number instead, which the FIDE rules do not, so choosing it takes the tournament out of FIDE mode."
+                  )
+                }
+              >
+                <select id="late-entry-numbering-select" name="tournament[late_entry_numbering]">
                   <option
-                    :for={{val, label} <- pairing_system_options()}
+                    :for={value <- Tournament.late_entry_numbering_choices(@tournament)}
+                    value={value}
+                    selected={@tournament.late_entry_numbering == value}
+                  >
+                    {late_entry_numbering_label(value)}
+                  </option>
+                </select>
+              </.setting_field>
+
+              <.setting_toggle
+                :if={
+                  @tournament.pairing_system == "swiss" and @tournament.acceleration != "baku" and
+                    !Tournament.team?(@tournament)
+                }
+                name="tournament[round_one_absentees_late]"
+                class="tset-adv tset-only-swiss"
+                label={gettext("Players absent from round 1 are late entries (FIDE C.04.2 2.4)")}
+                hint={
+                  gettext(
+                    "They get no pairing number when round 1 is paired and are numbered when they arrive, by the setting above. On for every tournament created from version 0.79 on; off, the old way, for older and imported ones. Can be switched until round 1 is paired."
+                  )
+                }
+                checked={@tournament.round_one_absentees_late}
+                disabled={@round_one_paired?}
+              >
+                <span
+                  :if={@round_one_paired?}
+                  id="round-one-absentees-late-locked"
+                  class="hint"
+                  style="display: block"
+                >
+                  {gettext(
+                    "Locked: round 1 is paired, and switching would renumber players in rounds already played."
+                  )}
+                </span>
+              </.setting_toggle>
+
+              <.setting_field
+                class="tset-only-rr"
+                label={gettext("Cycles (how many times everyone plays everyone)")}
+                hint={
+                  gettext(
+                    "Round robin only, 1 to %{max}: 1 is a single round robin, 2 a double, and so on - each cycle with the colours reversed. A Swiss plays the number of rounds set under Settings - Tournament, and never pairs the same opponents twice.",
+                    max: Tournament.max_rr_cycles()
+                  )
+                }
+              >
+                <div class="locked-wrap">
+                  <input
+                    type="number"
+                    id="settings-rr-cycles"
+                    name="tournament[rr_cycles]"
+                    value={@tournament.rr_cycles}
+                    min="1"
+                    max={Tournament.max_rr_cycles()}
+                    step="1"
+                    disabled={@rr_cycles_locked?}
+                  />
+                  <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
+                </div>
+
+                <.locked_hint_message
+                  field={:rr_cycles}
+                  locked_hint={@locked_hint}
+                  warning={rr_cycles_warning()}
+                  fide_path={fide_path(@tournament, @fide_locked, :rr_cycles)}
+                />
+              </.setting_field>
+
+              <.setting_toggle
+                :if={
+                  @tournament.pairing_system == "round_robin" and @tournament.rr_cycles == 2 and
+                    !Tournament.team?(@tournament)
+                }
+                name="tournament[rr_reverse_last_two]"
+                label={
+                  gettext("Play the last two rounds of the first cycle in reverse order (FIDE C.05)")
+                }
+                hint={
+                  gettext(
+                    "FIDE's recommendation for a double round robin: nobody then has the same colour three times running where the two cycles meet. Exported to the TRF as FIDE_DOUBLEROUNDROBIN."
+                  )
+                }
+                checked={@tournament.rr_reverse_last_two}
+                disabled={@rr_reverse_last_two_locked?}
+                field={:rr_reverse_last_two}
+                locked?={@rr_reverse_last_two_locked?}
+                locked_hint={@locked_hint}
+                warning={rr_reverse_last_two_warning()}
+              />
+              <.setting_toggle
+                class="tset-adv tset-only-rr"
+                name="tournament[rr_match_format]"
+                label={
+                  gettext(
+                    "Round robin match format (each pairing played twice in a row, colours reversed)"
+                  )
+                }
+                hint={gettext("Round robin only - Swiss has its own match format setting below")}
+                checked={@tournament.rr_match_format}
+                disabled={@rr_match_format_locked?}
+                field={:rr_match_format}
+                locked?={@rr_match_format_locked?}
+                locked_hint={@locked_hint}
+                warning={rr_match_format_warning()}
+              />
+              <.setting_field
+                class="tset-only-keizer"
+                label={gettext("Keizer top value (blank = automatic)")}
+                hint={gettext("Keizer only")}
+              >
+                <input
+                  type="number"
+                  name="tournament[keizer_top_value]"
+                  value={@tournament.keizer_top_value}
+                  min="1"
+                />
+              </.setting_field>
+
+              <.setting_field
+                class="tset-adv tset-only-swiss"
+                label={gettext("Acceleration")}
+                hint={gettext("Swiss only - round robin and Keizer ignore this setting")}
+              >
+                <select name="tournament[acceleration]" disabled={@acceleration_locked?}>
+                  <option value="none" selected={@tournament.acceleration == "none"}>
+                    {gettext("None")}
+                  </option>
+
+                  <option value="baku" selected={@tournament.acceleration == "baku"}>
+                    {gettext("Baku acceleration (FIDE C.04.7)")}
+                  </option>
+                </select>
+
+                <.fide_lock_note
+                  id="acceleration-fide-lock"
+                  tournament={@tournament}
+                  fide_locked={@fide_locked}
+                  fields={[:acceleration]}
+                />
+                <span
+                  :if={
+                    @tournament.extra_points_mode == "acceleration" or @tournament.count_extra_points
+                  }
+                  id="acceleration-extra-points-hint"
+                  class="hint"
+                >
+                  <.rich_text text={
+                    gettext(
+                      "This tournament's extra points go to the pairing (%[page]), so Baku cannot be added on top: the engine gets one set of virtual points per player. Switch extra points to handicap with counting off first."
+                    )
+                  }>
+                    <:part name="page">
+                      <.link navigate={~p"/t/#{@tournament.id}/settings/extra-points"}>
+                        {gettext("Extra points")}
+                      </.link>
+                    </:part>
+                  </.rich_text>
+                </span>
+              </.setting_field>
+
+              <.setting_toggle
+                class="tset-adv tset-only-swiss"
+                name="tournament[swiss_match_format]"
+                label={
+                  gettext("Swiss match format (each pairing played twice in a row, colours reversed)")
+                }
+                hint={
+                  gettext("Swiss only - requires an even number of rounds (each match is 2 rounds)")
+                }
+                checked={@tournament.swiss_match_format}
+                disabled={@swiss_match_format_locked?}
+                field={:swiss_match_format}
+                locked?={@swiss_match_format_locked?}
+                locked_hint={@locked_hint}
+                warning={swiss_match_format_warning()}
+              />
+            </.setting_group>
+          </div>
+          <.section_actions section="pairing" note={@note} error={@error} saved={@saved_section} />
+        </form>
+
+        <form
+          :if={Tournament.team?(@tournament)}
+          id="team-settings-form"
+          phx-submit="save"
+        >
+          <input type="hidden" name="section" value="teams" />
+          <div class="card">
+            <h2>{gettext("Teams")}</h2>
+
+            <.setting_group>
+              <.setting_field
+                label={gettext("Line-ups")}
+                hint={
+                  gettext(
+                    "Required: a team plays only with players on its roster, and a board it cannot fill is the opponent's forfeit win. Optional: teams can be paired with no players entered - every match gets all its boards, a result goes on a board with nobody at it or on the match as one score, and a team sits a round out only when it is marked absent or withdrawn. Not FIDE-rated: a board without two players is not a game for the rating report."
+                  )
+                }
+              >
+                <select
+                  id="team-lineups"
+                  name="tournament[team_lineups]"
+                  disabled={@team_lineups_locked?}
+                >
+                  <option value="required" selected={@tournament.team_lineups == "required"}>
+                    {gettext("Required (FIDE)")}
+                  </option>
+
+                  <option value="optional" selected={@tournament.team_lineups == "optional"}>
+                    {gettext("Optional: pair teams without players")}
+                  </option>
+                </select>
+
+                <span :if={@team_lineups_locked?} class="hint">
+                  {gettext("Locked: round 1 has been paired.")}
+                </span>
+              </.setting_field>
+
+              <.setting_field
+                class="tset-adv"
+                label={gettext("Team rating for the order of the teams")}
+                hint={
+                  gettext(
+                    "How the Teams page rates a team and orders the teams before round 1 (C.04.6 1.1.2 leaves this to the event's rules). A rating typed in for a team on the Teams page is always used instead."
+                  )
+                }
+              >
+                <select id="team-rating-method" name="tournament[team_rating_method]">
+                  <option value="olympiad" selected={@tournament.team_rating_method == "olympiad"}>
+                    {gettext(
+                      "Olympiad: average of the highest-rated players, one per board (default)"
+                    )}
+                  </option>
+
+                  <option
+                    value="first_boards"
+                    selected={@tournament.team_rating_method == "first_boards"}
+                  >
+                    {gettext("Average of the first boards, in board order")}
+                  </option>
+
+                  <option value="roster" selected={@tournament.team_rating_method == "roster"}>
+                    {gettext("Average of the whole roster")}
+                  </option>
+
+                  <option value="manual" selected={@tournament.team_rating_method == "manual"}>
+                    {gettext("Typed in for each team")}
+                  </option>
+                </select>
+              </.setting_field>
+
+              <.setting_field
+                class="tset-adv"
+                label={gettext("Rating of an unrated player")}
+                hint={
+                  gettext(
+                    "What a player without a rating, and a board nobody sits at, count as in a team's rating. 1400 is the FIDE rating floor (Rating Regulations 2024 Art. 7.1.4; the World University Team Championship regulations Art. 5.2.4 give unrated players 1400; the Olympiad Pairing Rules of 2012 Art. 7 gave them the floor). C.04.6 leaves it to the event's rules. Seeds already set never change by themselves."
+                  )
+                }
+              >
+                <input
+                  id="team-unrated-rating"
+                  type="number"
+                  name="tournament[team_unrated_rating]"
+                  value={@tournament.team_unrated_rating}
+                  min="0"
+                  max="4000"
+                />
+              </.setting_field>
+            </.setting_group>
+          </div>
+          <.section_actions section="teams" note={@note} error={@error} saved={@saved_section} />
+        </form>
+
+        <form id="play-settings-form" phx-submit="save">
+          <input type="hidden" name="section" value="play" />
+          <div class="card">
+            <h2>{gettext("Tournament type & rate of play")}</h2>
+
+            <.setting_group>
+              <.setting_field label={gettext("Type")}>
+                <select name="tournament[standard]" phx-change="standard_change">
+                  <option
+                    :for={{val, label} <- standard_options()}
                     value={val}
-                    selected={@tournament.pairing_system == val}
+                    selected={@standard == val}
                   >
                     {label}
                   </option>
                 </select>
-                <.locked_overlay field={:pairing_system} locked?={@pairing_system_locked?} />
-              </div>
+              </.setting_field>
 
-              <.locked_hint_message
-                field={:pairing_system}
-                locked_hint={@locked_hint}
-                warning={pairing_system_warning()}
-                fide_path={fide_path(@tournament, @fide_locked, :pairing_system)}
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Swiss engine")}
-              hint={
-                gettext(
-                  "Swiss only - round robin and Keizer compute their own pairings and never consult this."
-                )
-              }
-            >
-              <p id="swiss-engine-name">
-                <strong>Ainalrami</strong>
-              </p>
-
-              <span class="hint">
-                <.rich_text text={
-                  gettext(
-                    "%[engine] pairs every Swiss tournament here. It is built into the app - nothing to install - and it implements C.04.3 as it stands from %[date], the current edition."
-                  )
-                }>
-                  <:part name="engine"><strong>Ainalrami</strong></:part>
-
-                  <:part name="date"><strong>{gettext("1 February 2026")}</strong></:part>
-                </.rich_text>
-              </span>
-
-              <span class="hint">
-                <.rich_text text={
-                  gettext(
-                    "Ainalrami is checked against bbpPairings, an independent implementation of the same 2026 rules, by replaying whole generated tournaments and diffing every board: %[pairings], with two disagreements that are both defects in bbpPairings. A third implementation agrees with it on both. Forbidden pairings, club and federation exclusions and acceleration are all supported; any TRF extension it does not implement makes it refuse the round and say so, rather than quietly ignoring a rule you set."
-                  )
-                }>
-                  <:part name="pairings">
-                    <strong>{gettext("2.5 billion individual pairings")}</strong>
-                  </:part>
-                </.rich_text>
-              </span>
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Initial colour")}
-              hint={
-                gettext(
-                  "Swiss only. FIDE draws it by lot before round 1, and it decides who has White on round 1's boards. Left on drawn by lot, it is drawn when round 1 is paired and then kept."
-                )
-              }
-            >
-              <div class="locked-wrap">
-                <select
-                  id="initial-colour-select"
-                  name="tournament[initial_colour]"
-                  disabled={@initial_colour_locked?}
-                >
+              <.setting_field label={gettext("Rate of play")} required>
+                <select name="tournament[rate_of_play]">
                   <option
-                    :for={value <- Tournament.initial_colours()}
-                    value={value}
-                    selected={@tournament.initial_colour == value}
+                    :for={opt <- rate_of_play_select_options(@standard, @rate_of_play)}
+                    value={opt}
+                    selected={opt == @rate_of_play}
                   >
-                    {initial_colour_label(value)}
+                    {if opt == "", do: "- none -", else: opt}
                   </option>
                 </select>
-                <.locked_overlay field={:initial_colour} locked?={@initial_colour_locked?} />
-              </div>
+              </.setting_field>
 
-              <.locked_hint_message
-                field={:initial_colour}
-                locked_hint={@locked_hint}
-                warning={initial_colour_warning()}
-              />
-              <span :if={initial_colour_status(@tournament)} id="initial-colour-status" class="hint">
-                {initial_colour_status(@tournament)}
-              </span>
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Tournament rating")}
-              hint={
-                gettext(
-                  "The rating that ranks the players and so gives them their pairing numbers, and that the rating-based tie-breaks read. A manual rating is typed per player on the Players page."
-                )
-              }
-            >
-              <div class="locked-wrap">
-                <select
-                  id="rating-method-select"
-                  name="tournament[rating_method]"
-                  disabled={@rating_method_locked?}
-                >
-                  <option
-                    :for={value <- Tournament.rating_methods()}
-                    value={value}
-                    selected={@tournament.rating_method == value}
-                  >
-                    {rating_method_label(value)}
-                  </option>
-                </select>
-                <.locked_overlay field={:rating_method} locked?={@rating_method_locked?} />
-              </div>
-
-              <.locked_hint_message
-                field={:rating_method}
-                locked_hint={@locked_hint}
-                warning={rating_method_warning()}
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Equal rating and title")}
-              hint={
-                gettext(
-                  "How players level on rating and FIDE title are ordered for their pairing numbers. FIDE orders them alphabetically unless the tournament announced another rule."
-                )
-              }
-            >
-              <div class="locked-wrap">
-                <select
-                  id="initial-order-tiebreak-select"
-                  name="tournament[initial_order_tiebreak]"
-                  disabled={@initial_order_tiebreak_locked?}
-                >
-                  <option
-                    :for={value <- Tournament.initial_order_tiebreaks()}
-                    value={value}
-                    selected={@tournament.initial_order_tiebreak == value}
-                  >
-                    {initial_order_tiebreak_label(value)}
-                  </option>
-                </select>
-
-                <.locked_overlay
-                  field={:initial_order_tiebreak}
-                  locked?={@initial_order_tiebreak_locked?}
-                />
-              </div>
-
-              <.locked_hint_message
-                field={:initial_order_tiebreak}
-                locked_hint={@locked_hint}
-                warning={rating_method_warning()}
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Late entrants' pairing numbers")}
-              hint={
-                gettext(
-                  "Swiss only. By rating, the default, a player who joins after numbers were given gets the number their rating earns and everybody below moves down one (FIDE C.04.2 2.4); the rounds already played keep their boards. After the field gives them the next free number instead, which the FIDE rules do not, so choosing it takes the tournament out of FIDE mode."
-                )
-              }
-            >
-              <select id="late-entry-numbering-select" name="tournament[late_entry_numbering]">
-                <option
-                  :for={value <- Tournament.late_entry_numbering_choices(@tournament)}
-                  value={value}
-                  selected={@tournament.late_entry_numbering == value}
-                >
-                  {late_entry_numbering_label(value)}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_toggle
-              :if={
-                @tournament.pairing_system == "swiss" and @tournament.acceleration != "baku" and
-                  !Tournament.team?(@tournament)
-              }
-              name="tournament[round_one_absentees_late]"
-              label={gettext("Players absent from round 1 are late entries (FIDE C.04.2 2.4)")}
-              hint={
-                gettext(
-                  "They get no pairing number when round 1 is paired and are numbered when they arrive, by the setting above. On for every tournament created from version 0.79 on; off, the old way, for older and imported ones. Can be switched until round 1 is paired."
-                )
-              }
-              checked={@tournament.round_one_absentees_late}
-              disabled={@round_one_paired?}
-            >
-              <span
-                :if={@round_one_paired?}
-                id="round-one-absentees-late-locked"
-                class="hint"
-                style="display: block"
+              <.setting_field
+                class="tset-adv"
+                label={gettext("Other rate of play (overrides the select above)")}
               >
-                {gettext(
-                  "Locked: round 1 is paired, and switching would renumber players in rounds already played."
-                )}
-              </span>
-            </.setting_toggle>
-
-            <.setting_field
-              label={gettext("Cycles (how many times everyone plays everyone)")}
-              hint={
-                gettext(
-                  "Round robin only, 1 to %{max}: 1 is a single round robin, 2 a double, and so on - each cycle with the colours reversed. A Swiss plays the number of rounds set under Settings - Tournament, and never pairs the same opponents twice.",
-                  max: Tournament.max_rr_cycles()
-                )
-              }
-            >
-              <div class="locked-wrap">
                 <input
-                  type="number"
-                  id="settings-rr-cycles"
-                  name="tournament[rr_cycles]"
-                  value={@tournament.rr_cycles}
-                  min="1"
-                  max={Tournament.max_rr_cycles()}
-                  step="1"
-                  disabled={@rr_cycles_locked?}
+                  type="text"
+                  name="tournament[rate_of_play_other]"
+                  value=""
+                  placeholder={gettext("e.g. 40 min + 10 sec/move")}
                 />
-                <.locked_overlay field={:rr_cycles} locked?={@rr_cycles_locked?} />
-              </div>
+              </.setting_field>
+            </.setting_group>
+          </div>
+          <.section_actions section="play" note={@note} error={@error} saved={@saved_section} />
+        </form>
 
-              <.locked_hint_message
-                field={:rr_cycles}
-                locked_hint={@locked_hint}
-                warning={rr_cycles_warning()}
-                fide_path={fide_path(@tournament, @fide_locked, :rr_cycles)}
-              />
-            </.setting_field>
+        <div class="card tset-adv" id="restrictions-moved">
+          <h2>{gettext("Forbidden pairings")}</h2>
 
-            <.setting_toggle
-              :if={
-                @tournament.pairing_system == "round_robin" and @tournament.rr_cycles == 2 and
-                  !Tournament.team?(@tournament)
-              }
-              name="tournament[rr_reverse_last_two]"
-              label={
-                gettext("Play the last two rounds of the first cycle in reverse order (FIDE C.05)")
-              }
-              hint={
-                gettext(
-                  "FIDE's recommendation for a double round robin: nobody then has the same colour three times running where the two cycles meet. Exported to the TRF as FIDE_DOUBLEROUNDROBIN."
-                )
-              }
-              checked={@tournament.rr_reverse_last_two}
-              disabled={@rr_reverse_last_two_locked?}
-              field={:rr_reverse_last_two}
-              locked?={@rr_reverse_last_two_locked?}
-              locked_hint={@locked_hint}
-              warning={rr_reverse_last_two_warning()}
-            />
-            <.setting_toggle
-              name="tournament[rr_match_format]"
-              label={
-                gettext(
-                  "Round robin match format (each pairing played twice in a row, colours reversed)"
-                )
-              }
-              hint={gettext("Round robin only - Swiss has its own match format setting below")}
-              checked={@tournament.rr_match_format}
-              disabled={@rr_match_format_locked?}
-              field={:rr_match_format}
-              locked?={@rr_match_format_locked?}
-              locked_hint={@locked_hint}
-              warning={rr_match_format_warning()}
-            />
-            <.setting_field
-              label={gettext("Keizer top value (blank = automatic)")}
-              hint={gettext("Keizer only")}
-            >
-              <input
-                type="number"
-                name="tournament[keizer_top_value]"
-                value={@tournament.keizer_top_value}
-                min="1"
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Acceleration")}
-              hint={gettext("Swiss only - round robin and Keizer ignore this setting")}
-            >
-              <select name="tournament[acceleration]" disabled={@acceleration_locked?}>
-                <option value="none" selected={@tournament.acceleration == "none"}>
-                  {gettext("None")}
-                </option>
-
-                <option value="baku" selected={@tournament.acceleration == "baku"}>
-                  {gettext("Baku acceleration (FIDE C.04.7)")}
-                </option>
-              </select>
-
-              <.fide_lock_note
-                id="acceleration-fide-lock"
-                tournament={@tournament}
-                fide_locked={@fide_locked}
-                fields={[:acceleration]}
-              />
-              <span
-                :if={
-                  @tournament.extra_points_mode == "acceleration" or @tournament.count_extra_points
-                }
-                id="acceleration-extra-points-hint"
-                class="hint"
-              >
-                <.rich_text text={
-                  gettext(
-                    "This tournament's extra points go to the pairing (%[page]), so Baku cannot be added on top: the engine gets one set of virtual points per player. Switch extra points to handicap with counting off first."
-                  )
-                }>
-                  <:part name="page">
-                    <.link navigate={~p"/t/#{@tournament.id}/settings/extra-points"}>
-                      {gettext("Extra points")}
-                    </.link>
-                  </:part>
-                </.rich_text>
-              </span>
-            </.setting_field>
-
-            <.setting_toggle
-              name="tournament[swiss_match_format]"
-              label={
-                gettext("Swiss match format (each pairing played twice in a row, colours reversed)")
-              }
-              hint={
-                gettext("Swiss only - requires an even number of rounds (each match is 2 rounds)")
-              }
-              checked={@tournament.swiss_match_format}
-              disabled={@swiss_match_format_locked?}
-              field={:swiss_match_format}
-              locked?={@swiss_match_format_locked?}
-              locked_hint={@locked_hint}
-              warning={swiss_match_format_warning()}
-            />
-          </.setting_group>
+          <p class="hint" style="margin: 0">
+            {gettext("Forbidden pairs, club and federation rules and the wishes have their own page:")}
+            <.link navigate={~p"/t/#{@tournament.id}/settings/restrictions"}>
+              {gettext("Forbidden pairings")}
+            </.link>
+          </p>
         </div>
-        <.section_actions section="pairing" note={@note} error={@error} saved={@saved_section} />
-      </form>
-
-      <form
-        :if={Tournament.team?(@tournament)}
-        id="team-settings-form"
-        phx-submit="save"
-      >
-        <input type="hidden" name="section" value="teams" />
-        <div class="card">
-          <h2>{gettext("Teams")}</h2>
-
-          <.setting_group>
-            <.setting_field
-              label={gettext("Line-ups")}
-              hint={
-                gettext(
-                  "Required: a team plays only with players on its roster, and a board it cannot fill is the opponent's forfeit win. Optional: teams can be paired with no players entered - every match gets all its boards, a result goes on a board with nobody at it or on the match as one score, and a team sits a round out only when it is marked absent or withdrawn. Not FIDE-rated: a board without two players is not a game for the rating report."
-                )
-              }
-            >
-              <select
-                id="team-lineups"
-                name="tournament[team_lineups]"
-                disabled={@team_lineups_locked?}
-              >
-                <option value="required" selected={@tournament.team_lineups == "required"}>
-                  {gettext("Required (FIDE)")}
-                </option>
-
-                <option value="optional" selected={@tournament.team_lineups == "optional"}>
-                  {gettext("Optional: pair teams without players")}
-                </option>
-              </select>
-
-              <span :if={@team_lineups_locked?} class="hint">
-                {gettext("Locked: round 1 has been paired.")}
-              </span>
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Team rating for the order of the teams")}
-              hint={
-                gettext(
-                  "How the Teams page rates a team and orders the teams before round 1 (C.04.6 1.1.2 leaves this to the event's rules). A rating typed in for a team on the Teams page is always used instead."
-                )
-              }
-            >
-              <select id="team-rating-method" name="tournament[team_rating_method]">
-                <option value="olympiad" selected={@tournament.team_rating_method == "olympiad"}>
-                  {gettext("Olympiad: average of the highest-rated players, one per board (default)")}
-                </option>
-
-                <option
-                  value="first_boards"
-                  selected={@tournament.team_rating_method == "first_boards"}
-                >
-                  {gettext("Average of the first boards, in board order")}
-                </option>
-
-                <option value="roster" selected={@tournament.team_rating_method == "roster"}>
-                  {gettext("Average of the whole roster")}
-                </option>
-
-                <option value="manual" selected={@tournament.team_rating_method == "manual"}>
-                  {gettext("Typed in for each team")}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Rating of an unrated player")}
-              hint={
-                gettext(
-                  "What a player without a rating, and a board nobody sits at, count as in a team's rating. 1400 is the FIDE rating floor (Rating Regulations 2024 Art. 7.1.4; the World University Team Championship regulations Art. 5.2.4 give unrated players 1400; the Olympiad Pairing Rules of 2012 Art. 7 gave them the floor). C.04.6 leaves it to the event's rules. Seeds already set never change by themselves."
-                )
-              }
-            >
-              <input
-                id="team-unrated-rating"
-                type="number"
-                name="tournament[team_unrated_rating]"
-                value={@tournament.team_unrated_rating}
-                min="0"
-                max="4000"
-              />
-            </.setting_field>
-          </.setting_group>
-        </div>
-        <.section_actions section="teams" note={@note} error={@error} saved={@saved_section} />
-      </form>
-
-      <form id="play-settings-form" phx-submit="save">
-        <input type="hidden" name="section" value="play" />
-        <div class="card">
-          <h2>{gettext("Tournament type & rate of play")}</h2>
-
-          <.setting_group>
-            <.setting_field label={gettext("Type")}>
-              <select name="tournament[standard]" phx-change="standard_change">
-                <option
-                  :for={{val, label} <- standard_options()}
-                  value={val}
-                  selected={@standard == val}
-                >
-                  {label}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field label={gettext("Rate of play")} required>
-              <select name="tournament[rate_of_play]">
-                <option
-                  :for={opt <- rate_of_play_select_options(@standard, @rate_of_play)}
-                  value={opt}
-                  selected={opt == @rate_of_play}
-                >
-                  {if opt == "", do: "- none -", else: opt}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field label={gettext("Other rate of play (overrides the select above)")}>
-              <input
-                type="text"
-                name="tournament[rate_of_play_other]"
-                value=""
-                placeholder={gettext("e.g. 40 min + 10 sec/move")}
-              />
-            </.setting_field>
-          </.setting_group>
-        </div>
-        <.section_actions section="play" note={@note} error={@error} saved={@saved_section} />
-      </form>
-
-      <div class="card" id="restrictions-moved">
-        <h2>{gettext("Forbidden pairings")}</h2>
-
-        <p class="hint" style="margin: 0">
-          {gettext("Forbidden pairs, club and federation rules and the wishes have their own page:")}
-          <.link navigate={~p"/t/#{@tournament.id}/settings/restrictions"}>
-            {gettext("Forbidden pairings")}
-          </.link>
-        </p>
-      </div>
+      </.settings_page>
     </Layouts.app>
     """
   end

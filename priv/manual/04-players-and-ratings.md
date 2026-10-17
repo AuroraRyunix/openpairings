@@ -253,7 +253,7 @@ or title for N players*, with a **Review** button that opens the same table. It
 writes nothing. The month of the list must match the tournament's start month,
 otherwise the program proposes nothing and says why (only the current list
 is kept). The notice can be switched off per tournament (Settings, **FIDE**,
-*Consistency checks*); the **Refresh ratings** button still works on request.
+*Consistency checks*, advanced); the **Refresh ratings** button still works on request.
 Before a requested check, the program asks FIDE whether its list on this
 machine is current and updates it first, or says that it could not.
 

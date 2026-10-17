@@ -26,7 +26,7 @@ Keizer cannot be a team tournament.
    pairing numbers when round 1 is paired. Move teams with the arrows or press
    **Order by rating**. Teams you did not move by hand are ordered by rating when
    round 1 is paired. How a team's rating is worked out is the Options page's
-   *Team rating for the order of the teams*: the default (Olympiad rule)
+   *Team rating for the order of the teams* (advanced): the default (Olympiad rule)
    is the average of the highest-rated players, one for each board; the
    alternatives are the average of the first boards in board order, the
    average of the whole roster, or a rating typed for each team. A team's

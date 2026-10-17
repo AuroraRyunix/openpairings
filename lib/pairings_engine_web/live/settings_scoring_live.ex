@@ -26,6 +26,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     {:ok,
      socket
      |> attach_dirty_tracker()
+     |> attach_advanced()
      |> attach_fide_gate()
      |> assign(
        tournament: tournament,
@@ -51,6 +52,23 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
        abs_points_on?: abs_points_on?(tournament.abs_value)
      )
      |> assign_abs_scoring_lock()}
+  end
+
+  # The advanced half of this page that is not at its defaults: the
+  # tie-break and late-entry treatment of absences, the bye-type question,
+  # and a team event's bye, forfeit and withdrawal rules.
+  defp advanced_changed(tournament) do
+    teams =
+      if Tournament.team?(tournament),
+        do: [
+          :team_pab_match_points,
+          :team_pab_game_points,
+          :team_forfeit_board_points,
+          :team_withdrawal_annul
+        ],
+        else: []
+
+    changed_count(tournament, [:absent_counts_as_vur, :late_entry_absences, :ask_bye_type | teams])
   end
 
   defp abs_points_on?(value) when is_number(value), do: value > 0
@@ -252,495 +270,513 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page
+        tournament={@tournament}
+        active={:scoring}
+        subtitle={gettext("Settings - Scoring")}
+        show_status={false}
+        advanced={advanced(@show_advanced, advanced_changed(@tournament))}
+      >
+        <.compliance_notice tournament={@tournament} /> <.stale_banner stale={@stale} />
+        <.fide_exit_dialog
+          id="fide-gate"
+          step={@fide_gate && @fide_gate.step}
+          reasons={(@fide_gate && @fide_gate.reasons) || []}
+        />
+        <form id="scoring-settings-form" phx-submit="save" phx-change="preview">
+          <div class="card">
+            <h2>{gettext("Points")}</h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - Scoring")}</p>
-        </div>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:scoring} />
-      <.compliance_notice tournament={@tournament} /> <.stale_banner stale={@stale} />
-      <.fide_exit_dialog
-        id="fide-gate"
-        step={@fide_gate && @fide_gate.step}
-        reasons={(@fide_gate && @fide_gate.reasons) || []}
-      />
-      <form id="scoring-settings-form" phx-submit="save" phx-change="preview">
-        <div class="card">
-          <h2>{gettext("Points")}</h2>
+            <p class="hint">
+              {gettext("What a win, a draw, a loss and the odd player out's bye are worth.")}
+            </p>
 
-          <.fide_lock_note
-            id="points-fide-lock"
-            tournament={@tournament}
-            fide_locked={@fide_locked}
-            fields={[:points_win, :bye_value]}
-          />
-          <.setting_group>
-            <.setting_field label={gettext("Points for a win")}>
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[points_win]"
-                value={@tournament.points_win}
-                disabled={:points_win in @fide_locked}
-              />
-            </.setting_field>
+            <.fide_lock_note
+              id="points-fide-lock"
+              tournament={@tournament}
+              fide_locked={@fide_locked}
+              fields={[:points_win, :bye_value]}
+            />
+            <.setting_group>
+              <.setting_field label={gettext("Points for a win")}>
+                <input
+                  type="number"
+                  step="0.5"
+                  name="tournament[points_win]"
+                  value={@tournament.points_win}
+                  disabled={:points_win in @fide_locked}
+                />
+              </.setting_field>
 
-            <.setting_field label={gettext("Points for a draw")}>
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[points_draw]"
-                value={@tournament.points_draw}
-                disabled={:points_draw in @fide_locked}
-              />
-            </.setting_field>
+              <.setting_field label={gettext("Points for a draw")}>
+                <input
+                  type="number"
+                  step="0.5"
+                  name="tournament[points_draw]"
+                  value={@tournament.points_draw}
+                  disabled={:points_draw in @fide_locked}
+                />
+              </.setting_field>
 
-            <.setting_field label={gettext("Points for a loss")}>
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[points_loss]"
-                value={@tournament.points_loss}
-                disabled={:points_loss in @fide_locked}
-              />
-            </.setting_field>
+              <.setting_field label={gettext("Points for a loss")}>
+                <input
+                  type="number"
+                  step="0.5"
+                  name="tournament[points_loss]"
+                  value={@tournament.points_loss}
+                  disabled={:points_loss in @fide_locked}
+                />
+              </.setting_field>
 
-            <.setting_field label={gettext("Pairing-allocated bye worth")}>
-              <input
-                type="number"
-                step="0.5"
-                name="tournament[bye_value]"
-                value={@tournament.bye_value}
-                disabled={:bye_value in @fide_locked}
-              />
-            </.setting_field>
-          </.setting_group>
-        </div>
+              <.setting_field label={gettext("Pairing-allocated bye worth")}>
+                <input
+                  type="number"
+                  step="0.5"
+                  name="tournament[bye_value]"
+                  value={@tournament.bye_value}
+                  disabled={:bye_value in @fide_locked}
+                />
+              </.setting_field>
+            </.setting_group>
+          </div>
 
-        <div :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)} class="card">
-          <h2>{gettext("Match points")}</h2>
+          <div :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)} class="card">
+            <h2>{gettext("Match points")}</h2>
 
-          <.fide_lock_note
-            id="match-points-fide-lock"
-            tournament={@tournament}
-            fide_locked={@fide_locked}
-            fields={[:team_match_points_win]}
-          />
-          <p class="subtitle" style="margin: 0 0 8px">
-            {gettext(
-              "A team match is won by the team with more game points - the board results above, added up. FIDE team events give 2 match points for a win and 1 for a draw; change these if your league scores matches differently."
-            )}
-          </p>
+            <.fide_lock_note
+              id="match-points-fide-lock"
+              tournament={@tournament}
+              fide_locked={@fide_locked}
+              fields={[:team_match_points_win]}
+            />
+            <p class="subtitle" style="margin: 0 0 8px">
+              {gettext(
+                "A team match is won by the team with more game points - the board results above, added up. FIDE team events give 2 match points for a win and 1 for a draw; change these if your league scores matches differently."
+              )}
+            </p>
 
-          <.setting_group>
-            <.setting_field label={gettext("Match points for a won match")}>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                name="tournament[team_match_points_win]"
-                value={@tournament.team_match_points_win}
-                disabled={:team_match_points_win in @fide_locked}
-              />
-            </.setting_field>
+            <.setting_group>
+              <.setting_field label={gettext("Match points for a won match")}>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  name="tournament[team_match_points_win]"
+                  value={@tournament.team_match_points_win}
+                  disabled={:team_match_points_win in @fide_locked}
+                />
+              </.setting_field>
 
-            <.setting_field label={gettext("Match points for a drawn match")}>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                name="tournament[team_match_points_draw]"
-                value={@tournament.team_match_points_draw}
-                disabled={:team_match_points_draw in @fide_locked}
-              />
-            </.setting_field>
+              <.setting_field label={gettext("Match points for a drawn match")}>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  name="tournament[team_match_points_draw]"
+                  value={@tournament.team_match_points_draw}
+                  disabled={:team_match_points_draw in @fide_locked}
+                />
+              </.setting_field>
 
-            <.setting_field label={gettext("Match points for a lost match")}>
-              <input
-                type="number"
-                step="0.5"
-                min="0"
-                name="tournament[team_match_points_loss]"
-                value={@tournament.team_match_points_loss}
-                disabled={:team_match_points_loss in @fide_locked}
-              />
-            </.setting_field>
-          </.setting_group>
+              <.setting_field label={gettext("Match points for a lost match")}>
+                <input
+                  type="number"
+                  step="0.5"
+                  min="0"
+                  name="tournament[team_match_points_loss]"
+                  value={@tournament.team_match_points_loss}
+                  disabled={:team_match_points_loss in @fide_locked}
+                />
+              </.setting_field>
+            </.setting_group>
 
-          <div
-            :if={PairingsEngine.Tournaments.Tournament.team_swiss?(@tournament)}
-            id="team-pab-settings"
-          >
-            <h3>{gettext("Pairing-allocated bye")}</h3>
+            <div
+              :if={PairingsEngine.Tournaments.Tournament.team_swiss?(@tournament)}
+              id="team-pab-settings"
+              class="tset-adv"
+            >
+              <h3>{gettext("Pairing-allocated bye")}</h3>
+
+              <p class="subtitle" style="margin: 0 0 8px">
+                {gettext(
+                  "FIDE's team Swiss gives the team left out of an odd round the points of a drawn match, unless the competition's regulations say otherwise (C.04.6 Art. 1.4). Leave these empty for a drawn match's points."
+                )}
+              </p>
+
+              <.setting_group>
+                <.setting_field label={gettext("Match points for the bye")}>
+                  <input
+                    id="team-pab-match-points"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    name="tournament[team_pab_match_points]"
+                    value={@tournament.team_pab_match_points}
+                    placeholder={to_string(@tournament.team_match_points_draw)}
+                    disabled={:team_pab_match_points in @fide_locked}
+                  />
+                </.setting_field>
+
+                <.setting_field label={gettext("Game points for the bye")}>
+                  <input
+                    id="team-pab-game-points"
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    name="tournament[team_pab_game_points]"
+                    value={@tournament.team_pab_game_points}
+                    placeholder={
+                      @tournament
+                      |> PairingsEngine.Tournaments.Tournament.team_pab_value(
+                        max(@tournament.team_boards || 1, 1)
+                      )
+                      |> elem(1)
+                      |> to_string()
+                    }
+                    disabled={:team_pab_game_points in @fide_locked}
+                  />
+                </.setting_field>
+              </.setting_group>
+            </div>
+
+            <div id="team-forfeit-settings" class="tset-adv">
+              <h3>{gettext("A match forfeited as a whole")}</h3>
+
+              <.setting_group>
+                <.setting_field label={gettext("Game points for the team it is awarded to")}>
+                  <select
+                    id="team-forfeit-board-points"
+                    name="tournament[team_forfeit_board_points]"
+                    disabled={:team_forfeit_board_points in @fide_locked}
+                  >
+                    <option
+                      value="seated"
+                      selected={@tournament.team_forfeit_board_points != "full"}
+                    >
+                      {gettext("One per board it seated")}
+                    </option>
+
+                    <option value="full" selected={@tournament.team_forfeit_board_points == "full"}>
+                      {gettext("The full board count (%{boards}-0)",
+                        boards: max(@tournament.team_boards || 1, 1)
+                      )}
+                    </option>
+                  </select>
+                </.setting_field>
+              </.setting_group>
+
+              <p class="hint">
+                {gettext(
+                  "For a match the arbiter forfeits before a game is played, and a match against a team out of the round. The full count is for regulations that fix a team forfeit's score; a single forfeited board always stays one board's point."
+                )}
+              </p>
+            </div>
+
+            <div
+              :if={PairingsEngine.Tournaments.Tournament.team_round_robin?(@tournament)}
+              id="team-withdrawal-settings"
+              class="tset-adv"
+            >
+              <h3>{gettext("A team that withdraws")}</h3>
+              <input type="hidden" name="tournament[team_withdrawal_annul]" value="false" />
+              <label class="field field-check">
+                <input
+                  id="team-withdrawal-annul"
+                  type="checkbox"
+                  name="tournament[team_withdrawal_annul]"
+                  value="true"
+                  checked={@tournament.team_withdrawal_annul}
+                  style="width: auto"
+                />
+                <span>
+                  {gettext(
+                    "Take its matches out of the team standings when it played fewer than half of them"
+                  )}
+                </span>
+              </label>
+
+              <p class="hint">
+                {gettext(
+                  "FIDE's rule for a player who withdraws from a round robin (General Regulations for Competitions 6.6): under 50% played, the results stay in the table for rating but do not count in the final ranking. Off by default: the results stand, as for an individual round robin here. The games always stay for the rating report."
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2>{gettext("Byes and absences")}</h2>
+
+            <p class="hint">
+              {gettext("What a round a player sits out is worth, and how many of them are paid.")}
+            </p>
+
+            <p class="subtitle tset-adv" style="margin: 0 0 8px">
+              {gettext(
+                "What a round a player sits out is worth, and how many of them are paid. This covers every absence the pairing knows about, whether the player asked for a specific round off or is marked absent outright - those are the same event, because the only way you know before pairing is that they told you. Somebody who was paired and then didn't turn up is a forfeit on their board, not this. A pairing-allocated bye - the odd player out when the field is uneven - has its own value above."
+              )}
+            </p>
 
             <p class="subtitle" style="margin: 0 0 8px">
               {gettext(
-                "FIDE's team Swiss gives the team left out of an odd round the points of a drawn match, unless the competition's regulations say otherwise (C.04.6 Art. 1.4). Leave these empty for a drawn match's points."
+                "FIDE's default is zero. Most opens pay half a point for the first one or two, which is what the two limits below are for. SWAR calls this option \"Pt ABSENT\"."
               )}
             </p>
 
             <.setting_group>
-              <.setting_field label={gettext("Match points for the bye")}>
-                <input
-                  id="team-pab-match-points"
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  name="tournament[team_pab_match_points]"
-                  value={@tournament.team_pab_match_points}
-                  placeholder={to_string(@tournament.team_match_points_draw)}
-                  disabled={:team_pab_match_points in @fide_locked}
+              <.setting_field
+                label={gettext("Points for a round sat out")}
+                hint={
+                  gettext(
+                    "Leave blank if this doesn't apply - a round sat out then scores the same as an ordinary loss, same as before this was set."
+                  )
+                }
+              >
+                <div class="locked-wrap">
+                  <input
+                    type="number"
+                    step="0.5"
+                    min="0"
+                    name="tournament[abs_value]"
+                    value={@tournament.abs_value}
+                    disabled={@abs_scoring_locked?}
+                  /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
+                </div>
+
+                <.locked_hint_message
+                  field={:abs_scoring}
+                  locked_hint={@locked_hint}
+                  warning={abs_scoring_warning()}
                 />
               </.setting_field>
 
-              <.setting_field label={gettext("Game points for the bye")}>
-                <input
-                  id="team-pab-game-points"
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  name="tournament[team_pab_game_points]"
-                  value={@tournament.team_pab_game_points}
-                  placeholder={
-                    @tournament
-                    |> PairingsEngine.Tournaments.Tournament.team_pab_value(
-                      max(@tournament.team_boards || 1, 1)
-                    )
-                    |> elem(1)
-                    |> to_string()
-                  }
-                  disabled={:team_pab_game_points in @fide_locked}
+              <.setting_field
+                class={!@abs_points_on? && "tset-hide"}
+                label={gettext("Last round this still applies to")}
+                hint={
+                  gettext(
+                    "After this round (inclusive of it), a round sat out scores an ordinary loss instead, no matter how many are left. Leave blank so it applies for the whole tournament, with no cutoff round."
+                  )
+                }
+              >
+                <div class="locked-wrap">
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    name="tournament[abs_jusque]"
+                    value={@tournament.abs_jusque}
+                    disabled={@abs_scoring_locked?}
+                  /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
+                </div>
+
+                <.locked_hint_message
+                  field={:abs_scoring}
+                  locked_hint={@locked_hint}
+                  warning={abs_scoring_warning()}
                 />
               </.setting_field>
-            </.setting_group>
-          </div>
 
-          <div id="team-forfeit-settings">
-            <h3>{gettext("A match forfeited as a whole")}</h3>
+              <.setting_field
+                class={!@abs_points_on? && "tset-hide"}
+                label={gettext("Cap: only a player's first N rounds sat out are paid")}
+                hint={
+                  gettext(
+                    "Counting this round, once a player has sat out this many rounds, any further one scores an ordinary loss instead. Leave blank so every one pays, no matter how many the player racks up."
+                  )
+                }
+              >
+                <div class="locked-wrap">
+                  <input
+                    type="number"
+                    step="1"
+                    min="0"
+                    name="tournament[abs_nbfois]"
+                    value={@tournament.abs_nbfois}
+                    disabled={@abs_scoring_locked?}
+                  /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
+                </div>
 
-            <.setting_group>
-              <.setting_field label={gettext("Game points for the team it is awarded to")}>
-                <select
-                  id="team-forfeit-board-points"
-                  name="tournament[team_forfeit_board_points]"
-                  disabled={:team_forfeit_board_points in @fide_locked}
-                >
-                  <option
-                    value="seated"
-                    selected={@tournament.team_forfeit_board_points != "full"}
-                  >
-                    {gettext("One per board it seated")}
-                  </option>
+                <.locked_hint_message
+                  field={:abs_scoring}
+                  locked_hint={@locked_hint}
+                  warning={abs_scoring_warning()}
+                />
+              </.setting_field>
 
-                  <option value="full" selected={@tournament.team_forfeit_board_points == "full"}>
-                    {gettext("The full board count (%{boards}-0)",
-                      boards: max(@tournament.team_boards || 1, 1)
+              <label class="set-toggle tset-adv" id="vur-setting">
+                <input type="hidden" name="tournament[absent_counts_as_vur]" value="false" />
+                <input
+                  type="checkbox"
+                  name="tournament[absent_counts_as_vur]"
+                  value="true"
+                  checked={@vur_checked}
+                  phx-click="vur_toggle"
+                />
+                <span class="set-toggle-text">
+                  {gettext("Treat a round sat out as a voluntary unplayed round for tiebreaks")}
+                  <span class="hint">
+                    {gettext(
+                      "On (the default) = a trailing one is downgraded to a draw for opponents' Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off = it always counts at its award value above, same as a forfeit loss."
                     )}
-                  </option>
-                </select>
-              </.setting_field>
-            </.setting_group>
-
-            <p class="hint">
-              {gettext(
-                "For a match the arbiter forfeits before a game is played, and a match against a team out of the round. The full count is for regulations that fix a team forfeit's score; a single forfeited board always stays one board's point."
-              )}
-            </p>
-          </div>
-
-          <div
-            :if={PairingsEngine.Tournaments.Tournament.team_round_robin?(@tournament)}
-            id="team-withdrawal-settings"
-          >
-            <h3>{gettext("A team that withdraws")}</h3>
-            <input type="hidden" name="tournament[team_withdrawal_annul]" value="false" />
-            <label class="field field-check">
-              <input
-                id="team-withdrawal-annul"
-                type="checkbox"
-                name="tournament[team_withdrawal_annul]"
-                value="true"
-                checked={@tournament.team_withdrawal_annul}
-                style="width: auto"
-              />
-              <span>
-                {gettext(
-                  "Take its matches out of the team standings when it played fewer than half of them"
-                )}
-              </span>
-            </label>
-
-            <p class="hint">
-              {gettext(
-                "FIDE's rule for a player who withdraws from a round robin (General Regulations for Competitions 6.6): under 50% played, the results stay in the table for rating but do not count in the final ranking. Off by default: the results stand, as for an individual round robin here. The games always stay for the rating report."
-              )}
-            </p>
-          </div>
-        </div>
-
-        <div class="card">
-          <h2>{gettext("Byes and absences")}</h2>
-
-          <p class="subtitle" style="margin: 0 0 8px">
-            {gettext(
-              "What a round a player sits out is worth, and how many of them are paid. This covers every absence the pairing knows about, whether the player asked for a specific round off or is marked absent outright - those are the same event, because the only way you know before pairing is that they told you. Somebody who was paired and then didn't turn up is a forfeit on their board, not this. A pairing-allocated bye - the odd player out when the field is uneven - has its own value above."
-            )}
-          </p>
-
-          <p class="subtitle" style="margin: 0 0 8px">
-            {gettext(
-              "FIDE's default is zero. Most opens pay half a point for the first one or two, which is what the two limits below are for. SWAR calls this option \"Pt ABSENT\"."
-            )}
-          </p>
-
-          <.setting_group>
-            <.setting_field
-              label={gettext("Points for a round sat out")}
-              hint={
-                gettext(
-                  "Leave blank if this doesn't apply - a round sat out then scores the same as an ordinary loss, same as before this was set."
-                )
-              }
-            >
-              <div class="locked-wrap">
-                <input
-                  type="number"
-                  step="0.5"
-                  min="0"
-                  name="tournament[abs_value]"
-                  value={@tournament.abs_value}
-                  disabled={@abs_scoring_locked?}
-                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
-              </div>
-
-              <.locked_hint_message
-                field={:abs_scoring}
-                locked_hint={@locked_hint}
-                warning={abs_scoring_warning()}
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Last round this still applies to")}
-              hint={
-                gettext(
-                  "After this round (inclusive of it), a round sat out scores an ordinary loss instead, no matter how many are left. Leave blank so it applies for the whole tournament, with no cutoff round."
-                )
-              }
-            >
-              <div class="locked-wrap">
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  name="tournament[abs_jusque]"
-                  value={@tournament.abs_jusque}
-                  disabled={@abs_scoring_locked?}
-                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
-              </div>
-
-              <.locked_hint_message
-                field={:abs_scoring}
-                locked_hint={@locked_hint}
-                warning={abs_scoring_warning()}
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Cap: only a player's first N rounds sat out are paid")}
-              hint={
-                gettext(
-                  "Counting this round, once a player has sat out this many rounds, any further one scores an ordinary loss instead. Leave blank so every one pays, no matter how many the player racks up."
-                )
-              }
-            >
-              <div class="locked-wrap">
-                <input
-                  type="number"
-                  step="1"
-                  min="0"
-                  name="tournament[abs_nbfois]"
-                  value={@tournament.abs_nbfois}
-                  disabled={@abs_scoring_locked?}
-                /> <.locked_overlay field={:abs_scoring} locked?={@abs_scoring_locked?} />
-              </div>
-
-              <.locked_hint_message
-                field={:abs_scoring}
-                locked_hint={@locked_hint}
-                warning={abs_scoring_warning()}
-              />
-            </.setting_field>
-
-            <label class="set-toggle">
-              <input type="hidden" name="tournament[absent_counts_as_vur]" value="false" />
-              <input
-                type="checkbox"
-                name="tournament[absent_counts_as_vur]"
-                value="true"
-                checked={@vur_checked}
-                phx-click="vur_toggle"
-              />
-              <span class="set-toggle-text">
-                {gettext("Treat a round sat out as a voluntary unplayed round for tiebreaks")}
-                <span class="hint">
-                  {gettext(
-                    "On (the default) = a trailing one is downgraded to a draw for opponents' Buchholz/SB, which is what C.07 does with a voluntarily unplayed round. Off = it always counts at its award value above, same as a forfeit loss."
-                  )}
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
 
-            <label
-              :if={@abs_points_on? and late_entry_possible?(@tournament)}
-              class="set-toggle"
-              id="late-entry-absences-setting"
-            >
-              <input type="hidden" name="tournament[late_entry_absences]" value="false" />
-              <input
-                type="checkbox"
-                id="late-entry-absences-toggle"
-                name="tournament[late_entry_absences]"
-                value="true"
-                checked={@tournament.late_entry_absences}
-              />
-              <span class="set-toggle-text">
-                {gettext("Rounds before a late entrant joins count as absences")}
-                <span class="hint">
-                  {gettext(
-                    "On (the default) = a player who joins in round 4 is scored for rounds 1-3 as if absent: the points above, within both limits, and they use up the absences allowed. This is what SWAR does. Off = those rounds score nothing."
-                  )}
+              <label
+                :if={@abs_points_on? and late_entry_possible?(@tournament)}
+                class="set-toggle tset-adv"
+                id="late-entry-absences-setting"
+              >
+                <input type="hidden" name="tournament[late_entry_absences]" value="false" />
+                <input
+                  type="checkbox"
+                  id="late-entry-absences-toggle"
+                  name="tournament[late_entry_absences]"
+                  value="true"
+                  checked={@tournament.late_entry_absences}
+                />
+                <span class="set-toggle-text">
+                  {gettext("Rounds before a late entrant joins count as absences")}
+                  <span class="hint">
+                    {gettext(
+                      "On (the default) = a player who joins in round 4 is scored for rounds 1-3 as if absent: the points above, within both limits, and they use up the absences allowed. This is what SWAR does. Off = those rounds score nothing."
+                    )}
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
 
-            <label
-              :if={PairingsEngine.ByeTypes.possible?(@tournament)}
-              class="set-toggle"
-              id="ask-bye-type-setting"
-            >
-              <input type="hidden" name="tournament[ask_bye_type]" value="false" />
-              <input
-                type="checkbox"
-                id="ask-bye-type-toggle"
-                name="tournament[ask_bye_type]"
-                value="true"
-                checked={@tournament.ask_bye_type}
-              />
-              <span class="set-toggle-text">
-                {gettext("Ask the bye type for each absence")}
-                <span class="hint">
-                  {gettext(
-                    "Off (the default) = a round sat out is worth the points above. On = marking a player absent for a round - in the player dialog, or with Mark absent on the Pairings page - asks whether it is a half-point, zero-point or full-point bye, with the one the points above would give already picked. The answer is kept with the round and goes into the TRF; a bye picked ahead also survives unpairing and comes back on import."
-                  )}
+              <label
+                :if={PairingsEngine.ByeTypes.possible?(@tournament)}
+                class="set-toggle tset-adv"
+                id="ask-bye-type-setting"
+              >
+                <input type="hidden" name="tournament[ask_bye_type]" value="false" />
+                <input
+                  type="checkbox"
+                  id="ask-bye-type-toggle"
+                  name="tournament[ask_bye_type]"
+                  value="true"
+                  checked={@tournament.ask_bye_type}
+                />
+                <span class="set-toggle-text">
+                  {gettext("Ask the bye type for each absence")}
+                  <span class="hint">
+                    {gettext(
+                      "Off (the default) = a round sat out is worth the points above. On = marking a player absent for a round - in the player dialog, or with Mark absent on the Pairings page - asks whether it is a half-point, zero-point or full-point bye, with the one the points above would give already picked. The answer is kept with the round and goes into the TRF; a bye picked ahead also survives unpairing and comes back on import."
+                    )}
+                  </span>
                 </span>
-              </span>
-            </label>
+              </label>
 
-            <%!-- Fires on CHANGE, not on state. It used to fire whenever the
+              <%!-- Fires on CHANGE, not on state. It used to fire whenever the
                   box was ticked, which was the same thing while the default
                   was off - and would now shout at every arbiter opening a
                   fresh tournament about a setting they never touched. What
                   is actually dangerous is moving it mid-event. --%>
-            <div :if={@vur_checked != @tournament.absent_counts_as_vur} class="setting-warning">
-              <strong>{gettext("⚠ This changes FIDE tiebreak results, not just scoring.")}</strong> {gettext(
-                "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
+              <div :if={@vur_checked != @tournament.absent_counts_as_vur} class="setting-warning">
+                <strong>{gettext("⚠ This changes FIDE tiebreak results, not just scoring.")}</strong> {gettext(
+                  "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
+                )}
+              </div>
+            </.setting_group>
+          </div>
+
+          <div class="card" id="postponed-settings">
+            <h2>{gettext("Postponed games")}</h2>
+
+            <p class="subtitle" style="margin: 0 0 8px">
+              {gettext(
+                "A game that is not played in its round - moved to a later date, or adjourned - can be recorded as postponed by White or by Black. The tournament goes on; until the game is played it counts as set here, in the standings, the tie-breaks and the pairing. Changing these values later only affects games postponed after the change."
               )}
-            </div>
-          </.setting_group>
-        </div>
+            </p>
 
-        <div class="card" id="postponed-settings">
-          <h2>{gettext("Postponed games")}</h2>
-
-          <p class="subtitle" style="margin: 0 0 8px">
-            {gettext(
-              "A game that is not played in its round - moved to a later date, or adjourned - can be recorded as postponed by White or by Black. The tournament goes on; until the game is played it counts as set here, in the standings, the tie-breaks and the pairing. Changing these values later only affects games postponed after the change."
-            )}
-          </p>
-
-          <.setting_group>
-            <label class="set-toggle">
-              <%!-- A round robin offers postponed results whatever the tick
+            <.setting_group>
+              <.setting_feature id="postponed-feature">
+                <:switch>
+                  <label class="set-toggle">
+                    <%!-- A round robin offers postponed results whatever the tick
                     says (`Tournament.postponed_allowed?/1`), so it is shown
                     ticked and locked there. The stored value is left alone:
                     no hidden input, nothing posted, nothing changed. --%>
-              <input
-                :if={@tournament.pairing_system != "round_robin"}
-                type="hidden"
-                name="tournament[postponed_games]"
-                value="false"
-              />
-              <input
-                type="checkbox"
-                id="postponed-games-toggle"
-                name="tournament[postponed_games]"
-                value="true"
-                checked={Tournament.postponed_allowed?(@tournament)}
-                disabled={@tournament.pairing_system == "round_robin"}
-              />
-              <span class="set-toggle-text">
-                {gettext("Allow postponed games")}
-                <span class="hint">
+                    <input
+                      :if={@tournament.pairing_system != "round_robin"}
+                      type="hidden"
+                      name="tournament[postponed_games]"
+                      value="false"
+                    />
+                    <input
+                      type="checkbox"
+                      id="postponed-games-toggle"
+                      name="tournament[postponed_games]"
+                      value="true"
+                      checked={Tournament.postponed_allowed?(@tournament)}
+                      disabled={@tournament.pairing_system == "round_robin"}
+                    />
+                    <span class="set-toggle-text">
+                      {gettext("Allow postponed games")}
+                      <span class="hint">
+                        {gettext(
+                          "Off (the default) = no postponed option is offered anywhere. On = the result lists offer \"postponed by White\" and \"postponed by Black\", and a Postponed games page lists them and exports their TRF."
+                        )}
+                      </span>
+                      <span
+                        :if={@tournament.pairing_system == "round_robin"}
+                        class="hint"
+                        id="postponed-games-round-robin"
+                      >
+                        {gettext(
+                          "Always on in a round robin: its schedule does not depend on scores, and a game moved to another evening is part of a season."
+                        )}
+                      </span>
+                    </span>
+                  </label>
+                </:switch>
+
+                <.setting_field label={gettext("Counts as, for the player who postponed it")}>
+                  <select
+                    name="tournament[postponed_requester_outcome]"
+                    id="postponed-requester-outcome"
+                  >
+                    <option
+                      :for={{value, label} <- postponed_outcome_options()}
+                      value={value}
+                      selected={@tournament.postponed_requester_outcome == value}
+                    >
+                      {label}
+                    </option>
+                  </select>
+                </.setting_field>
+
+                <.setting_field label={gettext("Counts as, for the opponent")}>
+                  <select
+                    name="tournament[postponed_opponent_outcome]"
+                    id="postponed-opponent-outcome"
+                  >
+                    <option
+                      :for={{value, label} <- postponed_outcome_options()}
+                      value={value}
+                      selected={@tournament.postponed_opponent_outcome == value}
+                    >
+                      {label}
+                    </option>
+                  </select>
+                </.setting_field>
+
+                <p class="hint">
                   {gettext(
-                    "Off (the default) = no postponed option is offered anywhere. On = the result lists offer \"postponed by White\" and \"postponed by Black\", and a Postponed games page lists them and exports their TRF."
+                    "FIDE allows only a draw for both. Anything else - a win for the player who postponed it, so they are paired higher up, for example - takes the tournament out of FIDE mode."
                   )}
-                </span>
-                <span
-                  :if={@tournament.pairing_system == "round_robin"}
-                  class="hint"
-                  id="postponed-games-round-robin"
-                >
-                  {gettext(
-                    "Always on in a round robin: its schedule does not depend on scores, and a game moved to another evening is part of a season."
-                  )}
-                </span>
-              </span>
-            </label>
+                </p>
+              </.setting_feature>
+            </.setting_group>
+          </div>
 
-            <.setting_field label={gettext("Counts as, for the player who postponed it")}>
-              <select
-                name="tournament[postponed_requester_outcome]"
-                id="postponed-requester-outcome"
-              >
-                <option
-                  :for={{value, label} <- postponed_outcome_options()}
-                  value={value}
-                  selected={@tournament.postponed_requester_outcome == value}
-                >
-                  {label}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field label={gettext("Counts as, for the opponent")}>
-              <select name="tournament[postponed_opponent_outcome]" id="postponed-opponent-outcome">
-                <option
-                  :for={{value, label} <- postponed_outcome_options()}
-                  value={value}
-                  selected={@tournament.postponed_opponent_outcome == value}
-                >
-                  {label}
-                </option>
-              </select>
-            </.setting_field>
-          </.setting_group>
-
-          <p class="hint" style="margin: 8px 0 0">
-            {gettext(
-              "FIDE allows only a draw for both. Anything else - a win for the player who postponed it, so they are paired higher up, for example - takes the tournament out of FIDE mode."
-            )}
-          </p>
-        </div>
-
-        <div class="actions form-actions">
-          <button type="submit" class="pe-btn primary">{gettext("Save settings")}</button>
-          <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
-          <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
-        </div>
-      </form>
+          <div class="actions form-actions">
+            <button type="submit" class="pe-btn primary">{gettext("Save settings")}</button>
+            <.save_status note={@note} error={@error} />
+          </div>
+        </form>
+      </.settings_page>
     </Layouts.app>
     """
   end

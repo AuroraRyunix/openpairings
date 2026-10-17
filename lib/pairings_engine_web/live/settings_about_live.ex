@@ -59,64 +59,63 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page
+        tournament={@tournament}
+        active={:about}
+        subtitle={gettext("Settings - About")}
+        show_status={false}
+      >
+        <div class="card">
+          <h2>OpenPairings</h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - About")}</p>
+          <p>
+            {gettext(
+              "A FIDE Swiss / round-robin / Keizer tournament manager - pairing, results, standings, tiebreaks and FIDE reporting in one place."
+            )}
+          </p>
+
+          <p class="hint" style="margin-bottom: 0">
+            <.rich_text text={
+              gettext("Version %{version} - %[whats_new]",
+                version: Application.spec(:pairings_engine, :vsn)
+              )
+            }>
+              <:part name="whats_new">
+                <.link navigate={~p"/t/#{@tournament.id}/settings/changelog"}>
+                  {gettext("What's new")}
+                </.link>
+              </:part>
+            </.rich_text>
+          </p>
         </div>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:about} />
-      <div class="card">
-        <h2>OpenPairings</h2>
 
-        <p>
-          {gettext(
-            "A FIDE Swiss / round-robin / Keizer tournament manager - pairing, results, standings, tiebreaks and FIDE reporting in one place."
-          )}
-        </p>
+        <div class="card">
+          <h2>{gettext("Pairing engine")}</h2>
 
-        <p class="hint" style="margin-bottom: 0">
-          <.rich_text text={
-            gettext("Version %{version} - %[whats_new]",
-              version: Application.spec(:pairings_engine, :vsn)
-            )
-          }>
-            <:part name="whats_new">
-              <.link navigate={~p"/t/#{@tournament.id}/settings/changelog"}>
-                {gettext("What's new")}
-              </.link>
-            </:part>
-          </.rich_text>
-        </p>
-      </div>
+          <p>
+            <.rich_text text={gettext("This tournament is paired using %[engine].")}>
+              <:part name="engine">
+                <strong>{engine_line(@tournament)}</strong>
+              </:part>
+            </.rich_text>
+          </p>
+        </div>
 
-      <div class="card">
-        <h2>{gettext("Pairing engine")}</h2>
+        <div class="card">
+          <h2>{gettext("Credits")}</h2>
 
-        <p>
-          <.rich_text text={gettext("This tournament is paired using %[engine].")}>
-            <:part name="engine">
-              <strong>{engine_line(@tournament)}</strong>
-            </:part>
-          </.rich_text>
-        </p>
-      </div>
-
-      <div class="card">
-        <h2>{gettext("Credits")}</h2>
-
-        <p id="about-credits">
-          <.rich_text text={
-            gettext(
-              "Many thanks to %[first] and %[second] for their valuable feedback in the making of OpenPairings."
-            )
-          }>
-            <:part name="first"><strong>Tom Wuyts</strong></:part>
-            <:part name="second"><strong>Steven Bellens</strong></:part>
-          </.rich_text>
-        </p>
-      </div>
+          <p id="about-credits">
+            <.rich_text text={
+              gettext(
+                "Many thanks to %[first] and %[second] for their valuable feedback in the making of OpenPairings."
+              )
+            }>
+              <:part name="first"><strong>Tom Wuyts</strong></:part>
+              <:part name="second"><strong>Steven Bellens</strong></:part>
+            </.rich_text>
+          </p>
+        </div>
+      </.settings_page>
     </Layouts.app>
     """
   end
