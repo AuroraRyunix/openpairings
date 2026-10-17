@@ -26,11 +26,13 @@ defmodule PairingsEngine.Audit do
   sites sit right next to the events they describe and the context layer
   stays untouched.
 
-  Writing an audit row never broadcasts on the tournament PubSub topic - this
-  is a background bookkeeping write, and the audit page reloads on its own
-  navigation/refresh rather than needing live push. Keeping it off the topic
-  also avoids feedback loops with the very `broadcast_tournament_change/2`
-  events these actions already emit.
+  Writing an audit row never broadcasts on the tournament PubSub topic -
+  keeping it off that topic avoids feedback loops with the very
+  `broadcast_tournament_change/2` events these actions already emit (and
+  those fire BEFORE the row is written, so a page reloading on them would
+  read the log a moment too early). A tournament row instead announces
+  itself on its own topic (`topic/1`), which only the audit page listens to,
+  so an open log fills in as it is written instead of waiting for a refresh.
 
   ## Never a secret
 
@@ -108,6 +110,7 @@ defmodule PairingsEngine.Audit do
 
     case result do
       {:ok, _} = ok ->
+        announce(tournament_id)
         ok
 
       {:error, changeset} = error ->
@@ -117,6 +120,22 @@ defmodule PairingsEngine.Audit do
 
         error
     end
+  end
+
+  @doc """
+  The PubSub topic an audit row for `tournament_id` is announced on, as
+  `{:audit_logged, tournament_id}`, once it is written.
+  """
+  def topic(tournament_id), do: "audit:#{tournament_id}"
+
+  defp announce(nil), do: :ok
+
+  defp announce(tournament_id) do
+    Phoenix.PubSub.broadcast(
+      PairingsEngine.PubSub,
+      topic(tournament_id),
+      {:audit_logged, tournament_id}
+    )
   end
 
   # `details` maps are persisted to a JSON column, so any tuples (e.g. a

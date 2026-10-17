@@ -6101,7 +6101,22 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   cursor: pointer;
 }
 .mobile-result-btn.chosen { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.mobile-result-btn.mobile-clear { flex: 0 0 52px; font-size: 20px; color: var(--text-soft); }
+.mobile-clear-row { margin-top: 8px; }
+.mobile-clear-btn {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-soft);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.mobile-clear-btn.confirming { background: #b3261e; border-color: #b3261e; color: #fff; font-weight: 600; }
+.mobile-clear-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .mobile-result-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 /* "More…" (forfeits/asymmetric codes) is secondary to the three main
    results, so it's smaller and lighter rather than matching their full

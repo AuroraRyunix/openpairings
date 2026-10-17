@@ -6092,6 +6092,31 @@ defmodule PairingsEngine.Tournaments do
     end
   end
 
+  @doc """
+  Whether clearing `pairing`'s result would be accepted by
+  `update_pairing_result/3` as it stands: something to clear, a writable
+  tournament, a round FIDE mode has not closed, no match score on top of it,
+  and no result already sent in a finalised TRF. For screens that should
+  offer a clear only where it will work (the phone's "Clear result").
+  """
+  def result_clearable?(%Pairing{} = pairing) do
+    tournament_id = round_tournament_id(pairing.round_id)
+
+    pairing.result not in [nil, ""] and
+      with :ok <- ensure_writable(tournament_id),
+           %Tournament{} = tournament <- Repo.get(Tournament, tournament_id),
+           :ok <- ensure_result_round_open(tournament, pairing),
+           :ok <- ensure_no_match_score(pairing),
+           :ok <-
+             pairing
+             |> PostponedGames.result_warnings("")
+             |> PostponedGames.check_acknowledged([]) do
+        true
+      else
+        _ -> false
+      end
+  end
+
   # The caller holds the board as its page last drew it; the row is written
   # by id, whoever sits there now. Between a co-arbiter's swap and this
   # page's refresh, "1-0 on the board I am looking at" was recorded for two

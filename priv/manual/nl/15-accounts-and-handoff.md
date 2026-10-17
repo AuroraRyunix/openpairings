@@ -44,7 +44,7 @@ De eigenaar kan andere arbiters uitnodigen. Instellingen, **Toernooi**, kaart
 - De uitnodiging verleent op zich geen toegang. De persoon ontvangt een e-mail
   met een link (`/invites/…`) en moet aangemeld zijn met dat adres en op **Aanvaarden** (of **Weigeren**) drukken. Openstaande uitnodigingen worden ook op de pagina Toernooien getoond. Als de e-mail niet verstuurd kon worden, toont de pagina de link om met de hand door te geven.
 - Een medewerker kan alles wat de eigenaar kan, behalve medewerkers beheren en het toernooi verwijderen.
-- Iedereen ziet wijzigingen zodra ze gebeuren: wanneer een collega een ronde paart of een resultaat invoert, worden je pagina's vanzelf bijgewerkt.
+- Iedereen ziet wijzigingen zodra ze gebeuren: wanneer een collega een ronde paart of een resultaat invoert, worden je pagina's vanzelf bijgewerkt. Dat geldt ook voor het auditspoor: een regel die wordt weggeschreven terwijl je het open hebt staan verschijnt binnen een ogenblik, op de pagina en met het filter waar je naar keek, en elke medewerker ziet dezelfde regels als de eigenaar.
 - De eigenaar kan een medewerker verwijderen; een medewerker kan een gedeeld toernooi **Verlaten** vanuit de lijst.
 
 ## De lijst met toernooien {#the-tournament-list}
