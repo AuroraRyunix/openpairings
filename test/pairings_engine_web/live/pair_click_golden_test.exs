@@ -128,6 +128,13 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   every JSON export gains `tournament.rr_round_map` (nil in the three
   scenarios - none is a round robin). With that key taken out the
   regenerated file is equal, term for term, to the one before.
+
+  And for the opt-in public columns (sex and performance, 0.89.x): every
+  public snapshot gains `tournament.display.sex` and
+  `tournament.display.performance`, both false - the scenarios never tick
+  them, so no player carries a sex and no row a performance. With those two
+  keys taken out the regenerated file is equal, term for term, to the one
+  before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 

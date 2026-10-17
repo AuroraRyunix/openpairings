@@ -72,7 +72,7 @@ defmodule PairingsEngineWeb.AuditLoggingTest do
     render_click(lv, "add", %{})
 
     lv
-    |> form("form", player: %{"name" => "Zoe", "fide_rating" => "1500"})
+    |> form("form", player: %{"name" => "Zoe", "fide_rating" => "1500", "sex" => "w"})
     |> render_submit()
 
     render(lv)
