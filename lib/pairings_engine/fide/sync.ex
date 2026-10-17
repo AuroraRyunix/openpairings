@@ -8,23 +8,23 @@ defmodule PairingsEngine.Fide.Sync do
 
   The import that follows a successful download does not run inside one
   database transaction. SQLite allows exactly one writer for the whole
-  database (not per table), and a transaction spanning the entire replace -
-  delete the ~1.9M existing rows, insert the ~1.9M new ones - held that
-  single write lock for minutes. Every other write in the app queued behind
-  it and, once `busy_timeout` ran out, was refused (see
-  `PairingsEngine.BusyWrite`) - an arbiter's round result included. Each
-  statement in `do_import_list/4` now commits on its own instead, so the
-  lock is free again between one insert chunk and the next. See that
-  function for what that trade costs and why it is accepted.
+  database (not per table), and a transaction spanning the entire replace
+  held that single write lock for minutes, with every other write in the
+  app - an arbiter's round result included - queued behind it until
+  `busy_timeout` refused it (see `PairingsEngine.BusyWrite`).
 
-  The search index (`fide_players_fts`) used to be cleared and rebuilt in
-  place with two single, unchunked statements - together a multi-second
-  hold of that same one-writer-at-a-time lock, and the one place a
-  concurrent search could see the index itself empty or half-built rather
-  than merely stale. `do_import_list/4` now builds the new index as a
-  separate table, chunked the same way the row replace already was, and
-  swaps it in with an atomic rename once it's complete - see that
-  function's comments for the measurements behind it.
+  So `do_import_list/4` builds the new list beside the old one: the rows in
+  `fide_players_new` and the name index in `fide_players_fts_new`, both in
+  2000-row chunks that each commit on their own, so the lock is free between
+  one chunk and the next. Only when both are complete do they trade places
+  with the live tables, by rename, in one short transaction. Until then every
+  search reads the old list, whole.
+
+  It used to delete the live rows first and refill them in place. A restart
+  halfway - a deploy, say - then left half a list for weeks, and an arbiter
+  search found a name in the index whose row was gone. A killed run now
+  leaves only scratch tables, which the next run drops, and the boot check
+  (`damage/0`) says so on the FIDE page in the meantime.
   """
 
   use GenServer
