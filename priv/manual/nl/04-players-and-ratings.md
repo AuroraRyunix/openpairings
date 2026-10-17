@@ -40,8 +40,8 @@ van de nationale ratinglijst* aan, toont Verbindingen de sectie *Belgische
 nationale ratinglijst*, waar **Synchroniseren vanaf de KBSB** het openbare
 maandbestand van de federatie downloadt (ongeveer 36.000 spelers: nationaal ID,
 naam, geslacht, club, FIDE-ID, nationale rating). *KBSB-spelerzoekopdracht* voegt de lijst
-toe aan de spelerszoekfunctie. *Spelersgegevens in bulk bijwerken* voegt de knop
-**Spelersgegevens bijwerken** toe aan de pagina Spelers. Een arbiter buiten België ziet niets
+toe aan de spelerszoekfunctie. *Spelersgegevens in bulk bijwerken* voegt
+**Spelersgegevens bijwerken** toe aan het menu **Meer** van de pagina Spelers. Een arbiter buiten België ziet niets
 hiervan. De synchronisatie kopieert alleen het bestand van de federatie; ze
 schrijft nooit zelf ratings in je toernooien.
 
@@ -101,13 +101,23 @@ FIDE-standaardlijst van een bepaalde maand komt, dat ze met de hand is gewijzigd
 
 ## De pagina Spelers {#the-players-page}
 
-Bovenbalk, **Spelers**. Bovenaan: het aantal ingeschreven spelers en de knoppen
+Bovenbalk, **Spelers**. Bovenaan: het aantal ingeschreven spelers en drie
+knoppen:
 
-- **Speler toevoegen** (ook <kbd>Ctrl</kbd>+<kbd>I</kbd>),
-- **Ratings vernieuwen**,
-- **Spelersgegevens bijwerken** (alleen met het Belgische pakket aan),
-- **Spelerslijst afdrukken** en **Plaatskaartjes afdrukken**,
-- **Resultaten invoeren**, dat naar de pagina Paringen leidt.
+- **Speler toevoegen** (ook <kbd>Ctrl</kbd>+<kbd>I</kbd>), de belangrijkste,
+- **Spelerslijst afdrukken**,
+- **Meer**, een menu met de rest, in groepen:
+  - *Afdrukken*: **Plaatskaartjes afdrukken**,
+  - *Nummers*: **Paringsnummers** (Zwitsers, tot ronde 4 gepaard is) en
+    **Startnummers** (rondetoernooi, vóór ronde 1), elk alleen zolang je ze nog
+    kunt wijzigen,
+  - *Spelersgegevens*: **Ratings vernieuwen** en **Spelersgegevens bijwerken**
+    (die laatste alleen met het Belgische pakket aan).
+
+Met de pijltjestoetsen ga je door het menu en <kbd>Esc</kbd> sluit het. Onder de
+knoppen staan, als die er zijn, de inschrijvingen die wachten van de
+resultatensite en de uitgestelde partijen die nog gespeeld moeten worden, die
+laatste met **Resultaten invoeren**, dat naar de pagina Paringen leidt.
 
 Daaronder staat het spelersrooster: één rij per speler.
 
@@ -160,8 +170,8 @@ gepaard het nummer dat zijn rating oplevert, waarbij iedereen daaronder één
 plaats omlaag schuift (alleen Zwitsers), of het eerstvolgende vrije nummer als
 de instelling *Paringsnummers van laatkomers* op *Achter het veld* staat.
 
-**Paringsnummers van een Zwitsers toernooi wijzigen.** De knop **Paringsnummers**
-op de pagina Spelers opent de lijst in paringsvolgorde. Twee spelers met dezelfde
+**Paringsnummers van een Zwitsers toernooi wijzigen.** **Paringsnummers**
+in het menu **Meer** van de pagina Spelers opent de lijst in paringsvolgorde. Twee spelers met dezelfde
 rating kunnen hun nummers **wisselen** (de knop *Wisselen* tussen hun rijen, om ze
 op een andere regel te ordenen), en **Opnieuw aanmaken volgens rating** nummert
 iedereen opnieuw op de huidige ratings, met behoud van de volgorde die je aan
@@ -189,8 +199,8 @@ en met 4 op *Ronde N paren* drukt, krijgt dan eerst een vraag
 ([Een ronde paren](06-pairing.md), *Wanneer de paringsnummers de ratings niet
 volgen*).
 
-**Startnummers van een rondetoernooi.** Vóór ronde 1 opent de knop
-**Startnummers** de lijst waarop de Berger-tabellen paren. Voer het resultaat van
+**Startnummers van een rondetoernooi.** Vóór ronde 1 opent
+**Startnummers** (pagina Spelers, **Meer**) de lijst waarop de Berger-tabellen paren. Voer het resultaat van
 een loting met de hand in (een nummer per speler, of verplaats een speler omhoog
 of omlaag), of druk op **Rangschikken op rating** (hoogste rating eerst; bij
 gelijke rating de titel, dan de tiebreak uit de opties, dan de naam, dan de
@@ -248,7 +258,7 @@ ronde voor ronde, met een afdrukknop en knoppen voor vorige en volgende.
 
 ## Ratings vernieuwen {#refreshing-ratings}
 
-**Ratings vernieuwen** zoekt elke speler op in de lokale FIDE-lijst (op FIDE-ID)
+**Ratings vernieuwen** (pagina Spelers, **Meer**, *Spelersgegevens*) zoekt elke speler op in de lokale FIDE-lijst (op FIDE-ID)
 en toont een tabel van wat zou veranderen: de speler, het veld, de oude en de
 nieuwe waarde, met een regel zoals *12 gecontroleerd, 5 wijzigingen, 3 zonder
 ID-match*. Alleen de **FIDE-rating** en de **titel** worden voorgesteld, en een

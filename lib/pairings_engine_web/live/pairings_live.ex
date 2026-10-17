@@ -6551,9 +6551,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             navigate={~p"/t/#{@tournament.id}/settings/export"}
             title={gettext("The rating report (TRF) is made and sent on the Export page")}
           >
-            <.icon name="hero-paper-airplane-micro" class="pe-btn-icon" /> {gettext(
-              "Send for rating"
-            )}
+            <.icon name="hero-paper-airplane-micro" class="pe-btn-icon" /> {gettext("Send for rating")}
           </.link>
 
           <%!-- VCL4THP Q100: a round robin's next round paired by hand

@@ -44,6 +44,46 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     refute html =~ "Print player cards"
   end
 
+  describe "the header: Add player, Print player list and More" do
+    test "one primary button, one plain one, the rest in a closed More menu", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Header Test", "type" => "swiss"})
+
+      for {name, rating} <- [{"Alice", 2000}, {"Bob", 1900}] do
+        {:ok, _} = Tournaments.create_player(tournament.id, %{name: name, fide_rating: rating})
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert has_element?(lv, "#players-actions > #add-player-open.primary")
+      assert has_element?(lv, "#players-actions > #print-player-list")
+      assert has_element?(lv, "#players-actions > details#players-more-menu.pe-dropdown")
+
+      document = lv |> render() |> LazyHTML.from_fragment()
+      assert document |> LazyHTML.query("#players-actions .primary") |> Enum.count() == 1
+
+      assert document
+             |> LazyHTML.query("#players-more-menu")
+             |> LazyHTML.attribute("open")
+             |> Enum.reject(&is_nil/1) == []
+
+      # What used to stand in the header row, now one level down.
+      for id <- ~w(print-place-cards open-tpn open-rating-refresh) do
+        assert has_element?(lv, "#players-more-menu [role='menuitem']##{id}"),
+               "##{id} is not in the More menu"
+
+        refute has_element?(lv, "#players-actions > ##{id}")
+      end
+
+      # Still the same events behind them.
+      lv |> element("#open-tpn") |> render_click()
+      assert has_element?(lv, "#tpn-dialog")
+    end
+  end
+
   test "the FIDE database tab is hidden once inside a tournament", %{conn: conn, scope: scope} do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "No FIDE Tab Here", "type" => "swiss"})

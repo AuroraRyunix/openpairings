@@ -14,7 +14,7 @@ Het tabblad **Afdrukken** toont elk document met een korte beschrijving en een k
 eerste ronde is gepaard. Verschillende documenten zijn ook bereikbaar vanaf de pagina
 waarbij ze horen: de pagina Paringen heeft **Paringen afdrukken** terwijl een ronde
 gespeeld wordt en de rest in **Meer**, onder *Afdrukken*; de pagina Spelers
-heeft **Spelerslijst afdrukken** en **Plaatskaartjes afdrukken**, de pagina Stand heeft
+heeft **Spelerslijst afdrukken** en, in **Meer**, **Plaatskaartjes afdrukken**, de pagina Stand heeft
 **Afdrukken**, en de lijst met uitgestelde partijen heeft de briefjes.
 
 ![Het tabblad Afdrukken met de documenten van een toernooi](screenshots/09-print-tab.png "Het tabblad Afdrukken")

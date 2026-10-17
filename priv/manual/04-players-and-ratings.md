@@ -37,8 +37,8 @@ off for every account unless you turn it on: Account menu, **Features**. With
 national rating list*, where **Sync from KBSB** downloads the federation's
 public monthly file (about 36,000 players: national ID, name, sex, club, FIDE
 ID, national rating). *KBSB player lookup* adds the list to the player search.
-*Bulk player data update* adds the **Update player data** button on the
-Players page.
+*Bulk player data update* adds **Update player data** to the Players page's
+**More** menu.
 An arbiter outside Belgium never sees any of it. The sync only copies the
 federation's file; it never writes ratings into your tournaments by itself.
 
@@ -96,14 +96,23 @@ or that it was entered by hand with no source list.
 
 ## The Players page
 
-Top bar, **Players**. At the top: the number of registered players and the
-buttons
+Top bar, **Players**. At the top: the number of registered players and three
+buttons:
 
-- **Add player** (also <kbd>Ctrl</kbd>+<kbd>I</kbd>),
-- **Refresh ratings**,
-- **Update player data** (only with the Belgian feature on),
-- **Print player list** and **Print place cards**,
-- **Enter results**, which leads to the Pairings page.
+- **Add player** (also <kbd>Ctrl</kbd>+<kbd>I</kbd>), the main one,
+- **Print player list**,
+- **More**, a menu with the rest, in groups:
+  - *Print*: **Print place cards**,
+  - *Numbers*: **Pairing numbers** (Swiss, until round 4 is paired) and
+    **Starting numbers** (round robin, before round 1), each only while it
+    can still be changed,
+  - *Player data*: **Refresh ratings** and **Update player data** (the
+    latter only with the Belgian feature on).
+
+The arrow keys move through the menu and <kbd>Esc</kbd> closes it. Below the
+buttons, when there are any, come the entries waiting from the results site
+and the postponed games still to be played, the latter with **Enter
+results**, which leads to the Pairings page.
 
 Below is the player grid: one row per player.
 
@@ -156,8 +165,8 @@ earns, with everybody below moving down one place (Swiss only), or the next
 free number if the setting *Late entrants' pairing numbers* is *After the
 field*.
 
-**Changing the pairing numbers of a Swiss tournament.** The button **Pairing
-numbers** on the Players page opens the list in pairing order. Two players with
+**Changing the pairing numbers of a Swiss tournament.** **Pairing numbers**
+in the Players page's **More** menu opens the list in pairing order. Two players with
 the same rating can **exchange** their numbers (the *Exchange* button between their rows) (to order them by another rule),
 and **Regenerate from ratings** renumbers everybody by the current ratings, keeping the
 order you gave to players of equal rating; use it to follow a rating change or
@@ -182,8 +191,8 @@ for. Pressing *Pair round N* for rounds 2 to 4 then asks first
 ([Pairing a round](06-pairing.md), *When the pairing numbers do not follow the
 ratings*).
 
-**Starting numbers of a round robin.** Before round 1 the button **Starting
-numbers** opens the list the Berger tables pair by. Press **Order by rating**
+**Starting numbers of a round robin.** Before round 1 **Starting numbers**
+(Players page, **More**) opens the list the Berger tables pair by. Press **Order by rating**
 (highest rating first; equal ratings by title, then the tie-break set in the
 options, then name, then entry order), **Order as entered** (the order the
 players were added to the tournament), or **Draw lots** (the program draws,
@@ -236,7 +245,7 @@ round by round, with a print button and previous/next buttons.
 
 ## Refreshing ratings
 
-**Refresh ratings** looks every player up in the local FIDE list (by FIDE ID)
+**Refresh ratings** (Players page, **More**, *Player data*) looks every player up in the local FIDE list (by FIDE ID)
 and shows a table of what would change: the player, the field, the old and the
 new value, with a line such as *12 checked, 5 changes, 3 without id match*.
 Only the **FIDE rating** and the **title** are proposed, and a title is only
