@@ -119,7 +119,15 @@ knoppen staan, als die er zijn, de inschrijvingen die wachten van de
 resultatensite en de uitgestelde partijen die nog gespeeld moeten worden, die
 laatste met **Resultaten invoeren**, dat naar de pagina Paringen leidt.
 
-Daaronder staat het spelersrooster: één rij per speler.
+Daaronder staat het spelersrooster: één rij per speler. Een lange clubnaam
+wordt afgekapt met een ellips (de hele naam verschijnt als je er met de muis
+boven blijft), en het rooster schuift zijwaarts binnen zijn kader als er veel
+kolommen aan staan, zodat de pagina zelf nooit zijwaarts schuift. Het paneel
+**Weergave** rechts kiest de kolommen.
+
+Hoe het rooster werkt (dubbelklikken om te bewerken, rechtsklikken voor de
+Spelerskaart, de cel **Pr.**, het toetsenbord) staat achter de
+informatieknop naast het aantal spelers. Hij is dicht tot je erop drukt.
 
 ![De pagina Spelers met het spelersrooster en de knoppen erboven](screenshots/04-players-grid.png "De pagina Spelers")
 

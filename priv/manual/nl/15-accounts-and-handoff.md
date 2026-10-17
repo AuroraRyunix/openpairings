@@ -49,7 +49,9 @@ De eigenaar kan andere arbiters uitnodigen. Instellingen, **Toernooi**, kaart
 
 ## De lijst met toernooien {#the-tournament-list}
 
-**Toernooien** toont elk toernooi met zijn paringssysteem, aantal spelers, data en status, en deze acties:
+**Toernooien** toont elk toernooi met zijn paringssysteem, aantal spelers, data en status. Elke rij heeft één menu **Meer** met deze acties
+(de naam opent nog steeds het toernooi; **Verwijderen** of **Verlaten** staat
+onderaan, in het rood):
 
 | Actie | Wat het doet |
 | --- | --- |

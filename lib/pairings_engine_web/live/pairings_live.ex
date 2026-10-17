@@ -6724,7 +6724,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             phx-mounted={JS.ignore_attributes(["open"])}
           >
             <summary class="pe-btn" aria-haspopup="menu">
-              <.icon name="hero-ellipsis-horizontal-micro" class="pe-btn-icon" /> {gettext("More")}
+              {gettext("More")}
             </summary>
 
             <div

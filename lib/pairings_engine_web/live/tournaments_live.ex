@@ -2279,6 +2279,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp status_class("finished"), do: "done"
   defp status_class(_), do: nil
 
+  # The stored value is an English word; the screen shows it in the reader's
+  # language. An unknown value (there is none today) is shown as it is.
+  defp status_label("setup"), do: gettext("setup")
+  defp status_label("running"), do: gettext("running")
+  defp status_label("finished"), do: gettext("finished")
+  defp status_label(other), do: other
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -2309,8 +2316,79 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </p>
         </div>
 
+        <%!-- Three things where there were six buttons: the one primary
+              action, an Import menu holding the four ways in, and the export
+              of everything. The imports keep their buttons, texts and
+              events; they only moved into a menu. The upload inputs are
+              not in it - each import opens its own form below, where its
+              `live_file_input` stays mounted - so closing the menu cannot
+              unmount an upload. --%>
         <div class="actions" style="margin: 0">
+          <button :if={!@creating} class="pe-btn primary" phx-click="new">{gettext("New tournament")}</button>
+          <details
+            id="import-menu"
+            class="pe-dropdown"
+            phx-hook=".ListMenu"
+            phx-mounted={JS.ignore_attributes(["open"])}
+          >
+            <summary id="import-menu-toggle" class="pe-btn" aria-haspopup="menu">
+              {gettext("Import")}
+            </summary>
+
+            <div class="pe-dropdown-panel" role="menu" aria-label={gettext("Import")}>
+              <button
+                :if={!@importing_backup}
+                id="import-backup-button"
+                type="button"
+                role="menuitem"
+                phx-click="import_backup"
+              >
+                {gettext("Import backup (JSON)")}
+              </button>
+
+              <%!-- Beside the other imports rather than hidden behind them: a
+                    hand-off file looks exactly like a backup in a downloads
+                    folder, and the two do completely different things. Naming
+                    both in the same menu is what stops somebody reaching for
+                    "Import backup" with a hand-off file and quietly ending up
+                    with a second live copy. --%>
+              <button
+                :if={!@receiving_handoff}
+                id="receive-handoff-button"
+                type="button"
+                role="menuitem"
+                phx-click="receive_handoff"
+              >
+                {gettext("Receive a hand-off")}
+              </button>
+
+              <%!-- Absent, not disabled, when the pack's SWAR import is off. A
+                    greyed-out button that explains itself is worse than a
+                    button that was never in the menu. --%>
+              <button
+                :if={@bel_swar_import? && !@importing}
+                id="import-swar-button"
+                type="button"
+                role="menuitem"
+                phx-click="import"
+              >
+                {gettext("Import SWAR file")}
+              </button>
+
+              <button
+                :if={!@importing_trf}
+                id="import-trf-button"
+                type="button"
+                role="menuitem"
+                phx-click="import_trf"
+              >
+                {gettext("Import TRF file")}
+              </button>
+            </div>
+          </details>
+
           <a
+            id="export-all-link"
             class="pe-btn"
             href={~p"/export/tournaments.json"}
             target="_blank"
@@ -2320,30 +2398,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
               )
             }
           >{gettext("Export all (JSON)")}</a>
-          <button :if={!@importing_backup} class="pe-btn" phx-click="import_backup">
-            {gettext("Import backup (JSON)")}
-          </button>
-
-          <%!-- Beside the other imports rather than hidden behind them: a
-                hand-off file looks exactly like a backup in a downloads
-                folder, and the two do completely different things. Naming
-                both on the same row is what stops somebody reaching for
-                "Import backup" with a hand-off file and quietly ending up
-                with a second live copy. --%>
-          <button :if={!@receiving_handoff} class="pe-btn" phx-click="receive_handoff">
-            {gettext("Receive a hand-off")}
-          </button>
-
-          <%!-- Absent, not disabled, when the pack's SWAR import is off. A
-                greyed-out button that explains itself is worse than a button
-                that was never in the row. --%>
-          <button :if={@bel_swar_import? && !@importing} class="pe-btn" phx-click="import">{gettext(
-            "Import SWAR file"
-          )}</button>
-          <button :if={!@importing_trf} class="pe-btn" phx-click="import_trf">{gettext(
-            "Import TRF file"
-          )}</button>
-          <button :if={!@creating} class="pe-btn primary" phx-click="new">{gettext("New tournament")}</button>
         </div>
       </div>
 
@@ -3095,8 +3149,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
         </p>
       </div>
 
-      <div :if={@tournaments != []} class="card table-card">
-        <table class="pe-table">
+      <div :if={@tournaments != []} class="card table-card menu-card" id="tournaments-card">
+        <table class="pe-table" id="tournaments-table">
           <thead>
             <tr>
               <th>{gettext("Name")}</th>
@@ -3297,6 +3351,53 @@ defmodule PairingsEngineWeb.TournamentsLive do
         tournament={@purge_target}
         confirm_text={@purge_confirm_text}
       />
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".ListMenu">
+        // A <details> menu that closes like a menu: on a tap or click outside
+        // it, on Escape (focus back to its button) and once an item is
+        // chosen; the arrow keys walk its items. The same behaviour as the
+        // Pairings page's `.RoundMenu` and the Players page's `.PlayersMenu`.
+        export default {
+          mounted() {
+            this.close = (refocus) => {
+              if (!this.el.open) return;
+              this.el.open = false;
+              if (refocus) this.el.querySelector("summary").focus();
+            };
+            this.items = () =>
+              Array.from(this.el.querySelectorAll("[role=menuitem]")).filter((i) => !i.disabled);
+            this.onDocPointerdown = (e) => {
+              if (!this.el.contains(e.target)) this.close(false);
+            };
+            this.onKeydown = (e) => {
+              if (e.key === "Escape") return this.close(true);
+              const items = this.items();
+              if (items.length === 0) return;
+              const at = items.indexOf(document.activeElement);
+              let next = null;
+              if (e.key === "ArrowDown") next = at < 0 ? 0 : (at + 1) % items.length;
+              else if (e.key === "ArrowUp") next = at <= 0 ? items.length - 1 : at - 1;
+              else if (e.key === "Home") next = 0;
+              else if (e.key === "End") next = items.length - 1;
+              if (next === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              this.el.open = true;
+              items[next].focus();
+            };
+            this.onClick = (e) => {
+              if (e.target.closest("[role=menuitem]")) this.close(false);
+            };
+            document.addEventListener("pointerdown", this.onDocPointerdown);
+            this.el.addEventListener("keydown", this.onKeydown);
+            this.el.addEventListener("click", this.onClick);
+          },
+          destroyed() {
+            document.removeEventListener("pointerdown", this.onDocPointerdown);
+            this.el.removeEventListener("keydown", this.onKeydown);
+            this.el.removeEventListener("click", this.onClick);
+          }
+        }
+      </script>
     </Layouts.app>
     """
   end
@@ -3580,7 +3681,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       <td>{date_range(@t.start_date, @t.end_date)}</td>
 
       <td>
-        <span class={["badge", status_class(@t.status)]}>{@t.status}</span>
+        <span class={["badge", status_class(@t.status)]}>{status_label(@t.status)}</span>
         <.link
           :if={Map.get(@postponed_counts, @t.id, 0) > 0}
           navigate={~p"/t/#{@t.id}/pairings"}
@@ -3611,70 +3712,112 @@ defmodule PairingsEngineWeb.TournamentsLive do
       </td>
 
       <td style="text-align: right">
-        <%!-- The title appears only on a row whose backup would
-              actually carry a key, so it is never a warning about
-              nothing. --%>
-        <a
-          class="pe-btn"
-          href={~p"/t/#{@t.id}/export/json"}
-          target="_blank"
-          title={export_key_warning(@t)}
-        >{gettext("Export")}</a>
-        <button class="pe-btn" phx-click="duplicate" phx-value-id={@t.id}>
-          {gettext("Copy")}
-        </button>
-
-        <%!-- Exactly one of these renders, because they are the two
-              directions of the same lock. A row that offered both
-              would be offering to hand off a tournament that is
-              already somewhere else. --%>
-        <button
-          :if={!Handoff.handed_away?(@t)}
-          class="pe-btn"
-          phx-click="handoff_start"
-          phx-value-id={@t.id}
+        <%!-- One More menu per row, as on the Pairings and Players pages.
+              Every action is still here with its event; the destructive one
+              is last and red. The title on Export appears only on a row
+              whose backup would actually carry a key, so it is never a
+              warning about nothing. --%>
+        <details
+          id={"tournament-menu-#{@t.id}"}
+          class="pe-dropdown"
+          phx-hook=".ListMenu"
+          phx-mounted={JS.ignore_attributes(["open"])}
         >
-          {if Handoff.received?(@t), do: gettext("Give back"), else: gettext("Hand off")}
-        </button>
+          <summary
+            id={"tournament-menu-toggle-#{@t.id}"}
+            class="pe-btn"
+            aria-haspopup="menu"
+            aria-label={gettext("More for %{name}", name: @t.name)}
+          >
+            {gettext("More")}
+          </summary>
 
-        <button
-          :if={Handoff.handed_away?(@t)}
-          class="pe-btn tonal"
-          phx-click="return_start"
-          phx-value-id={@t.id}
-        >
-          {gettext("Bring it back")}
-        </button>
+          <div
+            class="pe-dropdown-panel"
+            role="menu"
+            aria-label={gettext("More for %{name}", name: @t.name)}
+          >
+            <a
+              id={"export-#{@t.id}"}
+              role="menuitem"
+              href={~p"/t/#{@t.id}/export/json"}
+              target="_blank"
+              title={export_key_warning(@t)}
+            >{gettext("Export")}</a>
+            <button
+              id={"duplicate-#{@t.id}"}
+              type="button"
+              role="menuitem"
+              phx-click="duplicate"
+              phx-value-id={@t.id}
+            >
+              {gettext("Copy")}
+            </button>
 
-        <button
-          :if={!Handoff.handed_away?(@t)}
-          class="pe-btn"
-          id={"archive-#{@t.id}"}
-          phx-click="archive_tournament"
-          phx-value-id={@t.id}
-          data-confirm={archive_confirm(@t, @postponed_counts)}
-        >
-          {gettext("Archive")}
-        </button>
+            <%!-- Exactly one of these renders, because they are the two
+                  directions of the same lock. A row that offered both
+                  would be offering to hand off a tournament that is
+                  already somewhere else. --%>
+            <button
+              :if={!Handoff.handed_away?(@t)}
+              id={"handoff-#{@t.id}"}
+              type="button"
+              role="menuitem"
+              phx-click="handoff_start"
+              phx-value-id={@t.id}
+            >
+              {if Handoff.received?(@t), do: gettext("Give back"), else: gettext("Hand off")}
+            </button>
 
-        <button
-          :if={@owned?}
-          class="pe-btn danger-link"
-          phx-click="delete_start"
-          phx-value-id={@t.id}
-        >
-          {gettext("Delete")}
-        </button>
+            <button
+              :if={Handoff.handed_away?(@t)}
+              id={"return-#{@t.id}"}
+              type="button"
+              role="menuitem"
+              phx-click="return_start"
+              phx-value-id={@t.id}
+            >
+              {gettext("Bring it back")}
+            </button>
 
-        <button
-          :if={!@owned?}
-          class="pe-btn danger-link"
-          phx-click="leave_tournament"
-          phx-value-id={@t.id}
-          data-confirm={"Leave \"#{@t.name}\"? You'll lose access to it unless the owner invites you again."}
-        >
-          {gettext("Leave")}
-        </button>
+            <button
+              :if={!Handoff.handed_away?(@t)}
+              type="button"
+              role="menuitem"
+              id={"archive-#{@t.id}"}
+              phx-click="archive_tournament"
+              phx-value-id={@t.id}
+              data-confirm={archive_confirm(@t, @postponed_counts)}
+            >
+              {gettext("Archive")}
+            </button>
+            <hr />
+            <button
+              :if={@owned?}
+              id={"delete-#{@t.id}"}
+              type="button"
+              role="menuitem"
+              class="is-danger"
+              phx-click="delete_start"
+              phx-value-id={@t.id}
+            >
+              {gettext("Delete")}
+            </button>
+
+            <button
+              :if={!@owned?}
+              id={"leave-#{@t.id}"}
+              type="button"
+              role="menuitem"
+              class="is-danger"
+              phx-click="leave_tournament"
+              phx-value-id={@t.id}
+              data-confirm={"Leave \"#{@t.name}\"? You'll lose access to it unless the owner invites you again."}
+            >
+              {gettext("Leave")}
+            </button>
+          </div>
+        </details>
       </td>
     </tr>
     """
