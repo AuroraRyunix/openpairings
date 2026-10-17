@@ -114,7 +114,14 @@ buttons, when there are any, come the entries waiting from the results site
 and the postponed games still to be played, the latter with **Enter
 results**, which leads to the Pairings page.
 
-Below is the player grid: one row per player.
+Below is the player grid: one row per player. A long club name is cut off
+with an ellipsis (the whole name shows when you hover over it), and the grid
+scrolls sideways inside its frame when many columns are on, so the page itself
+never does. The **Display** panel on the right chooses the columns.
+
+How to use the grid (double-click to edit, right-click for the Players Card,
+the **Pr.** cell, the keyboard) is behind the information button next to the
+number of players. It is closed until you press it.
 
 ![The Players page with the player grid and the buttons above it](screenshots/04-players-grid.png "The Players page")
 

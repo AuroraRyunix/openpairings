@@ -18,8 +18,9 @@ OpenPairings reads and writes several formats. They differ in purpose:
 
 ## Importing
 
-On the **Tournaments** page the import buttons open a panel with a file
-chooser or a drag-and-drop area.
+On the **Tournaments** page, the **Import** menu holds the ways in (backup,
+hand-off, SWAR, TRF). Each one opens a panel with a file chooser or a
+drag-and-drop area.
 
 ### TRF file
 

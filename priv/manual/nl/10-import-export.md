@@ -18,8 +18,9 @@ OpenPairings leest en schrijft verschillende formaten. Ze verschillen in doel:
 
 ## Importeren {#importing}
 
-Op de pagina **Toernooien** openen de importknoppen een paneel met een bestandskiezer
-of een gebied waarin je een bestand kunt slepen.
+Op de pagina **Toernooien** bevat het menu **Importeren** de manieren om een toernooi
+binnen te halen (back-up, overdracht, SWAR, TRF). Elk ervan opent een paneel met een
+bestandskiezer of een gebied waarin je een bestand kunt slepen.
 
 ### TRF-bestand {#trf-file}
 

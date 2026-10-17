@@ -65,7 +65,8 @@ The owner can invite other arbiters. Settings, **Tournament**, card
 ## The tournament list
 
 **Tournaments** lists every tournament with its pairing system, number of
-players, dates and status, and these actions:
+players, dates and status. Each row has one **More** menu with these actions
+(the name still opens the tournament; **Delete** or **Leave** is last, in red):
 
 | Action | What it does |
 | --- | --- |

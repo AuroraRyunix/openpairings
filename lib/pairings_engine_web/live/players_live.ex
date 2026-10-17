@@ -2653,6 +2653,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp group_indicator("cat:" <> name, :desc, "cat"), do: " ▼ #{name}"
   defp group_indicator(_col, _dir, _key), do: ""
 
+  # The full club name, for the hover that the ellipsis in the narrow club
+  # column makes necessary. Nothing to show for an empty club.
+  defp club_title(entry) do
+    case entry.player.club do
+      club when club in [nil, ""] -> nil
+      club -> club
+    end
+  end
+
   defp cell(entry, "status"), do: entry.player.status
 
   defp cell(entry, "sex") do
@@ -2891,10 +2900,51 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div>
           <h1>{@tournament.name}</h1>
 
-          <p class="subtitle" style="margin: 0">
-            {ngettext("%{count} player registered", "%{count} players registered", length(@players))}
+          <div class="subtitle players-subtitle" style="margin: 0">
+            <span>
+              {ngettext(
+                "%{count} player registered",
+                "%{count} players registered",
+                length(@players)
+              )}
+            </span>
             <PairingsEngineWeb.Components.ManualLink.manual_link topic={:players} />
-          </p>
+            <%!-- The grid's instructions used to be a paragraph above the
+                  table, there all the time. They are behind this button now:
+                  a plain <details>, closed by default, so no script is
+                  needed and the keyboard gets it for free. The paragraph
+                  stays in the DOM (the grid's aria-describedby points at
+                  #players-grid-keys), it is just not drawn until asked. --%>
+            <details
+              :if={@players != []}
+              id="players-grid-help"
+              class="pe-help"
+              phx-mounted={Phoenix.LiveView.JS.ignore_attributes(["open"])}
+            >
+              <summary
+                id="players-grid-help-toggle"
+                class="pe-help-toggle"
+                aria-label={gettext("How to use the players grid")}
+                title={gettext("How to use the players grid")}
+              >
+                <.icon name="hero-information-circle" class="size-5" />
+              </summary>
+
+              <div class="pe-help-panel" id="players-grid-help-panel">
+                <p>
+                  {gettext(
+                    "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
+                  )}
+                </p>
+
+                <p id="players-grid-keys">
+                  {gettext(
+                    "By keyboard, the grid is one Tab stop: the arrow keys move between cells, Enter or Space opens a Pr., Paid or Cat. cell's menu, Enter on a name edits the player, and the context-menu key opens what a right-click would."
+                  )}
+                </p>
+              </div>
+            </details>
+          </div>
         </div>
 
         <%!-- One primary button (Add player), one plain one (the list for
@@ -2924,7 +2974,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             phx-mounted={Phoenix.LiveView.JS.ignore_attributes(["open"])}
           >
             <summary class="pe-btn" aria-haspopup="menu">
-              <.icon name="hero-ellipsis-horizontal-micro" class="pe-btn-icon" /> {gettext("More")}
+              {gettext("More")}
             </summary>
 
             <div class="pe-dropdown-panel" role="menu" aria-label={gettext("More for the players")}>
@@ -2939,8 +2989,7 @@ defmodule PairingsEngineWeb.PlayersLive do
               </a>
 
               <%= if @tpn_editable? or @starting_numbers_editable? do %>
-                <hr />
-                <span class="pe-dropdown-label">{gettext("Numbers")}</span>
+                <hr /> <span class="pe-dropdown-label">{gettext("Numbers")}</span>
                 <button
                   :if={@tpn_editable?}
                   id="open-tpn"
@@ -2974,8 +3023,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
               <%!-- The same gesture on different columns, kept together:
                     compare with the lists, see a preview, tick, apply. --%>
-              <hr />
-              <span class="pe-dropdown-label">{gettext("Player data")}</span>
+              <hr /> <span class="pe-dropdown-label">{gettext("Player data")}</span>
               <button
                 id="open-rating-refresh"
                 type="button"
@@ -3437,24 +3485,6 @@ defmodule PairingsEngineWeb.PlayersLive do
 
       <div :if={@players != []} class="split" id="players-grid" phx-hook="ColumnPrefs">
         <div class="card table-card split-main">
-          <p class="hint" style="padding: 12px 16px 0">
-            <%!-- One sentence, one msgid. This was three pieces - a bare
-                  English run and two wrapped FRAGMENTS - so it rendered half
-                  Dutch. It could not have been translated properly either:
-                  Dutch puts the verb where English does not, so a translator
-                  handed "to set it for everyone at once." on its own has
-                  nowhere to put it. The automatic wrapper cannot see this,
-                  because it judges a run by how it STARTS and this one
-                  starts like a sentence and ends "or right-click the". --%> {gettext(
-              "Double-click a row to edit the player, or right-click for their Players Card. Click a player's Pr. cell to mark them present or absent for the whole event, and right-click the Pr. column header to set it for everyone at once."
-            )}
-            <span id="players-grid-keys">
-              {gettext(
-                "By keyboard, the grid is one Tab stop: the arrow keys move between cells, Enter or Space opens a Pr., Paid or Cat. cell's menu, Enter on a name edits the player, and the context-menu key opens what a right-click would."
-              )}
-            </span>
-          </p>
-
           <p :if={@cat_filter} class="hint" style="padding: 0 16px 8px">
             <strong>{gettext("Showing only %{name}.", name: @cat_filter)}</strong> {gettext(
               "Ranks are still this player's rank in the whole tournament, not a position within the category."
@@ -3623,7 +3653,11 @@ defmodule PairingsEngineWeb.PlayersLive do
                   aria-haspopup={menu_column?(key) && "menu"}
                   data-tags={key == "cat" && Jason.encode!(p.grid["cat"])}
                 >
-                  {cell(p, key)}
+                  <%= if key == "club" do %>
+                    <span class="club-cell" title={club_title(p)}>{cell(p, key)}</span>
+                  <% else %>
+                    {cell(p, key)}
+                  <% end %>
                 </td>
 
                 <td style="text-align: right" data-grid-col="remove">
@@ -3696,7 +3730,6 @@ defmodule PairingsEngineWeb.PlayersLive do
         changes={@tpn_changes}
         paired={Standings.rounds_paired(@tournament.id)}
       />
-
       <script :type={Phoenix.LiveView.ColocatedHook} name=".PlayersMenu">
         // The header's More menu, closing like a menu: on a tap or click
         // outside it (pointerdown: iOS sends no mouse events for a tap on plain

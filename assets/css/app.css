@@ -4525,6 +4525,62 @@ a.pending-chip:hover {
    wrapping - the .split-main wrapper already scrolls horizontally. */
 .pe-table td { white-space: nowrap; }
 
+/* The players grid's club column: Belgian club names run long enough to push
+   the table off screen. One line, an ellipsis, the whole name in the cell's
+   title. The wrapper (.split-main) scrolls sideways as the safety net. */
+.club-cell {
+  display: inline-block;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: bottom;
+}
+
+/* The tournaments list: each row's More menu drops out of the card, so the
+   card must not clip or scroll it. The row is short enough now (name, system,
+   rounds, players, dates, status and one button) to fit at 1024px. Two class
+   selectors, so the narrow-screen `.table-card` rules do not undo it. */
+.table-card.menu-card { overflow: visible; }
+.table-card.menu-card .pe-table td:first-child { white-space: normal; }
+
+/* The players page's header line: the count, the manual (?) and the grid's
+   own instructions behind a button. A <details>, so it needs no script. */
+.players-subtitle { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
+.pe-help { position: relative; display: inline-block; }
+.pe-help > summary { list-style: none; }
+.pe-help > summary::-webkit-details-marker { display: none; }
+.pe-help-toggle {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 999px; cursor: pointer;
+  color: var(--text-soft);
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.pe-help-toggle:hover, .pe-help[open] > .pe-help-toggle { color: var(--accent); background: var(--accent-soft); }
+.pe-help-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.pe-help-panel { display: none; }
+.pe-help[open] > .pe-help-panel {
+  display: block;
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(32rem, 86vw);
+  padding: 12px 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  font-size: 14px;
+  line-height: 1.45;
+}
+.pe-help-panel p { margin: 0 0 8px; }
+.pe-help-panel p:last-child { margin-bottom: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .pe-help-toggle { transition: none; }
+}
+
 /* SWAR-style dialogs: Player registration (double-click) and Players Card
    (right-click). Plain overlay + card - no daisyUI modal classes. */
 .modal-overlay {
