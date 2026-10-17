@@ -4127,6 +4127,19 @@ a.pending-chip:hover {
   min-width: 0;
   margin-left: auto;
 }
+/* On a laptop screen the round bar ran six pixels too wide and More fell
+   onto a line of its own. The caption goes first - the four stops say what
+   they are - and stays for a screen reader. */
+@media (max-width: 1279px) {
+  .round-bar-actions .pe-level-caption {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
 /* The pair button's in-progress label is a sentence; let it wrap inside
    the button instead of pushing the row wider than the page. */
 .round-bar-actions > .pe-btn { max-width: 100%; white-space: normal; }
