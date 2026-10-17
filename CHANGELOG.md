@@ -17,6 +17,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Removed] **The single-file Mac download is gone.** It carried its own copy of Erlang that insisted on macOS 15, which made it a very small download for very few Macs. The Mac app (`openpairings_app_macos_aarch64.zip`) and the portable zip stay, and both run on macOS 11 and newer. Nothing in the program looked for the old file, so installed copies are unaffected.
 ## [0.90.0] - 2026-10-17
 
 - [Fix] **The Mac app opens on macOS 11 and newer**, not only on 15. The Erlang inside is compiled for 11 now, SQLite too, and the build fails, naming the file, if anything in the app asks for a newer macOS. The ready-made runtime had demanded the latest macOS all along; it just never said so to anyone who had it.

@@ -9,14 +9,16 @@ Targets built:
 
 | OS      | x86_64            | aarch64 (ARM)      |
 | ------- | ----------------- | ------------------ |
-| macOS   | (none)            | `macos_aarch64`    |
+| macOS   | (none)            | (none, see below)  |
 | Linux   | `linux_x86_64`    | `linux_aarch64`    |
 | Windows | `windows_x86_64`  | (see below)        |
 
 **macOS is built again since 2026-10-14**, after a month off (2026-09-14:
-nobody used it). Besides the single-file binary and the portable zip, each
-macOS runner wraps the portable release in **`OpenPairings.app`** and ships
-it zipped as `openpairings_app_macos_aarch64.zip`. The Mac build is for
+nobody used it). The macOS runner wraps the portable release in
+**`OpenPairings.app`** and ships it zipped as
+`openpairings_app_macos_aarch64.zip`, next to the portable zip. There is **no
+single-file macOS binary** (dropped 2026-10-17: Burrito's precompiled Erlang
+needs macOS 15, and the app runs on 11 and newer). The Mac build is for
 Apple Silicon (M1 and later) only. Unsigned for now (ad-hoc), with
 Developer ID signing and notarisation written and waiting for the Apple
 account's secrets. Everything macOS - the bundle, its launcher, the data
@@ -86,16 +88,16 @@ MIX_ENV=prod mix assets.deploy
 
 # 2. build only the current machine's target (fast); omit BURRITO_TARGET to
 #    build every target the host can produce
-MIX_ENV=prod BURRITO_TARGET=macos_aarch64 mix release
+MIX_ENV=prod BURRITO_TARGET=linux_x86_64 mix release
 ```
 
-The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_macos_aarch64`).
+The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_linux_x86_64`).
 
 ## Two shapes, and why
 
 | download | what it is | when |
 |---|---|---|
-| `openpairings_<target>` | one self-contained executable | you want a single file |
+| `openpairings_<target>` (Linux and Windows) | one self-contained executable | you want a single file |
 | `openpairings_portable_<target>.zip` | a folder you unzip, runtime inside | **antivirus ate the other one** |
 | `openpairings_app_<target>.zip` (macOS only) | `OpenPairings.app`: the portable release in a bundle with a launcher | **on a Mac, this one** - see [`docs/macos.md`](macos.md) |
 | `SHA256SUMS` | the checksum of every file above (since 2026-10-14) | to check a download by hand |
@@ -557,7 +559,7 @@ assumes they may have been).
 Run it. That is the whole setup:
 
 ```bash
-./openpairings_macos_aarch64 start
+./openpairings_linux_x86_64 start
 ```
 
 A standalone binary is in **local mode by default** - it is a single file
@@ -638,7 +640,7 @@ DATABASE_PATH=/var/lib/openpairings/app.db \
 SECRET_KEY_BASE=$(head -c 48 /dev/urandom | base64) \
 PHX_SERVER=true \
 PORT=4000 \
-./openpairings_macos_aarch64 start
+./openpairings_linux_x86_64 start
 ```
 
 - `DATABASE_PATH` - where the SQLite database file lives. Created and
