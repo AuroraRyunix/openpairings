@@ -4397,19 +4397,26 @@ a.pending-chip:hover {
    the button instead of pushing the row wider than the page. */
 .round-bar-actions > .pe-btn { max-width: 100%; white-space: normal; }
 /* The round bar's buttons: one primary, a few plain ones and More, each
-   with a small icon where it helps the eye find it (`round_stage/3`). */
-.round-bar-actions .pe-btn {
+   with a small icon where it helps the eye find it (`round_stage/3`).
+   The Players page header has had the same shape since its own declutter:
+   Add player, Print player list and More. */
+.round-bar-actions .pe-btn,
+.players-header-actions .pe-btn {
   transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
     transform 0.08s ease;
 }
-.round-bar-actions .pe-btn:active:not(:disabled) { transform: translateY(1px); }
-.round-bar-actions .pe-btn.primary:hover:not(:disabled) {
+.round-bar-actions .pe-btn:active:not(:disabled),
+.players-header-actions .pe-btn:active:not(:disabled) { transform: translateY(1px); }
+.round-bar-actions .pe-btn.primary:hover:not(:disabled),
+.players-header-actions .pe-btn.primary:hover:not(:disabled) {
   box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .pe-btn-icon { width: 14px; height: 14px; vertical-align: -2px; }
 @media (prefers-reduced-motion: reduce) {
-  .round-bar-actions .pe-btn { transition: none; }
-  .round-bar-actions .pe-btn:active:not(:disabled) { transform: none; }
+  .round-bar-actions .pe-btn,
+  .players-header-actions .pe-btn { transition: none; }
+  .round-bar-actions .pe-btn:active:not(:disabled),
+  .players-header-actions .pe-btn:active:not(:disabled) { transform: none; }
 }
 .round-status { flex-shrink: 0; }
 

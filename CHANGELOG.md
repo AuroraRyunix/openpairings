@@ -25,6 +25,7 @@ Each entry is tagged so a version can be skimmed:
 - [Feature] A hosted installation can now answer on a second web address while the first keeps working, and the old address can be set to forward visitors to the new one. Off until it is turned on; nothing changes for anyone before then.
 - [Change] The address of the public results site that a desktop copy publishes to, and that the publishing form suggests, can be set by the operator instead of being fixed in the build.
 - [Feature] **A banner for the domain move.** With `PHX_MOVED_TO` set, every page opened anywhere but the new address says where the app went and links there. It can't be closed, because a banner you can close is a banner you never read again. The new address is spared, and so is paper.
+- [Change] **The Players page has three buttons instead of seven.** *Add player* stays the main one, *Print player list* stays beside it, and the place cards, *Pairing numbers*, *Starting numbers*, *Refresh ratings* and *Update player data* moved into a grouped **More** menu that the arrow keys can walk. All of them are still two clicks away. Registering players is the job; the toolbar no longer pretends otherwise.
 
 ## [0.89.7] - 2026-10-17
 

@@ -2897,81 +2897,119 @@ defmodule PairingsEngineWeb.PlayersLive do
           </p>
         </div>
 
-        <div class="actions" style="margin: 0">
+        <%!-- One primary button (Add player), one plain one (the list for
+              the check-in desk) and More for the rest: the place cards, the
+              numbering dialogs and the two comparisons with the rating
+              lists. They used to stand in a row of seven, each as loud as
+              the next. Nothing was taken away; More is one click and its
+              items the second. `.PlayersMenu` closes it on an outside click,
+              Escape or a choice and walks it with the arrow keys, as the
+              Pairings page's round menu does. --%>
+        <div class="actions players-header-actions" id="players-actions" style="margin: 0">
           <a
+            id="print-player-list"
             class="pe-btn"
             href={
               ~p"/t/#{@tournament.id}/print/players?#{[cols: printable_player_list_columns(@visible)]}"
             }
             target="_blank"
           >
-            {gettext("Print player list")}
+            <.icon name="hero-printer-micro" class="pe-btn-icon" /> {gettext("Print player list")}
           </a>
 
-          <a class="pe-btn" href={~p"/t/#{@tournament.id}/print/placecards"} target="_blank">
-            {gettext("Print place cards")}
-          </a>
-
-          <button
-            :if={@tpn_editable?}
-            id="open-tpn"
-            type="button"
-            class="pe-btn"
-            phx-click="open_tpn"
-            title={
-              gettext(
-                "Exchange the pairing numbers of players with the same rating, or regenerate them from the ratings - until round 4 is paired"
-              )
-            }
+          <details
+            id="players-more-menu"
+            class="pe-dropdown"
+            phx-hook=".PlayersMenu"
+            phx-mounted={Phoenix.LiveView.JS.ignore_attributes(["open"])}
           >
-            {gettext("Pairing numbers")}
-          </button>
+            <summary class="pe-btn" aria-haspopup="menu">
+              <.icon name="hero-ellipsis-horizontal-micro" class="pe-btn-icon" /> {gettext("More")}
+            </summary>
 
-          <button
-            :if={@starting_numbers_editable?}
-            id="open-starting-numbers"
-            type="button"
-            class="pe-btn"
-            phx-click="open_starting_numbers"
-            title={
-              gettext(
-                "Set the round robin's starting numbers before round 1 - by hand, or by a drawing of lots"
-              )
-            }
-          >
-            {gettext("Starting numbers")}
-          </button>
+            <div class="pe-dropdown-panel" role="menu" aria-label={gettext("More for the players")}>
+              <span class="pe-dropdown-label">{gettext("Print")}</span>
+              <a
+                role="menuitem"
+                id="print-place-cards"
+                href={~p"/t/#{@tournament.id}/print/placecards"}
+                target="_blank"
+              >
+                {gettext("Print place cards")}
+              </a>
 
-          <button
-            type="button"
-            class="pe-btn"
-            phx-click="open_rating_refresh"
-            title={
-              gettext(
-                "Compare every registered player against the locally-synced FIDE database and preview rating/title updates before applying them"
-              )
-            }
-          >
-            {gettext("Refresh ratings")}
-          </button>
+              <%= if @tpn_editable? or @starting_numbers_editable? do %>
+                <hr />
+                <span class="pe-dropdown-label">{gettext("Numbers")}</span>
+                <button
+                  :if={@tpn_editable?}
+                  id="open-tpn"
+                  type="button"
+                  role="menuitem"
+                  phx-click="open_tpn"
+                  title={
+                    gettext(
+                      "Exchange the pairing numbers of players with the same rating, or regenerate them from the ratings - until round 4 is paired"
+                    )
+                  }
+                >
+                  {gettext("Pairing numbers")}
+                </button>
 
-          <button
-            :if={@bel_club_sync?}
-            type="button"
-            class="pe-btn"
-            id="open-data-refresh"
-            phx-click="open_data_refresh"
-            title={
-              gettext(
-                "Compare every registered player against the local KBSB and FIDE lists and preview every change except ratings before applying it"
-              )
-            }
-          >
-            {gettext("Update player data")}
-          </button>
+                <button
+                  :if={@starting_numbers_editable?}
+                  id="open-starting-numbers"
+                  type="button"
+                  role="menuitem"
+                  phx-click="open_starting_numbers"
+                  title={
+                    gettext(
+                      "Set the round robin's starting numbers before round 1 - by hand, or by a drawing of lots"
+                    )
+                  }
+                >
+                  {gettext("Starting numbers")}
+                </button>
+              <% end %>
+
+              <%!-- The same gesture on different columns, kept together:
+                    compare with the lists, see a preview, tick, apply. --%>
+              <hr />
+              <span class="pe-dropdown-label">{gettext("Player data")}</span>
+              <button
+                id="open-rating-refresh"
+                type="button"
+                role="menuitem"
+                phx-click="open_rating_refresh"
+                title={
+                  gettext(
+                    "Compare every registered player against the locally-synced FIDE database and preview rating/title updates before applying them"
+                  )
+                }
+              >
+                {gettext("Refresh ratings")}
+              </button>
+
+              <button
+                :if={@bel_club_sync?}
+                type="button"
+                role="menuitem"
+                id="open-data-refresh"
+                phx-click="open_data_refresh"
+                title={
+                  gettext(
+                    "Compare every registered player against the local KBSB and FIDE lists and preview every change except ratings before applying it"
+                  )
+                }
+              >
+                {gettext("Update player data")}
+              </button>
+            </div>
+          </details>
 
           <button
             :if={!@adding}
+            id="add-player-open"
             class="pe-btn primary"
             phx-click="add"
             disabled={!@setup_complete}
@@ -2983,7 +3021,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                     missing_setup_summary(@missing_setup)
             }
           >
-            {gettext("Add player")}
+            <.icon name="hero-user-plus-micro" class="pe-btn-icon" /> {gettext("Add player")}
             <span style="opacity: 0.7; font-size: 11px; margin-left: 4px">{gettext("Ctrl+I")}</span>
           </button>
         </div>
@@ -3658,6 +3696,57 @@ defmodule PairingsEngineWeb.PlayersLive do
         changes={@tpn_changes}
         paired={Standings.rounds_paired(@tournament.id)}
       />
+
+      <script :type={Phoenix.LiveView.ColocatedHook} name=".PlayersMenu">
+        // The header's More menu, closing like a menu: on a tap or click
+        // outside it (pointerdown: iOS sends no mouse events for a tap on plain
+        // page), on Escape (focus back to its button), and once an item is
+        // chosen. The arrow keys walk its items, Home and End jump to the
+        // ends, and ArrowDown on the closed button opens it at the first one.
+        // The Pairings page's `.RoundMenu` does the same for the round bar.
+        export default {
+          mounted() {
+            this.close = (refocus) => {
+              if (!this.el.open) return;
+              this.el.open = false;
+              if (refocus) this.el.querySelector("summary").focus();
+            };
+            this.items = () =>
+              Array.from(this.el.querySelectorAll("[role=menuitem]")).filter((i) => !i.disabled);
+            this.onDocPointerdown = (e) => {
+              if (!this.el.contains(e.target)) this.close(false);
+            };
+            this.onKeydown = (e) => {
+              if (e.key === "Escape") return this.close(true);
+              if (e.target.matches("input, textarea, select")) return;
+              const items = this.items();
+              if (items.length === 0) return;
+              const at = items.indexOf(document.activeElement);
+              let next = null;
+              if (e.key === "ArrowDown") next = at < 0 ? 0 : (at + 1) % items.length;
+              else if (e.key === "ArrowUp") next = at <= 0 ? items.length - 1 : at - 1;
+              else if (e.key === "Home") next = 0;
+              else if (e.key === "End") next = items.length - 1;
+              if (next === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              this.el.open = true;
+              items[next].focus();
+            };
+            this.onClick = (e) => {
+              if (e.target.closest("[role=menuitem]")) this.close(false);
+            };
+            document.addEventListener("pointerdown", this.onDocPointerdown);
+            this.el.addEventListener("keydown", this.onKeydown);
+            this.el.addEventListener("click", this.onClick);
+          },
+          destroyed() {
+            document.removeEventListener("pointerdown", this.onDocPointerdown);
+            this.el.removeEventListener("keydown", this.onKeydown);
+            this.el.removeEventListener("click", this.onClick);
+          }
+        }
+      </script>
     </Layouts.app>
     """
   end
