@@ -40,8 +40,8 @@ For each player in the tournament:
   KBSB search pre-fills it when a player is registered off the list, and an
   arbiter can type it. A bulk button that silently rewrote it made it look
   like OpenPairings maintains a live national-rating system, which it does
-  not. The part of the KBSB list that *is* worth refreshing is the club -
-  see "Bulk club refresh" below.
+  not. The parts of the KBSB list that *are* worth refreshing - club,
+  sex, birth year and the rest - are "Bulk player-data refresh" below.
 - A player with no `fide_id` set, or whose id has no match in the table,
   contributes **zero** proposals and counts toward the summary's
   `unmatched` figure (distinct from "matched but nothing changed", which
@@ -94,17 +94,34 @@ all changed fires **one** broadcast, not 50, keeping other open tabs
   "re-sync everything"). **`club` is handled separately** - see "Bulk club
   refresh" below.
 
-## Bulk club refresh (`PairingsEngine.Federations.BEL.ClubRefresh`)
+## Bulk player-data refresh (`PairingsEngine.Federations.BEL.PlayerDataRefresh`)
 
-"Update clubs", the button beside "Refresh ratings" on the Players page.
-The same gesture - dry run, preview table, Apply - proposing `club` (name)
-and `club_number` from the locally-synced KBSB list.
+"Update player data" (until 2026-10 "Update clubs", which is also what the
+old `player.clubs_refreshed` audit rows were written by), the button beside
+"Refresh ratings" on the Players page. The same gesture - dry run, preview
+table with a tick per change, Apply selected - proposing every field except
+the ratings:
+
+| field | source |
+|---|---|
+| `name` | KBSB "Last, First", when it differs after whitespace/comma tidying |
+| `club` + `club_number` | KBSB; one shared proposal id, so one tick |
+| `affiliated` | KBSB, only where the row states it |
+| `fide_id`, `national_id` | KBSB, only when the player has none (and the FIDE id is not already taken in the tournament) |
+| `title` | FIDE |
+| `sex`, `birth_year`, `federation` | FIDE first, KBSB when FIDE says nothing |
+
+FIDE wins the three shared fields because the rating report is checked
+against FIDE's record; the KBSB "federation" is itself the FIDE list's,
+reached through the KBSB row's FIDE id, since the file's `Fed` column is a
+wing letter. A player's full `birth_date` is kept when its year agrees, and
+dropped (visibly, as the proposal's old value) when the list's year does not.
 
 It is a **separate button** rather than more proposals inside the rating
 refresh because the two answer different questions ("are these ratings
-current?" and "has anyone changed club?"), are wanted at different
+current?" and "is the rest of the roster right?"), are wanted at different
 moments, and merging them would force an arbiter who only wanted clubs to
-accept rating changes too.
+accept rating changes too. It never proposes a rating, in either direction.
 
 ### Matching, and why not the KBSB data platform API
 
@@ -129,10 +146,11 @@ playing hall with no internet - which is where this button gets pressed.
 If a by-FIDE-id route is ever added to the platform, it still would not
 beat the local copy on any of those three counts.
 
-### It never clears a club
+### It never clears a value
 
 A KBSB row with a blank club is a lapsed or unrecorded membership, not an
-instruction to delete what the arbiter typed. So a blank proposes nothing,
+instruction to delete what the arbiter typed. So a blank proposes nothing -
+for every field, not only the club -
 exactly as `RatingRefresh` never proposes blanking a title FIDE doesn't
 carry. Name and number always move together - half of a renamed or
 renumbered club is how a roster ends up self-contradictory.

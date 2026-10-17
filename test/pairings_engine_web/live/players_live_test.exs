@@ -607,7 +607,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       # The club NUMBER too, via the add form's hidden input - it has no
       # visible field. Without it the player saves with a club name and no
-      # number, and "Update clubs" flags them as a pending change the moment
+      # number, and "Update player data" flags them as a pending change the moment
       # they are registered, because it treats the two as a pair.
       assert html =~ ~s(name="player[club_number]")
       assert html =~ ~s(value="42")
@@ -721,6 +721,29 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = render_click(lv, "pick_kbsb", %{"national-id" => "-12346"})
       assert html =~ ~s(value="-12346")
       assert html =~ "Peeters, Lotte"
+    end
+
+    # The KBSB file has always had a Sex column; until it was kept, a member
+    # with no FIDE record was picked sexless.
+    test "picking a member with no FIDE record fills the KBSB list's sex", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      Repo.insert!(%Member{
+        national_id: "-30001",
+        last_name: "Wouters",
+        first_name: "Mila",
+        fide_id: nil,
+        birth_year: 2014,
+        sex: "w"
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+      render_change(lv, "search", %{"q" => "-30001"})
+      render_click(lv, "pick_kbsb", %{"national-id" => "-30001"})
+
+      assert has_element?(lv, ~s(input[name="player[sex]"][value="w"]))
     end
 
     test "a member without a FIDE id on the KBSB list is listed once, with the FIDE id of the matching Belgian entry",
@@ -2394,7 +2417,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
     assert html =~ "2000"
   end
 
-  describe "bulk club refresh (Update clubs button)" do
+  describe "bulk player-data refresh (Update player data button)" do
     # These controls belong to the Belgian pack and are absent for an account
     # that has not switched it on - see `PairingsEngine.Features`.
     setup :enable_federation_features
@@ -2410,15 +2433,14 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       conn: conn,
       tournament: tournament
     } do
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
 
-      assert html =~ "Update clubs"
-      assert html =~ "phx-click=\"open_club_refresh\""
+      assert has_element?(lv, "#open-data-refresh")
 
       # Adjacent to Refresh ratings, in that order - the two are the same
       # gesture on different columns and are meant to be found together.
       [_, between] = String.split(html, "Refresh ratings", parts: 2)
-      assert between =~ ~r/\A.{0,600}Update clubs/s
+      assert between =~ ~r/\A.{0,600}Update player data/s
     end
 
     test "opens a preview and writes nothing until Apply", %{conn: conn, tournament: tournament} do
@@ -2432,24 +2454,58 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       Repo.insert!(%Member{
         national_id: "55555",
         last_name: "Clubless",
+        first_name: "Carl",
         club_name: "New Club",
-        club_number: 812
+        club_number: 812,
+        sex: "m"
       })
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
-      html = lv |> element("button", "Update clubs") |> render_click()
+      lv |> element("#open-data-refresh") |> render_click()
 
-      assert html =~ "Old Club"
-      assert html =~ "New Club"
+      assert has_element?(lv, "#data-refresh-dialog")
+      assert has_element?(lv, "#data-proposal-row-#{player.id}-club", "New Club")
+      assert has_element?(lv, "#data-proposal-row-#{player.id}-sex")
 
       # Still the old club: the preview is a preview.
       assert Tournaments.get_player!(tournament.id, player.id).club == "Old Club"
 
-      lv |> element("button", "Apply") |> render_click()
+      lv |> element("#data-refresh-apply") |> render_click()
 
       updated = Tournaments.get_player!(tournament.id, player.id)
       assert updated.club == "New Club"
       assert updated.club_number == 812
+      assert updated.sex == "m"
+    end
+
+    test "an unticked change is not applied, and the club tick carries the number", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Choosy, Chris",
+          "national_id" => "55556",
+          "club" => "Old Club",
+          "club_number" => 1
+        })
+
+      Repo.insert!(%Member{
+        national_id: "55556",
+        last_name: "Choosy",
+        first_name: "Chris",
+        club_name: "New Club",
+        club_number: 2,
+        sex: "w"
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      lv |> element("#open-data-refresh") |> render_click()
+      lv |> element("#data-proposal-#{player.id}-sex") |> render_click()
+      lv |> element("#data-refresh-apply") |> render_click()
+
+      updated = Tournaments.get_player!(tournament.id, player.id)
+      assert {updated.club, updated.club_number, updated.sex} == {"New Club", 2, ""}
     end
   end
 

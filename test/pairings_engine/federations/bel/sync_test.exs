@@ -236,7 +236,12 @@ defmodule PairingsEngine.Federations.BEL.SyncTest do
       # needs one shape).
       others =
         for n <- 1..4,
-            do: Map.merge(kbsb_row(to_string(n), "Player #{n}"), %{died: false, affiliated: true})
+            do:
+              Map.merge(kbsb_row(to_string(n), "Player #{n}"), %{
+                died: false,
+                affiliated: true,
+                sex: nil
+              })
 
       rows = [g_row | others]
 

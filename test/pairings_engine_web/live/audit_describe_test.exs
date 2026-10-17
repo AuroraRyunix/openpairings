@@ -110,6 +110,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "registration.accepted" => [%{"player_name" => "Bram Claes"}],
     "registration.discarded" => [%{"player_name" => "Bram Claes"}],
     "player.ratings_refreshed" => [%{"players_updated" => 12}, %{"players_updated" => 1}],
+    "player.data_refreshed" => [%{"players_updated" => 5}, %{"players_updated" => 1}],
     "player.clubs_refreshed" => [%{"players_updated" => 5}, %{"players_updated" => 1}],
     "player.bulk_absent_set" => [
       %{"absent" => true, "player_count" => 24},
@@ -955,6 +956,12 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
 
     assert nl("player.clubs_refreshed", %{"players_updated" => 5}) ==
              "Clubgegevens vernieuwd voor 5 spelers."
+
+    assert en("player.data_refreshed", %{"players_updated" => 1}) ==
+             "Updated player data for 1 player."
+
+    assert nl("player.data_refreshed", %{"players_updated" => 5}) ==
+             "Spelersgegevens bijgewerkt voor 5 spelers."
 
     assert nl("category.auto_assigned", %{"matched" => 1, "total" => 1}) ==
              "Categorieën volgens de regels toegekend aan 1 van 1 speler."

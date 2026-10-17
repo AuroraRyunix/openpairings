@@ -39,9 +39,9 @@ account uitstaat tenzij je het aanzet: accountmenu, **Functies**. Met *Synchroni
 van de nationale ratinglijst* aan, toont Verbindingen de sectie *Belgische
 nationale ratinglijst*, waar **Synchroniseren vanaf de KBSB** het openbare
 maandbestand van de federatie downloadt (ongeveer 36.000 spelers: nationaal ID,
-naam, club, FIDE-ID, nationale rating). *KBSB-spelerzoekopdracht* voegt de lijst
-toe aan de spelerszoekfunctie. *Clubs in bulk bijwerken* voegt de knop **Clubs
-bijwerken** toe aan de pagina Spelers. Een arbiter buiten België ziet niets
+naam, geslacht, club, FIDE-ID, nationale rating). *KBSB-spelerzoekopdracht* voegt de lijst
+toe aan de spelerszoekfunctie. *Spelersgegevens in bulk bijwerken* voegt de knop
+**Spelersgegevens bijwerken** toe aan de pagina Spelers. Een arbiter buiten België ziet niets
 hiervan. De synchronisatie kopieert alleen het bestand van de federatie; ze
 schrijft nooit zelf ratings in je toernooien.
 
@@ -105,7 +105,7 @@ Bovenbalk, **Spelers**. Bovenaan: het aantal ingeschreven spelers en de knoppen
 
 - **Speler toevoegen** (ook <kbd>Ctrl</kbd>+<kbd>I</kbd>),
 - **Ratings vernieuwen**,
-- **Clubs bijwerken** (alleen met het Belgische pakket aan),
+- **Spelersgegevens bijwerken** (alleen met het Belgische pakket aan),
 - **Spelerslijst afdrukken** en **Plaatskaartjes afdrukken**,
 - **Resultaten invoeren**, dat naar de pagina Paringen leidt.
 
@@ -269,9 +269,29 @@ eerst bij, of meldt dat dat niet lukte.
 In de tabel met voorgestelde wijzigingen heeft elke regel een vinkje, en is er
 **Alles selecteren**: **Geselecteerde toepassen** schrijft alleen de aangevinkte.
 
-**Clubs bijwerken** (Belgisch pakket) werkt op dezelfde manier voor de club en het
-clubnummer, met matching op nationaal ID, en daarna op FIDE-ID. Het maakt nooit een
-club leeg.
+**Spelersgegevens bijwerken** (Belgisch pakket) werkt op dezelfde manier voor
+alles behalve de ratings. Het zoekt elke speler op de KBSB-lijst op nationaal ID,
+dan op FIDE-ID, dan op naam plus geboortejaar (alleen als dat precies één persoon
+aanwijst), en op de FIDE-lijst op FIDE-ID. Het stelt elk veld voor dat verschilt:
+
+- van de KBSB-lijst: de naam zoals de lijst hem schrijft, de club en het
+  clubnummer (één vinkje voor beide: ze worden samen toegepast), de aansluiting,
+  en een FIDE-ID of nationaal ID dat de speler nog niet heeft;
+- van de FIDE-lijst: de titel;
+- geslacht, geboortejaar en federatie van de FIDE-lijst, of van de KBSB-lijst
+  als de speler geen FIDE-record heeft. De FIDE-lijst wint omdat het
+  ratingrapport daarmee wordt vergeleken.
+
+De tabel toont de oude en de nieuwe waarde, van welke lijst ze komt en hoe de
+speler gevonden werd. Bekijk een naamswijziging voor je ze aanvinkt. Een speler
+met een volledige geboortedatum houdt die als het jaar klopt; geeft de lijst een
+ander jaar, dan toont de oude waarde de datum, en als je het toepast, krijgt de
+speler het nieuwe jaar en verdwijnt de datum. Een veld wordt nooit leeggemaakt
+omdat een lijst het leeg laat, en ratings blijven bij **Ratings vernieuwen**.
+
+Het geslacht van de KBSB-lijst komt binnen bij de volgende **Synchroniseren
+vanaf de KBSB** op de pagina Verbindingen. Daarvoor bewaarde het programma het
+niet.
 
 > [!TIP]
 > Vernieuw de ratings vóórdat ronde 1 is gepaard. Een rating later wijzigen

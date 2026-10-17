@@ -15,7 +15,8 @@ defmodule PairingsEngine.Federations.BEL.SqliteFile do
   `to_member_row/2` converts one raw row into the atom-keyed map
   `PairingsEngine.Federations.BEL.Sync.import_rows/3` expects, applying
   the field allowlist decided in docs/kbsb-sync.md: only what a feature
-  actually reads is kept. `Birthday` (a full date) is reduced to its year;
+  actually reads is kept. `Sex` becomes the app's "m"/"w";
+  `Birthday` (a full date) is reduced to its year;
   `LoginModif` and `DateModif` are never read at all - they aren't even in
   `@required_columns` below, so they can't reach this far.
   """
@@ -223,6 +224,7 @@ defmodule PairingsEngine.Federations.BEL.SqliteFile do
       club_name: Map.get(club_names, club_number, ""),
       federation: row["Fed"] || "",
       birth_year: birth_year(row["Birthday"]),
+      sex: sex(row["Sex"]),
       died: bool(row["Died"]),
       affiliated: bool(row["Affiliated"])
     }
@@ -245,10 +247,28 @@ defmodule PairingsEngine.Federations.BEL.SqliteFile do
     end
   end
 
+  # The file writes the letter: "M" or "F" (the fixture KBSB's own export
+  # was modelled on, and FIDE's convention). Letters go through
+  # `Player.normalize_sex/1`, which also takes "W", "V" and "H". An integer
+  # is read the way SWAR - the other Belgian program writing this field -
+  # numbers it: 1 man, 2 woman. 0 and anything else is unknown, stored as
+  # nil rather than as a sex nobody asserted.
+  defp sex(1), do: "m"
+  defp sex(2), do: "w"
+
+  defp sex(value) when is_binary(value) do
+    case PairingsEngine.Tournaments.Player.normalize_sex(value) do
+      "" -> nil
+      sex -> sex
+    end
+  end
+
+  defp sex(_other), do: nil
+
   # `Birthday` arrives as either a "YYYYMMDD"-style string/integer or a
   # bare year - either way, only the leading 4 digits (the year) are kept.
   # The full date is deliberately never stored: no feature reads a
-  # player's day of birth, only the year (see `ClubRefresh.year_agrees?/2`).
+  # player's day of birth, only the year (see `PlayerDataRefresh.year_agrees?/2`).
   defp birth_year(nil), do: nil
   defp birth_year(""), do: nil
   defp birth_year(0), do: nil

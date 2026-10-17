@@ -18,7 +18,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   }
 
   alias PairingsEngine.Features
-  alias PairingsEngine.Federations.BEL.{ClubRefresh, Members}
+  alias PairingsEngine.Federations.BEL.{Members, PlayerDataRefresh}
   alias PairingsEngine.ByeTypes
   alias PairingsEngine.LateEntry
   alias PairingsEngine.RatingLists
@@ -181,7 +181,8 @@ defmodule PairingsEngineWeb.PlayersLive do
        rating_waiting: false,
        rating_note: nil,
        rating_notice: nil,
-       club_refresh: nil,
+       data_refresh: nil,
+       data_selected: MapSet.new(),
        # The round robin's starting numbers dialog: nil while closed, else
        # `StartingNumbers.order/1`.
        starting_numbers: nil,
@@ -936,6 +937,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           }
           |> Map.merge(fide_values)
           |> put_if_blank("federation", Members.fide_federation(kp))
+          |> put_kbsb_sex(kp)
 
         {:noreply,
          assign(socket,
@@ -1495,49 +1497,77 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
-  ## ---------- Bulk club refresh (KBSB) ----------
+  ## ---------- Bulk player-data refresh (KBSB + FIDE) ----------
   #
   # The same dry-run/preview/apply gesture as the rating refresh above, on
-  # the club columns instead - see `PairingsEngine.Federations.BEL.ClubRefresh` for why it
-  # is a separate action rather than more proposals inside that one.
+  # every column except the ratings - see
+  # `PairingsEngine.Federations.BEL.PlayerDataRefresh` for why it is a
+  # separate action rather than more proposals inside that one.
 
   # Both the preview and the apply re-check the switch in their own bodies,
   # not only in the markup that renders the button - a hidden button still
   # accepts a crafted event.
-  def handle_event("open_club_refresh", _params, %{assigns: %{bel_club_sync?: false}} = socket),
+  def handle_event("open_data_refresh", _params, %{assigns: %{bel_club_sync?: false}} = socket),
     do: {:noreply, put_flash(socket, :error, club_sync_off())}
 
-  def handle_event("open_club_refresh", _params, socket) do
-    summary = ClubRefresh.dry_run(socket.assigns.tournament)
-    {:noreply, assign(socket, club_refresh: summary)}
+  def handle_event("open_data_refresh", _params, socket) do
+    summary = PlayerDataRefresh.dry_run(socket.assigns.tournament)
+
+    {:noreply,
+     assign(socket,
+       data_refresh: summary,
+       data_selected: MapSet.new(summary.proposals, & &1.id)
+     )}
   end
 
-  def handle_event("close_club_refresh", _params, socket) do
-    {:noreply, assign(socket, club_refresh: nil)}
+  def handle_event("close_data_refresh", _params, socket) do
+    {:noreply, assign(socket, data_refresh: nil)}
   end
 
-  def handle_event("apply_club_refresh", _params, %{assigns: %{bel_club_sync?: false}} = socket),
+  def handle_event("toggle_data_proposal", %{"id" => id}, socket) when is_binary(id) do
+    selected = socket.assigns.data_selected
+
+    selected =
+      if MapSet.member?(selected, id),
+        do: MapSet.delete(selected, id),
+        else: MapSet.put(selected, id)
+
+    {:noreply, assign(socket, data_selected: selected)}
+  end
+
+  def handle_event("toggle_data_proposal", _params, socket), do: {:noreply, socket}
+
+  def handle_event("select_all_data_proposals", %{"mode" => "all"}, socket) do
+    ids = (socket.assigns.data_refresh || %{proposals: []}).proposals |> Enum.map(& &1.id)
+    {:noreply, assign(socket, data_selected: MapSet.new(ids))}
+  end
+
+  def handle_event("select_all_data_proposals", _params, socket),
+    do: {:noreply, assign(socket, data_selected: MapSet.new())}
+
+  def handle_event("apply_data_refresh", _params, %{assigns: %{bel_club_sync?: false}} = socket),
     do: {:noreply, put_flash(socket, :error, club_sync_off())}
 
-  def handle_event("apply_club_refresh", _params, socket) do
-    proposals = (socket.assigns.club_refresh || %{proposals: []}).proposals
+  def handle_event("apply_data_refresh", _params, socket) do
+    summary = socket.assigns.data_refresh || %{proposals: []}
+    proposals = PlayerDataRefresh.select(summary, socket.assigns.data_selected)
 
-    case ClubRefresh.apply(socket.assigns.tournament, proposals) do
+    case PlayerDataRefresh.apply(socket.assigns.tournament, proposals) do
       {:ok, players} ->
         Audit.log(
           socket.assigns.tournament.id,
           socket.assigns.current_scope,
-          "player.clubs_refreshed",
+          "player.data_refreshed",
           %{players_updated: length(players)}
         )
 
-        {:noreply, socket |> assign(club_refresh: nil) |> assign_players()}
+        {:noreply, socket |> assign(data_refresh: nil) |> assign_players()}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Could not apply the club refresh")}
+        {:noreply, put_flash(socket, :error, gettext("Could not apply the player data update"))}
     end
   end
 
@@ -1939,24 +1969,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   # both shapes the same way the rest of this module does.
   defp ratings_equivalent?(a, b), do: parse_rating(a) == parse_rating(b)
 
-  # FIDE's own list writes the raw letter "M"/"F" (see the `Sex` column in
-  # `PairingsEngine.Fide.Sync`), but the app's own internal convention -
-  # what the Sex radio buttons compare against, and what `Ainalrami.Trf`'s
-  # `trf_sex/1` normalizes on export - is lowercase "m"/"w" ("w" for
-  # female, not "f").
-  # Left as-is, a raw "F" would match neither radio, and since radio groups
-  # send nothing at all when none is checked, the very next live form sync
-  # (`edit_form_change`) would silently drop it again.
-  defp normalize_fide_sex(s) when is_binary(s) do
-    case String.downcase(s) do
-      "f" -> "w"
-      "w" -> "w"
-      "m" -> "m"
-      _ -> ""
-    end
-  end
-
-  defp normalize_fide_sex(_), do: ""
+  # FIDE's "M"/"F" into the app's "m"/"w" - see `Player.normalize_sex/1`
+  # for why a raw "F" in the form is a sex that silently disappears.
+  defp normalize_fide_sex(s), do: Player.normalize_sex(s)
 
   # Tracked player fields whose before/after change is worth recording in the
   # audit trail - returns a `%{"field" => [before, after]}` map of only the
@@ -2522,6 +2537,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           "club" => kp.club_name,
           "club_number" => kp.club_number
         })
+        |> put_kbsb_sex(kp)
     end
   end
 
@@ -2538,6 +2554,17 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp club_sync_off,
     do:
       gettext("The KBSB club update is switched off for your account. Turn it on under Features.")
+
+  # The FIDE list's sex when the member has a FIDE record that states one -
+  # it is what the rating report is checked against - and otherwise the
+  # national list's own. Before the KBSB file's `Sex` was kept, a member
+  # with no FIDE ID was picked sexless, which at a youth event is most of
+  # the hall.
+  defp put_kbsb_sex(values, %Member{sex: sex}) when sex in ~w(m w) do
+    if values["sex"] in ["m", "w"], do: values, else: Map.put(values, "sex", sex)
+  end
+
+  defp put_kbsb_sex(values, _member), do: values
 
   defp put_if_blank(map, _key, nil), do: map
 
@@ -2916,14 +2943,15 @@ defmodule PairingsEngineWeb.PlayersLive do
             :if={@bel_club_sync?}
             type="button"
             class="pe-btn"
-            phx-click="open_club_refresh"
+            id="open-data-refresh"
+            phx-click="open_data_refresh"
             title={
               gettext(
-                "Compare every registered player against the locally-synced KBSB database and preview club updates before applying them"
+                "Compare every registered player against the local KBSB and FIDE lists and preview every change except ratings before applying it"
               )
             }
           >
-            {gettext("Update clubs")}
+            {gettext("Update player data")}
           </button>
 
           <button
@@ -3236,7 +3264,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           <input type="hidden" name="player[sex]" value={@form_values["sex"]} />
           <%!-- Hidden, like sex above: the club NUMBER is filled in by the KBSB
                 lookup and is not something an arbiter types. It still has to be
-                submitted, though - `ClubRefresh` treats name and number as a
+                submitted, though - `PlayerDataRefresh` treats name and number as a
                 pair, so a player registered with a name and no number would
                 immediately show up as a pending club change. --%>
           <input type="hidden" name="player[club_number]" value={@form_values["club_number"]} />
@@ -3532,7 +3560,12 @@ defmodule PairingsEngineWeb.PlayersLive do
         summary={@rating_refresh}
         selected={@rating_selected}
         note={@rating_note}
-      /> <.club_refresh_modal :if={@club_refresh} summary={@club_refresh} />
+      />
+      <.data_refresh_modal
+        :if={@data_refresh}
+        summary={@data_refresh}
+        selected={@data_selected}
+      />
       <.starting_numbers_modal :if={@starting_numbers} order={@starting_numbers} />
       <.tpn_modal
         :if={@tpn}
@@ -4170,60 +4203,91 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   # Deliberately the twin of `rating_refresh_modal/1` above: same table, same
-  # counts line, same Apply/Cancel. The wording is the only thing that moves,
-  # because an arbiter recognising the dialog is the point.
-  defp club_refresh_modal(assigns) do
+  # ticks, same counts line, same Apply/Cancel. The wording and two extra
+  # columns (where the value came from, how the player was matched) are the
+  # only things that move, because an arbiter recognising the dialog is the
+  # point. Club name and number share a proposal id, so one tick moves both.
+  defp data_refresh_modal(assigns) do
     ~H"""
-    <div class="modal-overlay" phx-window-keydown="close_club_refresh" phx-key="escape">
+    <div class="modal-overlay" phx-window-keydown="close_data_refresh" phx-key="escape">
       <div
         class="modal-card"
-        phx-click-away="close_club_refresh"
-        style="max-width: 700px"
-        id="club-refresh-dialog"
+        phx-click-away="close_data_refresh"
+        style="max-width: 820px"
+        id="data-refresh-dialog"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="club-refresh-title"
+        aria-labelledby="data-refresh-title"
         tabindex="-1"
         phx-hook="DialogFocus"
         data-dialog
       >
-        <h2 id="club-refresh-title">{gettext("Update clubs")}</h2>
+        <h2 id="data-refresh-title">{gettext("Update player data")}</h2>
 
         <p class="hint">
           {gettext(
-            "Compares every registered player against the locally-synced KBSB list (by National id, or FIDE id when no matricule is on file) and proposes their current club. Never clears a club the list has no entry for. Nothing is written until you Apply."
+            "Compares every registered player against the local KBSB list (by National id, FIDE id, or name and birth year) and the local FIDE list, and proposes each field that differs: name, club, sex, birth year, federation, title, affiliation and missing ids. Ratings are left to Refresh ratings. Never clears a value a list does not mention. Nothing is written until you Apply."
           )}
         </p>
 
         <div :if={@summary.proposals == []} class="card empty">
-          <p><strong>{gettext("Every club up to date.")}</strong></p>
+          <p><strong>{gettext("Every player up to date.")}</strong></p>
         </div>
 
         <div :if={@summary.proposals != []} class="card-table-wrap">
           <table class="pe-table">
             <thead>
               <tr>
+                <th>
+                  <input
+                    id="data-refresh-select-all"
+                    type="checkbox"
+                    phx-click="select_all_data_proposals"
+                    phx-value-mode={if all_selected?(@summary, @selected), do: "none", else: "all"}
+                    checked={all_selected?(@summary, @selected)}
+                    aria-label={gettext("Select all")}
+                  />
+                </th>
+
                 <th>{gettext("Player")}</th>
 
                 <th>{gettext("Field")}</th>
 
-                <th>Old</th>
+                <th>{gettext("Old")}</th>
 
-                <th>New</th>
+                <th>{gettext("New")}</th>
+
+                <th>{gettext("Source")}</th>
 
                 <th>{gettext("Matched by")}</th>
               </tr>
             </thead>
 
             <tbody>
-              <tr :for={p <- @summary.proposals}>
+              <tr
+                :for={p <- @summary.proposals}
+                id={"data-proposal-row-#{p.player.id}-#{p.field}"}
+              >
+                <td>
+                  <input
+                    id={"data-proposal-#{p.player.id}-#{p.field}"}
+                    type="checkbox"
+                    phx-click="toggle_data_proposal"
+                    phx-value-id={p.id}
+                    checked={MapSet.member?(@selected, p.id)}
+                    aria-label={gettext("Apply this change")}
+                  />
+                </td>
+
                 <td>{p.player.name}</td>
 
                 <td>{field_label(p.field)}</td>
 
-                <td>{blank_dash(p.old)}</td>
+                <td>{proposal_value(p.field, p.old)}</td>
 
-                <td><strong>{p.new}</strong></td>
+                <td><strong>{proposal_value(p.field, p.new)}</strong></td>
+
+                <td>{source_list_label(p.source)}</td>
 
                 <td class={if p.via == :name, do: "hint"}>{via_label(p.via)}</td>
               </tr>
@@ -4232,7 +4296,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         </div>
 
         <p class="hint">
-          {gettext("%{checked} checked, %{changed}, %{unmatched} without id match.",
+          {gettext("%{checked} checked, %{changed}, %{unmatched} not found on either list.",
             checked: ngettext("%{count} player", "%{count} players", @summary.checked),
             changed: ngettext("%{count} change", "%{count} changes", @summary.changed),
             unmatched: @summary.unmatched
@@ -4242,14 +4306,16 @@ defmodule PairingsEngineWeb.PlayersLive do
         <div class="actions">
           <button
             :if={@summary.proposals != []}
+            id="data-refresh-apply"
             type="button"
             class="pe-btn primary"
-            phx-click="apply_club_refresh"
+            phx-click="apply_data_refresh"
+            disabled={MapSet.size(@selected) == 0}
           >
-            {gettext("Apply")}
+            {gettext("Apply selected")}
           </button>
 
-          <button type="button" class="pe-btn" phx-click="close_club_refresh">{gettext("Cancel")}</button>
+          <button type="button" class="pe-btn" phx-click="close_data_refresh">{gettext("Cancel")}</button>
         </div>
       </div>
     </div>
@@ -4259,15 +4325,37 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp field_label(:fide_rating), do: "FIDE rating"
   defp field_label(:national_rating), do: "National rating"
   defp field_label(:title), do: "Title"
-  defp field_label(:club), do: "Club"
-  defp field_label(:club_number), do: "Club number"
+  defp field_label(:club), do: gettext("Club")
+  defp field_label(:club_number), do: gettext("Club number")
+  defp field_label(:name), do: gettext("Name")
+  defp field_label(:sex), do: gettext("Sex")
+  defp field_label(:birth_year), do: gettext("Birth year")
+  defp field_label(:federation), do: gettext("Federation")
+  defp field_label(:affiliated), do: gettext("Affiliated")
+  defp field_label(:fide_id), do: gettext("FIDE ID")
+  defp field_label(:national_id), do: gettext("National ID")
 
-  # How ClubRefresh resolved this player. Ids are exact; a name match is a
-  # judgement the arbiter should be able to see and second-guess, which is
-  # the whole reason this column exists.
-  defp via_label(:national_id), do: "National id"
-  defp via_label(:fide_id), do: "FIDE id"
-  defp via_label(:name), do: "Name + year"
+  # A proposal's value as the preview shows it: sex as FIDE's letter, a
+  # yes/no for the affiliation, and the full date when the old birth year
+  # was really a birth date about to be dropped.
+  defp proposal_value(:sex, value),
+    do: value |> Player.normalize_sex() |> Player.sex_label() |> blank_dash()
+
+  defp proposal_value(:affiliated, true), do: gettext("Yes")
+  defp proposal_value(:affiliated, false), do: gettext("No")
+  defp proposal_value(_field, %Date{} = date), do: Date.to_iso8601(date)
+  defp proposal_value(_field, value), do: blank_dash(value)
+
+  defp source_list_label(:kbsb), do: "KBSB"
+  defp source_list_label(:fide), do: "FIDE"
+  defp source_list_label(_), do: ""
+
+  # How PlayerDataRefresh resolved this player. Ids are exact; a name match
+  # is a judgement the arbiter should be able to see and second-guess, which
+  # is the whole reason this column exists.
+  defp via_label(:national_id), do: gettext("National ID")
+  defp via_label(:fide_id), do: gettext("FIDE ID")
+  defp via_label(:name), do: gettext("Name + year")
   defp via_label(_), do: ""
 
   # The Tournament Rating (`Player.rating/2`, by the tournament's method),

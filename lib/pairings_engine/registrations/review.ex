@@ -141,6 +141,7 @@ defmodule PairingsEngine.Registrations.Review do
           |> put_present("club_number", member.club_number)
           |> put_if_blank("federation", Members.fide_federation(member))
           |> put_if_blank("birth_year", member.birth_year)
+          |> put_if_blank("sex", member.sex)
           |> put_if_blank("fide_id", member.fide_id)
           |> put_if_blank("name", Member.full_name(member))
 

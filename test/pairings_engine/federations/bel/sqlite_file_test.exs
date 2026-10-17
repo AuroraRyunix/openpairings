@@ -118,6 +118,30 @@ defmodule PairingsEngine.Federations.BEL.SqliteFileTest do
   end
 
   describe "to_member_row/2" do
+    # The file writes "M"/"F". Kept as the app's own "m"/"w", so a KBSB pick
+    # lands on a Sex radio that actually exists.
+    test "Sex becomes the app's m/w, and anything unreadable is nil, not a guess" do
+      sex = fn value -> SqliteFile.to_member_row(%{"IdNumber" => 1, "Sex" => value}).sex end
+
+      assert sex.("M") == "m"
+      assert sex.("F") == "w"
+      assert sex.("w") == "w"
+      assert sex.(" f ") == "w"
+      assert sex.(1) == "m"
+      assert sex.(2) == "w"
+
+      for unknown <- [nil, "", "X", 0, 7] do
+        assert sex.(unknown) == nil, "#{inspect(unknown)} is not a sex"
+      end
+    end
+
+    test "a row read off a real players.sqlite keeps its Sex" do
+      sqlite = Fixture.build_sqlite([Fixture.default_row(%{IdNumber: 7, Sex: "F"})])
+      {:ok, %{rows: [raw]}} = SqliteFile.read(sqlite)
+
+      assert SqliteFile.to_member_row(raw).sex == "w"
+    end
+
     test "applies the field allowlist: birthday reduces to a year, modif columns never appear" do
       raw = %{
         "IdNumber" => 100_001,
@@ -157,6 +181,7 @@ defmodule PairingsEngine.Federations.BEL.SqliteFileTest do
       assert row.birth_year == 1990
       assert row.affiliated == true
       assert row.died == false
+      assert row.sex == "m"
 
       refute Map.has_key?(row, :login_modif)
       refute Map.has_key?(row, :date_modif)

@@ -74,7 +74,8 @@ defmodule PairingsEngineWeb.AuditLive do
   #     results-site bucket to defer to, so they went with the other
   #     Settings-sub-page codes already there (logo, forbidden pairings,
   #     category create/remove);
-  #   * the bulk player edits (`player.bulk_*`, `player.clubs_refreshed`)
+  #   * the bulk player edits (`player.bulk_*`, `player.data_refreshed` and
+  #     its predecessor `player.clubs_refreshed`, still in older logs)
   #     join "players";
   #   * the four hand-off steps and the forced-unlock join "tournament",
   #     next to created/deleted/restored - all whole-tournament acts, not
@@ -96,7 +97,7 @@ defmodule PairingsEngineWeb.AuditLive do
   @categories [
     {"all", :all},
     {"players", ~w(player.created player.updated player.deleted player.ratings_refreshed
-        player.clubs_refreshed player.bulk_absent_set player.bulk_paid_set
+        player.data_refreshed player.clubs_refreshed player.bulk_absent_set player.bulk_paid_set
         player.bulk_category_set registration.accepted registration.discarded
         team.created team.updated team.deleted team.player_assigned team.player_removed
         team.roster_filled
@@ -468,6 +469,16 @@ defmodule PairingsEngineWeb.AuditLive do
         count(d, "players_updated")
       )
 
+  def describe("player.data_refreshed", d),
+    do:
+      ngettext(
+        "Updated player data for %{count} player.",
+        "Updated player data for %{count} players.",
+        count(d, "players_updated")
+      )
+
+  # Written by "Update clubs" until it learned the other columns. Nothing
+  # logs it any more, but the rows it left behind still deserve a sentence.
   def describe("player.clubs_refreshed", d),
     do:
       ngettext(

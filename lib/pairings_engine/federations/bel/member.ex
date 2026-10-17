@@ -28,6 +28,10 @@ defmodule PairingsEngine.Federations.BEL.Member do
     field :club_name, :string, default: ""
     field :federation, :string, default: ""
     field :birth_year, :integer
+    # "m"/"w", the app's own spelling (`Player.normalize_sex/1`), from the
+    # file's `Sex` column. `nil` on rows imported before it was kept, and on
+    # any row whose `Sex` was blank or unreadable - unknown, not a guess.
+    field :sex, :string
 
     # Only set by the data-platform API sync, which mirrors the roster
     # unfiltered (see the AddKbsbPlayerStatusFlags migration). `nil` on
