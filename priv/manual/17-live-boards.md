@@ -2,7 +2,7 @@
 
 Live boards show the games of a round as they are played, move by move, with
 the clocks, on the results site. The moves come from a box in the playing
-hall. Alnasl is that box: a small computer beside electronic DGT boards that
+hall. Alnasl is that box: a small computer beside electronic chessboards that
 reads the moves. It talks to two programs. To **OpenPairings** it asks who sits
 where, and reports back what the boards saw. To **OpenResults** it sends the
 moves and clocks for the spectators.
@@ -41,15 +41,12 @@ pairing program, because Alnasl is a separate program from OpenPairings.
 The box always calls out. OpenPairings never calls the box, so the hall opens
 no port and needs no fixed address.
 
-Alnasl is not affiliated with or endorsed by DGT. The DGT name is used only to
-say which boards Alnasl talks to.
-
 ## The hardware {#the-planned-hardware}
 
 What the box works with. For what a given version of Alnasl supports, see
 Alnasl's own documentation.
 
-- **Boards:** DGT electronic boards, in their RS232 and USB-C models. Both come
+- **Boards:** electronic chessboards, in their RS232 and USB-C models. Both come
   down to a serial stream, so one driver serves both.
 - **One loop:** a serial loop of up to 12 boards, each with its own address on
   the bus, polled in turn.
@@ -57,7 +54,7 @@ Alnasl's own documentation.
   and put back, a capture made in two steps, or a piece knocked over does not
   become a wrong move. A move the box worked out afterwards, or guessed, is
   counted as such, and the count travels with the game.
-- **Clocks:** taken from a DGT clock on the board, when there is one.
+- **Clocks:** taken from a clock on the board, when there is one.
 - **The box:** a Raspberry Pi with a screen, keyboard and mouse for the arbiter,
   shown full screen in a kiosk browser.
 - **Offline:** moves are kept on the box and sent in order once the connection

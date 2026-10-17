@@ -3,7 +3,7 @@
 Live borden tonen de partijen van een ronde terwijl ze gespeeld worden, zet voor
 zet, met de klokken, op de uitslagensite. De zetten komen van een kastje in de
 speelzaal. Alnasl is dat kastje: een kleine computer naast elektronische
-DGT-borden die de zetten leest. Het praat met twee programma's. Aan
+schaakborden die de zetten leest. Het praat met twee programma's. Aan
 **OpenPairings** vraagt het wie waar zit, en het meldt terug wat de borden zagen.
 Naar **OpenResults** stuurt het de zetten en de klokken voor de toeschouwers.
 
@@ -42,15 +42,12 @@ OpenPairings.
 Het kastje belt altijd zelf. OpenPairings belt het kastje nooit, dus de zaal zet
 geen poort open en heeft geen vast adres nodig.
 
-Alnasl is niet gelieerd aan en niet goedgekeurd door DGT. De naam DGT wordt alleen
-gebruikt om te zeggen met welke borden Alnasl praat.
-
 ## De hardware {#the-planned-hardware}
 
 Waar het kastje mee werkt. Wat een bepaalde versie van Alnasl ondersteunt, staat
 in de eigen documentatie van Alnasl.
 
-- **Borden:** elektronische DGT-borden, in de RS232- en USB-C-modellen. Beide
+- **Borden:** elektronische schaakborden, in de RS232- en USB-C-modellen. Beide
   komen neer op een seriële stroom, dus één stuurprogramma past op beide.
 - **Eén lus:** een seriële lus van tot 12 borden, elk met een eigen adres op de
   bus, om beurten bevraagd.
@@ -58,7 +55,7 @@ in de eigen documentatie van Alnasl.
   opgetild en teruggezet wordt, een slag in twee stappen of een omgevallen stuk
   geen verkeerde zet wordt. Een zet die het kastje achteraf afleidde, of raadde,
   wordt als zodanig geteld, en dat aantal reist mee met de partij.
-- **Klokken:** uit een DGT-klok op het bord, wanneer er een is.
+- **Klokken:** uit een klok op het bord, wanneer er een is.
 - **Het kastje:** een Raspberry Pi met een scherm, toetsenbord en muis voor de
   arbiter, schermvullend in een kioskbrowser.
 - **Offline:** zetten worden op het kastje bewaard en in volgorde verstuurd zodra

@@ -10,7 +10,7 @@ borden zijn en wat elke pagina ervan toont, staat in
 > [!WARNING] Een eerste uitgave
 > Alnasl, het programma dat de borden leest, is in zijn eerste uitgave. Het is
 > gedraaid op gesimuleerde borden. Op echte apparatuur is het geprobeerd met
-> losse DGT-borden van twee firmwaregeneraties (één met een DGT-klok) en met
+> losse borden van twee firmwaregeneraties (één met een klok) en met
 > twee borden op één kabel, een lus. Op een echt bord zijn enkele zetten gespeeld,
 > nog geen hele partij, en er is nog geen toernooi mee gespeeld. Niet geprobeerd:
 > een hele partij op een echt bord, een zet of klok op een lus, meer dan twee
@@ -21,9 +21,9 @@ borden zijn en wat elke pagina ervan toont, staat in
 
 ## Wat je nodig hebt {#what-you-need}
 
-- **De borden.** Elektronische DGT-borden, elk met zijn kabel naar de computer.
-  Alnasl leest ze als seriële poorten: een DGT-USB-bord rechtstreeks, of een
-  serieel bord via een USB-serieel-adapter. Een DGT-klok op één bord is gelezen;
+- **De borden.** Elektronische schaakborden (USB/serieel), elk met zijn kabel naar de computer.
+  Alnasl leest ze als seriële poorten: een USB-bord rechtstreeks, of een
+  serieel bord via een USB-serieel-adapter. Een klok op één bord is gelezen;
   klokken op een lus zijn nog niet geprobeerd.
 - **Meerdere borden op één kabel (een lus).** Voeg de poort toe in Alnasl en het
   vindt de borden op die poort vanzelf, elk met een eigen rij. Twee borden op

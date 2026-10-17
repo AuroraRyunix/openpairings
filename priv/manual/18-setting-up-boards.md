@@ -9,8 +9,8 @@ live boards are, and what each page of them shows, is in
 
 > [!WARNING] A first release
 > Alnasl, the program that reads the boards, is in its first release. It has
-> run on simulated boards. On real hardware it has read single DGT boards of
-> two firmware generations (one with a DGT clock) and two boards on one cable,
+> run on simulated boards. On real hardware it has read single boards of
+> two firmware generations (one with a clock) and two boards on one cable,
 > a loop. Some moves have been played on a real board, not a whole game, and
 > no tournament has been played through it. Not yet tried: a whole game on a
 > real board, a move or a clock on a loop, more than two boards on a loop, and
@@ -21,9 +21,9 @@ live boards are, and what each page of them shows, is in
 
 ## What you need {#what-you-need}
 
-- **The boards.** DGT electronic boards, each with its cable to the computer.
-  Alnasl reads them as serial ports: a DGT USB board directly, or a serial
-  board through a USB-serial adapter. A DGT clock on a single board has been
+- **The boards.** Electronic chessboards (USB/serial), each with its cable to the computer.
+  Alnasl reads them as serial ports: a USB board directly, or a serial
+  board through a USB-serial adapter. A clock on a single board has been
   read; clocks on a loop have not been tried.
 - **Several boards on one cable (a loop).** Add the port in Alnasl and it finds
   the boards on that port by itself, each with its own row. Two boards on one
