@@ -50,6 +50,9 @@ defmodule PairingsEngine.FakePlugin do
   def routes, do: [{"/", __MODULE__, :index}, {"/series/:id", __MODULE__, :show}]
 
   @impl true
+  def http_routes, do: [{:post, "/join/:code", __MODULE__, :join}]
+
+  @impl true
   def tournament_menu_entries(_scope, %Tournament{} = t) do
     maybe_raise()
 

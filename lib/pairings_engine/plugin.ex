@@ -34,6 +34,15 @@ defmodule PairingsEngine.Plugin do
       exists only in a build with a plugin.
     * `routes/0` - LiveViews mounted under `/p/<id>` in the router's
       `:plugins` live_session: signed in, same hooks as a tournament page.
+    * `http_routes/0` - plain plugs under `/p/<id>`, as
+      `{verb, path, plug, plug_opts}`, with no pipeline at all: no
+      session, no CSRF token, no sign-in. For programs rather than
+      browsers - a hall device joining with a one-time code, then holding
+      a WebSocket open (a plug may upgrade the connection with
+      `WebSockAdapter.upgrade/4`). The core checks nothing here: the
+      plugin decides who may talk to it, by a key it issued, say, and a
+      plug that forgets to is open to the internet, which is the plugin's
+      bug and nobody else's.
     * `tournament_menu_entries/2` - links in a tournament's top bar.
     * `features/0` - entries appended to `PairingsEngine.Features`, so a
       plugin's pages are switched on per account like a federation pack.
@@ -65,6 +74,20 @@ defmodule PairingsEngine.Plugin do
       is a bug with good intentions.
 
   The five identity callbacks are required; every hook is optional.
+
+  ## Listening
+
+  A plugin that wants to know when something happens to a tournament
+  subscribes to `PairingsEngine.Tournaments.tournament_topic/1` on
+  `PairingsEngine.PubSub`, like every page does, and reads the database
+  when `{:tournament_changed, tournament_id, hint}` arrives. The message
+  is a nudge, not a record: it says "look again", never what to find, so
+  a subscriber that missed one loses nothing it cannot recompute.
+
+  In particular a round becoming public always reaches that topic: pairing
+  it with the automation on, publishing it by hand, and the moment a
+  delayed publish runs out (`PairingsEngine.Publishing.promote_due_rounds/1`).
+  `PairingsEngine.Tournaments.round_published?/2` is what "public" means.
 
   ## FIDE mode
 
@@ -121,6 +144,7 @@ defmodule PairingsEngine.Plugin do
   @callback version() :: String.t()
   @callback start_path() :: String.t()
   @callback routes() :: [{String.t(), module(), atom()}]
+  @callback http_routes() :: [{atom(), String.t(), module(), term()}]
   @callback tournament_menu_entries(Scope.t() | nil, Tournament.t()) :: [menu_entry()]
   @callback features() :: [map()]
   @callback board_order(Tournament.t()) :: :roster | :plugin
@@ -138,6 +162,7 @@ defmodule PairingsEngine.Plugin do
   @callback page_overlay(map()) :: Phoenix.LiveView.Rendered.t() | nil
 
   @optional_callbacks routes: 0,
+                      http_routes: 0,
                       tournament_menu_entries: 2,
                       features: 0,
                       board_order: 1,
