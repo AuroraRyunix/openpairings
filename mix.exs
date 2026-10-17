@@ -96,7 +96,7 @@ defmodule PairingsEngine.MixProject do
   end
 
   # Standalone single-file binaries via Burrito - one self-contained
-  # executable per OS/arch (x86_64 + aarch64 for macOS, Linux, Windows).
+  # executable per OS/arch (Linux x86_64 + aarch64, Windows x86_64; none for macOS).
   # Build with `MIX_ENV=prod mix release`; output lands in `burrito_out/`.
   # See docs/binaries.md. Needs Zig + xz on the build machine; cross-target
   # builds are done per-arch in CI (.github/workflows/binaries.yml).
@@ -106,8 +106,8 @@ defmodule PairingsEngine.MixProject do
         steps: [:assemble, &Burrito.wrap/1],
         burrito: [
           targets: [
-            macos_x86_64: [os: :darwin, cpu: :x86_64],
-            macos_aarch64: [os: :darwin, cpu: :aarch64],
+            # No macOS: Burrito's own Erlang there needs macOS 15. The Mac
+            # gets OpenPairings.app and the portable zip (docs/macos.md).
             linux_x86_64: [os: :linux, cpu: :x86_64],
             linux_aarch64: [os: :linux, cpu: :aarch64],
             # No windows_aarch64: Erlang/OTP ships no Windows/ARM runtime to

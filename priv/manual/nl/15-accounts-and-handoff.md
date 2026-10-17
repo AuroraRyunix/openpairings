@@ -62,6 +62,8 @@ onderaan, in het rood):
 | Overdragen / Teruggeven / Terughalen | Zie hieronder. |
 | Verlaten | Voor een gedeeld toernooi dat niet van jou is. |
 
+De tabel **Gearchiveerd** onder de lijst heeft per rij hetzelfde menu **Meer**, met *Exporteren*, *Dearchiveren* en, onderaan in het rood, *Verwijderen* of *Verlaten*.
+
 De **Prullenbak** toont verwijderde toernooien; **Herstellen** brengt er één terug.
 
 > [!WARNING]

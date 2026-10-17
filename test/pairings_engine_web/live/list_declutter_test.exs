@@ -87,6 +87,48 @@ defmodule PairingsEngineWeb.ListDeclutterTest do
     end
   end
 
+  describe "the Archived table" do
+    test "each archived row has the same closed More menu, destructive item last", %{
+      conn: conn,
+      scope: scope
+    } do
+      {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Shelved", "type" => "swiss"})
+      {:ok, _} = Tournaments.archive_tournament(t)
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      assert has_element?(lv, "#archived-tournament-menu-#{t.id}.pe-dropdown")
+      refute has_element?(lv, "#archived-tournament-menu-#{t.id}[open]")
+      assert has_element?(lv, "#archived-tournament-menu-toggle-#{t.id}", "More")
+
+      for id <- ["archived-export", "unarchive", "archived-delete"] do
+        assert has_element?(
+                 lv,
+                 "#archived-tournament-menu-#{t.id} [role=menuitem]#" <> "#{id}-#{t.id}"
+               )
+      end
+
+      assert has_element?(
+               lv,
+               "#archived-tournament-menu-#{t.id} hr + button.is-danger#archived-delete-#{t.id}"
+             )
+
+      # No loose buttons left in the row.
+      refute has_element?(lv, ~s(tr td > button[phx-click="unarchive_tournament"]))
+    end
+
+    test "Unarchive from the menu still works", %{conn: conn, scope: scope} do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{"name" => "Back Again", "type" => "swiss"})
+
+      {:ok, _} = Tournaments.archive_tournament(t)
+      {:ok, lv, _html} = live(conn, ~p"/")
+
+      lv |> element("#unarchive-#{t.id}") |> render_click()
+      refute has_element?(lv, "#archived-tournament-menu-#{t.id}")
+      assert has_element?(lv, "#tournament-menu-#{t.id}")
+    end
+  end
+
   describe "the Players page" do
     setup %{scope: scope} do
       {:ok, t} = Tournaments.create_tournament(scope, %{"name" => "Players", "type" => "swiss"})

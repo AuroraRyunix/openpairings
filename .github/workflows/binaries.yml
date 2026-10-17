@@ -190,7 +190,13 @@ jobs:
 
       # Named explicitly. `default_release` in mix.exs covers the bare form,
       # but a build script should not depend on which release is the default.
-      - run: mix release pairings_engine --overwrite
+      #
+      # Not on the Mac (2026-10-17): Burrito's own Erlang there wants macOS 15,
+      # and the .app and the portable zip, built below, do not. No single-file
+      # Mac binary is shipped any more.
+      - name: Build the single-file binary (Linux and Windows)
+        if: runner.os != 'macOS'
+        run: mix release pairings_engine --overwrite
 
       # Pinned to the same velopack_libc version as the `vpk` pin further
       # down (1.2.0) - not "latest", for the same reason that pin is a
@@ -313,7 +319,7 @@ jobs:
       # The assertion is that the page comes back AND carries the
       # auto-signed-in owner's address.
       - name: Smoke test the binary (Unix)
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           set -euo pipefail
@@ -510,7 +516,7 @@ jobs:
           Write-Host "portable release signed in as the local owner"
 
       - name: Name the downloads after the product
-        if: runner.os != 'Windows'
+        if: runner.os == 'Linux'
         shell: bash
         run: |
           cd burrito_out
@@ -543,7 +549,8 @@ jobs:
           if-no-files-found: error
           retention-days: ${{ startsWith(github.ref, 'refs/tags/') && 90 || 14 }}
 
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - if: runner.os != 'macOS'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: openpairings_${{ matrix.target }}
           path: burrito_out/*
@@ -854,8 +861,8 @@ jobs:
       # more: attaching needs `contents: write`, and a matrix job that runs on
       # every push to main is the last place to hold that.
       #
-      # Only the three release SHAPES are here - the single-file binary, the
-      # portable zip, the macOS app's zip. The per-target artifacts above are
+      # Only the three release SHAPES are here - the single-file binary (Linux
+      # and Windows), the portable zip, the macOS app's zip. The per-target artifacts above are
       # a separate thing: they exist for branch builds, which produce no
       # release at all.
       # Must match the `release` job's own condition below. It said tags

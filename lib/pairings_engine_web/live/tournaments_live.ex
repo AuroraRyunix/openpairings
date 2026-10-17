@@ -3264,34 +3264,72 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 <td><span class="badge archived">{gettext("archived")}</span></td>
 
                 <td style="text-align: right">
-                  <a
-                    class="pe-btn"
-                    href={~p"/t/#{t.id}/export/json"}
-                    target="_blank"
-                    title={export_key_warning(t)}
-                  >{gettext("Export")}</a>
-                  <button class="pe-btn" phx-click="unarchive_tournament" phx-value-id={t.id}>
-                    {gettext("Unarchive")}
-                  </button>
-
-                  <button
-                    :if={owned?}
-                    class="pe-btn danger-link"
-                    phx-click="delete_start"
-                    phx-value-id={t.id}
+                  <%!-- The same More menu as the active rows above: arrow only,
+                        every action kept with its event, the destructive one
+                        last and red. --%>
+                  <details
+                    id={"archived-tournament-menu-#{t.id}"}
+                    class="pe-dropdown"
+                    phx-hook=".ListMenu"
+                    phx-mounted={JS.ignore_attributes(["open"])}
                   >
-                    {gettext("Delete")}
-                  </button>
+                    <summary
+                      id={"archived-tournament-menu-toggle-#{t.id}"}
+                      class="pe-btn"
+                      aria-haspopup="menu"
+                      aria-label={gettext("More for %{name}", name: t.name)}
+                    >
+                      {gettext("More")}
+                    </summary>
 
-                  <button
-                    :if={!owned?}
-                    class="pe-btn danger-link"
-                    phx-click="leave_tournament"
-                    phx-value-id={t.id}
-                    data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
-                  >
-                    {gettext("Leave")}
-                  </button>
+                    <div
+                      class="pe-dropdown-panel"
+                      role="menu"
+                      aria-label={gettext("More for %{name}", name: t.name)}
+                    >
+                      <a
+                        id={"archived-export-#{t.id}"}
+                        role="menuitem"
+                        href={~p"/t/#{t.id}/export/json"}
+                        target="_blank"
+                        title={export_key_warning(t)}
+                      >{gettext("Export")}</a>
+                      <button
+                        id={"unarchive-#{t.id}"}
+                        type="button"
+                        role="menuitem"
+                        phx-click="unarchive_tournament"
+                        phx-value-id={t.id}
+                      >
+                        {gettext("Unarchive")}
+                      </button>
+                      <hr />
+                      <button
+                        :if={owned?}
+                        id={"archived-delete-#{t.id}"}
+                        type="button"
+                        role="menuitem"
+                        class="is-danger"
+                        phx-click="delete_start"
+                        phx-value-id={t.id}
+                      >
+                        {gettext("Delete")}
+                      </button>
+
+                      <button
+                        :if={!owned?}
+                        id={"archived-leave-#{t.id}"}
+                        type="button"
+                        role="menuitem"
+                        class="is-danger"
+                        phx-click="leave_tournament"
+                        phx-value-id={t.id}
+                        data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
+                      >
+                        {gettext("Leave")}
+                      </button>
+                    </div>
+                  </details>
                 </td>
               </tr>
             </tbody>

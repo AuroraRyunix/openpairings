@@ -143,6 +143,18 @@ defmodule PairingsEngine.Desktop.MacosTest do
       assert Enum.sort(List.flatten(imports)) == ["AppKit", "Foundation"]
     end
 
+    test "there is no single-file macOS binary: Burrito has no Mac target and CI builds none" do
+      mix = read("mix.exs")
+      workflow = read(".github/workflows/binaries.yml")
+
+      refute mix =~ ~r/^\s+macos_\w+: \[os: :darwin/m
+      assert workflow =~ "if: runner.os != 'macOS'"
+      assert workflow =~ "name: Build the single-file binary (Linux and Windows)"
+      # The Mac downloads that stay.
+      assert workflow =~ "openpairings_app_${{ matrix.target }}.zip"
+      assert workflow =~ "openpairings_portable_${{ matrix.target }}.zip"
+    end
+
     test "the runtime is built for macOS 11, and a build that is not fails" do
       workflow = read(".github/workflows/binaries.yml")
       build_otp = read("rel/macos/build_otp.sh")

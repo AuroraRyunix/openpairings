@@ -13,10 +13,11 @@ a Mac still has to confirm.
 | Oldest macOS | 11 (Big Sur). Everything compiled on the runner is built for it (`MACOSX_DEPLOYMENT_TARGET=11.0`, the SQLite NIF from source with `EXQLITE_FORCE_BUILD`), and `build_app.sh` fails the build, naming the files, if any binary asks for newer; what they accept goes into `Info.plist` |
 | Signed | ad-hoc only, for now - see [Unsigned, for now](#unsigned-for-now) |
 
-The single-file binary (`openpairings_macos_aarch64`) and the portable zip
-(`openpairings_portable_macos_aarch64.zip`, started with `openpairings.sh`)
-are built for macOS too, as before 2026-09-14. They are for people who want
-a terminal. The app is for everybody else.
+The portable zip (`openpairings_portable_macos_aarch64.zip`, started with
+`openpairings.sh`) is built for macOS too, for people who want a terminal.
+The app is for everybody else. There is no single-file Mac binary since
+2026-10-17: Burrito's precompiled Erlang needs macOS 15, and nobody should
+have to find that out by double-clicking.
 
 ## What the app is
 
@@ -71,8 +72,8 @@ from a **read-only** bundle and checks its seal afterwards to prove it.
 `~/Library/Application Support/OpenPairings` - the database
 (`openpairings.db`), `secret_key_base`, `backups/` and `logs/server.log`,
 the server's output for the current run (a fresh file on every start; the
-previous run is kept once as `server.log.1`). The same folder the portable release and the single-file
-binary have always used on a Mac, so nothing moves.
+previous run is kept once as `server.log.1`). The same folder the portable release (and the single-file
+binary, while there was one) used on a Mac, so nothing moves.
 
 It is never inside the app: replacing the app (an update) or dragging it to
 the Bin (an uninstall) leaves it alone. `config/runtime.exs` refuses to
@@ -191,7 +192,7 @@ only report the number, which is how 15.0 shipped.
 ## What CI checks on every push
 
 In the macOS jobs of `.github/workflows/binaries.yml`, after the existing
-checks of the single-file binary and the portable release:
+checks of the portable release:
 
 1. `build_app.sh`: `Launcher.swift` compiles (swiftc's errors become
    annotations on the run); every binary in the bundle links only to the
