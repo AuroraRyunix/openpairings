@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Removed] **The round's right-click menu on the Pairings page.** Its only content was the "what spectators see" switch, which already sits at the top of the page; a second copy under the mouse only hid the board you had clicked. A right-click away from a seat now gets the browser's own menu.
+
 ## [0.89.2] - 2026-10-17
 
 - [Feature] **Performance on the public standings, off unless you ask.** The Results site settings have a new "Performance" tick under the columns. Ticked, each standings row carries the same performance rating the Players page already shows, worked out on the games up to that round; unticked, which is where every tournament starts, the key is simply not sent. A player with no finished game has no number and no key, rather than a zero that would look like a very bad tournament. One formula, one function, so the two screens can no longer disagree out of spite.

@@ -1328,7 +1328,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   # `pairing_menu/1` has no branch for used to crash the page (a MatchError,
   # an ArgumentError, a CaseClauseError in the render). Any of those now opens
   # nothing.
-  @menu_scopes ~w(seated pool vacant round)
+  @menu_scopes ~w(seated pool vacant)
 
   def handle_event("open_menu", params, socket) do
     scope = params["scope"] || "seated"
@@ -4704,9 +4704,6 @@ defmodule PairingsEngineWeb.PairingsLive do
   # same time (the menu's hidden until opened, but LiveView still needs
   # unique ids), so the caller gives the menu's copy its own prefix.
   attr :id_prefix, :string, default: ""
-  # The context menu's narrower variant: icon above label, with the round
-  # named in its caption since the menu has no heading of its own.
-  attr :compact, :boolean, default: false
 
   defp publish_level(assigns) do
     %{tournament: tournament, round: round} = assigns
@@ -4745,7 +4742,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     ~H"""
     <div
       id={@id}
-      class={["pe-level", @compact && "is-compact"]}
+      class="pe-level"
       data-level={@level}
     >
       <%!-- The visible caption is the audience ("Spectators see:"); the
@@ -4757,9 +4754,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         aria-hidden="true"
         title={gettext("What spectators see on the results site")}
       >
-        {if @compact,
-          do: gettext("Round %{n}: what spectators see", n: @round.number),
-          else: gettext("Spectators see:")}
+        {gettext("Spectators see:")}
       </span>
 
       <div
@@ -5331,7 +5326,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       <div
         class="ctx-menu"
         id="hand-edit-menu"
-        role={if @menu.scope == "round", do: "group", else: "menu"}
+        role="menu"
         aria-label={gettext("Hand edits")}
         style={"left: #{@menu.x}px; top: #{@menu.y}px"}
         phx-click-away="close_menu"
@@ -5449,10 +5444,6 @@ defmodule PairingsEngineWeb.PairingsLive do
             >
               {gettext("Delete this board…")}
             </button>
-          <% "round" -> %>
-            <div class="pe-level-menu">
-              <.publish_level id_prefix="menu-" tournament={@tournament} round={@round} compact />
-            </div>
         <% end %>
       </div>
     </div>
@@ -7666,19 +7657,10 @@ defmodule PairingsEngineWeb.PairingsLive do
       </div>
 
       <div class="card table-card">
-        <%!-- `data-scope="round"` sits on the table itself, not one more
-             row or cell, so a right-click anywhere on the board that
-             ISN'T already a more specific target (a seat, an empty seat)
-             falls through to it - discoverable "board by board", per the
-             maintainer's own framing of this gap, without adding a new
-             element just to hold the attribute. Only present once there
-             IS a round: with none paired, the table has nothing but the
-             "not paired yet" placeholder row and no round to publish. --%>
         <table
           class="pe-table pairings-board-table"
           id={"pairings-table-#{@round_number}"}
           phx-hook=".PairingMenu"
-          data-scope={@round && "round"}
         >
           <%!-- White right-aligned, Result centred, Black left-aligned - a
                printed pairing sheet's convention, not two left-aligned name

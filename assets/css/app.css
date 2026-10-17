@@ -2825,56 +2825,13 @@ button.pe-btn, .pe-btn {
 }
 .pe-level-note-icon { flex-shrink: 0; opacity: 0.8; }
 
-/* The round's right-click menu: caption above, a framed track below, and
-   each stop's icon over its word so four fit the menu's width. */
-.pe-level-menu { padding: 6px 5px 4px; min-width: 280px; }
-
-.pe-level.is-compact {
-  --pe-level-pad: 3px;
-  display: flex;
-  flex-direction: column;
-  height: auto;
-  padding: 0;
-  border: 0;
-  background: none;
-}
-.pe-level.is-compact .pe-level-caption {
-  padding: 0 2px 7px;
-  margin: 0;
-  font-size: 12px;
-  letter-spacing: 0;
-  text-transform: none;
-}
-.pe-level.is-compact .pe-level-caption::after { content: none; }
-.pe-level.is-compact .pe-level-track {
-  height: 54px;
-  box-sizing: border-box;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--bg);
-}
-.pe-level.is-compact .pe-level-stop,
-.pe-level.is-compact .pe-level-stop:hover {
-  flex-direction: column;
-  gap: 4px;
-  padding: 0 4px;
-  font-size: 11.5px;
-}
-.pe-level-menu .pe-level-note {
-  justify-content: flex-start;
-  align-items: flex-start;
-  margin-top: 8px;
-  padding: 0 2px;
-  font-size: 12px;
-}
-
 /* A phone: the header's stops keep their icon and lose their word. Each
    radio's accessible name and hover title still say the level in full. */
 @media (max-width: 640px) {
-  .pe-level:not(.is-compact, .is-field) .pe-level-text { display: none; }
-  .pe-level:not(.is-compact, .is-field) .pe-level-stop,
-  .pe-level:not(.is-compact, .is-field) .pe-level-stop:hover { padding: 0 12px; }
-  .pe-level:not(.is-compact, .is-field) .pe-level-caption { padding: 0 9px 0 6px; }
+  .pe-level:not(.is-field) .pe-level-text { display: none; }
+  .pe-level:not(.is-field) .pe-level-stop,
+  .pe-level:not(.is-field) .pe-level-stop:hover { padding: 0 12px; }
+  .pe-level:not(.is-field) .pe-level-caption { padding: 0 9px 0 6px; }
 }
 
 /* A setting on Settings -> OpenResults - "On the results site" and

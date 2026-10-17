@@ -40,8 +40,7 @@ Settings, **OpenResults**.
 
 ### What the public sees, round by round
 
-On the Pairings page, a control **Spectators see:** (also in the round's
-right-click menu) sets how much of each round is public, in four cumulative
+On the Pairings page, a control **Spectators see:** sets how much of each round is public, in four cumulative
 levels:
 
 | Level | Public |

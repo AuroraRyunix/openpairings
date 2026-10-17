@@ -612,20 +612,6 @@ defmodule PairingsEngineWeb.AccessibilityTest do
       end
 
       assert events.(keys_menu) == events.(mouse_menu)
-
-      # The round's publishing controls are switches, not menu items.
-      html =
-        render_click(view, "open_menu", %{
-          "x" => "1",
-          "y" => "1",
-          "scope" => "round",
-          "keyboard" => "true"
-        })
-
-      assert html
-             |> LazyHTML.from_fragment()
-             |> LazyHTML.query("#hand-edit-menu")
-             |> attrs("role") == ["group"]
     end
 
     test "a swap armed and cancelled is said, shown in words, and completed by the same event", %{

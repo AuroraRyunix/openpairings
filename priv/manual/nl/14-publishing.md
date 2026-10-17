@@ -34,7 +34,7 @@ Instellingen, **OpenResults**.
 
 ### Wat het publiek ziet, ronde per ronde {#what-the-public-sees-round-by-round}
 
-Op de pagina Paringen stelt een bediening **Toeschouwers zien:** (ook in het rechtsklikmenu van de ronde) in hoeveel van elke ronde openbaar is, in vier cumulatieve niveaus:
+Op de pagina Paringen stelt een bediening **Toeschouwers zien:** in hoeveel van elke ronde openbaar is, in vier cumulatieve niveaus:
 
 | Niveau | Openbaar |
 | --- | --- |

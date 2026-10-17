@@ -2099,67 +2099,15 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     end
   end
 
-  describe "the same control in the round-level right-click menu" do
-    # The menu opens with `scope: "round"` rather than a player/pairing id -
-    # right-clicking anywhere on the board that isn't already a more
-    # specific target (a seat, an empty seat) falls through to it. It shows
-    # the same control as the page header, compact, with
-    # `id_prefix="menu-"` so the two copies never collide on id.
-
-    test "shows the round's level as a compact radio group", %{conn: conn, scope: scope} do
+  describe "the round-level right-click menu is gone" do
+    test "open_menu with scope round is ignored", %{conn: conn, scope: scope} do
       tournament = fixture(scope)
-      {:ok, _t} = Tournaments.publish_pairings_through(tournament, 2)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
-      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
-
-      assert has_element?(lv, "#menu-publish-level-2.is-compact[data-level='1']")
-      assert has_element?(lv, "#menu-publish-level-2-radios[role='radiogroup'][phx-hook]")
-      assert has_element?(lv, "#menu-publish-level-2-1[aria-checked='true']")
-
-      # The menu has no heading of its own, so its copy names the round.
-      assert has_element?(lv, "#menu-publish-level-2-caption", "Round 2: what spectators see")
-
-      assert has_element?(
-               lv,
-               "#menu-publish-level-2-radios[aria-label='Round 2: what spectators see']"
-             )
-    end
-
-    test "choosing a level there writes it, like the header's", %{conn: conn, scope: scope} do
-      tournament = fixture(scope)
-
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-      # The handler's own `refresh/1` closes the menu as a side effect (a
-      # just-consumed gesture shouldn't linger) - so the change is checked
-      # against the database, and the menu is reopened to see it.
-      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
-      lv |> element("#menu-publish-level-2-2") |> render_click()
-
-      assert public_flags(tournament, 2) == %{pairings: true, results: true, standings: false}
-
-      render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
-      assert has_element?(lv, "#menu-publish-level-2-2[aria-checked='true']")
-      assert has_element?(lv, "#publish-level-2-2[aria-checked='true']")
-
-      lv |> element("#menu-publish-level-2-0") |> render_click()
-      assert public_flags(tournament, 2) == %{pairings: false, results: false, standings: false}
-    end
-
-    test "with the automation on, the menu's copy is not locked either", %{
-      conn: conn,
-      scope: scope
-    } do
-      tournament = fixture(scope)
-      {:ok, tournament} = Tournaments.set_auto_publish(tournament, "standings")
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
       render_click(lv, "open_menu", %{"x" => 10, "y" => 10, "scope" => "round"})
 
-      refute has_element?(lv, "#menu-publish-level-2.is-locked")
-      refute has_element?(lv, "#menu-publish-level-2-0[aria-disabled='true']")
-      assert has_element?(lv, "#menu-publish-level-2-1[phx-click='set_publish_level']")
+      refute has_element?(lv, "#hand-edit-menu")
+      refute has_element?(lv, "#menu-publish-level-2")
     end
   end
 
