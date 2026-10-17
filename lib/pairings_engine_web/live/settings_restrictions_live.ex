@@ -37,6 +37,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
     {:ok,
      socket
      |> attach_fide_gate()
+     |> attach_advanced()
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · " <> gettext("Forbidden pairings"),
@@ -556,140 +557,303 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
-
-          <p class="subtitle" style="margin: 0">{gettext("Settings - Forbidden pairings")}</p>
+      <.settings_page
+        tournament={@tournament}
+        active={:restrictions}
+        subtitle={gettext("Settings - Forbidden pairings")}
+        advanced={
+          advanced(
+            @show_advanced,
+            changed_count(@tournament, [@wish_count == 0 and @tournament.soft_position != "strong"])
+          )
+        }
+      >
+        <.fide_exit_dialog
+          id="fide-gate"
+          step={@fide_gate && @fide_gate.step}
+          reasons={(@fide_gate && @fide_gate.reasons) || []}
+        />
+        <div id="restrictions-fide-note" class={["prohib-banner", @departs? && "is-warm"]}>
+          <%= cond do %>
+            <% @departs? -> %>
+              <strong>{gettext("Round 1 is paired.")}</strong> {gettext(
+                "In FIDE mode, restrictions are announced before the first round (C.05 5.2). Adding, changing or removing one now asks twice and then takes the tournament out of FIDE mode, and the FIDE report says so. A player who joins later is covered by the rules as they stand: that is not a change."
+              )}
+            <% @fide_mode? -> %>
+              <strong>{gettext("Set these before round 1 is paired.")}</strong> {gettext(
+                "The FIDE rules (C.05 5.2) let you restrict the pairings - \"players of the same federation shall, if possible, not meet in the last rounds\" - as long as the players hear about it before the first round. After that, any change takes the tournament out of FIDE mode."
+              )}
+            <% true -> %>
+              {gettext(
+                "This tournament is not in FIDE mode: restrictions can be changed at any time. Changes made after round 1 are still listed in the TRF report."
+              )}
+          <% end %>
         </div>
-        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:restrictions} />
-      <.fide_exit_dialog
-        id="fide-gate"
-        step={@fide_gate && @fide_gate.step}
-        reasons={(@fide_gate && @fide_gate.reasons) || []}
-      />
-      <div id="restrictions-fide-note" class={["prohib-banner", @departs? && "is-warm"]}>
-        <%= cond do %>
-          <% @departs? -> %>
-            <strong>{gettext("Round 1 is paired.")}</strong> {gettext(
-              "In FIDE mode, restrictions are announced before the first round (C.05 5.2). Adding, changing or removing one now asks twice and then takes the tournament out of FIDE mode, and the FIDE report says so. A player who joins later is covered by the rules as they stand: that is not a change."
-            )}
-          <% @fide_mode? -> %>
-            <strong>{gettext("Set these before round 1 is paired.")}</strong> {gettext(
-              "The FIDE rules (C.05 5.2) let you restrict the pairings - \"players of the same federation shall, if possible, not meet in the last rounds\" - as long as the players hear about it before the first round. After that, any change takes the tournament out of FIDE mode."
-            )}
-          <% true -> %>
-            {gettext(
-              "This tournament is not in FIDE mode: restrictions can be changed at any time. Changes made after round 1 are still listed in the TRF report."
-            )}
-        <% end %>
-      </div>
 
-      <p :if={engine_note(@tournament)} class="hint" id="restrictions-engine-note">
-        {engine_note(@tournament)}
-      </p>
-
-      <div class="card" id="restrictions-effect">
-        <h2>{gettext("Effect on the next round")}</h2>
-
-        <%= if @check.round do %>
-          <div class="prohib-stats">
-            <span class="pe-stat">
-              <span class="pe-stat-n" id="restrictions-forbidden-count">{@check.forbidden}</span> {ngettext(
-                "game ruled out of %{possible} possible in round %{round}",
-                "games ruled out of %{possible} possible in round %{round}",
-                @check.forbidden,
-                possible: @check.possible,
-                round: @check.round
-              )}
-            </span>
-
-            <span class="pe-stat">
-              <span class="pe-stat-n">{@wish_count}</span> {ngettext(
-                "wish (if possible)",
-                "wishes (if possible)",
-                @wish_count
-              )}
-            </span>
-          </div>
-
-          <p
-            :if={@check.pairable == false}
-            id="restrictions-unpairable"
-            class="prohib-alert is-danger"
-          >
-            <strong>{gettext("Round %{round} cannot be paired.", round: @check.round)}</strong> {gettext(
-              "With these restrictions and the games already played, there is no way to give every player an opponent they have not met and may meet. Remove or soften a restriction before pairing."
-            )}
-          </p>
-
-          <p :if={@check.isolated != []} id="restrictions-isolated" class="prohib-alert is-warm">
-            <strong>
-              {ngettext(
-                "One player has nobody left to play:",
-                "%{count} players have nobody left to play:",
-                length(@check.isolated)
-              )}
-            </strong>
-            {Enum.map_join(@check.isolated, ", ", & &1.name)}
-          </p>
-
-          <p
-            :if={
-              @check.pairable != false and @check.possible > 0 and
-                @check.forbidden * 2 > @check.possible
-            }
-            id="restrictions-dense"
-            class="prohib-alert is-warm"
-          >
-            {gettext(
-              "The restrictions rule out more than half of the games this field could have. The round may still pair, but the engine has little left to choose from: expect more floaters and colour compromises."
-            )}
-          </p>
-        <% else %>
-          <p class="hint" style="margin: 0">{gettext("Every round is paired.")}</p>
-        <% end %>
-      </div>
-
-      <div class="card" id="restrictions-rules">
-        <h2>{gettext("Rules")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Keep players of the same club or federation apart without naming them: a rule follows the players as they are when a round is paired, so a late entrant or a corrected club is covered without touching it."
-          )}
+        <p :if={engine_note(@tournament)} class="hint" id="restrictions-engine-note">
+          {engine_note(@tournament)}
         </p>
 
-        <ul :if={@field_rules != []} class="prohib-list" id="rule-list">
-          <li :for={rule <- @field_rules} id={"rule-#{rule.id}"} class="prohib-row">
-            <%= if @editing_rule == rule.id do %>
-              <.rule_fields
-                form={@edit_form}
-                id={"edit-rule-form-#{rule.id}"}
-                submit="update_rule"
-                change="edit_rule_change"
-                label={gettext("Save rule")}
-                cancel="cancel_edit_rule"
-                error={@rule_error}
-              />
-            <% else %>
-              <div class="prohib-row-main">
-                <span class="prohib-row-title">{rule_title(rule)}</span>
-                <span class={["pe-tag", if(rule.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
-                  {if rule.soft, do: gettext("if possible"), else: gettext("rule")}
+        <div class="card" id="restrictions-effect">
+          <h2>{gettext("Effect on the next round")}</h2>
+
+          <%= if @check.round do %>
+            <div class="prohib-stats">
+              <span class="pe-stat">
+                <span class="pe-stat-n" id="restrictions-forbidden-count">{@check.forbidden}</span> {ngettext(
+                  "game ruled out of %{possible} possible in round %{round}",
+                  "games ruled out of %{possible} possible in round %{round}",
+                  @check.forbidden,
+                  possible: @check.possible,
+                  round: @check.round
+                )}
+              </span>
+
+              <span class="pe-stat">
+                <span class="pe-stat-n">{@wish_count}</span> {ngettext(
+                  "wish (if possible)",
+                  "wishes (if possible)",
+                  @wish_count
+                )}
+              </span>
+            </div>
+
+            <p
+              :if={@check.pairable == false}
+              id="restrictions-unpairable"
+              class="prohib-alert is-danger"
+            >
+              <strong>{gettext("Round %{round} cannot be paired.", round: @check.round)}</strong> {gettext(
+                "With these restrictions and the games already played, there is no way to give every player an opponent they have not met and may meet. Remove or soften a restriction before pairing."
+              )}
+            </p>
+
+            <p :if={@check.isolated != []} id="restrictions-isolated" class="prohib-alert is-warm">
+              <strong>
+                {ngettext(
+                  "One player has nobody left to play:",
+                  "%{count} players have nobody left to play:",
+                  length(@check.isolated)
+                )}
+              </strong>
+              {Enum.map_join(@check.isolated, ", ", & &1.name)}
+            </p>
+
+            <p
+              :if={
+                @check.pairable != false and @check.possible > 0 and
+                  @check.forbidden * 2 > @check.possible
+              }
+              id="restrictions-dense"
+              class="prohib-alert is-warm"
+            >
+              {gettext(
+                "The restrictions rule out more than half of the games this field could have. The round may still pair, but the engine has little left to choose from: expect more floaters and colour compromises."
+              )}
+            </p>
+          <% else %>
+            <p class="hint" style="margin: 0">{gettext("Every round is paired.")}</p>
+          <% end %>
+        </div>
+
+        <div class="card" id="restrictions-rules">
+          <h2>{gettext("Rules")}</h2>
+
+          <p class="hint" style="margin-top: 0">
+            {gettext(
+              "Keep players of the same club or federation apart without naming them: a rule follows the players as they are when a round is paired, so a late entrant or a corrected club is covered without touching it."
+            )}
+          </p>
+
+          <ul :if={@field_rules != []} class="prohib-list" id="rule-list">
+            <li :for={rule <- @field_rules} id={"rule-#{rule.id}"} class="prohib-row">
+              <%= if @editing_rule == rule.id do %>
+                <.rule_fields
+                  form={@edit_form}
+                  id={"edit-rule-form-#{rule.id}"}
+                  submit="update_rule"
+                  change="edit_rule_change"
+                  label={gettext("Save rule")}
+                  cancel="cancel_edit_rule"
+                  error={@rule_error}
+                />
+              <% else %>
+                <div class="prohib-row-main">
+                  <span class="prohib-row-title">{rule_title(rule)}</span>
+                  <span class={["pe-tag", if(rule.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
+                    {if rule.soft, do: gettext("if possible"), else: gettext("rule")}
+                  </span>
+                  <span class="hint">{window_label(rule, @tournament)}</span>
+                </div>
+                <span class="prohib-row-effect">{effect_text(rule, @effects[rule.id])}</span>
+                <span class="prohib-row-actions">
+                  <button
+                    type="button"
+                    class="pe-btn"
+                    id={"edit-rule-#{rule.id}"}
+                    phx-click="edit_rule"
+                    phx-value-id={rule.id}
+                  >
+                    {gettext("Edit")}
+                  </button>
+
+                  <button
+                    type="button"
+                    class="pe-btn danger-link"
+                    id={"remove-rule-#{rule.id}"}
+                    phx-click="remove_rule"
+                    phx-value-id={rule.id}
+                  >
+                    {gettext("Remove")}
+                  </button>
                 </span>
-                <span class="hint">{window_label(rule, @tournament)}</span>
+              <% end %>
+            </li>
+          </ul>
+
+          <p :if={@field_rules == []} class="hint">{gettext("No rules yet.")}</p>
+
+          <h3 class="prohib-subhead">{gettext("Add a rule")}</h3>
+
+          <.rule_fields
+            form={@rule_form}
+            id="add-rule-form"
+            submit="add_rule"
+            change="rule_change"
+            label={gettext("Add rule")}
+            error={@editing_rule == nil && @rule_error}
+          />
+        </div>
+
+        <div class="card" id="restrictions-players">
+          <h2>{gettext("Players who must not meet")}</h2>
+
+          <p class="hint" style="margin-top: 0">
+            {gettext(
+              "Tick two or more players and keep them apart in one go: two make a forbidden pair, three or more a group whose members never meet each other."
+            )}
+          </p>
+
+          <div class="prohib-picker" id="player-picker">
+            <form id="player-search-form" phx-change="search" phx-submit="search">
+              <input
+                type="search"
+                name="q"
+                value={@query}
+                id="player-search"
+                placeholder={gettext("Search by name, club or federation")}
+                aria-label={gettext("Search by name, club or federation")}
+                autocomplete="off"
+                phx-debounce="150"
+              />
+            </form>
+
+            <div class="prohib-chips" id="selected-players">
+              <span :if={@selected == []} class="hint">{gettext("No players ticked.")}</span>
+              <button
+                :for={id <- @selected}
+                type="button"
+                class="prohib-chip"
+                phx-click="toggle_player"
+                phx-value-id={id}
+                title={gettext("Untick")}
+              >
+                {name_of(@players_by_id, id)} <span aria-hidden="true">×</span>
+              </button>
+            </div>
+
+            <ul class="prohib-options" id="player-options">
+              <li :for={p <- @visible}>
+                <label class={["prohib-option", p.id in @selected && "is-on"]}>
+                  <input
+                    type="checkbox"
+                    id={"pick-#{p.id}"}
+                    checked={p.id in @selected}
+                    phx-click="toggle_player"
+                    phx-value-id={p.id}
+                  /> <span class="prohib-option-name">{p.name}</span>
+                  <span class="prohib-option-meta">{player_line(p, @tournament)}</span>
+                </label>
+              </li>
+
+              <li :if={@visible == []} class="hint" style="padding: 8px">
+                {gettext("No player matches.")}
+              </li>
+            </ul>
+
+            <form id="keep-apart-form" phx-submit="keep_apart" class="prohib-picker-actions">
+              <label class="set-toggle" style="margin: 0">
+                <input type="hidden" name="soft" value="false" />
+                <input
+                  type="checkbox"
+                  name="soft"
+                  value="true"
+                  checked={@selection_soft}
+                  phx-click="selection_soft"
+                  phx-value-soft={to_string(!@selection_soft)}
+                /> <span class="set-toggle-text">{gettext("Only if possible")}</span>
+              </label>
+
+              <button
+                type="submit"
+                id="keep-apart"
+                class="pe-btn primary"
+                disabled={length(@selected) < 2}
+              >
+                <%= cond do %>
+                  <% @editing_group -> %>
+                    {gettext("Save group")}
+                  <% length(@selected) < 2 -> %>
+                    {gettext("Keep apart")}
+                  <% true -> %>
+                    {ngettext(
+                      "Keep these %{count} apart",
+                      "Keep these %{count} apart",
+                      length(@selected)
+                    )}
+                <% end %>
+              </button>
+
+              <button
+                :if={@selected != [] or @editing_group}
+                type="button"
+                class="pe-btn"
+                phx-click="clear_selection"
+              >
+                {gettext("Clear")}
+              </button>
+            </form>
+
+            <p :if={@error} class="error-note" id="picker-error">{@error}</p>
+          </div>
+
+          <ul :if={@groups != [] or @pairs != []} class="prohib-list" id="pair-list">
+            <li
+              :for={g <- @groups}
+              id={"group-#{g.id}"}
+              class={["prohib-row", @editing_group == g.id && "is-editing"]}
+            >
+              <div class="prohib-row-main">
+                <span class="prohib-row-title">
+                  {Enum.map_join(g.player_ids, ", ", &name_of(@players_by_id, &1))}
+                </span>
+
+                <span class={["pe-tag", if(g.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
+                  {if g.soft, do: gettext("if possible"), else: gettext("never")}
+                </span>
+
+                <span :if={g.from_round && g.from_round > 1} class="hint">
+                  {gettext("from round %{n}", n: g.from_round)}
+                </span>
               </div>
-              <span class="prohib-row-effect">{effect_text(rule, @effects[rule.id])}</span>
+              <span class="prohib-row-effect">{effect_text(g, @effects[g.id])}</span>
               <span class="prohib-row-actions">
                 <button
                   type="button"
                   class="pe-btn"
-                  id={"edit-rule-#{rule.id}"}
-                  phx-click="edit_rule"
-                  phx-value-id={rule.id}
+                  id={"edit-group-#{g.id}"}
+                  phx-click="edit_group"
+                  phx-value-id={g.id}
                 >
                   {gettext("Edit")}
                 </button>
@@ -697,248 +861,88 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                 <button
                   type="button"
                   class="pe-btn danger-link"
-                  id={"remove-rule-#{rule.id}"}
+                  id={"remove-group-#{g.id}"}
                   phx-click="remove_rule"
-                  phx-value-id={rule.id}
+                  phx-value-id={g.id}
                 >
                   {gettext("Remove")}
                 </button>
               </span>
-            <% end %>
-          </li>
-        </ul>
-
-        <p :if={@field_rules == []} class="hint">{gettext("No rules yet.")}</p>
-
-        <h3 class="prohib-subhead">{gettext("Add a rule")}</h3>
-
-        <.rule_fields
-          form={@rule_form}
-          id="add-rule-form"
-          submit="add_rule"
-          change="rule_change"
-          label={gettext("Add rule")}
-          error={@editing_rule == nil && @rule_error}
-        />
-      </div>
-
-      <div class="card" id="restrictions-players">
-        <h2>{gettext("Players who must not meet")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Tick two or more players and keep them apart in one go: two make a forbidden pair, three or more a group whose members never meet each other."
-          )}
-        </p>
-
-        <div class="prohib-picker" id="player-picker">
-          <form id="player-search-form" phx-change="search" phx-submit="search">
-            <input
-              type="search"
-              name="q"
-              value={@query}
-              id="player-search"
-              placeholder={gettext("Search by name, club or federation")}
-              aria-label={gettext("Search by name, club or federation")}
-              autocomplete="off"
-              phx-debounce="150"
-            />
-          </form>
-
-          <div class="prohib-chips" id="selected-players">
-            <span :if={@selected == []} class="hint">{gettext("No players ticked.")}</span>
-            <button
-              :for={id <- @selected}
-              type="button"
-              class="prohib-chip"
-              phx-click="toggle_player"
-              phx-value-id={id}
-              title={gettext("Untick")}
-            >
-              {name_of(@players_by_id, id)} <span aria-hidden="true">×</span>
-            </button>
-          </div>
-
-          <ul class="prohib-options" id="player-options">
-            <li :for={p <- @visible}>
-              <label class={["prohib-option", p.id in @selected && "is-on"]}>
-                <input
-                  type="checkbox"
-                  id={"pick-#{p.id}"}
-                  checked={p.id in @selected}
-                  phx-click="toggle_player"
-                  phx-value-id={p.id}
-                /> <span class="prohib-option-name">{p.name}</span>
-                <span class="prohib-option-meta">{player_line(p, @tournament)}</span>
-              </label>
             </li>
 
-            <li :if={@visible == []} class="hint" style="padding: 8px">
-              {gettext("No player matches.")}
+            <li :for={fp <- @pairs} id={"pair-#{fp.id}"} class="prohib-row">
+              <div class="prohib-row-main">
+                <span class="prohib-row-title">{fp.player_a.name} - {fp.player_b.name}</span>
+                <span class={["pe-tag", if(fp.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
+                  {if fp.soft, do: gettext("if possible"), else: gettext("never")}
+                </span>
+
+                <span :if={fp.from_round && fp.from_round > 1} class="hint">
+                  {gettext("from round %{n}", n: fp.from_round)}
+                </span>
+              </div>
+
+              <span class="prohib-row-actions">
+                <button
+                  type="button"
+                  class="pe-btn"
+                  id={"soft-pair-#{fp.id}"}
+                  phx-click="set_pair_soft"
+                  phx-value-id={fp.id}
+                  phx-value-soft={to_string(!fp.soft)}
+                >
+                  {if fp.soft, do: gettext("Make it a rule"), else: gettext("Make it a wish")}
+                </button>
+
+                <button
+                  type="button"
+                  class="pe-btn danger-link"
+                  id={"remove-pair-#{fp.id}"}
+                  phx-click="remove_pair"
+                  phx-value-id={fp.id}
+                >
+                  {gettext("Remove")}
+                </button>
+              </span>
             </li>
           </ul>
 
-          <form id="keep-apart-form" phx-submit="keep_apart" class="prohib-picker-actions">
-            <label class="set-toggle" style="margin: 0">
-              <input type="hidden" name="soft" value="false" />
-              <input
-                type="checkbox"
-                name="soft"
-                value="true"
-                checked={@selection_soft}
-                phx-click="selection_soft"
-                phx-value-soft={to_string(!@selection_soft)}
-              /> <span class="set-toggle-text">{gettext("Only if possible")}</span>
-            </label>
-
-            <button
-              type="submit"
-              id="keep-apart"
-              class="pe-btn primary"
-              disabled={length(@selected) < 2}
-            >
-              <%= cond do %>
-                <% @editing_group -> %>
-                  {gettext("Save group")}
-                <% length(@selected) < 2 -> %>
-                  {gettext("Keep apart")}
-                <% true -> %>
-                  {ngettext(
-                    "Keep these %{count} apart",
-                    "Keep these %{count} apart",
-                    length(@selected)
-                  )}
-              <% end %>
-            </button>
-
-            <button
-              :if={@selected != [] or @editing_group}
-              type="button"
-              class="pe-btn"
-              phx-click="clear_selection"
-            >
-              {gettext("Clear")}
-            </button>
-          </form>
-
-          <p :if={@error} class="error-note" id="picker-error">{@error}</p>
+          <p :if={@groups == [] and @pairs == []} class="hint" style="margin-bottom: 0">
+            {gettext("No players kept apart yet.")}
+          </p>
         </div>
 
-        <ul :if={@groups != [] or @pairs != []} class="prohib-list" id="pair-list">
-          <li
-            :for={g <- @groups}
-            id={"group-#{g.id}"}
-            class={["prohib-row", @editing_group == g.id && "is-editing"]}
-          >
-            <div class="prohib-row-main">
-              <span class="prohib-row-title">
-                {Enum.map_join(g.player_ids, ", ", &name_of(@players_by_id, &1))}
-              </span>
+        <div class={["card", @wish_count == 0 && "tset-adv"]} id="restrictions-wishes">
+          <h2>{gettext("How hard to try the wishes")}</h2>
 
-              <span class={["pe-tag", if(g.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
-                {if g.soft, do: gettext("if possible"), else: gettext("never")}
-              </span>
+          <p class="hint" style="margin-top: 0">
+            {gettext(
+              "A wish (if possible) is weighed against the pairing criteria and gives way when the rules leave no other legal round. A round in which a wish moves a board is not the round the FIDE rules pair, so in FIDE mode that round is recorded as leaving it."
+            )}
+          </p>
 
-              <span :if={g.from_round && g.from_round > 1} class="hint">
-                {gettext("from round %{n}", n: g.from_round)}
-              </span>
+          <form id="soft-position-form" phx-submit="save_soft_position">
+            <.setting_group>
+              <.setting_field label={gettext("How hard to try")}>
+                <select name="tournament[soft_position]" class="pe-select">
+                  <option
+                    :for={p <- Tournament.soft_positions()}
+                    value={p}
+                    selected={p == @tournament.soft_position}
+                  >
+                    {soft_position_label(p)}
+                  </option>
+                </select>
+              </.setting_field>
+            </.setting_group>
+
+            <div class="actions">
+              <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
+              <.save_status note={@note} />
             </div>
-            <span class="prohib-row-effect">{effect_text(g, @effects[g.id])}</span>
-            <span class="prohib-row-actions">
-              <button
-                type="button"
-                class="pe-btn"
-                id={"edit-group-#{g.id}"}
-                phx-click="edit_group"
-                phx-value-id={g.id}
-              >
-                {gettext("Edit")}
-              </button>
-
-              <button
-                type="button"
-                class="pe-btn danger-link"
-                id={"remove-group-#{g.id}"}
-                phx-click="remove_rule"
-                phx-value-id={g.id}
-              >
-                {gettext("Remove")}
-              </button>
-            </span>
-          </li>
-
-          <li :for={fp <- @pairs} id={"pair-#{fp.id}"} class="prohib-row">
-            <div class="prohib-row-main">
-              <span class="prohib-row-title">{fp.player_a.name} - {fp.player_b.name}</span>
-              <span class={["pe-tag", if(fp.soft, do: "pe-tag-muted", else: "pe-tag-ok")]}>
-                {if fp.soft, do: gettext("if possible"), else: gettext("never")}
-              </span>
-
-              <span :if={fp.from_round && fp.from_round > 1} class="hint">
-                {gettext("from round %{n}", n: fp.from_round)}
-              </span>
-            </div>
-
-            <span class="prohib-row-actions">
-              <button
-                type="button"
-                class="pe-btn"
-                id={"soft-pair-#{fp.id}"}
-                phx-click="set_pair_soft"
-                phx-value-id={fp.id}
-                phx-value-soft={to_string(!fp.soft)}
-              >
-                {if fp.soft, do: gettext("Make it a rule"), else: gettext("Make it a wish")}
-              </button>
-
-              <button
-                type="button"
-                class="pe-btn danger-link"
-                id={"remove-pair-#{fp.id}"}
-                phx-click="remove_pair"
-                phx-value-id={fp.id}
-              >
-                {gettext("Remove")}
-              </button>
-            </span>
-          </li>
-        </ul>
-
-        <p :if={@groups == [] and @pairs == []} class="hint" style="margin-bottom: 0">
-          {gettext("No players kept apart yet.")}
-        </p>
-      </div>
-
-      <div class="card" id="restrictions-wishes">
-        <h2>{gettext("How hard to try the wishes")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "A wish (if possible) is weighed against the pairing criteria and gives way when the rules leave no other legal round. A round in which a wish moves a board is not the round the FIDE rules pair, so in FIDE mode that round is recorded as leaving it."
-          )}
-        </p>
-
-        <form id="soft-position-form" phx-submit="save_soft_position">
-          <.setting_group>
-            <.setting_field label={gettext("How hard to try")}>
-              <select name="tournament[soft_position]" class="pe-select">
-                <option
-                  :for={p <- Tournament.soft_positions()}
-                  value={p}
-                  selected={p == @tournament.soft_position}
-                >
-                  {soft_position_label(p)}
-                </option>
-              </select>
-            </.setting_field>
-          </.setting_group>
-
-          <div class="actions">
-            <button type="submit" class="pe-btn primary">{gettext("Save")}</button>
-            <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
-          </div>
-        </form>
-      </div>
+          </form>
+        </div>
+      </.settings_page>
     </Layouts.app>
     """
   end

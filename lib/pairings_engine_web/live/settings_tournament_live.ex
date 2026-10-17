@@ -60,6 +60,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     {:ok,
      socket
      |> attach_dirty_tracker()
+     |> attach_advanced()
      |> assign(
        tournament: tournament,
        owner?: owner?,
@@ -501,6 +502,21 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   defp upload_error_label(other), do: inspect(other)
 
   defp general_fields, do: @general_fields
+
+  # The advanced half of this page. The group and the logo are advanced only
+  # while unused - a tournament that is in a group or has a logo shows the
+  # card whatever the switch says - so they never need counting.
+  defp advanced_general_fields, do: ["organizer_club_number"]
+
+  defp advanced_changed(assigns) do
+    changed_count(assigns.tournament, [
+      :organizer_club_number,
+      :tiebreak_unrated_method,
+      :tiebreak_unrated_rating,
+      :shared_places
+    ])
+  end
+
   defp tb_presets, do: @tb_presets
 
   defp tb_preset_match(tiebreaks) do
@@ -540,172 +556,519 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       group_switcher={@group_switcher}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page
+        tournament={@tournament}
+        active={:tournament}
+        subtitle={gettext("Settings - Tournament")}
+        advanced={advanced(@show_advanced, advanced_changed(assigns))}
+      >
+        <.stale_banner stale={@stale} />
+        <form id="tournament-settings-form" phx-submit="save">
+          <div class="card">
+            <h2>{gettext("General")}</h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Settings - Tournament")}</p>
-        </div>
-        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:tournament} />
-      <.stale_banner stale={@stale} />
-      <form id="tournament-settings-form" phx-submit="save">
-        <div class="card">
-          <h2>{gettext("General")}</h2>
+            <p class="hint">
+              {gettext("What the tournament is called, where it is played and how long it runs.")}
+            </p>
 
-          <.setting_group>
-            <.setting_field
-              :for={{field, label, type, required} <- general_fields()}
-              label={label}
-              required={required}
-            >
-              <input
-                type={type}
-                name={"tournament[#{field}]"}
-                value={Map.get(@tournament, String.to_existing_atom(field))}
+            <.setting_group>
+              <.setting_field
+                :for={{field, label, type, required} <- general_fields()}
+                label={label}
+                required={required}
+                class={field in advanced_general_fields() && "tset-adv"}
+              >
+                <input
+                  type={type}
+                  name={"tournament[#{field}]"}
+                  value={Map.get(@tournament, String.to_existing_atom(field))}
+                />
+              </.setting_field>
+
+              <.setting_field label={gettext("Tournament format")}>
+                <select name="tournament[type]">
+                  <option
+                    :for={type <- Tournament.types()}
+                    value={type}
+                    selected={@tournament.type == type}
+                  >
+                    {Tournament.type_label(type)}
+                  </option>
+                </select>
+              </.setting_field>
+
+              <.setting_field label={gettext("Number of rounds")} required>
+                <input
+                  type="number"
+                  name="tournament[rounds_count]"
+                  value={@tournament.rounds_count}
+                  min="1"
+                  max={Tournament.max_rounds()}
+                  disabled={:rounds_count in @fide_locked}
+                />
+              </.setting_field>
+
+              <.fide_lock_note
+                id="rounds-fide-lock"
+                tournament={@tournament}
+                fide_locked={@fide_locked}
+                fields={[:rounds_count]}
               />
-            </.setting_field>
+            </.setting_group>
+          </div>
 
-            <.setting_field label={gettext("Tournament format")}>
-              <select name="tournament[type]">
-                <option
-                  :for={type <- Tournament.types()}
-                  value={type}
-                  selected={@tournament.type == type}
-                >
-                  {Tournament.type_label(type)}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field label={gettext("Number of rounds")} required>
-              <input
-                type="number"
-                name="tournament[rounds_count]"
-                value={@tournament.rounds_count}
-                min="1"
-                max={Tournament.max_rounds()}
-                disabled={:rounds_count in @fide_locked}
-              />
-            </.setting_field>
-
-            <.fide_lock_note
-              id="rounds-fide-lock"
-              tournament={@tournament}
-              fide_locked={@fide_locked}
-              fields={[:rounds_count]}
-            />
-          </.setting_group>
-        </div>
-
-        <%!-- Officials are edited on the Norms page, not here. Nothing is
+          <%!-- Officials are edited on the Norms page, not here. Nothing is
               broken about that, but an arbiter looking for "chief arbiter"
               looks under Settings and there was nothing on Settings pointing
               anywhere else - reported by someone who could not find the field
               while holding a direct link to it. So this card says where it
               lives and shows the current value, rather than making Settings
               silent about a field it plainly looks like it should own. --%>
-        <div class="card">
-          <h2>{gettext("Officials")}</h2>
+          <div class="card">
+            <h2>{gettext("Officials")}</h2>
 
-          <p class="hint" style="margin-top: 0">
-            <.rich_text text={
-              gettext(
-                "The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the %[norms] page, because that is what they are for - the IT3, FA1 and IA1 forms are built from them. (The organizer's %[name] is above, under General.)"
-              )
-            }>
-              <:part name="norms">
-                <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
-              </:part>
+            <p class="hint" style="margin-top: 0">
+              <.rich_text text={
+                gettext(
+                  "The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the %[norms] page, because that is what they are for - the IT3, FA1 and IA1 forms are built from them. (The organizer's %[name] is above, under General.)"
+                )
+              }>
+                <:part name="norms">
+                  <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
+                </:part>
 
-              <:part name="name"><em>{gettext("name")}</em></:part>
-            </.rich_text>
-          </p>
+                <:part name="name"><em>{gettext("name")}</em></:part>
+              </.rich_text>
+            </p>
 
-          <%!-- `.set-row`, not `<.setting_field>`: that renders a <label>,
+            <%!-- `.set-row`, not `<.setting_field>`: that renders a <label>,
                 and a label wrapping no control is wrong here. --%>
-          <div class="set-rows">
-            <div class="set-row">
-              <span class="set-row-label">{gettext("Chief arbiter")}</span>
-              <span :if={@tournament.chief_arbiter not in [nil, ""]}>{@tournament.chief_arbiter}</span>
-              <span :if={@tournament.chief_arbiter in [nil, ""]} class="hint">
-                {gettext("Not set. Recommended for FIDE reporting; it does not block pairing.")}
-              </span>
+            <div class="set-rows">
+              <div class="set-row">
+                <span class="set-row-label">{gettext("Chief arbiter")}</span>
+                <span :if={@tournament.chief_arbiter not in [nil, ""]}>{@tournament.chief_arbiter}</span>
+                <span :if={@tournament.chief_arbiter in [nil, ""]} class="hint">
+                  {gettext("Not set. Recommended for FIDE reporting; it does not block pairing.")}
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div class="card">
-          <h2>{gettext("Tiebreaks")}</h2>
+          <div class="card">
+            <h2>{gettext("Tiebreaks")}</h2>
+
+            <p class="hint" style="margin-top: 0">
+              {gettext(
+                "Applied in order, following the FIDE Tie-Break Regulations. Higher in the list = decided first."
+              )}
+            </p>
+
+            <.fide_lock_note
+              id="tiebreaks-fide-lock"
+              tournament={@tournament}
+              fide_locked={@fide_locked}
+              fields={[:tiebreaks]}
+            />
+            <%!-- A disabled fieldset disables every control inside it, the
+                move/remove buttons and the presets included. --%>
+            <fieldset
+              id="tiebreak-editor"
+              disabled={:tiebreaks in @fide_locked}
+              style="border: 0; padding: 0; margin: 0; min-width: 0"
+            >
+              <%!-- A div, not <.setting_field>: that renders a <label>, which would
+                make the "Preset" text toggle whichever radio it wrapped. --%>
+              <div class="set-field solo">
+                <span class="set-label">{gettext("Preset")}</span>
+                <div class="radio-row">
+                  <label>
+                    <input
+                      type="radio"
+                      name="tb_preset_display"
+                      phx-click="tb_preset"
+                      phx-value-key="personel"
+                      checked={tb_preset_match(@tiebreaks) == "personel"}
+                    /> {gettext("Custom")}
+                  </label>
+
+                  <label :for={{key, label, _methods} <- tb_presets()}>
+                    <input
+                      type="radio"
+                      name="tb_preset_display"
+                      phx-click="tb_preset"
+                      phx-value-key={key}
+                      checked={tb_preset_match(@tiebreaks) == key}
+                    /> {label}
+                  </label>
+                </div>
+              </div>
+
+              <ol class="tb-list">
+                <li :for={{code, i} <- Enum.with_index(@tiebreaks)}>
+                  <span class="tb-order">{i + 1}.</span>
+                  <div>
+                    <div class="tb-name">{tb_name(code)}</div>
+
+                    <div class="tb-desc">{tb_desc(code)}</div>
+                  </div>
+
+                  <%!-- Three glyphs, each named for the tiebreak it acts on: a
+                    screen reader tabbing down this list otherwise hears "up
+                    arrow" eleven times with nothing to say which row it is. --%>
+                  <div class="tb-buttons">
+                    <button
+                      type="button"
+                      class="pe-btn"
+                      title={gettext("Move up")}
+                      aria-label={gettext("Move %{tiebreak} up", tiebreak: tb_name(code))}
+                      disabled={i == 0}
+                      phx-click="tb_up"
+                      phx-value-index={i}
+                    >
+                      ↑
+                    </button>
+
+                    <button
+                      type="button"
+                      class="pe-btn"
+                      title={gettext("Move down")}
+                      aria-label={gettext("Move %{tiebreak} down", tiebreak: tb_name(code))}
+                      disabled={i == length(@tiebreaks) - 1}
+                      phx-click="tb_down"
+                      phx-value-index={i}
+                    >
+                      ↓
+                    </button>
+
+                    <button
+                      type="button"
+                      class="pe-btn"
+                      title={gettext("Remove")}
+                      aria-label={gettext("Remove %{tiebreak}", tiebreak: tb_name(code))}
+                      phx-click="tb_remove"
+                      phx-value-code={code}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                </li>
+              </ol>
+
+              <p :if={@tiebreaks == []} class="hint">
+                {gettext(
+                  "No tiebreaks selected - players level on points are ordered by rating and name."
+                )}
+              </p>
+
+              <div class="actions" style="flex-wrap: wrap">
+                <select
+                  phx-change="tb_add"
+                  name="code"
+                  style="width: auto"
+                  class="pe-select"
+                  aria-label={gettext("Add a tiebreak…")}
+                >
+                  <option value="">{gettext("Add a tiebreak…")}</option>
+
+                  <optgroup
+                    :for={{group, tbs} <- grouped_tiebreaks(@tiebreaks, @tournament.type)}
+                    label={tb_group_label(group)}
+                  >
+                    <option :for={tb <- tbs} value={tb.code}>
+                      {tb.code} - {tb.name}
+                    </option>
+                  </optgroup>
+                </select>
+
+                <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
+                  "Reset to FIDE default"
+                )}</button>
+              </div>
+            </fieldset>
+
+            <.setting_group class="tset-adv" style="margin-top: 20px">
+              <p class="tset-subhead">{gettext("Unrated players and shared places")}</p>
+
+              <.setting_field
+                label={gettext("How an unrated player is counted in the tie-breaks")}
+                hint={
+                  gettext(
+                    "Fixed rating: the rating below, and the rating-based tie-breaks are dropped while it is empty. Lowest rating in the field: every unrated player counts as the lowest rating of the tournament. Average rating: as the average of the rated players. The number worked out is the one written to the TRF tie-break line, so a checker computes the same values."
+                  )
+                }
+              >
+                <select id="tiebreak-unrated-method" name="tournament[tiebreak_unrated_method]">
+                  <option value="fixed" selected={@tournament.tiebreak_unrated_method == "fixed"}>
+                    {gettext("Fixed rating")}
+                  </option>
+
+                  <option value="lowest" selected={@tournament.tiebreak_unrated_method == "lowest"}>
+                    {gettext("Lowest rating in the field")}
+                  </option>
+
+                  <option value="average" selected={@tournament.tiebreak_unrated_method == "average"}>
+                    {gettext("Average rating of the rated players")}
+                  </option>
+                </select>
+              </.setting_field>
+
+              <.setting_field
+                label={gettext("Rating of an unrated player in the tie-breaks")}
+                hint={
+                  gettext(
+                    "C.07 Article 10: with an unrated player in the tournament the rating-based tie-breaks (ARO and its cuts and medians, TPR, PTP, APRO, APPO, RTNG) are dropped, unless the regulations say how unrated players are handled. Leave empty to drop them; enter a rating to count every unrated player as that rating instead. State the rule in the tournament regulations before the first round."
+                  )
+                }
+              >
+                <input
+                  id="tiebreak-unrated-rating"
+                  type="number"
+                  name="tournament[tiebreak_unrated_rating]"
+                  value={@tournament.tiebreak_unrated_rating}
+                  min="0"
+                  max="4000"
+                />
+              </.setting_field>
+
+              <.setting_field
+                label={gettext("Players still level share a place")}
+                hint={
+                  gettext(
+                    "C.07 Article 2.1: the regulations say whether tied participants share a place. Off, players still level after the whole tie-break list are put in an order (rating, then name) and numbered one after the other - record a drawing of lots with the manual order. On, they all show the same place, such as 2=, and the next place is skipped accordingly."
+                  )
+                }
+              >
+                <input type="hidden" name="tournament[shared_places]" value="false" />
+                <input
+                  id="shared-places"
+                  type="checkbox"
+                  name="tournament[shared_places]"
+                  value="true"
+                  checked={@tournament.shared_places}
+                />
+              </.setting_field>
+            </.setting_group>
+          </div>
+
+          <%!-- Chess960 used to sit in the tie-breaks card, which is where
+              nobody looked for it. --%>
+          <div class="card" id="special-formats-card">
+            <h2>{gettext("Special formats")}</h2>
+
+            <p class="hint">
+              {gettext("Only for an event that is not ordinary chess over a few weeks.")}
+            </p>
+
+            <.setting_group>
+              <.setting_field
+                label={gettext("Chess960")}
+                hint={
+                  gettext(
+                    "The tournament is played as Chess960. The arbiter draws a random starting position for each round on the Pairings page; it is shown there and printed with the pairings."
+                  )
+                }
+              >
+                <input type="hidden" name="tournament[chess960]" value="false" />
+                <input
+                  id="chess960"
+                  type="checkbox"
+                  name="tournament[chess960]"
+                  value="true"
+                  checked={@tournament.chess960}
+                />
+              </.setting_field>
+
+              <%!-- VCL4THP Q210-Q216: a tournament lasting more than 30 days,
+                  in which a player may hold more than one rating. --%>
+              <.setting_feature id="long-event-feature">
+                <:switch>
+                  <.setting_field
+                    label={gettext("Tournament lasts more than 30 days")}
+                    hint={
+                      gettext(
+                        "It spans more than one rating period, so a player may hold more than one rating during it. On, each player's later ratings can be entered on the Players page with the round each applies from; expected scores use the rating of each game's round, and a TRF of chosen rounds carries the ratings valid in its first round, so each rating period can be reported with its own ratings."
+                      )
+                    }
+                  >
+                    <input type="hidden" name="tournament[long_event]" value="false" />
+                    <input
+                      id="long-event"
+                      type="checkbox"
+                      name="tournament[long_event]"
+                      value="true"
+                      checked={@tournament.long_event}
+                    />
+                  </.setting_field>
+                </:switch>
+
+                <p
+                  :if={@tournament.long_event and Enum.any?(@tiebreaks, &Tiebreaks.rating_based?/1)}
+                  id="long-event-rating-tiebreaks"
+                  class="setting-warning"
+                  role="note"
+                >
+                  {gettext(
+                    "C.07 Article 10: rating-based tie-breaks are not recommended when a player can have more than one rating during the tournament. Consider removing them from the list above."
+                  )}
+                </p>
+
+                <.setting_field
+                  :if={@tournament.long_event}
+                  label={gettext("Rating-based tie-breaks use the rating valid in round")}
+                  hint={
+                    gettext(
+                      "Leave empty for each player's first rating, which C.07 Article 10 prescribes unless the regulations say otherwise. Enter a round to use the ratings valid in that round instead."
+                    )
+                  }
+                >
+                  <input
+                    id="tiebreak-rating-round"
+                    type="number"
+                    name="tournament[tiebreak_rating_round]"
+                    value={@tournament.tiebreak_rating_round}
+                    min="1"
+                    max="99"
+                  />
+                </.setting_field>
+
+                <%!-- VCL4THP Q214: the regulations may also say each game counts
+                    at the rating of its round. Not the default - C.07
+                    Article 10 makes the first rating the rule. --%>
+                <.setting_field
+                  :if={@tournament.long_event}
+                  label={gettext("Rating-based tie-breaks use each round's rating")}
+                  hint={
+                    gettext(
+                      "Only if your tournament regulations say so. On, each opponent counts at the rating they held in the round the game was played, and the round above is ignored; Rating (RTNG) still sorts by the first rating. Off, the default, every opponent counts at one rating for the whole event."
+                    )
+                  }
+                >
+                  <input type="hidden" name="tournament[tiebreak_rating_per_round]" value="false" />
+                  <input
+                    id="tiebreak-rating-per-round"
+                    type="checkbox"
+                    name="tournament[tiebreak_rating_per_round]"
+                    value="true"
+                    checked={@tournament.tiebreak_rating_per_round}
+                  />
+                </.setting_field>
+              </.setting_feature>
+
+              <%!-- Outside the feature: it shows while the box is unticked,
+                  and says which box to tick. --%>
+              <p
+                :if={!@tournament.long_event and PeriodRatings.spans_over_30_days?(@tournament)}
+                id="long-event-suggestion"
+                class="setting-warning"
+                role="note"
+              >
+                {gettext(
+                  "This tournament's dates span %{days} days. If a new rating list is published during it, tick \"Tournament lasts more than 30 days\" so players can hold more than one rating.",
+                  days: PeriodRatings.span_days(@tournament)
+                )}
+              </p>
+            </.setting_group>
+          </div>
+
+          <div class="actions form-actions">
+            <button type="submit" class="pe-btn primary">{gettext("Save settings")}</button>
+            <.save_status note={@note} error={@error} />
+          </div>
+        </form>
+
+        <%!-- Tournament groups (`PairingsEngine.TournamentGroups`). The list
+            shows only the members this user can open - the switcher's rule,
+            for the switcher's reason. --%>
+        <div class={["card", !@group_switcher && "tset-adv"]} id="group-card">
+          <h2>{gettext("Group")}</h2>
 
           <p class="hint" style="margin-top: 0">
             {gettext(
-              "Applied in order, following the FIDE Tie-Break Regulations. Higher in the list = decided first."
+              "Several tournaments of one event - the Open, a youth section, a rapid on the side - can be put in a group. Each keeps its own players, rounds and pairings; the group adds a switcher at the top of every page that opens the same page of another one."
             )}
           </p>
 
-          <.fide_lock_note
-            id="tiebreaks-fide-lock"
-            tournament={@tournament}
-            fide_locked={@fide_locked}
-            fields={[:tiebreaks]}
-          />
-          <%!-- A disabled fieldset disables every control inside it, the
-                move/remove buttons and the presets included. --%>
-          <fieldset
-            id="tiebreak-editor"
-            disabled={:tiebreaks in @fide_locked}
-            style="border: 0; padding: 0; margin: 0; min-width: 0"
-          >
-            <%!-- A div, not <.setting_field>: that renders a <label>, which would
-                make the "Preset" text toggle whichever radio it wrapped. --%>
-            <div class="set-field solo">
-              <span class="set-label">{gettext("Preset")}</span>
-              <div class="radio-row">
-                <label>
-                  <input
-                    type="radio"
-                    name="tb_preset_display"
-                    phx-click="tb_preset"
-                    phx-value-key="personel"
-                    checked={tb_preset_match(@tiebreaks) == "personel"}
-                  /> {gettext("Custom")}
-                </label>
+          <p :if={@group_error} id="group-error" class="error-note" role="alert">{@group_error}</p>
 
-                <label :for={{key, label, _methods} <- tb_presets()}>
-                  <input
-                    type="radio"
-                    name="tb_preset_display"
-                    phx-click="tb_preset"
-                    phx-value-key={key}
-                    checked={tb_preset_match(@tiebreaks) == key}
-                  /> {label}
-                </label>
-              </div>
-            </div>
+          <%= if @group_switcher do %>
+            <.form
+              for={@group_rename_form}
+              id="group-rename-form"
+              phx-submit="group_rename"
+              class="group-inline-form"
+            >
+              <.input
+                field={@group_rename_form[:name]}
+                type="text"
+                label={gettext("Group name")}
+                maxlength={Group.max_name()}
+                required
+              /> <button type="submit" class="pe-btn">{gettext("Rename")}</button>
+            </.form>
 
-            <ol class="tb-list">
-              <li :for={{code, i} <- Enum.with_index(@tiebreaks)}>
+            <.form
+              for={@group_label_form}
+              id="group-label-form"
+              phx-submit="group_label"
+              class="group-inline-form"
+            >
+              <.input
+                field={@group_label_form[:label]}
+                type="text"
+                label={gettext("This tournament's label in the switcher")}
+                placeholder={@tournament.name}
+                maxlength={Member.max_label()}
+              /> <button type="submit" class="pe-btn">{gettext("Save label")}</button>
+            </.form>
+
+            <p class="hint" style="margin-top: 0">
+              {gettext("Leave the label empty to show the tournament's own name.")}
+            </p>
+
+            <%!-- What the group means off this machine. The link exists only
+                when this tournament's published page really is shown as part
+                of the event - see `TournamentGroups.published_block/1`. --%>
+            <p class="hint" id="group-published" style="margin-top: 0">
+              {gettext(
+                "On the results site, the published tournaments of a group are one event: tabs at the top of each to switch between them, and an event page that lists them. Only tournaments that are published are named there, and one that is not listed on the front page is named only on the others that are not listed either. The group's name is shown as the event's name."
+              )}
+              <a
+                :if={@group_event_url}
+                id="group-event-link"
+                href={@group_event_url}
+                target="_blank"
+                rel="noopener"
+              >
+                {gettext("Open the event page")}
+              </a>
+            </p>
+
+            <ol class="tb-list" id="group-order">
+              <li
+                :for={{m, i} <- Enum.with_index(@group_switcher.members)}
+                id={"group-member-#{m.id}"}
+              >
                 <span class="tb-order">{i + 1}.</span>
                 <div>
-                  <div class="tb-name">{tb_name(code)}</div>
+                  <div class="tb-name">
+                    {m.label}
+                    <span :if={m.current?} class="badge muted">{gettext("this tournament")}</span>
+                  </div>
 
-                  <div class="tb-desc">{tb_desc(code)}</div>
+                  <div :if={m.label != m.name} class="tb-desc">{m.name}</div>
                 </div>
 
-                <%!-- Three glyphs, each named for the tiebreak it acts on: a
-                    screen reader tabbing down this list otherwise hears "up
-                    arrow" eleven times with nothing to say which row it is. --%>
                 <div class="tb-buttons">
                   <button
                     type="button"
                     class="pe-btn"
+                    id={"group-up-#{m.id}"}
                     title={gettext("Move up")}
-                    aria-label={gettext("Move %{tiebreak} up", tiebreak: tb_name(code))}
+                    aria-label={gettext("Move %{tournament} up", tournament: m.label)}
                     disabled={i == 0}
-                    phx-click="tb_up"
-                    phx-value-index={i}
+                    phx-click="group_move"
+                    phx-value-id={m.id}
+                    phx-value-dir="up"
                   >
                     ↑
                   </button>
@@ -713,556 +1076,229 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   <button
                     type="button"
                     class="pe-btn"
+                    id={"group-down-#{m.id}"}
                     title={gettext("Move down")}
-                    aria-label={gettext("Move %{tiebreak} down", tiebreak: tb_name(code))}
-                    disabled={i == length(@tiebreaks) - 1}
-                    phx-click="tb_down"
-                    phx-value-index={i}
+                    aria-label={gettext("Move %{tournament} down", tournament: m.label)}
+                    disabled={i == length(@group_switcher.members) - 1}
+                    phx-click="group_move"
+                    phx-value-id={m.id}
+                    phx-value-dir="down"
                   >
                     ↓
-                  </button>
-
-                  <button
-                    type="button"
-                    class="pe-btn"
-                    title={gettext("Remove")}
-                    aria-label={gettext("Remove %{tiebreak}", tiebreak: tb_name(code))}
-                    phx-click="tb_remove"
-                    phx-value-code={code}
-                  >
-                    ✕
                   </button>
                 </div>
               </li>
             </ol>
 
-            <p :if={@tiebreaks == []} class="hint">
-              {gettext(
-                "No tiebreaks selected - players level on points are ordered by rating and name."
-              )}
-            </p>
-
-            <div class="actions" style="flex-wrap: wrap">
-              <select
-                phx-change="tb_add"
-                name="code"
-                style="width: auto"
-                class="pe-select"
-                aria-label={gettext("Add a tiebreak…")}
+            <div class="actions">
+              <button
+                type="button"
+                id="group-leave"
+                class="pe-btn danger-link"
+                phx-click="group_leave"
+                data-confirm={
+                  gettext(
+                    "Take this tournament out of the group %{name}? Nothing in the tournament itself changes. A group left empty is removed.",
+                    name: @group_switcher.group.name
+                  )
+                }
               >
-                <option value="">{gettext("Add a tiebreak…")}</option>
-
-                <optgroup
-                  :for={{group, tbs} <- grouped_tiebreaks(@tiebreaks, @tournament.type)}
-                  label={tb_group_label(group)}
-                >
-                  <option :for={tb <- tbs} value={tb.code}>
-                    {tb.code} - {tb.name}
-                  </option>
-                </optgroup>
-              </select>
-
-              <button type="button" class="pe-btn" phx-click="tb_reset">{gettext(
-                "Reset to FIDE default"
-              )}</button>
+                {gettext("Take out of the group")}
+              </button>
             </div>
-          </fieldset>
-
-          <.setting_group>
-            <.setting_field
-              label={gettext("How an unrated player is counted in the tie-breaks")}
-              hint={
-                gettext(
-                  "Fixed rating: the rating below, and the rating-based tie-breaks are dropped while it is empty. Lowest rating in the field: every unrated player counts as the lowest rating of the tournament. Average rating: as the average of the rated players. The number worked out is the one written to the TRF tie-break line, so a checker computes the same values."
-                )
-              }
+          <% else %>
+            <.form
+              for={@group_create_form}
+              id="group-create-form"
+              phx-submit="group_create"
+              class="group-inline-form"
             >
-              <select id="tiebreak-unrated-method" name="tournament[tiebreak_unrated_method]">
-                <option value="fixed" selected={@tournament.tiebreak_unrated_method == "fixed"}>
-                  {gettext("Fixed rating")}
-                </option>
+              <.input
+                field={@group_create_form[:name]}
+                type="text"
+                label={gettext("New group")}
+                placeholder={gettext("e.g. Spring Open 2026")}
+                maxlength={Group.max_name()}
+                required
+              /> <button type="submit" class="pe-btn primary">{gettext("Create group")}</button>
+            </.form>
 
-                <option value="lowest" selected={@tournament.tiebreak_unrated_method == "lowest"}>
-                  {gettext("Lowest rating in the field")}
-                </option>
-
-                <option value="average" selected={@tournament.tiebreak_unrated_method == "average"}>
-                  {gettext("Average rating of the rated players")}
-                </option>
-              </select>
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Rating of an unrated player in the tie-breaks")}
-              hint={
-                gettext(
-                  "C.07 Article 10: with an unrated player in the tournament the rating-based tie-breaks (ARO and its cuts and medians, TPR, PTP, APRO, APPO, RTNG) are dropped, unless the regulations say how unrated players are handled. Leave empty to drop them; enter a rating to count every unrated player as that rating instead. State the rule in the tournament regulations before the first round."
-                )
-              }
+            <.form
+              :if={@joinable_groups != []}
+              for={@group_join_form}
+              id="group-join-form"
+              phx-submit="group_join"
+              class="group-inline-form"
             >
-              <input
-                id="tiebreak-unrated-rating"
-                type="number"
-                name="tournament[tiebreak_unrated_rating]"
-                value={@tournament.tiebreak_unrated_rating}
-                min="0"
-                max="4000"
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Chess960")}
-              hint={
-                gettext(
-                  "The tournament is played as Chess960. The arbiter draws a random starting position for each round on the Pairings page; it is shown there and printed with the pairings."
-                )
-              }
-            >
-              <input type="hidden" name="tournament[chess960]" value="false" />
-              <input
-                id="chess960"
-                type="checkbox"
-                name="tournament[chess960]"
-                value="true"
-                checked={@tournament.chess960}
-              />
-            </.setting_field>
-
-            <.setting_field
-              label={gettext("Players still level share a place")}
-              hint={
-                gettext(
-                  "C.07 Article 2.1: the regulations say whether tied participants share a place. Off, players still level after the whole tie-break list are put in an order (rating, then name) and numbered one after the other - record a drawing of lots with the manual order. On, they all show the same place, such as 2=, and the next place is skipped accordingly."
-                )
-              }
-            >
-              <input type="hidden" name="tournament[shared_places]" value="false" />
-              <input
-                id="shared-places"
-                type="checkbox"
-                name="tournament[shared_places]"
-                value="true"
-                checked={@tournament.shared_places}
-              />
-            </.setting_field>
-          </.setting_group>
-
-          <%!-- VCL4THP Q210-Q216: a tournament lasting more than 30 days,
-                in which a player may hold more than one rating. --%>
-          <.setting_group>
-            <.setting_field
-              label={gettext("Tournament lasts more than 30 days")}
-              hint={
-                gettext(
-                  "It spans more than one rating period, so a player may hold more than one rating during it. On, each player's later ratings can be entered on the Players page with the round each applies from; expected scores use the rating of each game's round, and a TRF of chosen rounds carries the ratings valid in its first round, so each rating period can be reported with its own ratings."
-                )
-              }
-            >
-              <input type="hidden" name="tournament[long_event]" value="false" />
-              <input
-                id="long-event"
-                type="checkbox"
-                name="tournament[long_event]"
-                value="true"
-                checked={@tournament.long_event}
-              />
-            </.setting_field>
-
-            <p
-              :if={!@tournament.long_event and PeriodRatings.spans_over_30_days?(@tournament)}
-              id="long-event-suggestion"
-              class="setting-warning"
-              role="note"
-            >
-              {gettext(
-                "This tournament's dates span %{days} days. If a new rating list is published during it, tick \"Tournament lasts more than 30 days\" so players can hold more than one rating.",
-                days: PeriodRatings.span_days(@tournament)
-              )}
-            </p>
-
-            <p
-              :if={@tournament.long_event and Enum.any?(@tiebreaks, &Tiebreaks.rating_based?/1)}
-              id="long-event-rating-tiebreaks"
-              class="setting-warning"
-              role="note"
-            >
-              {gettext(
-                "C.07 Article 10: rating-based tie-breaks are not recommended when a player can have more than one rating during the tournament. Consider removing them from the list above."
-              )}
-            </p>
-
-            <.setting_field
-              :if={@tournament.long_event}
-              label={gettext("Rating-based tie-breaks use the rating valid in round")}
-              hint={
-                gettext(
-                  "Leave empty for each player's first rating, which C.07 Article 10 prescribes unless the regulations say otherwise. Enter a round to use the ratings valid in that round instead."
-                )
-              }
-            >
-              <input
-                id="tiebreak-rating-round"
-                type="number"
-                name="tournament[tiebreak_rating_round]"
-                value={@tournament.tiebreak_rating_round}
-                min="1"
-                max="99"
-              />
-            </.setting_field>
-
-            <%!-- VCL4THP Q214: the regulations may also say each game counts
-                  at the rating of its round. Not the default - C.07
-                  Article 10 makes the first rating the rule. --%>
-            <.setting_field
-              :if={@tournament.long_event}
-              label={gettext("Rating-based tie-breaks use each round's rating")}
-              hint={
-                gettext(
-                  "Only if your tournament regulations say so. On, each opponent counts at the rating they held in the round the game was played, and the round above is ignored; Rating (RTNG) still sorts by the first rating. Off, the default, every opponent counts at one rating for the whole event."
-                )
-              }
-            >
-              <input type="hidden" name="tournament[tiebreak_rating_per_round]" value="false" />
-              <input
-                id="tiebreak-rating-per-round"
-                type="checkbox"
-                name="tournament[tiebreak_rating_per_round]"
-                value="true"
-                checked={@tournament.tiebreak_rating_per_round}
-              />
-            </.setting_field>
-          </.setting_group>
+              <.input
+                field={@group_join_form[:group_id]}
+                type="select"
+                label={gettext("Or add it to an existing group")}
+                options={joinable_options(@joinable_groups)}
+              /> <button type="submit" class="pe-btn">{gettext("Add to group")}</button>
+            </.form>
+          <% end %>
         </div>
 
-        <div class="actions form-actions">
-          <button type="submit" class="pe-btn primary">{gettext("Save settings")}</button>
-          <span :if={@note} class="ok-note" style="align-self: center">{@note}</span>
-          <span :if={@error} class="error-note" style="align-self: center">{@error}</span>
-        </div>
-      </form>
-
-      <%!-- Tournament groups (`PairingsEngine.TournamentGroups`). The list
-            shows only the members this user can open - the switcher's rule,
-            for the switcher's reason. --%>
-      <div class="card" id="group-card">
-        <h2>{gettext("Group")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Several tournaments of one event - the Open, a youth section, a rapid on the side - can be put in a group. Each keeps its own players, rounds and pairings; the group adds a switcher at the top of every page that opens the same page of another one."
-          )}
-        </p>
-
-        <p :if={@group_error} id="group-error" class="error-note" role="alert">{@group_error}</p>
-
-        <%= if @group_switcher do %>
-          <.form
-            for={@group_rename_form}
-            id="group-rename-form"
-            phx-submit="group_rename"
-            class="group-inline-form"
-          >
-            <.input
-              field={@group_rename_form[:name]}
-              type="text"
-              label={gettext("Group name")}
-              maxlength={Group.max_name()}
-              required
-            /> <button type="submit" class="pe-btn">{gettext("Rename")}</button>
-          </.form>
-
-          <.form
-            for={@group_label_form}
-            id="group-label-form"
-            phx-submit="group_label"
-            class="group-inline-form"
-          >
-            <.input
-              field={@group_label_form[:label]}
-              type="text"
-              label={gettext("This tournament's label in the switcher")}
-              placeholder={@tournament.name}
-              maxlength={Member.max_label()}
-            /> <button type="submit" class="pe-btn">{gettext("Save label")}</button>
-          </.form>
-
-          <p class="hint" style="margin-top: 0">
-            {gettext("Leave the label empty to show the tournament's own name.")}
-          </p>
-
-          <%!-- What the group means off this machine. The link exists only
-                when this tournament's published page really is shown as part
-                of the event - see `TournamentGroups.published_block/1`. --%>
-          <p class="hint" id="group-published" style="margin-top: 0">
-            {gettext(
-              "On the results site, the published tournaments of a group are one event: tabs at the top of each to switch between them, and an event page that lists them. Only tournaments that are published are named there, and one that is not listed on the front page is named only on the others that are not listed either. The group's name is shown as the event's name."
-            )}
-            <a
-              :if={@group_event_url}
-              id="group-event-link"
-              href={@group_event_url}
-              target="_blank"
-              rel="noopener"
-            >
-              {gettext("Open the event page")}
-            </a>
-          </p>
-
-          <ol class="tb-list" id="group-order">
-            <li
-              :for={{m, i} <- Enum.with_index(@group_switcher.members)}
-              id={"group-member-#{m.id}"}
-            >
-              <span class="tb-order">{i + 1}.</span>
-              <div>
-                <div class="tb-name">
-                  {m.label}
-                  <span :if={m.current?} class="badge muted">{gettext("this tournament")}</span>
-                </div>
-
-                <div :if={m.label != m.name} class="tb-desc">{m.name}</div>
-              </div>
-
-              <div class="tb-buttons">
-                <button
-                  type="button"
-                  class="pe-btn"
-                  id={"group-up-#{m.id}"}
-                  title={gettext("Move up")}
-                  aria-label={gettext("Move %{tournament} up", tournament: m.label)}
-                  disabled={i == 0}
-                  phx-click="group_move"
-                  phx-value-id={m.id}
-                  phx-value-dir="up"
-                >
-                  ↑
-                </button>
-
-                <button
-                  type="button"
-                  class="pe-btn"
-                  id={"group-down-#{m.id}"}
-                  title={gettext("Move down")}
-                  aria-label={gettext("Move %{tournament} down", tournament: m.label)}
-                  disabled={i == length(@group_switcher.members) - 1}
-                  phx-click="group_move"
-                  phx-value-id={m.id}
-                  phx-value-dir="down"
-                >
-                  ↓
-                </button>
-              </div>
-            </li>
-          </ol>
-
-          <div class="actions">
-            <button
-              type="button"
-              id="group-leave"
-              class="pe-btn danger-link"
-              phx-click="group_leave"
-              data-confirm={
-                gettext(
-                  "Take this tournament out of the group %{name}? Nothing in the tournament itself changes. A group left empty is removed.",
-                  name: @group_switcher.group.name
-                )
-              }
-            >
-              {gettext("Take out of the group")}
-            </button>
-          </div>
-        <% else %>
-          <.form
-            for={@group_create_form}
-            id="group-create-form"
-            phx-submit="group_create"
-            class="group-inline-form"
-          >
-            <.input
-              field={@group_create_form[:name]}
-              type="text"
-              label={gettext("New group")}
-              placeholder={gettext("e.g. Spring Open 2026")}
-              maxlength={Group.max_name()}
-              required
-            /> <button type="submit" class="pe-btn primary">{gettext("Create group")}</button>
-          </.form>
-
-          <.form
-            :if={@joinable_groups != []}
-            for={@group_join_form}
-            id="group-join-form"
-            phx-submit="group_join"
-            class="group-inline-form"
-          >
-            <.input
-              field={@group_join_form[:group_id]}
-              type="select"
-              label={gettext("Or add it to an existing group")}
-              options={joinable_options(@joinable_groups)}
-            /> <button type="submit" class="pe-btn">{gettext("Add to group")}</button>
-          </.form>
-        <% end %>
-      </div>
-
-      <%!-- Not on a local install. The invitation is an email, which goes
+        <%!-- Not on a local install. The invitation is an email, which goes
             to the console there, and the listener is pinned to loopback so
             nobody else could open the link even if they saw it. Same
             reasoning as the hidden Settings and log-out links. --%>
-      <div :if={@owner? and not Authz.local_mode?()} class="card">
-        <h2>{gettext("Share / Team")}</h2>
+        <div :if={@owner? and not Authz.local_mode?()} class="card">
+          <h2>{gettext("Share / Team")}</h2>
 
-        <p class="hint" style="margin-top: 0">
-          <.rich_text text={
-            gettext(
-              "Invite other people to this tournament by email - they can open, edit, pair, enter results, print and export it, exactly like you, except they can't manage collaborators or delete the tournament. They only get access once they explicitly accept the emailed invitation while signed in with their own email (%[magic_link]) - no shared password needed."
-            )
-          }>
-            <:part name="magic_link">
-              <.link navigate={~p"/users/log-in"}>{gettext("magic link")}</.link>
-            </:part>
-          </.rich_text>
-        </p>
+          <p class="hint" style="margin-top: 0">
+            <.rich_text text={
+              gettext(
+                "Invite other people to this tournament by email - they can open, edit, pair, enter results, print and export it, exactly like you, except they can't manage collaborators or delete the tournament. They only get access once they explicitly accept the emailed invitation while signed in with their own email (%[magic_link]) - no shared password needed."
+              )
+            }>
+              <:part name="magic_link">
+                <.link navigate={~p"/users/log-in"}>{gettext("magic link")}</.link>
+              </:part>
+            </.rich_text>
+          </p>
 
-        <form id="add-collaborator-form" phx-submit="add_collaborator">
-          <.setting_group>
-            <.setting_field label={gettext("Email address")}>
-              <input type="email" name="email" placeholder={gettext("teammate@example.com")} />
-            </.setting_field>
-          </.setting_group>
+          <form id="add-collaborator-form" phx-submit="add_collaborator">
+            <.setting_group>
+              <.setting_field label={gettext("Email address")}>
+                <input type="email" name="email" placeholder={gettext("teammate@example.com")} />
+              </.setting_field>
+            </.setting_group>
 
-          <p :if={@collaborator_error} class="error-note">{@collaborator_error}</p>
+            <p :if={@collaborator_error} class="error-note">{@collaborator_error}</p>
 
-          <p :if={@collaborator_note} class="hint">{@collaborator_note}</p>
+            <p :if={@collaborator_note} class="hint">{@collaborator_note}</p>
 
-          <div class="actions">
-            <button type="submit" class="pe-btn primary">{gettext("Add collaborator")}</button>
-          </div>
-        </form>
+            <div class="actions">
+              <button type="submit" class="pe-btn primary">{gettext("Add collaborator")}</button>
+            </div>
+          </form>
 
-        <div :if={@collaborators != []} class="card-table-wrap" style="margin-top: 16px">
-          <table class="pe-table">
-            <thead>
-              <tr>
-                <th>{gettext("Email")}</th>
+          <div :if={@collaborators != []} class="card-table-wrap" style="margin-top: 16px">
+            <table class="pe-table">
+              <thead>
+                <tr>
+                  <th>{gettext("Email")}</th>
 
-                <th>{gettext("Status")}</th>
+                  <th>{gettext("Status")}</th>
 
-                <th><span class="sr-only">{gettext("Actions")}</span></th>
-              </tr>
-            </thead>
+                  <th><span class="sr-only">{gettext("Actions")}</span></th>
+                </tr>
+              </thead>
 
-            <tbody>
-              <tr :for={c <- @collaborators}>
-                <td>
-                  <%!-- The name the person gave their account, when they
+              <tbody>
+                <tr :for={c <- @collaborators}>
+                  <td>
+                    <%!-- The name the person gave their account, when they
                         have one - above the address they were invited
                         under, which stays because a name is not unique. --%>
-                  <span
-                    :if={match?(%{display_name: name} when is_binary(name), c.user)}
-                    class="collab-name"
-                  >
-                    {c.user.display_name}
-                  </span>
-                  {c.email}
-                </td>
+                    <span
+                      :if={match?(%{display_name: name} when is_binary(name), c.user)}
+                      class="collab-name"
+                    >
+                      {c.user.display_name}
+                    </span>
+                    {c.email}
+                  </td>
 
-                <td>
-                  <span class={["badge", c.status != "accepted" && "muted"]}>
-                    {if c.status == "accepted", do: "active", else: "invited (waiting for accept)"}
-                  </span>
-                </td>
+                  <td>
+                    <span class={["badge", c.status != "accepted" && "muted"]}>
+                      {if c.status == "accepted", do: "active", else: "invited (waiting for accept)"}
+                    </span>
+                  </td>
 
-                <td style="text-align: right">
-                  <button
-                    class="pe-btn danger-link"
-                    phx-click="remove_collaborator"
-                    phx-value-id={c.id}
-                  >
-                    {gettext("Remove")}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <p :if={@collaborators == []} class="hint" style="margin-bottom: 0">
-          {gettext("Nobody else has access to this tournament yet.")}
-        </p>
-      </div>
-
-      <div class="card">
-        <h2>{gettext("Logo")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          <.rich_text text={
-            gettext(
-              "Shown on printed documents (place cards, and any other print page that has a logo slot - see %[print]). Only raster images (PNG, JPEG, GIF, WebP) are accepted - SVG is rejected, since it can carry scripts and this image is embedded straight back into pages the app serves. Capped at 2 MB."
-            )
-          }>
-            <:part name="print">
-              <.link navigate={~p"/t/#{@tournament.id}/print"}>{gettext("Print")}</.link>
-            </:part>
-          </.rich_text>
-        </p>
-
-        <div :if={@tournament.logo_data} class="set-field solo">
-          <span class="set-label">{gettext("Current logo")}</span>
-          <img
-            src={Tournaments.logo_data_uri(@tournament)}
-            alt={gettext("Tournament logo")}
-            style="max-height: 80px; max-width: 240px; display: block; margin-top: 6px"
-          />
-          <div class="actions" style="margin-top: 8px">
-            <button type="button" class="pe-btn danger-link" phx-click="clear_logo">
-              {gettext("Remove logo")}
-            </button>
+                  <td style="text-align: right">
+                    <button
+                      class="pe-btn danger-link"
+                      phx-click="remove_collaborator"
+                      phx-value-id={c.id}
+                    >
+                      {gettext("Remove")}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
+
+          <p :if={@collaborators == []} class="hint" style="margin-bottom: 0">
+            {gettext("Nobody else has access to this tournament yet.")}
+          </p>
         </div>
 
-        <form id="logo-upload-form" phx-submit="upload_logo" phx-change="validate_logo">
-          <div class={["dropzone", @uploads.logo.entries != [] && "has-file"]}>
-            <.live_file_input
-              upload={@uploads.logo}
-              class="dropzone-input"
-              aria-labelledby={"#{@uploads.logo.ref}-label"}
+        <div class={["card", !@tournament.logo_data && "tset-adv"]} id="logo-card">
+          <h2>{gettext("Logo")}</h2>
+
+          <p class="hint" style="margin-top: 0">
+            <.rich_text text={
+              gettext(
+                "Shown on printed documents (place cards, and any other print page that has a logo slot - see %[print]). Only raster images (PNG, JPEG, GIF, WebP) are accepted - SVG is rejected, since it can carry scripts and this image is embedded straight back into pages the app serves. Capped at 2 MB."
+              )
+            }>
+              <:part name="print">
+                <.link navigate={~p"/t/#{@tournament.id}/print"}>{gettext("Print")}</.link>
+              </:part>
+            </.rich_text>
+          </p>
+
+          <div :if={@tournament.logo_data} class="set-field solo">
+            <span class="set-label">{gettext("Current logo")}</span>
+            <img
+              src={Tournaments.logo_data_uri(@tournament)}
+              alt={gettext("Tournament logo")}
+              style="max-height: 80px; max-width: 240px; display: block; margin-top: 6px"
             />
-            <div class="dropzone-label" id={"#{@uploads.logo.ref}-label"}>
-              <%= if @uploads.logo.entries == [] do %>
-                <strong>{gettext("Choose a PNG, JPEG, GIF or WebP image")}</strong>
-                <span class="hint">{gettext("or drag and drop it here")}</span>
-              <% else %>
-                <span :for={entry <- @uploads.logo.entries} class="dropzone-file">
-                  {entry.client_name}
-                  <span :if={entry.valid? and not entry.done?} class="hint">{entry.progress}%</span>
-                </span>
-              <% end %>
+            <div class="actions" style="margin-top: 8px">
+              <button type="button" class="pe-btn danger-link" phx-click="clear_logo">
+                {gettext("Remove logo")}
+              </button>
             </div>
           </div>
 
-          <p :for={err <- upload_errors(@uploads.logo)} class="error-note">
-            {upload_error_label(err)}
-          </p>
+          <form id="logo-upload-form" phx-submit="upload_logo" phx-change="validate_logo">
+            <div class={["dropzone", @uploads.logo.entries != [] && "has-file"]}>
+              <.live_file_input
+                upload={@uploads.logo}
+                class="dropzone-input"
+                aria-labelledby={"#{@uploads.logo.ref}-label"}
+              />
+              <div class="dropzone-label" id={"#{@uploads.logo.ref}-label"}>
+                <%= if @uploads.logo.entries == [] do %>
+                  <strong>{gettext("Choose a PNG, JPEG, GIF or WebP image")}</strong>
+                  <span class="hint">{gettext("or drag and drop it here")}</span>
+                <% else %>
+                  <span :for={entry <- @uploads.logo.entries} class="dropzone-file">
+                    {entry.client_name}
+                    <span :if={entry.valid? and not entry.done?} class="hint">{entry.progress}%</span>
+                  </span>
+                <% end %>
+              </div>
+            </div>
 
-          <div :for={entry <- @uploads.logo.entries}>
-            <p :for={err <- upload_errors(@uploads.logo, entry)} class="error-note">
-              {entry.client_name}: {upload_error_label(err)}
+            <p :for={err <- upload_errors(@uploads.logo)} class="error-note">
+              {upload_error_label(err)}
             </p>
-          </div>
 
-          <div class="actions">
-            <button
-              type="submit"
-              class="pe-btn primary"
-              phx-disable-with={gettext("Uploading…")}
-              disabled={@uploads.logo.entries == [] or UploadGuard.in_flight?(@uploads.logo)}
-            >
-              {gettext("Upload logo")}
-            </button>
-          </div>
-        </form>
-      </div>
+            <div :for={entry <- @uploads.logo.entries}>
+              <p :for={err <- upload_errors(@uploads.logo, entry)} class="error-note">
+                {entry.client_name}: {upload_error_label(err)}
+              </p>
+            </div>
+
+            <div class="actions">
+              <button
+                type="submit"
+                class="pe-btn primary"
+                phx-disable-with={gettext("Uploading…")}
+                disabled={@uploads.logo.entries == [] or UploadGuard.in_flight?(@uploads.logo)}
+              >
+                {gettext("Upload logo")}
+              </button>
+            </div>
+          </form>
+        </div>
+      </.settings_page>
     </Layouts.app>
     """
   end

@@ -27,6 +27,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     {:ok,
      socket
      |> attach_dirty_tracker()
+     |> attach_advanced()
      |> assign_rating_lists(tournament)
      |> assign(
        tournament: tournament,
@@ -377,326 +378,347 @@ defmodule PairingsEngineWeb.SettingsFideLive do
       tournament={@tournament}
       active="settings"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
-
-          <p class="subtitle" style="margin: 0">
-            {gettext("Settings - FIDE")}
-            <PairingsEngineWeb.Components.ManualLink.manual_link topic={:fide_settings} />
-          </p>
-        </div>
-        <span class={["badge", @tournament.status == "setup" && "muted"]}>{@tournament.status}</span>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:fide} /> <.stale_banner stale={@stale} />
-      <div class="card">
-        <h2>{gettext("FIDE handling")}</h2>
-        <.compliance_notice tournament={@tournament} show_compliant />
-        <p class="hint" style="margin-bottom: 0">
-          {gettext(
-            "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
-          )}
-        </p>
-        <.leave_fide_mode :if={Compliance.fide_mode?(@tournament)} step={@leave_step} />
-      </div>
-
-      <form id="fide-settings-form" phx-submit="save" phx-change="validate">
+      <.settings_page
+        tournament={@tournament}
+        active={:fide}
+        subtitle={gettext("Settings - FIDE")}
+        advanced={
+          advanced(
+            @show_advanced,
+            changed_count(@tournament, [:norm_event_type, :rating_checks_enabled])
+          )
+        }
+      >
+        <:subtitle_extra>
+          <PairingsEngineWeb.Components.ManualLink.manual_link topic={:fide_settings} />
+        </:subtitle_extra>
+        <.stale_banner stale={@stale} />
         <div class="card">
-          <h2>{gettext("FIDE report identifiers")}</h2>
-
-          <p class="hint" style="margin-top: 0">
-            <.rich_text text={
-              gettext(
-                "The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the %[norms] tab. The officials, arbiters and pairing-system details for those reports live on the Norms tab too."
-              )
-            }>
-              <:part name="norms">
-                <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
-              </:part>
-            </.rich_text>
+          <h2>{gettext("FIDE handling")}</h2>
+          <.compliance_notice tournament={@tournament} show_compliant />
+          <p class="hint tset-adv" style="margin-bottom: 0">
+            {gettext(
+              "This is not the same question as the tickbox below. This one is about how the software handled the event; that one is about whether you are sending it to FIDE to be rated. A club evening can be handled to the letter and never reported, and a rated event can be run however its arbiter chooses."
+            )}
           </p>
+          <.leave_fide_mode :if={Compliance.fide_mode?(@tournament)} step={@leave_step} />
+        </div>
 
-          <.setting_group>
-            <.setting_toggle
-              name="tournament[fide_homologated]"
-              label={gettext("This tournament is FIDE-homologated (rated/reportable)")}
-              checked={@tournament.fide_homologated}
-            />
-            <%!-- Bye preferences are not applied on a FIDE-rated
+        <form id="fide-settings-form" phx-submit="save" phx-change="validate">
+          <div class="card">
+            <h2>{gettext("FIDE report identifiers")}</h2>
+
+            <p class="hint" style="margin-top: 0">
+              <.rich_text text={
+                gettext(
+                  "The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the %[norms] tab. The officials, arbiters and pairing-system details for those reports live on the Norms tab too."
+                )
+              }>
+                <:part name="norms">
+                  <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
+                </:part>
+              </.rich_text>
+            </p>
+
+            <.setting_group>
+              <.setting_feature
+                id="fide-homologated-feature"
+                open={
+                  @tournament.fide_tournament_id not in [nil, ""] or
+                    @tournament.event_code not in [nil, ""]
+                }
+              >
+                <:switch>
+                  <.setting_toggle
+                    name="tournament[fide_homologated]"
+                    label={gettext("This tournament is FIDE-homologated (rated/reportable)")}
+                    checked={@tournament.fide_homologated}
+                  />
+                </:switch>
+                <%!-- Bye preferences are not applied on a FIDE-rated
                   tournament; stored ones are kept, and this says whose. --%>
-            <div
-              :if={@ignored_bye_preferences != []}
-              id="fide-bye-preference-ignored"
-              class="pe-modal-warn"
-              role="note"
-            >
-              <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong> {ngettext(
-                "%{names} has a bye preference, which is not applied when pairing a FIDE-rated tournament. It is kept, and applies again if the tournament stops being FIDE-rated.",
-                "%{names} have bye preferences, which are not applied when pairing a FIDE-rated tournament. They are kept, and apply again if the tournament stops being FIDE-rated.",
-                length(@ignored_bye_preferences),
-                names: Enum.join(@ignored_bye_preferences, ", ")
+                <div
+                  :if={@ignored_bye_preferences != []}
+                  id="fide-bye-preference-ignored"
+                  class="pe-modal-warn"
+                  role="note"
+                >
+                  <strong>{gettext("Bye preferences ignored: this tournament is FIDE-rated.")}</strong> {ngettext(
+                    "%{names} has a bye preference, which is not applied when pairing a FIDE-rated tournament. It is kept, and applies again if the tournament stops being FIDE-rated.",
+                    "%{names} have bye preferences, which are not applied when pairing a FIDE-rated tournament. They are kept, and apply again if the tournament stops being FIDE-rated.",
+                    length(@ignored_bye_preferences),
+                    names: Enum.join(@ignored_bye_preferences, ", ")
+                  )}
+                </div>
+
+                <.setting_field label={gettext("FIDE tournament ID (tournament-wide default)")}>
+                  <input name="tournament[fide_tournament_id]" value={@tournament.fide_tournament_id} />
+                </.setting_field>
+
+                <.setting_field label={gettext("FIDE event code")}>
+                  <input name="tournament[event_code]" value={@tournament.event_code} />
+                </.setting_field>
+
+                <.setting_field
+                  class="tset-adv"
+                  label={gettext("Event type for title norms")}
+                  hint={
+                    gettext(
+                      "Only matters for a FIDE-rated event. The Norms tab judges each player's games with the fewer games or the federation-mix exemption this kind of event is granted in the FIDE Title Regulations; an ordinary event keeps the full requirements. Only the kinds that fit this tournament's type (team or individual) are offered."
+                    )
+                  }
+                >
+                  <select id="norm-event-type" name="tournament[norm_event_type]">
+                    <option
+                      :for={type <- Tournament.norm_event_types_for(@tournament)}
+                      value={type}
+                      selected={Tournament.effective_norm_event_type(@tournament) == type}
+                    >
+                      {norm_event_type_label(type)}
+                    </option>
+                  </select>
+                </.setting_field>
+
+                <p class="hint tset-adv" style="margin-bottom: 0">
+                  {gettext(
+                    "The FIDE tournament ID above is used whenever no per-round range below unambiguously covers the exported rounds (no ranges configured, the export spans more than one range, or matches none) - see the ranges below for splitting one event's report across differently-rated sections. It's a different thing from the event code: the ID is this report's own numeric identifier at FIDE (IT3's \"ID of Tournament\"), the event code is your federation's rating-homologation code (e.g. BEL2026001)."
+                  )}
+                </p>
+              </.setting_feature>
+            </.setting_group>
+          </div>
+
+          <div class={["card", @rows == [] && "tset-adv"]} id="fide-id-ranges-card">
+            <h2>{gettext("Per-round FIDE-ID ranges")}</h2>
+
+            <p class="hint" style="margin-top: 0">
+              {gettext(
+                "For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds fall entirely inside one range below, that range's ID is used instead of the tournament-wide default above. Ranges may not overlap."
               )}
+            </p>
+
+            <div :if={@rows != []} class="card-table-wrap">
+              <table class="pe-table">
+                <thead>
+                  <tr>
+                    <th>{gettext("FIDE tournament ID")}</th>
+
+                    <th>{gettext("From round")}</th>
+
+                    <th>{gettext("To round")}</th>
+
+                    <th><span class="sr-only">{gettext("Actions")}</span></th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr :for={{row, i} <- Enum.with_index(@rows)}>
+                    <td>
+                      <input
+                        class="pe-input"
+                        name={"tournament[fide_id_ranges][#{i}][fide_tournament_id]"}
+                        value={row["fide_tournament_id"]}
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        class="pe-input"
+                        style="width: 6rem"
+                        name={"tournament[fide_id_ranges][#{i}][from_round]"}
+                        value={row["from_round"]}
+                      />
+                    </td>
+
+                    <td>
+                      <input
+                        type="number"
+                        min="1"
+                        class="pe-input"
+                        style="width: 6rem"
+                        name={"tournament[fide_id_ranges][#{i}][to_round]"}
+                        value={row["to_round"]}
+                      />
+                    </td>
+
+                    <td style="text-align: right">
+                      <button
+                        type="button"
+                        class="pe-btn danger-link"
+                        phx-click="remove_range"
+                        phx-value-index={i}
+                      >
+                        {gettext("Remove")}
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            <.setting_field label={gettext("FIDE tournament ID (tournament-wide default)")}>
-              <input name="tournament[fide_tournament_id]" value={@tournament.fide_tournament_id} />
-            </.setting_field>
+            <p :if={@rows == []} class="hint">
+              {gettext(
+                "No per-round ranges configured - every export uses the tournament-wide default ID above."
+              )}
+            </p>
 
-            <.setting_field label={gettext("FIDE event code")}>
-              <input name="tournament[event_code]" value={@tournament.event_code} />
-            </.setting_field>
+            <div class="actions">
+              <button type="button" class="pe-btn" phx-click="add_range">{gettext("Add range")}</button>
+            </div>
+          </div>
 
-            <.setting_field
-              label={gettext("Event type for title norms")}
-              hint={
-                gettext(
-                  "Only matters for a FIDE-rated event. The Norms tab judges each player's games with the fewer games or the federation-mix exemption this kind of event is granted in the FIDE Title Regulations; an ordinary event keeps the full requirements. Only the kinds that fit this tournament's type (team or individual) are offered."
-                )
-              }
-            >
-              <select id="norm-event-type" name="tournament[norm_event_type]">
-                <option
-                  :for={type <- Tournament.norm_event_types_for(@tournament)}
-                  value={type}
-                  selected={Tournament.effective_norm_event_type(@tournament) == type}
-                >
-                  {norm_event_type_label(type)}
-                </option>
-              </select>
-            </.setting_field>
-          </.setting_group>
+          <div class="actions">
+            <button type="submit" id="fide-settings-save" class="pe-btn primary">
+              {gettext("Save FIDE settings")}
+            </button>
+            <span :if={@note} id="fide-note" class="ok-note tset-saved" role="status">
+              <.icon name="hero-check-micro" class="size-4" /> {@note}
+            </span>
+            <span :if={@error} id="fide-error" class="error-note tset-error" role="alert">
+              {@error}
+            </span>
+          </div>
+        </form>
 
-          <p class="hint" style="margin-bottom: 0">
-            {gettext(
-              "The FIDE tournament ID above is used whenever no per-round range below unambiguously covers the exported rounds (no ranges configured, the export spans more than one range, or matches none) - see the ranges below for splitting one event's report across differently-rated sections. It's a different thing from the event code: the ID is this report's own numeric identifier at FIDE (IT3's \"ID of Tournament\"), the event code is your federation's rating-homologation code (e.g. BEL2026001)."
-            )}
-          </p>
-        </div>
-
-        <div class="card">
-          <h2>{gettext("Per-round FIDE-ID ranges")}</h2>
+        <div id="rating-lists-card" class="card">
+          <h2>{gettext("Rating lists")}</h2>
 
           <p class="hint" style="margin-top: 0">
             {gettext(
-              "For splitting one event's FIDE report across rated sections - e.g. FIDE ID 89495 for rounds 1-3, a different ID for rounds 4-9. When exporting a TRF whose selected rounds fall entirely inside one range below, that range's ID is used instead of the tournament-wide default above. Ranges may not overlap."
+              "The lists a player's rating is taken from when the player is added or the ratings are refreshed, in order. The first is the main list: its rating is entered automatically, and the ratings the player has in the other lists are offered to pick instead. A FIDE list fills the FIDE rating; the national list and your own lists fill the national rating."
             )}
           </p>
 
-          <div :if={@rows != []} class="card-table-wrap">
-            <table class="pe-table">
-              <thead>
-                <tr>
-                  <th>{gettext("FIDE tournament ID")}</th>
-
-                  <th>{gettext("From round")}</th>
-
-                  <th>{gettext("To round")}</th>
-
-                  <th><span class="sr-only">{gettext("Actions")}</span></th>
-                </tr>
-              </thead>
-
-              <tbody>
-                <tr :for={{row, i} <- Enum.with_index(@rows)}>
-                  <td>
-                    <input
-                      class="pe-input"
-                      name={"tournament[fide_id_ranges][#{i}][fide_tournament_id]"}
-                      value={row["fide_tournament_id"]}
-                    />
-                  </td>
-
-                  <td>
-                    <input
-                      type="number"
-                      min="1"
-                      class="pe-input"
-                      style="width: 6rem"
-                      name={"tournament[fide_id_ranges][#{i}][from_round]"}
-                      value={row["from_round"]}
-                    />
-                  </td>
-
-                  <td>
-                    <input
-                      type="number"
-                      min="1"
-                      class="pe-input"
-                      style="width: 6rem"
-                      name={"tournament[fide_id_ranges][#{i}][to_round]"}
-                      value={row["to_round"]}
-                    />
-                  </td>
-
-                  <td style="text-align: right">
-                    <button
-                      type="button"
-                      class="pe-btn danger-link"
-                      phx-click="remove_range"
-                      phx-value-index={i}
-                    >
-                      {gettext("Remove")}
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <p :if={@rows == []} class="hint">
-            {gettext(
-              "No per-round ranges configured - every export uses the tournament-wide default ID above."
-            )}
+          <p
+            :if={!RatingLists.custom_sequence?(@tournament)}
+            id="rating-sequence-default"
+            class="hint"
+          >
+            {gettext("This is the default sequence for the tournament's rate of play.")}
           </p>
+
+          <ol id="rating-sequence" style="padding-left: 22px">
+            <li
+              :for={{entry, i} <- Enum.with_index(@rating_sequence)}
+              id={"rating-sequence-#{i}"}
+              style="display: flex; gap: 8px; align-items: center; margin: 4px 0"
+            >
+              <span style="flex: 1">
+                {entry_label(entry, @custom_names)}
+                <span :if={i == 0} class="badge muted">{gettext("main list")}</span>
+              </span>
+
+              <button
+                type="button"
+                class="pe-btn"
+                id={"rating-sequence-up-#{i}"}
+                phx-click="seq_move"
+                phx-value-index={i}
+                phx-value-dir="up"
+                disabled={i == 0}
+                aria-label={gettext("Move up")}
+              >
+                <.icon name="hero-arrow-up" class="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                class="pe-btn"
+                id={"rating-sequence-down-#{i}"}
+                phx-click="seq_move"
+                phx-value-index={i}
+                phx-value-dir="down"
+                disabled={i == length(@rating_sequence) - 1}
+                aria-label={gettext("Move down")}
+              >
+                <.icon name="hero-arrow-down" class="w-4 h-4" />
+              </button>
+
+              <button
+                type="button"
+                class="pe-btn danger-link"
+                id={"rating-sequence-remove-#{i}"}
+                phx-click="seq_remove"
+                phx-value-index={i}
+                disabled={length(@rating_sequence) == 1}
+              >
+                {gettext("Leave out")}
+              </button>
+            </li>
+          </ol>
+
+          <form
+            :if={@addable != []}
+            id="rating-sequence-add-form"
+            phx-submit="seq_add"
+            style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"
+          >
+            <select
+              name="entry"
+              id="rating-sequence-add-select"
+              class="pe-input"
+              style="width: auto"
+              aria-label={gettext("Add to the sequence")}
+            >
+              <option :for={{entry, _label} <- @addable} value={entry}>
+                {entry_label(entry, @custom_names)}
+              </option>
+            </select>
+
+            <button type="submit" class="pe-btn" id="rating-sequence-add">
+              {gettext("Add to the sequence")}
+            </button>
+          </form>
 
           <div class="actions">
-            <button type="button" class="pe-btn" phx-click="add_range">{gettext("Add range")}</button>
+            <button
+              :if={RatingLists.custom_sequence?(@tournament)}
+              type="button"
+              class="pe-btn"
+              id="rating-sequence-reset"
+              phx-click="seq_reset"
+            >
+              {gettext("Back to the default sequence")}
+            </button>
+
+            <.link :if={@may_load_lists?} navigate={~p"/rating-lists"} id="rating-lists-manage">
+              {gettext("Load your own rating list")}
+            </.link>
           </div>
-        </div>
 
-        <div class="actions">
-          <button type="submit" id="fide-settings-save" class="pe-btn primary">
-            {gettext("Save FIDE settings")}
-          </button>
-          <span :if={@note} id="fide-note" class="ok-note" style="align-self: center">{@note}</span>
-          <span :if={@error} id="fide-error" class="error-note" style="align-self: center">
-            {@error}
+          <div class="tset-adv" id="rating-checks">
+            <h3 style="margin-bottom: 4px">{gettext("Consistency checks")}</h3>
+
+            <form id="rating-checks-form" phx-change="set_rating_checks">
+              <input type="hidden" name="enabled" value="false" />
+              <label style="display: flex; gap: 8px; align-items: center">
+                <input
+                  type="checkbox"
+                  id="rating-checks-enabled"
+                  name="enabled"
+                  value="true"
+                  checked={@tournament.rating_checks_enabled}
+                />
+                <span>
+                  {gettext("Tell me when the FIDE list gives a player a different rating or title")}
+                </span>
+              </label>
+            </form>
+
+            <p class="hint" style="margin-bottom: 0">
+              {gettext(
+                "Switched off, nothing is checked on its own. The Refresh ratings button on the Players page still compares the ratings on file with the list when you ask."
+              )}
+            </p>
+          </div>
+          <span :if={@rating_note} id="rating-note" class="ok-note tset-saved" role="status">
+            <.icon name="hero-check-micro" class="size-4" /> {@rating_note}
           </span>
+          <span :if={@rating_error} id="rating-error" class="error-note">{@rating_error}</span>
         </div>
-      </form>
-
-      <div id="rating-lists-card" class="card">
-        <h2>{gettext("Rating lists")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "The lists a player's rating is taken from when the player is added or the ratings are refreshed, in order. The first is the main list: its rating is entered automatically, and the ratings the player has in the other lists are offered to pick instead. A FIDE list fills the FIDE rating; the national list and your own lists fill the national rating."
-          )}
-        </p>
-
-        <p
-          :if={!RatingLists.custom_sequence?(@tournament)}
-          id="rating-sequence-default"
-          class="hint"
-        >
-          {gettext("This is the default sequence for the tournament's rate of play.")}
-        </p>
-
-        <ol id="rating-sequence" style="padding-left: 22px">
-          <li
-            :for={{entry, i} <- Enum.with_index(@rating_sequence)}
-            id={"rating-sequence-#{i}"}
-            style="display: flex; gap: 8px; align-items: center; margin: 4px 0"
-          >
-            <span style="flex: 1">
-              {entry_label(entry, @custom_names)}
-              <span :if={i == 0} class="badge muted">{gettext("main list")}</span>
-            </span>
-
-            <button
-              type="button"
-              class="pe-btn"
-              id={"rating-sequence-up-#{i}"}
-              phx-click="seq_move"
-              phx-value-index={i}
-              phx-value-dir="up"
-              disabled={i == 0}
-              aria-label={gettext("Move up")}
-            >
-              <.icon name="hero-arrow-up" class="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              class="pe-btn"
-              id={"rating-sequence-down-#{i}"}
-              phx-click="seq_move"
-              phx-value-index={i}
-              phx-value-dir="down"
-              disabled={i == length(@rating_sequence) - 1}
-              aria-label={gettext("Move down")}
-            >
-              <.icon name="hero-arrow-down" class="w-4 h-4" />
-            </button>
-
-            <button
-              type="button"
-              class="pe-btn danger-link"
-              id={"rating-sequence-remove-#{i}"}
-              phx-click="seq_remove"
-              phx-value-index={i}
-              disabled={length(@rating_sequence) == 1}
-            >
-              {gettext("Leave out")}
-            </button>
-          </li>
-        </ol>
-
-        <form
-          :if={@addable != []}
-          id="rating-sequence-add-form"
-          phx-submit="seq_add"
-          style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap"
-        >
-          <select
-            name="entry"
-            id="rating-sequence-add-select"
-            class="pe-input"
-            style="width: auto"
-            aria-label={gettext("Add to the sequence")}
-          >
-            <option :for={{entry, _label} <- @addable} value={entry}>
-              {entry_label(entry, @custom_names)}
-            </option>
-          </select>
-
-          <button type="submit" class="pe-btn" id="rating-sequence-add">
-            {gettext("Add to the sequence")}
-          </button>
-        </form>
-
-        <div class="actions">
-          <button
-            :if={RatingLists.custom_sequence?(@tournament)}
-            type="button"
-            class="pe-btn"
-            id="rating-sequence-reset"
-            phx-click="seq_reset"
-          >
-            {gettext("Back to the default sequence")}
-          </button>
-
-          <.link :if={@may_load_lists?} navigate={~p"/rating-lists"} id="rating-lists-manage">
-            {gettext("Load your own rating list")}
-          </.link>
-        </div>
-
-        <h3 style="margin-bottom: 4px">{gettext("Consistency checks")}</h3>
-
-        <form id="rating-checks-form" phx-change="set_rating_checks">
-          <input type="hidden" name="enabled" value="false" />
-          <label style="display: flex; gap: 8px; align-items: center">
-            <input
-              type="checkbox"
-              id="rating-checks-enabled"
-              name="enabled"
-              value="true"
-              checked={@tournament.rating_checks_enabled}
-            />
-            <span>
-              {gettext("Tell me when the FIDE list gives a player a different rating or title")}
-            </span>
-          </label>
-        </form>
-
-        <p class="hint" style="margin-bottom: 0">
-          {gettext(
-            "Switched off, nothing is checked on its own. The Refresh ratings button on the Players page still compares the ratings on file with the list when you ask."
-          )}
-        </p>
-        <span :if={@rating_note} id="rating-note" class="ok-note">{@rating_note}</span>
-        <span :if={@rating_error} id="rating-error" class="error-note">{@rating_error}</span>
-      </div>
+      </.settings_page>
     </Layouts.app>
     """
   end

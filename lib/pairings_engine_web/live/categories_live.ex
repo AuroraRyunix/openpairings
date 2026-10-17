@@ -654,401 +654,405 @@ defmodule PairingsEngineWeb.CategoriesLive do
       tournament={@tournament}
       active="categories"
     >
-      <div class="page-header">
-        <div>
-          <h1>{@tournament.name}</h1>
+      <.settings_page
+        tournament={@tournament}
+        active={:categories}
+        subtitle={gettext("Categories")}
+        show_status={false}
+      >
+        <.fide_exit_dialog
+          id="fide-gate"
+          step={@fide_gate && @fide_gate.step}
+          reasons={(@fide_gate && @fide_gate.reasons) || []}
+        /> <.compliance_notice tournament={@tournament} />
+        <div class="card">
+          <h2>{gettext("Categories")}</h2>
 
-          <p class="subtitle" style="margin: 0">{gettext("Categories")}</p>
-        </div>
-      </div>
-      <.settings_subnav tournament={@tournament} active={:categories} />
-      <.fide_exit_dialog
-        id="fide-gate"
-        step={@fide_gate && @fide_gate.step}
-        reasons={(@fide_gate && @fide_gate.reasons) || []}
-      /> <.compliance_notice tournament={@tournament} />
-      <div class="card">
-        <h2>{gettext("Categories")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          {gettext(
-            "Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - players can be assigned to. Off by default; turn on to start adding them below."
-          )}
-        </p>
-
-        <div class="set-field solo">
-          <span class="set-label">{gettext("Status")}</span>
-          <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-            <span>{if @tournament.categories_enabled, do: "On", else: "Off"}</span>
-            <button
-              type="button"
-              class="pe-btn"
-              phx-click="toggle_categories_enabled"
-              disabled={@categories_off_locked?}
-            >
-              {if @tournament.categories_enabled, do: "Turn off", else: "Turn on"}
-            </button>
-          </div>
-
-          <%!-- Turning categories off would also have to turn pair-by-category
-                off, and that IS locked once a round is paired. Said here, next
-                to the disabled control, rather than left to a refusal that
-                named a setting the arbiter never touched. --%>
-          <p :if={@categories_off_locked?} class="hint" style="margin: 6px 0 0">
+          <p class="hint" style="margin-top: 0">
             {gettext(
-              "Locked - categories cannot be turned off while pairing by category, and that cannot change after round 1 has been paired."
-            )}
-          </p>
-        </div>
-
-        <div
-          :if={@tournament.categories_enabled}
-          class="set-field solo"
-          style="margin-top: 10px"
-        >
-          <span class="set-label">{gettext("Pair each category independently (beta)")}</span>
-          <p class="hint" style="margin: 2px 0 6px">
-            {gettext(
-              "Each category gets its own independent pairings and byes within one combined round - in a round robin, its own Berger table."
+              "Tournament-defined groups (SWAR CATEGORIES) - e.g. age or rating brackets - players can be assigned to. Off by default; turn on to start adding them below."
             )}
           </p>
 
-          <div class="actions" style="align-items: center; gap: 10px">
-            <span>{if @tournament.pair_by_category, do: "On", else: "Off"}</span>
-            <div class="locked-wrap locked-wrap-inline">
+          <div class="set-field solo">
+            <span class="set-label">{gettext("Status")}</span>
+            <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
+              <span>{if @tournament.categories_enabled, do: "On", else: "Off"}</span>
               <button
                 type="button"
                 class="pe-btn"
-                phx-click="toggle_pair_by_category"
-                disabled={@pair_by_category_locked?}
+                phx-click="toggle_categories_enabled"
+                disabled={@categories_off_locked?}
               >
-                {if @tournament.pair_by_category, do: "Turn off", else: "Turn on"}
+                {if @tournament.categories_enabled, do: "Turn off", else: "Turn on"}
               </button>
-              <.locked_overlay field={:pair_by_category} locked?={@pair_by_category_locked?} />
             </div>
-          </div>
 
-          <.locked_hint_message
-            field={:pair_by_category}
-            locked_hint={@locked_hint}
-            warning={pair_by_category_warning()}
-          />
-        </div>
-
-        <%!-- SWAR's "separate categories" as far as the standings go. Not
-              locked: standings are computed afresh every time, so switching
-              it only changes how they are shown. --%>
-        <div
-          :if={@tournament.categories_enabled}
-          id="ranked-separately"
-          class="set-field solo"
-          style="margin-top: 10px"
-        >
-          <span class="set-label">{gettext("Rank each category separately")}</span>
-          <p class="hint" style="margin: 2px 0 6px">
-            {gettext(
-              "Each category gets its own standings, numbered from 1, and a tie is broken among the tied players of that category only - so direct encounter looks at the games within the category. SWAR's \"separate categories\" does this."
-            )}
-          </p>
-
-          <div class="actions" style="align-items: center; gap: 10px">
-            <span>
-              {if @tournament.categories_ranked_separately, do: gettext("On"), else: gettext("Off")}
-            </span>
-
-            <button
-              type="button"
-              id="toggle-ranked-separately"
-              class="pe-btn"
-              phx-click="toggle_categories_ranked_separately"
-            >
-              {if @tournament.categories_ranked_separately,
-                do: gettext("Turn off"),
-                else: gettext("Turn on")}
-            </button>
-          </div>
-        </div>
-
-        <p :if={@toggle_error} class="error-note" style="margin-top: 10px">{@toggle_error}</p>
-      </div>
-
-      <div :if={@tournament.categories_enabled}>
-        <div class="card">
-          <h2>{gettext("Category list")}</h2>
-
-          <p class="hint" style="margin-top: 0">
-            <.rich_text text={
-              gettext(
-                ~s(Players are assigned a category on the %[players] page. Set any combination of the conditions below and a category can be filled in for every player automatically, further down. Leave every condition blank to keep assigning it by hand.)
-              )
-            }>
-              <:part name="players">
-                <.link navigate={~p"/t/#{@tournament.id}/players"}>{gettext("Players")}</.link>
-              </:part>
-            </.rich_text>
-          </p>
-
-          <p class="hint">
-            {gettext(
-              "An unrated player satisfies a \"rating below\" condition (0 is under any ceiling) but never a \"rating from\" one."
-            )}
-          </p>
-
-          <form id="add-category-form" phx-submit="add_category">
-            <.setting_group>
-              <.setting_field label={gettext("New category name")}>
-                <input type="text" name="name" value="" placeholder={gettext("e.g. U1800 or 45+")} />
-              </.setting_field>
-
-              <.setting_field label={gettext("Rating from")}>
-                <input type="number" name="rating_from" value="" min="1" />
-              </.setting_field>
-
-              <.setting_field label={gettext("Rating below")}>
-                <input type="number" name="rating_below" value="" min="1" />
-              </.setting_field>
-
-              <.setting_field label={gettext("Age from")}>
-                <input type="number" name="age_from" value="" min="1" />
-              </.setting_field>
-
-              <.setting_field label={gettext("Under age")}>
-                <input type="number" name="age_below" value="" min="1" />
-              </.setting_field>
-            </.setting_group>
-
-            <label class="set-toggle" style="margin-top: 6px">
-              <input type="hidden" name="women" value="false" />
-              <input type="checkbox" name="women" value="true" />
-              <span class="set-toggle-text">{gettext("Women only")}</span>
-            </label>
-
-            <p :if={@category_error} class="error-note">{@category_error}</p>
-
-            <div class="actions">
-              <button type="submit" class="pe-btn primary">Add</button>
-            </div>
-          </form>
-
-          <div :if={@tournament.categories != []} class="card-table-wrap" style="margin-top: 16px">
-            <form id="rules-form" phx-change="rules_change" phx-submit="save_rules">
-              <table class="pe-table">
-                <thead>
-                  <tr>
-                    <th>{gettext("Category")}</th>
-
-                    <th class="num">{gettext("Rating from")}</th>
-
-                    <th class="num">{gettext("Rating below")}</th>
-
-                    <th class="num">{gettext("Age from")}</th>
-
-                    <th class="num">{gettext("Under age")}</th>
-
-                    <th>{gettext("Women")}</th>
-
-                    <th class="num">{gettext("Prizes")}</th>
-
-                    <th>{gettext("Summary")}</th>
-
-                    <th><span class="sr-only">{gettext("Actions")}</span></th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  <tr :for={
-                    {{c, row}, idx} <- Enum.with_index(Enum.zip(@tournament.categories, @rules_draft))
-                  }>
-                    <td>{c}</td>
-
-                    <td class="num">
-                      <input
-                        type="number"
-                        name={"rule[#{idx}][rating_from]"}
-                        value={row["rating_from"]}
-                        min="1"
-                        style="width: 80px"
-                      />
-                    </td>
-
-                    <td class="num">
-                      <input
-                        type="number"
-                        name={"rule[#{idx}][rating_below]"}
-                        value={row["rating_below"]}
-                        min="1"
-                        style="width: 80px"
-                      />
-                    </td>
-
-                    <td class="num">
-                      <input
-                        type="number"
-                        name={"rule[#{idx}][age_from]"}
-                        value={row["age_from"]}
-                        min="1"
-                        style="width: 70px"
-                      />
-                      <div :if={age_from_hint(row, @tournament_year)} class="hint" style="margin: 0">
-                        {age_from_hint(row, @tournament_year)}
-                      </div>
-                    </td>
-
-                    <td class="num">
-                      <input
-                        type="number"
-                        name={"rule[#{idx}][age_below]"}
-                        value={row["age_below"]}
-                        min="1"
-                        style="width: 70px"
-                      />
-                      <div :if={age_below_hint(row, @tournament_year)} class="hint" style="margin: 0">
-                        {age_below_hint(row, @tournament_year)}
-                      </div>
-                    </td>
-
-                    <td>
-                      <input type="hidden" name={"rule[#{idx}][women]"} value="false" />
-                      <input
-                        type="checkbox"
-                        name={"rule[#{idx}][women]"}
-                        value="true"
-                        checked={row["women"] == "true"}
-                      />
-                    </td>
-
-                    <td class="num">
-                      <input
-                        type="number"
-                        name={"rule[#{idx}][prize]"}
-                        value={row["prize"]}
-                        min="0"
-                        style="width: 60px"
-                      />
-                    </td>
-
-                    <td>{rule_summary(draft_rule(row))}</td>
-
-                    <td style="text-align: right">
-                      <button
-                        type="button"
-                        class="pe-btn danger-link"
-                        phx-click="remove_category"
-                        phx-value-name={c}
-                      >
-                        {gettext("Remove")}
-                      </button>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-
-              <div class="actions" style="margin-top: 10px">
-                <button type="submit" class="pe-btn primary">{gettext("Save rules")}</button>
-              </div>
-            </form>
-          </div>
-
-          <p :if={@tournament.categories == []} class="hint" style="margin-bottom: 0">
-            {gettext("No categories yet.")}
-          </p>
-
-          <div
-            :if={@tournament.categories != [] and @tournament.category_rules != %{}}
-            class="actions"
-            style="margin-top: 16px"
-          >
-            <button type="button" class="pe-btn primary" phx-click="assign_categories">
-              {gettext("Assign categories")}
-            </button>
-            <span :if={@assign_note} class="ok-note" style="align-self: center">{@assign_note}</span>
-          </div>
-
-          <p :if={@category_error} class="error-note" style="margin-top: 10px">
-            {@category_error}
-          </p>
-        </div>
-      </div>
-
-      <div
-        :if={@category_confirm}
-        class="pe-modal"
-        phx-window-keydown="cancel_category_confirm"
-        phx-key="escape"
-      >
-        <div
-          class="pe-modal-card pe-modal-wide"
-          phx-click-away="cancel_category_confirm"
-          id="category-confirm-dialog"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="category-confirm-title"
-          tabindex="-1"
-          phx-hook="DialogFocus"
-          data-dialog
-        >
-          <div class="pe-modal-head">
-            <h2 id="category-confirm-title">{gettext("Assign categories?")}</h2>
-
-            <p>
+            <%!-- Turning categories off would also have to turn pair-by-category
+                off, and that IS locked once a round is paired. Said here, next
+                to the disabled control, rather than left to a refusal that
+                named a setting the arbiter never touched. --%>
+            <p :if={@categories_off_locked?} class="hint" style="margin: 6px 0 0">
               {gettext(
-                "Applying the threshold rules would change the categories of %{changed} of %{total} players. Categories with no rule are left alone. Players with no change are omitted below.",
-                changed: length(@category_confirm.changes),
-                total: @category_confirm.total
+                "Locked - categories cannot be turned off while pairing by category, and that cannot change after round 1 has been paired."
               )}
             </p>
           </div>
 
-          <div class="pe-modal-body">
-            <div class="card-table-wrap">
-              <table class="pe-table">
-                <thead>
-                  <tr>
-                    <th>{gettext("Player")}</th>
+          <div
+            :if={@tournament.categories_enabled}
+            class="set-field solo"
+            style="margin-top: 10px"
+          >
+            <span class="set-label">{gettext("Pair each category independently (beta)")}</span>
+            <p class="hint" style="margin: 2px 0 6px">
+              {gettext(
+                "Each category gets its own independent pairings and byes within one combined round - in a round robin, its own Berger table."
+              )}
+            </p>
 
-                    <th>{gettext("From")}</th>
+            <div class="actions" style="align-items: center; gap: 10px">
+              <span>{if @tournament.pair_by_category, do: "On", else: "Off"}</span>
+              <div class="locked-wrap locked-wrap-inline">
+                <button
+                  type="button"
+                  class="pe-btn"
+                  phx-click="toggle_pair_by_category"
+                  disabled={@pair_by_category_locked?}
+                >
+                  {if @tournament.pair_by_category, do: "Turn off", else: "Turn on"}
+                </button>
+                <.locked_overlay field={:pair_by_category} locked?={@pair_by_category_locked?} />
+              </div>
+            </div>
 
-                    <th>To</th>
+            <.locked_hint_message
+              field={:pair_by_category}
+              locked_hint={@locked_hint}
+              warning={pair_by_category_warning()}
+            />
+          </div>
 
-                    <th>{gettext("Pairing pool")}</th>
-                  </tr>
-                </thead>
+          <%!-- SWAR's "separate categories" as far as the standings go. Not
+              locked: standings are computed afresh every time, so switching
+              it only changes how they are shown. --%>
+          <div
+            :if={@tournament.categories_enabled}
+            id="ranked-separately"
+            class="set-field solo"
+            style="margin-top: 10px"
+          >
+            <span class="set-label">{gettext("Rank each category separately")}</span>
+            <p class="hint" style="margin: 2px 0 6px">
+              {gettext(
+                "Each category gets its own standings, numbered from 1, and a tie is broken among the tied players of that category only - so direct encounter looks at the games within the category. SWAR's \"separate categories\" does this."
+              )}
+            </p>
 
-                <tbody>
-                  <tr :for={change <- @category_confirm.changes}>
-                    <td>{change.player.name}</td>
+            <div class="actions" style="align-items: center; gap: 10px">
+              <span>
+                {if @tournament.categories_ranked_separately, do: gettext("On"), else: gettext("Off")}
+              </span>
 
-                    <td>{empty_dash(Enum.join(change.from, ", "))}</td>
-
-                    <td>{empty_dash(Enum.join(change.to, ", "))}</td>
-
-                    <%!-- The pairing pool is single-valued and changes on its
-                          own rules, so it gets its own column rather than
-                          being folded into the set it is drawn from. --%>
-                    <td>
-                      {empty_dash(change.from_category)} → {empty_dash(change.to_category)}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+              <button
+                type="button"
+                id="toggle-ranked-separately"
+                class="pe-btn"
+                phx-click="toggle_categories_ranked_separately"
+              >
+                {if @tournament.categories_ranked_separately,
+                  do: gettext("Turn off"),
+                  else: gettext("Turn on")}
+              </button>
             </div>
           </div>
 
-          <div class="pe-modal-foot">
-            <button type="button" class="pe-btn" phx-click="cancel_category_confirm">
-              {gettext("Cancel")}
-            </button>
+          <p :if={@toggle_error} class="error-note" style="margin-top: 10px">{@toggle_error}</p>
+        </div>
 
-            <button
-              type="button"
-              class="pe-btn primary pe-modal-go"
-              phx-click="apply_category_confirm"
+        <div :if={@tournament.categories_enabled}>
+          <div class="card">
+            <h2>{gettext("Category list")}</h2>
+
+            <p class="hint" style="margin-top: 0">
+              <.rich_text text={
+                gettext(
+                  ~s(Players are assigned a category on the %[players] page. Set any combination of the conditions below and a category can be filled in for every player automatically, further down. Leave every condition blank to keep assigning it by hand.)
+                )
+              }>
+                <:part name="players">
+                  <.link navigate={~p"/t/#{@tournament.id}/players"}>{gettext("Players")}</.link>
+                </:part>
+              </.rich_text>
+            </p>
+
+            <p class="hint">
+              {gettext(
+                "An unrated player satisfies a \"rating below\" condition (0 is under any ceiling) but never a \"rating from\" one."
+              )}
+            </p>
+
+            <form id="add-category-form" phx-submit="add_category">
+              <.setting_group>
+                <.setting_field label={gettext("New category name")}>
+                  <input type="text" name="name" value="" placeholder={gettext("e.g. U1800 or 45+")} />
+                </.setting_field>
+
+                <.setting_field label={gettext("Rating from")}>
+                  <input type="number" name="rating_from" value="" min="1" />
+                </.setting_field>
+
+                <.setting_field label={gettext("Rating below")}>
+                  <input type="number" name="rating_below" value="" min="1" />
+                </.setting_field>
+
+                <.setting_field label={gettext("Age from")}>
+                  <input type="number" name="age_from" value="" min="1" />
+                </.setting_field>
+
+                <.setting_field label={gettext("Under age")}>
+                  <input type="number" name="age_below" value="" min="1" />
+                </.setting_field>
+              </.setting_group>
+
+              <label class="set-toggle" style="margin-top: 6px">
+                <input type="hidden" name="women" value="false" />
+                <input type="checkbox" name="women" value="true" />
+                <span class="set-toggle-text">{gettext("Women only")}</span>
+              </label>
+
+              <p :if={@category_error} class="error-note">{@category_error}</p>
+
+              <div class="actions">
+                <button type="submit" class="pe-btn primary">Add</button>
+              </div>
+            </form>
+
+            <div :if={@tournament.categories != []} class="card-table-wrap" style="margin-top: 16px">
+              <form id="rules-form" phx-change="rules_change" phx-submit="save_rules">
+                <table class="pe-table">
+                  <thead>
+                    <tr>
+                      <th>{gettext("Category")}</th>
+
+                      <th class="num">{gettext("Rating from")}</th>
+
+                      <th class="num">{gettext("Rating below")}</th>
+
+                      <th class="num">{gettext("Age from")}</th>
+
+                      <th class="num">{gettext("Under age")}</th>
+
+                      <th>{gettext("Women")}</th>
+
+                      <th class="num">{gettext("Prizes")}</th>
+
+                      <th>{gettext("Summary")}</th>
+
+                      <th><span class="sr-only">{gettext("Actions")}</span></th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    <tr :for={
+                      {{c, row}, idx} <-
+                        Enum.with_index(Enum.zip(@tournament.categories, @rules_draft))
+                    }>
+                      <td>{c}</td>
+
+                      <td class="num">
+                        <input
+                          type="number"
+                          name={"rule[#{idx}][rating_from]"}
+                          value={row["rating_from"]}
+                          min="1"
+                          style="width: 80px"
+                        />
+                      </td>
+
+                      <td class="num">
+                        <input
+                          type="number"
+                          name={"rule[#{idx}][rating_below]"}
+                          value={row["rating_below"]}
+                          min="1"
+                          style="width: 80px"
+                        />
+                      </td>
+
+                      <td class="num">
+                        <input
+                          type="number"
+                          name={"rule[#{idx}][age_from]"}
+                          value={row["age_from"]}
+                          min="1"
+                          style="width: 70px"
+                        />
+                        <div :if={age_from_hint(row, @tournament_year)} class="hint" style="margin: 0">
+                          {age_from_hint(row, @tournament_year)}
+                        </div>
+                      </td>
+
+                      <td class="num">
+                        <input
+                          type="number"
+                          name={"rule[#{idx}][age_below]"}
+                          value={row["age_below"]}
+                          min="1"
+                          style="width: 70px"
+                        />
+                        <div
+                          :if={age_below_hint(row, @tournament_year)}
+                          class="hint"
+                          style="margin: 0"
+                        >
+                          {age_below_hint(row, @tournament_year)}
+                        </div>
+                      </td>
+
+                      <td>
+                        <input type="hidden" name={"rule[#{idx}][women]"} value="false" />
+                        <input
+                          type="checkbox"
+                          name={"rule[#{idx}][women]"}
+                          value="true"
+                          checked={row["women"] == "true"}
+                        />
+                      </td>
+
+                      <td class="num">
+                        <input
+                          type="number"
+                          name={"rule[#{idx}][prize]"}
+                          value={row["prize"]}
+                          min="0"
+                          style="width: 60px"
+                        />
+                      </td>
+
+                      <td>{rule_summary(draft_rule(row))}</td>
+
+                      <td style="text-align: right">
+                        <button
+                          type="button"
+                          class="pe-btn danger-link"
+                          phx-click="remove_category"
+                          phx-value-name={c}
+                        >
+                          {gettext("Remove")}
+                        </button>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                <div class="actions" style="margin-top: 10px">
+                  <button type="submit" class="pe-btn primary">{gettext("Save rules")}</button>
+                </div>
+              </form>
+            </div>
+
+            <p :if={@tournament.categories == []} class="hint" style="margin-bottom: 0">
+              {gettext("No categories yet.")}
+            </p>
+
+            <div
+              :if={@tournament.categories != [] and @tournament.category_rules != %{}}
+              class="actions"
+              style="margin-top: 16px"
             >
-              {gettext("Assign categories")}
-            </button>
+              <button type="button" class="pe-btn primary" phx-click="assign_categories">
+                {gettext("Assign categories")}
+              </button>
+              <span :if={@assign_note} class="ok-note" style="align-self: center">{@assign_note}</span>
+            </div>
+
+            <p :if={@category_error} class="error-note" style="margin-top: 10px">
+              {@category_error}
+            </p>
           </div>
         </div>
-      </div>
+
+        <div
+          :if={@category_confirm}
+          class="pe-modal"
+          phx-window-keydown="cancel_category_confirm"
+          phx-key="escape"
+        >
+          <div
+            class="pe-modal-card pe-modal-wide"
+            phx-click-away="cancel_category_confirm"
+            id="category-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="category-confirm-title"
+            tabindex="-1"
+            phx-hook="DialogFocus"
+            data-dialog
+          >
+            <div class="pe-modal-head">
+              <h2 id="category-confirm-title">{gettext("Assign categories?")}</h2>
+
+              <p>
+                {gettext(
+                  "Applying the threshold rules would change the categories of %{changed} of %{total} players. Categories with no rule are left alone. Players with no change are omitted below.",
+                  changed: length(@category_confirm.changes),
+                  total: @category_confirm.total
+                )}
+              </p>
+            </div>
+
+            <div class="pe-modal-body">
+              <div class="card-table-wrap">
+                <table class="pe-table">
+                  <thead>
+                    <tr>
+                      <th>{gettext("Player")}</th>
+
+                      <th>{gettext("From")}</th>
+
+                      <th>To</th>
+
+                      <th>{gettext("Pairing pool")}</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    <tr :for={change <- @category_confirm.changes}>
+                      <td>{change.player.name}</td>
+
+                      <td>{empty_dash(Enum.join(change.from, ", "))}</td>
+
+                      <td>{empty_dash(Enum.join(change.to, ", "))}</td>
+
+                      <%!-- The pairing pool is single-valued and changes on its
+                          own rules, so it gets its own column rather than
+                          being folded into the set it is drawn from. --%>
+                      <td>
+                        {empty_dash(change.from_category)} → {empty_dash(change.to_category)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="pe-modal-foot">
+              <button type="button" class="pe-btn" phx-click="cancel_category_confirm">
+                {gettext("Cancel")}
+              </button>
+
+              <button
+                type="button"
+                class="pe-btn primary pe-modal-go"
+                phx-click="apply_category_confirm"
+              >
+                {gettext("Assign categories")}
+              </button>
+            </div>
+          </div>
+        </div>
+      </.settings_page>
     </Layouts.app>
     """
   end

@@ -7,9 +7,11 @@ defmodule PairingsEngineWeb.SettingsSupport do
   The old monolithic `SettingsLive` was one ~1900-line page; it's now six
   focused pages sharing:
 
-    * `settings_subnav/1` - the tab strip that lets the user hop between the
-      six pages without going back through the top-bar "Settings ▾" menu
-      (mirrors `AuditLive.subnav/1`).
+    * `settings_page/1` - the frame each page sits in: heading, the rail
+      of pages (`settings_subnav/1`), and the "Show advanced settings"
+      switch with `attach_advanced/1` and `changed_count/2` behind it.
+      Laid out like the account page, which got there first.
+    * `save_status/1` - the tick-and-note answer under a Save button.
     * the dirty/stale tracker mechanism - each page whose form renders its
       inputs' `value` straight from `@tournament` must not blindly reload
       `@tournament` on every PubSub broadcast (that would reset text the user
@@ -48,102 +50,258 @@ defmodule PairingsEngineWeb.SettingsSupport do
     pairing_numbers_origin tpn_order_accepted late_entry_notice_dismissed)a
 
   @doc """
-  Sub-nav shown at the top of every Settings page, so the user can hop
-  between the pages without going back through the top-bar "Settings ▾"
-  menu. `active` is one of `:tournament`, `:options`, `:results`,
-  `:boards`, `:scoring`, `:dates`, `:categories`, `:extra_points`, `:fide`,
-  `:about`, `:export`.
+  The frame every tournament Settings page sits in - the account page's
+  layout (`UserLive.Settings`) with the tournament's pages in its rail:
+  the heading, a rail of the pages beside the cards (a row of chips on a
+  phone), and, on a page that has any, the "Show advanced settings"
+  switch above them.
+
+  ## Common and advanced
+
+  Each page shows by default what nearly every tournament sets, and keeps
+  the rest behind the switch. An advanced setting is marked with the
+  `tset-adv` class and stays in the page and in the form - hidden by CSS,
+  not left out of the render - so a save sends exactly the fields it sent
+  before the switch existed, and nothing about what a page saves depends on
+  whether somebody was looking at all of it.
+
+  Hidden is never silent: `advanced` carries how many of the page's
+  advanced settings differ from their defaults, and while the switch is off
+  that number is a link that turns it on. See `changed_count/2`.
+
+  The switch itself belongs to the account (`users.settings_advanced`) and
+  is flipped by the `"settings_advanced"` event `attach_advanced/1` handles,
+  so it is the same on every page and every device the arbiter signs in on.
+
+  `advanced` is nil on a page with nothing advanced in it, and the switch
+  is not drawn there.
+  """
+  attr :tournament, :map, required: true
+  attr :active, :atom, required: true
+  attr :subtitle, :string, required: true
+  attr :show_status, :boolean, default: true
+  attr :advanced, :map, default: nil
+  attr :id, :string, default: "settings-page"
+  slot :subtitle_extra
+  slot :inner_block, required: true
+
+  def settings_page(assigns) do
+    ~H"""
+    <div class="tset-page" id={@id}>
+      <div class="page-header tset-header">
+        <div>
+          <h1>{@tournament.name}</h1>
+
+          <p class="subtitle" style="margin: 0">{@subtitle} {render_slot(@subtitle_extra)}</p>
+        </div>
+        <span
+          :if={@show_status}
+          class={["badge", @tournament.status == "setup" && "muted"]}
+        >
+          {@tournament.status}
+        </span>
+      </div>
+
+      <div class="tset-layout">
+        <.settings_subnav tournament={@tournament} active={@active} />
+        <div class={["tset-main", @advanced && @advanced.on? && "show-advanced"]} id="settings-main">
+          <div :if={@advanced} class="tset-bar" id="settings-advanced-bar">
+            <button
+              type="button"
+              id="settings-advanced-toggle"
+              class="tset-switch"
+              role="switch"
+              aria-checked={to_string(@advanced.on?)}
+              phx-click="settings_advanced"
+              phx-value-on={to_string(!@advanced.on?)}
+            >
+              <span class="tset-switch-track" aria-hidden="true">
+                <span class="tset-switch-thumb"></span>
+              </span>
+              {gettext("Show advanced settings")}
+            </button>
+
+            <button
+              :if={!@advanced.on? and @advanced.changed > 0}
+              type="button"
+              id="settings-advanced-changed"
+              class="tset-changed"
+              phx-click="settings_advanced"
+              phx-value-on="true"
+            >
+              <.icon name="hero-adjustments-horizontal-micro" class="size-4" />
+              {ngettext(
+                "1 advanced setting is not at its default - show it",
+                "%{count} advanced settings are not at their defaults - show them",
+                @advanced.changed
+              )}
+            </button>
+          </div>
+
+          {render_slot(@inner_block)}
+        </div>
+      </div>
+    </div>
+    """
+  end
+
+  @doc """
+  The rail of Settings pages, grouped the way an arbiter meets them:
+  setting the tournament up, putting it in front of people, reporting it.
+  `active` is one of `:tournament`, `:options`, `:restrictions`, `:scoring`,
+  `:dates`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
+  `:export`, `:about`.
+
+  Rendered by `settings_page/1`; it is public only because the pages that
+  predate the frame used to call it themselves.
   """
   attr :tournament, :map, required: true
   attr :active, :atom, required: true
 
   def settings_subnav(assigns) do
+    assigns = assign(assigns, :groups, nav_groups(assigns.tournament))
+
     ~H"""
-    <div class="round-picker" style="flex-wrap: wrap; margin-bottom: 12px">
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings"}
-        class={["pe-btn", "filter-picker", @active == :tournament && "active"]}
-      >
-        {gettext("Tournament")}
-      </.link>
+    <nav class="tset-nav" id="settings-nav" aria-label={gettext("Settings pages")}>
+      <div :for={{heading, links} <- @groups} class="tset-nav-group">
+        <span class="tset-nav-heading">{heading}</span>
+        <.link
+          :for={{key, path, icon, label} <- links}
+          navigate={path}
+          class={["tset-nav-link", @active == key && "active"]}
+          aria-current={@active == key && "page"}
+        >
+          <.icon name={icon} class="size-4" /> {label}
+        </.link>
+      </div>
+    </nav>
+    """
+  end
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/options"}
-        class={["pe-btn", "filter-picker", @active == :options && "active"]}
-      >
-        {gettext("Options")}
-      </.link>
+  defp nav_groups(tournament) do
+    id = tournament.id
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/restrictions"}
-        class={["pe-btn", "filter-picker", @active == :restrictions && "active"]}
-      >
-        {gettext("Forbidden pairings")}
-      </.link>
+    [
+      {gettext("Set-up"),
+       [
+         {:tournament, ~p"/t/#{id}/settings", "hero-trophy-micro", gettext("Tournament")},
+         {:options, ~p"/t/#{id}/settings/options", "hero-adjustments-vertical-micro",
+          gettext("Options")},
+         {:scoring, ~p"/t/#{id}/settings/scoring", "hero-calculator-micro", gettext("Scoring")},
+         {:dates, ~p"/t/#{id}/settings/dates", "hero-calendar-days-micro", gettext("Dates")},
+         {:categories, ~p"/t/#{id}/categories", "hero-tag-micro", gettext("Categories")},
+         {:extra_points, ~p"/t/#{id}/settings/extra-points", "hero-plus-circle-micro",
+          gettext("Extra points")},
+         {:restrictions, ~p"/t/#{id}/settings/restrictions", "hero-no-symbol-micro",
+          gettext("Forbidden pairings")}
+       ]},
+      {gettext("Publishing"),
+       [
+         {:results, ~p"/t/#{id}/settings/results", "hero-globe-alt-micro",
+          gettext("OpenResults")},
+         {:boards, ~p"/t/#{id}/settings/boards", "hero-signal-micro", gettext("Live boards")}
+       ]},
+      {gettext("Reporting"),
+       [
+         {:fide, ~p"/t/#{id}/settings/fide", "hero-flag-micro", "FIDE"},
+         {:export, ~p"/t/#{id}/settings/export", "hero-arrow-down-tray-micro", gettext("Export")},
+         {:about, ~p"/t/#{id}/settings/about", "hero-information-circle-micro", gettext("About")}
+       ]}
+    ]
+  end
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/results"}
-        class={["pe-btn", "filter-picker", @active == :results && "active"]}
-      >
-        {gettext("OpenResults")}
-      </.link>
+  @doc """
+  What `settings_page/1`'s `advanced` attr wants: whether the switch is on
+  for this account, and how many advanced settings are not at their
+  defaults (see `changed_count/2`).
+  """
+  def advanced(on?, changed), do: %{on?: on?, changed: changed}
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/boards"}
-        class={["pe-btn", "filter-picker", @active == :boards && "active"]}
-      >
-        {gettext("Live boards")}
-      </.link>
+  @doc """
+  How many of `specs` are not at their defaults on `tournament`. Each spec
+  is a field (compared with the schema's default), `{field, default}` when
+  the schema's default is not the one a new tournament really starts with,
+  or a plain boolean for something that is not a field at all (a logo, a
+  group, a collaborator). `nil`, `""` and an empty list or map count as
+  the same thing - an emptied field is at its default.
+  """
+  def changed_count(tournament, specs) do
+    blank = %Tournament{}
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/scoring"}
-        class={["pe-btn", "filter-picker", @active == :scoring && "active"]}
-      >
-        {gettext("Scoring")}
-      </.link>
+    Enum.count(specs, fn
+      flag when is_boolean(flag) ->
+        flag
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/dates"}
-        class={["pe-btn", "filter-picker", @active == :dates && "active"]}
-      >
-        {gettext("Dates")}
-      </.link>
+      {field, default} ->
+        not same_value?(Map.get(tournament, field), default)
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/categories"}
-        class={["pe-btn", "filter-picker", @active == :categories && "active"]}
-      >
-        {gettext("Categories")}
-      </.link>
+      field when is_atom(field) ->
+        not same_value?(Map.get(tournament, field), Map.get(blank, field))
+    end)
+  end
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
-        class={["pe-btn", "filter-picker", @active == :extra_points && "active"]}
-      >
-        {gettext("Extra points")}
-      </.link>
+  defp same_value?(a, b), do: (blank?(a) and blank?(b)) or a == b
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/fide"}
-        class={["pe-btn", "filter-picker", @active == :fide && "active"]}
-      >
-        FIDE
-      </.link>
+  defp blank?(value), do: value in [nil, "", []] or value == %{}
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/export"}
-        class={["pe-btn", "filter-picker", @active == :export && "active"]}
-      >
-        {gettext("Export")}
-      </.link>
+  @doc """
+  Mounts the "Show advanced settings" switch: assigns `show_advanced` from
+  the account and handles the `"settings_advanced"` event every
+  `settings_page/1` switch sends, storing the choice on the account. The
+  event is halted here - no page handles it itself - and
+  `attach_dirty_tracker/1` does not count it as an edit, because showing a
+  field is not changing it.
+  """
+  def attach_advanced(socket) do
+    user = scope_user(socket)
 
-      <.link
-        navigate={~p"/t/#{@tournament.id}/settings/about"}
-        class={["pe-btn", "filter-picker", @active == :about && "active"]}
-      >
-        {gettext("About")}
-      </.link>
-    </div>
+    socket
+    |> Phoenix.Component.assign(show_advanced: match?(%{settings_advanced: true}, user))
+    |> attach_hook(:settings_advanced, :handle_event, fn
+      "settings_advanced", params, socket ->
+        {:halt, put_advanced(socket, Map.get(params, "on") == "true")}
+
+      _event, _params, socket ->
+        {:cont, socket}
+    end)
+  end
+
+  defp put_advanced(socket, on?) do
+    socket = Phoenix.Component.assign(socket, show_advanced: on?)
+
+    with %PairingsEngine.Accounts.User{} = user <- scope_user(socket),
+         {:ok, user} <- PairingsEngine.Accounts.put_settings_advanced(user, on?) do
+      Phoenix.Component.assign(socket,
+        current_scope: %{socket.assigns.current_scope | user: user}
+      )
+    else
+      _ -> socket
+    end
+  end
+
+  defp scope_user(socket) do
+    case socket.assigns[:current_scope] do
+      %{user: user} -> user
+      _ -> nil
+    end
+  end
+
+  @doc """
+  The answer under a settings form's Save button, the way the account page
+  gives it: a tick and the note beside the button that caused it, read out
+  by a screen reader, or the error in the same place. `class` keeps the
+  `ok-note` / `error-note` hooks the tests and the older pages use.
+  """
+  attr :note, :string, default: nil
+  attr :error, :string, default: nil
+  attr :id, :string, default: nil
+
+  def save_status(assigns) do
+    ~H"""
+    <span :if={@note} class="ok-note tset-saved" id={@id} role="status">
+      <.icon name="hero-check-micro" class="size-4" /> {@note}
+    </span>
+    <span :if={@error} class="error-note tset-error" role="alert">{@error}</span>
     """
   end
 
@@ -185,11 +343,38 @@ defmodule PairingsEngineWeb.SettingsSupport do
   Holds `<.setting_field>`s and `<.setting_toggle>`s in DOM order, one per row.
   """
   attr :class, :any, default: nil
+  attr :rest, :global
   slot :inner_block, required: true
 
   def setting_group(assigns) do
     ~H"""
-    <div class={["set-group", @class]}>{render_slot(@inner_block)}</div>
+    <div class={["set-group", @class]} {@rest}>{render_slot(@inner_block)}</div>
+    """
+  end
+
+  @doc """
+  A feature behind its own on/off switch: the `switch` slot (a checkbox
+  setting), then the settings that only mean something while it is on.
+  With the box unticked the page shows the switch alone - the CSS reads the
+  checkbox itself (`.tset-feature` in `app.css`), so ticking it opens the
+  rest at once, before anything is saved, and every field stays in the form.
+
+  `open` keeps the rest showing with the box unticked - for settings that
+  are filled in anyway, which would otherwise be out of sight and still in
+  force.
+  """
+  attr :id, :string, default: nil
+  attr :class, :any, default: nil
+  attr :open, :boolean, default: false
+  slot :switch, required: true
+  slot :inner_block
+
+  def setting_feature(assigns) do
+    ~H"""
+    <div class={["tset-feature", @open && "is-open", @class]} id={@id}>
+      <div class="tset-feature-switch">{render_slot(@switch)}</div>
+      <div :if={@inner_block != []} class="tset-feature-body">{render_slot(@inner_block)}</div>
+    </div>
     """
   end
 
@@ -236,11 +421,13 @@ defmodule PairingsEngineWeb.SettingsSupport do
   attr :locked?, :boolean, default: false
   attr :locked_hint, :atom, default: nil
   attr :warning, :string, default: nil
+  attr :class, :any, default: nil
+  attr :id, :string, default: nil
   slot :inner_block
 
   def setting_toggle(assigns) do
     ~H"""
-    <label class="set-toggle">
+    <label class={["set-toggle", @class]} id={@id}>
       <input type="hidden" name={@name} value="false" />
       <span class="locked-wrap locked-wrap-inline">
         <input type="checkbox" name={@name} value="true" checked={@checked} disabled={@disabled} />
@@ -964,6 +1151,11 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def attach_dirty_tracker(socket) do
     attach_hook(socket, :settings_dirty_tracker, :handle_event, fn
       "locked_hint", _params, socket ->
+        {:cont, socket}
+
+      # Showing the advanced settings changes what is on screen, not what
+      # is in the form - see `attach_advanced/1`.
+      "settings_advanced", _params, socket ->
         {:cont, socket}
 
       _event, _params, socket ->

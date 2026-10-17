@@ -384,6 +384,20 @@ defmodule PairingsEngine.Accounts do
     end
   end
 
+  @doc """
+  Stores whether the tournament Settings pages show their advanced
+  settings for `user`. A no-op when it already says so.
+  """
+  def put_settings_advanced(%User{} = user, on?) when is_boolean(on?) do
+    if user.settings_advanced == on? do
+      {:ok, user}
+    else
+      user
+      |> Ecto.Changeset.change(settings_advanced: on?)
+      |> Repo.update()
+    end
+  end
+
   @doc "A changeset for the \"New tournament\" defaults."
   def change_tournament_defaults(%User{} = user, attrs \\ %{}),
     do: User.tournament_defaults_changeset(user, attrs)
