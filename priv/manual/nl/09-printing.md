@@ -57,6 +57,21 @@ antwoord *Ronde N is nog niet gepaard*, niet een andere ronde. De afdruk van de 
 neemt op dezelfde manier een ronde (`?round=N`) en toont dan de stand zoals die was
 na die ronde.
 
+### Eén categorie afdrukken {#one-category-only}
+
+Heeft het toernooi categorieën, dan krijgt de pagina Afdrukken boven de documenten
+een keuzelijst *Afdrukken voor*. Kies een categorie en de links van de spelerslijst,
+spelerskaarten, paringenlijsten, resultaatkaartjes, notatiebriefjes, stand en
+kruistabel krijgen `?category=` (de plaatskaartjes en de voorvertoning van de
+volgende ronde accepteren het ook) en drukken alleen die categorie af; de keuze blijft in het adres staan, dus herladen
+behoudt hem, en de ondertitel van de afdruk noemt de categorie. Paringen,
+resultaatkaartjes en notatiebriefjes houden alleen de borden over waar een speler
+van de categorie zit, met de bordnummers ongewijzigd. De stand toont alleen de
+tabel van die categorie, gerangschikt op plaats binnen de categorie. In een toernooi
+dat per categorie wordt gepaard hoort elke speler bij de categorie waarin hij of zij
+gepaard wordt; anders zit een speler in elke categorie waarmee die getagd is.
+Teamdocumenten blijven buiten schot.
+
 ### Resultaatkaartjes: testafdruk en stapelsnijden {#result-cards-test-print-and-stack-cutting}
 
 - **Resultaatkaartjes: testafdruk (eerste 3)** drukt drie kaartjes af, om de uitlijning

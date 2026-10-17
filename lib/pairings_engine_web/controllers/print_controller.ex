@@ -223,6 +223,67 @@ defmodule PairingsEngineWeb.PrintController do
                        padding: 4px 16px; display: inline-block; }
   """
 
+  # `?category=<name>` - print one category only. The name must be one of the
+  # tournament's own `categories` (compared as a string, never turned into an
+  # atom); anything else, including no parameter, means "all players" and the
+  # document renders exactly as it always did.
+  defp print_category(tournament, params) do
+    case params["category"] do
+      name when is_binary(name) and name != "" ->
+        if name in (tournament.categories || []), do: name
+
+      _ ->
+        nil
+    end
+  end
+
+  # Membership. A tournament that pairs by category has put every player in
+  # exactly one pool (`Categories.pairing_category/2`), and a printed sheet
+  # for "U1800" has to agree with the pool the engine paired. Otherwise a
+  # player is in a category when it is one of their tags - the rule the
+  # per-category standings tables use (`Categories.in_category?/2`).
+  defp in_print_category?(_tournament, nil, _category), do: false
+
+  defp in_print_category?(tournament, player, category) do
+    if Map.get(tournament, :pair_by_category) == true do
+      Categories.pairing_category(tournament, player) == category
+    else
+      Categories.in_category?(player, category)
+    end
+  end
+
+  defp filter_players(players, _tournament, nil), do: players
+
+  defp filter_players(players, tournament, category),
+    do: Enum.filter(players, &in_print_category?(tournament, &1, category))
+
+  defp filter_entries(entries, _tournament, nil), do: entries
+
+  defp filter_entries(entries, tournament, category),
+    do: Enum.filter(entries, &in_print_category?(tournament, &1.player, category))
+
+  # A board stays when either of its players is in the category (both are,
+  # when the tournament pairs by category). A bye row counts through its one
+  # player. Board numbers are never touched.
+  defp filter_pairings(pairings, _tournament, nil), do: pairings
+
+  defp filter_pairings(pairings, tournament, category) do
+    Enum.filter(pairings, fn p ->
+      in_print_category?(tournament, p.white_player, category) or
+        in_print_category?(tournament, p.black_player, category)
+    end)
+  end
+
+  defp with_category(subtitle, nil), do: subtitle
+  defp with_category(subtitle, category), do: subtitle <> " · " <> category
+
+  defp category_member_ids(tournament, category) do
+    tournament.id
+    |> Tournaments.list_players()
+    |> filter_players(tournament, category)
+    |> MapSet.new(& &1.id)
+  end
+
   defp place_card_board_map(tournament, round_param) do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     number = parse_round(round_param) || rounds_paired
@@ -386,7 +447,11 @@ defmodule PairingsEngineWeb.PrintController do
 
   def player_list(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    players = Tournaments.list_players(tournament.id)
+    category = print_category(tournament, params)
+
+    players =
+      tournament.id |> Tournaments.list_players() |> filter_players(tournament, category)
+
     cols = player_list_columns(params["cols"])
     # Same "round about to be paired" the Players grid uses to decide
     # whether a Pr. cell's A(1,2,3) is upper- or lower-case - see
@@ -406,7 +471,7 @@ defmodule PairingsEngineWeb.PrintController do
       conn,
       tournament,
       tournament.name,
-      gettext("Registered players (%{count})", count: length(players)),
+      with_category(gettext("Registered players (%{count})", count: length(players)), category),
       body
     )
   end
@@ -528,9 +593,12 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
-  def player_cards(conn, %{"id" => id}) do
+  def player_cards(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    players = Tournaments.list_players(tournament.id)
+    category = print_category(tournament, params)
+
+    players =
+      tournament.id |> Tournaments.list_players() |> filter_players(tournament, category)
 
     round_rows =
       Enum.map_join(1..tournament.rounds_count, "", fn n ->
@@ -562,7 +630,7 @@ defmodule PairingsEngineWeb.PrintController do
       conn,
       tournament,
       tournament.name,
-      gettext("Player cards"),
+      with_category(gettext("Player cards"), category),
       tournament_info_html(tournament) <> cards
     )
   end
@@ -670,7 +738,11 @@ defmodule PairingsEngineWeb.PrintController do
   """
   def place_cards(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
-    players = Tournaments.list_players(tournament.id)
+    category = print_category(tournament, params)
+
+    players =
+      tournament.id |> Tournaments.list_players() |> filter_players(tournament, category)
+
     board_map = place_card_board_map(tournament, params["round"])
     fields = place_card_fields(params) |> Map.put(:rating_method, tournament.rating_method)
     logo_html = place_card_logo_html(tournament)
@@ -682,7 +754,7 @@ defmodule PairingsEngineWeb.PrintController do
       conn,
       tournament,
       tournament.name,
-      gettext("Place cards"),
+      with_category(gettext("Place cards"), category),
       tournament_info_html(tournament) <> cards,
       @place_cards_css
     )
@@ -692,6 +764,7 @@ defmodule PairingsEngineWeb.PrintController do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     number = parse_round(params["round"]) || 1
     round = Tournaments.get_round(tournament.id, number)
+    category = print_category(tournament, params)
 
     if round == nil do
       send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
@@ -703,6 +776,7 @@ defmodule PairingsEngineWeb.PrintController do
       rows =
         round.pairings
         |> Enum.reject(& &1.hidden)
+        |> filter_pairings(tournament, category)
         |> PairingDisplay.with_display_boards()
         |> Enum.map_join("", fn %{pairing: p, board: board} ->
           "<tr><td class=\"num\">#{board}</td>" <>
@@ -727,7 +801,7 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament,
         tournament.name,
-        gettext("Pairings - round %{n}", n: number),
+        with_category(gettext("Pairings - round %{n}", n: number), category),
         body
       )
     end
@@ -752,6 +826,7 @@ defmodule PairingsEngineWeb.PrintController do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     number = parse_round(params["round"]) || 1
     round = Tournaments.get_round(tournament.id, number)
+    category = print_category(tournament, params)
 
     if round == nil do
       send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
@@ -766,6 +841,7 @@ defmodule PairingsEngineWeb.PrintController do
 
       entries =
         round.pairings
+        |> filter_pairings(tournament, category)
         |> Enum.flat_map(fn p ->
           board = Map.fetch!(board_by_pairing_id, p.id)
 
@@ -818,7 +894,7 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament,
         tournament.name,
-        gettext("Alphabetical pairing list - round %{n}", n: number),
+        with_category(gettext("Alphabetical pairing list - round %{n}", n: number), category),
         body
       )
     end
@@ -900,8 +976,9 @@ defmodule PairingsEngineWeb.PrintController do
   it was never worked out), because a stale list of "certain" boards is
   worse than none.
   """
-  def next_round_preview(conn, %{"id" => id}) do
+  def next_round_preview(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    category = print_category(tournament, params)
     fingerprint = PairingsEngine.NextRoundPreview.fingerprint(tournament.id)
 
     case PairingsEngine.NextRoundPreview.Cache.get(tournament.id, fingerprint) do
@@ -919,14 +996,45 @@ defmodule PairingsEngineWeb.PrintController do
           conn,
           tournament,
           tournament.name,
-          gettext("Round %{n} - preview of the fixed boards", n: preview.next_round),
-          next_round_preview_body(preview, tournament),
+          with_category(
+            gettext("Round %{n} - preview of the fixed boards", n: preview.next_round),
+            category
+          ),
+          next_round_preview_body(
+            preview_for_category(preview, tournament, category),
+            tournament,
+            category
+          ),
           @next_round_preview_css
         )
     end
   end
 
-  defp next_round_preview_body(preview, tournament) do
+  # The preview narrowed to one category: only the boards, pairs and the bye
+  # that involve one of its players. The ids are the preview's own, so the
+  # membership is looked up from the roster.
+  defp preview_for_category(preview, _tournament, nil), do: preview
+
+  defp preview_for_category(preview, tournament, category) do
+    ids = category_member_ids(tournament, category)
+    mine? = fn id -> MapSet.member?(ids, id) end
+
+    bye =
+      if preview.bye.status == :fixed and not mine?.(preview.bye.holder),
+        do: %{preview.bye | status: :none},
+        else: preview.bye
+
+    %{
+      preview
+      | fixed: Enum.filter(preview.fixed, &(mine?.(&1.white) or mine?.(&1.black))),
+        shifting: Enum.filter(preview.shifting, &(mine?.(&1.white) or mine?.(&1.black))),
+        colours_open:
+          Enum.filter(preview.colours_open, fn %{players: [a, b]} -> mine?.(a) or mine?.(b) end),
+        bye: bye
+    }
+  end
+
+  defp next_round_preview_body(preview, tournament, category) do
     name = fn id -> preview.players |> Map.get(id, %{name: "?"}) |> Map.fetch!(:name) end
 
     rating = fn id ->
@@ -953,8 +1061,12 @@ defmodule PairingsEngineWeb.PrintController do
         esc(gettext("Nothing is saved: the round is paired as usual once the last result is in.")) <>
         "</p>"
 
+    # The summary counts the whole round, so it stays off a one-category sheet.
     summary =
-      "<p class=\"nrp-summary\">#{esc(PairingsEngineWeb.NextRoundPreviewPanel.summary(preview))}</p>"
+      if category,
+        do: "",
+        else:
+          "<p class=\"nrp-summary\">#{esc(PairingsEngineWeb.NextRoundPreviewPanel.summary(preview))}</p>"
 
     fixed_rows =
       Enum.map_join(preview.fixed, "", fn row ->
@@ -1040,6 +1152,7 @@ defmodule PairingsEngineWeb.PrintController do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     requested_round = parse_round(params["round"])
     keizer? = tournament.pairing_system == "keizer"
+    category = print_category(tournament, params)
 
     cond do
       requested_round != nil and Tournaments.get_round(tournament.id, requested_round) == nil ->
@@ -1054,7 +1167,10 @@ defmodule PairingsEngineWeb.PrintController do
           conn,
           tournament,
           tournament.name,
-          gettext("Standings after round %{n}", n: requested_round || rounds_paired),
+          with_category(
+            gettext("Standings after round %{n}", n: requested_round || rounds_paired),
+            category
+          ),
           final_refused_body(tournament)
         )
 
@@ -1104,10 +1220,11 @@ defmodule PairingsEngineWeb.PrintController do
           conn,
           tournament,
           tournament.name,
-          gettext("Standings after round %{n}", n: label),
+          with_category(gettext("Standings after round %{n}", n: label), category),
           tournament_info_html(tournament) <>
             postponed_banner(tournament, requested_round) <>
-            manual_banner <> standings_body(entries, tournament, keizer?, params["rds"] == "1")
+            manual_banner <>
+            standings_body(entries, tournament, keizer?, params["rds"] == "1", category)
         )
     end
   end
@@ -1230,6 +1347,21 @@ defmodule PairingsEngineWeb.PrintController do
   # (Rank/Name/Elo/Value/Keizer pts/Score) instead of the FIDE points +
   # tiebreak columns - same table shape `PairingsEngineWeb.StandingsLive`
   # uses for a Keizer tournament - with the same category treatment.
+  # One category only: just that category's table, ranked by in-category place
+  # (the very table the full sheet prints after the overall one).
+  defp standings_body(entries, tournament, keizer?, rds?, category) when is_binary(category) do
+    entries = filter_entries(entries, tournament, category)
+
+    if keizer? do
+      keizer_category_standings_tables(entries, tournament, rds?, [category])
+    else
+      category_standings_tables(entries, tournament, rds?, [category])
+    end
+  end
+
+  defp standings_body(entries, tournament, keizer?, rds?, nil),
+    do: standings_body(entries, tournament, keizer?, rds?)
+
   defp standings_body(entries, tournament, true, rds?) do
     has_categories = tournament.categories != []
     cat_header = if has_categories, do: "<th>#{gettext("Category")}</th>", else: ""
@@ -1292,10 +1424,10 @@ defmodule PairingsEngineWeb.PrintController do
   # hand every time. Still the overall DISPLAYED order (`entries` arrives
   # here already in that order, manual ranking included) - only the number
   # printed beside each row changed.
-  defp category_standings_tables(entries, tournament, rds?) do
+  defp category_standings_tables(entries, tournament, rds?, categories \\ nil) do
     tb_headers = Enum.map_join(tournament.tiebreaks, "", &"<th class=\"num\">#{esc(&1)}</th>")
 
-    Enum.map_join(tournament.categories, "", fn category ->
+    Enum.map_join(categories || tournament.categories, "", fn category ->
       rows =
         entries
         |> Categories.category_places(category)
@@ -1307,8 +1439,8 @@ defmodule PairingsEngineWeb.PrintController do
     end)
   end
 
-  defp keizer_category_standings_tables(entries, tournament, rds?) do
-    Enum.map_join(tournament.categories, "", fn category ->
+  defp keizer_category_standings_tables(entries, tournament, rds?, categories \\ nil) do
+    Enum.map_join(categories || tournament.categories, "", fn category ->
       rows =
         entries
         |> Categories.category_places(category)
@@ -1722,11 +1854,15 @@ defmodule PairingsEngineWeb.PrintController do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     number = parse_round(params["round"]) || max(rounds_paired, 1)
     round = Tournaments.get_round(tournament.id, number)
+    category = print_category(tournament, params)
 
     if round == nil do
       send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
     else
-      pairings = Enum.reject(round.pairings, &(&1.black_player_id == nil))
+      pairings =
+        round.pairings
+        |> Enum.reject(&(&1.black_player_id == nil))
+        |> filter_pairings(tournament, category)
 
       pairings =
         case parse_limit(params["limit"]) do
@@ -1744,7 +1880,7 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament,
         tournament.name,
-        gettext("Result cards - round %{n}", n: number),
+        with_category(gettext("Result cards - round %{n}", n: number), category),
         tournament_info_html(tournament) <> cards,
         @result_cards_css
       )
@@ -1761,6 +1897,7 @@ defmodule PairingsEngineWeb.PrintController do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     number = parse_round(params["round"]) || max(rounds_paired, 1)
     round = Tournaments.get_round(tournament.id, number)
+    category = print_category(tournament, params)
 
     if round == nil do
       send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
@@ -1768,6 +1905,7 @@ defmodule PairingsEngineWeb.PrintController do
       sheets =
         round.pairings
         |> Enum.reject(&(&1.black_player_id == nil))
+        |> filter_pairings(tournament, category)
         |> Enum.sort_by(& &1.board)
         |> Enum.map_join("", &score_sheet(&1, tournament, number))
 
@@ -1775,7 +1913,7 @@ defmodule PairingsEngineWeb.PrintController do
         conn,
         tournament,
         tournament.name,
-        gettext("Score sheets - round %{n}", n: number),
+        with_category(gettext("Score sheets - round %{n}", n: number), category),
         sheets,
         @score_sheet_css
       )
@@ -1869,17 +2007,18 @@ defmodule PairingsEngineWeb.PrintController do
   everything else (Swiss, Keizer) keeps the existing round-by-round Swiss
   cross table (`swiss_crosstable/2`) unchanged.
   """
-  def crosstable(conn, %{"id" => id}) do
+  def crosstable(conn, %{"id" => id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
+    category = print_category(tournament, params)
 
     if tournament.pairing_system == "round_robin" do
-      round_robin_crosstable(conn, tournament)
+      round_robin_crosstable(conn, tournament, category)
     else
-      swiss_crosstable(conn, tournament)
+      swiss_crosstable(conn, tournament, category)
     end
   end
 
-  defp swiss_crosstable(conn, tournament) do
+  defp swiss_crosstable(conn, tournament, category) do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     entries = PairingsEngine.Standings.standings(tournament)
     by_id = Map.new(entries, &{&1.player.id, &1})
@@ -1889,7 +2028,7 @@ defmodule PairingsEngineWeb.PrintController do
     tb_headers = Enum.map_join(tournament.tiebreaks, "", &"<th class=\"num\">#{esc(&1)}</th>")
 
     rows =
-      Enum.map_join(entries, "", fn e ->
+      Enum.map_join(filter_entries(entries, tournament, category), "", fn e ->
         round_cells =
           Enum.map_join(rounds, "", fn n ->
             case Enum.find(e.games, &(&1.round == n)) do
@@ -1916,7 +2055,14 @@ defmodule PairingsEngineWeb.PrintController do
         "<th>#{gettext("Name")}</th><th class=\"num\">#{rating_header(tournament)}</th>#{round_headers}<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}#{tb_headers}" <>
         "</tr></thead><tbody>#{rows}</tbody></table></div>"
 
-    print_page(conn, tournament, tournament.name, gettext("Cross table"), body, @crosstable_css)
+    print_page(
+      conn,
+      tournament,
+      tournament.name,
+      with_category(gettext("Cross table"), category),
+      body,
+      @crosstable_css
+    )
   end
 
   # Classic round-robin players×players grid: rows and columns are the same
@@ -1930,7 +2076,7 @@ defmodule PairingsEngineWeb.PrintController do
   # bye never appears as a column (there's no real opponent to cross-
   # reference), but its zero points are already folded into the player's
   # "Pts" total via `PairingsEngine.Standings`.
-  defp round_robin_crosstable(conn, tournament) do
+  defp round_robin_crosstable(conn, tournament, category) do
     entries = PairingsEngine.Standings.standings(tournament)
 
     players =
@@ -1942,7 +2088,7 @@ defmodule PairingsEngineWeb.PrintController do
       Enum.map_join(players, "", &"<th class=\"num\">#{&1.player.pairing_number}</th>")
 
     rows =
-      Enum.map_join(players, "", fn row_entry ->
+      Enum.map_join(filter_entries(players, tournament, category), "", fn row_entry ->
         cells = Enum.map_join(players, "", &rr_crosstable_cell(row_entry, &1, tournament))
 
         "<tr><td class=\"num\">#{row_entry.player.pairing_number}</td>" <>
@@ -1958,13 +2104,14 @@ defmodule PairingsEngineWeb.PrintController do
         "<div class=\"crosstable-wrap\"><table class=\"crosstable rr-crosstable\"><thead><tr><th class=\"num\">#</th>" <>
         "<th>#{gettext("Name")}</th>#{col_headers}<th class=\"num\">Pts</th>#{extra_points_headers(tournament)}" <>
         "<th class=\"num\">#{gettext("Rank")}</th></tr></thead>" <>
-        "<tbody>#{rows}</tbody></table></div>" <> uncounted_footnote(players)
+        "<tbody>#{rows}</tbody></table></div>" <>
+        uncounted_footnote(filter_entries(players, tournament, category))
 
     print_page(
       conn,
       tournament,
       tournament.name,
-      gettext("Cross table"),
+      with_category(gettext("Cross table"), category),
       body,
       @rr_crosstable_css
     )

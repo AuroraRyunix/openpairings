@@ -14,16 +14,57 @@ defmodule PairingsEngineWeb.PrintLive do
        # Standings, cross table and prize lists printed while a postponed
        # game is still to be played are provisional: the page says so
        # before anything is printed, with a link to each game.
-       postponed_open: PairingsEngine.PostponedGames.open_games(tournament)
+       postponed_open: PairingsEngine.PostponedGames.open_games(tournament),
+       category: nil
      )}
   end
 
-  defp documents(tournament, postponed_open) do
+  # The chosen category lives in the URL (`?category=`), so a reload keeps it.
+  # A name the tournament does not list is dropped rather than trusted.
+  @impl true
+  def handle_params(params, _uri, socket) do
+    wanted = params["category"]
+
+    category =
+      if is_binary(wanted) and wanted != "" and
+           wanted in (socket.assigns.tournament.categories || []),
+         do: wanted
+
+    {:noreply, assign(socket, :category, category)}
+  end
+
+  @impl true
+  def handle_event("pick_category", params, socket) do
+    id = socket.assigns.tournament.id
+
+    to =
+      case params["category"] do
+        name when is_binary(name) and name != "" -> ~p"/t/#{id}/print?#{[category: name]}"
+        _ -> ~p"/t/#{id}/print"
+      end
+
+    {:noreply, push_patch(socket, to: to)}
+  end
+
+  # Appends `category=<name>` to a document link that supports filtering,
+  # URL-encoded. "All players" and the unavailable (nil) links stay as they are.
+  defp with_category(nil, _category), do: nil
+  defp with_category(href, nil), do: href
+
+  defp with_category(href, category) do
+    sep = if String.contains?(href, "?"), do: "&", else: "?"
+    href <> sep <> URI.encode_query([{"category", category}])
+  end
+
+  defp documents(tournament, postponed_open, category) do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     latest = max(rounds_paired, 1)
 
     team_documents(tournament, rounds_paired, latest) ++
-      individual_documents(tournament, rounds_paired, latest) ++
+      Enum.map(
+        individual_documents(tournament, rounds_paired, latest),
+        &%{&1 | href: with_category(&1.href, category)}
+      ) ++
       postponed_documents(tournament, postponed_open)
   end
 
@@ -107,42 +148,50 @@ defmodule PairingsEngineWeb.PrintLive do
   defp individual_documents(tournament, rounds_paired, latest) do
     [
       %{
+        id: "print-doc-players",
         name: "Player list",
         desc: "All registered players with ratings, federation and club.",
         href: ~p"/t/#{tournament.id}/print/players"
       },
       %{
+        id: "print-doc-cards",
         name: "Player cards",
         desc: "One card per player with their round-by-round schedule to fill in.",
         href: ~p"/t/#{tournament.id}/print/cards"
       },
       %{
+        id: "print-doc-pairings",
         name: "Pairing list (latest round)",
         desc: "Board-by-board pairings for posting at the venue.",
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings?round=#{latest}")
       },
       %{
+        id: "print-doc-standings",
         name: "Standings",
         desc: "Current ranking with points and tiebreaks.",
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/standings")
       },
       %{
+        id: "print-doc-results",
         name: "Result cards (latest round)",
         desc: "One slip per board to record the result over the board.",
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/results?round=#{latest}")
       },
       %{
+        id: "print-doc-pairings-alpha",
         name: "Alphabetical pairing list",
         desc: "\"Where do I sit\" list, sorted by player name.",
         href:
           if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings-alpha?round=#{latest}")
       },
       %{
+        id: "print-doc-scoresheets",
         name: "Score sheets",
         desc: "Pre-filled per board: names, ratings, move columns, signatures.",
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/scoresheets?round=#{latest}")
       },
       %{
+        id: "print-doc-crosstable",
         name: "Cross table",
         desc: "Full results grid of the tournament.",
         href: ~p"/t/#{tournament.id}/print/crosstable"
@@ -181,6 +230,26 @@ defmodule PairingsEngineWeb.PrintLive do
           )
         }
       />
+      <form
+        :if={@tournament.categories != []}
+        id="print-category-form"
+        class="card mb-4 flex flex-wrap items-center gap-3"
+        phx-change="pick_category"
+      >
+        <label for="print-category" class="font-semibold">{gettext("Print for")}</label>
+        <select id="print-category" name="category" class="pe-select">
+          <option value="" selected={@category == nil}>{gettext("All players")}</option>
+          <option :for={name <- @tournament.categories} value={name} selected={@category == name}>
+            {name}
+          </option>
+        </select>
+        <span class="hint">
+          {gettext(
+            "Applies to the player list, cards, pairings, result slips, score sheets, standings and cross table."
+          )}
+        </span>
+      </form>
+
       <div class="card table-card">
         <table class="pe-table">
           <thead>
@@ -194,7 +263,7 @@ defmodule PairingsEngineWeb.PrintLive do
           </thead>
 
           <tbody>
-            <tr :for={doc <- documents(@tournament, @postponed_open)} id={doc[:id]}>
+            <tr :for={doc <- documents(@tournament, @postponed_open, @category)} id={doc[:id]}>
               <td><strong>{doc.name}</strong></td>
 
               <td class="hint">{doc.desc}</td>
