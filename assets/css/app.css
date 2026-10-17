@@ -6115,7 +6115,7 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   cursor: pointer;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
-.mobile-clear-btn.confirming { background: #b3261e; border-color: #b3261e; color: #fff; font-weight: 600; }
+.mobile-clear-btn.confirming { background: var(--danger); border-color: var(--danger); color: var(--danger-ink); font-weight: 600; }
 .mobile-clear-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 .mobile-result-btn:disabled { opacity: 0.35; cursor: not-allowed; }
 /* "More…" (forfeits/asymmetric codes) is secondary to the three main
