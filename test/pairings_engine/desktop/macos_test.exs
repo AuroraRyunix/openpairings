@@ -143,6 +143,50 @@ defmodule PairingsEngine.Desktop.MacosTest do
       assert Enum.sort(List.flatten(imports)) == ["AppKit", "Foundation"]
     end
 
+    test "the runtime is built for macOS 11, and a build that is not fails" do
+      workflow = read(".github/workflows/binaries.yml")
+      build_otp = read("rel/macos/build_otp.sh")
+      build_app = read("rel/macos/build_app.sh")
+
+      # The ready-made Erlang for macOS said "15.0"; it is not used there.
+      assert workflow =~ "if: runner.os != 'macOS'"
+      assert workflow =~ ~s(sh rel/macos/build_otp.sh "$HOME/otp-macos")
+      assert workflow =~ ~s(echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV")
+      assert workflow =~ "steps.otp-cache.outputs.cache-hit != 'true'"
+
+      assert [_, otp_key] = Regex.run(~r/path: ~\/otp-macos\n\s+key: (.+)$/m, workflow)
+
+      for part <- ~w(env.OTP_VERSION env.OPENSSL_VERSION env.ELIXIR_VERSION
+                     env.MACOSX_DEPLOYMENT_TARGET matrix.runner rel/macos/build_otp.sh) do
+        assert otp_key =~ part, "the OTP cache key does not include #{part}"
+      end
+
+      # OpenSSL inside crypto, and nothing the arbiter's Mac lacks.
+      assert build_otp =~ "--disable-dynamic-ssl-lib"
+      assert build_otp =~ "no-shared"
+      assert build_otp =~ "--without-wx --without-javac --without-odbc"
+
+      # Every version the workflow names has a checksum in the script.
+      for var <- ~w(OTP_VERSION OPENSSL_VERSION ELIXIR_VERSION) do
+        assert [_, version] = Regex.run(~r/^\s+#{var}: "([^"]+)"$/m, workflow)
+
+        assert build_otp =~
+                 ~r/^\s+#{Regex.escape(version)}(-otp-\d+)?\) \w+_sha256=[0-9a-f]{64} ;;$/m,
+               "build_otp.sh has no checksum for #{var} #{version}"
+      end
+
+      # The SQLite NIF from source on the Mac, and never from a cache built
+      # for another macOS.
+      assert workflow =~ ~s(echo "EXQLITE_FORCE_BUILD=true" >> "$GITHUB_ENV")
+      assert read("config/config.exs") =~ "config :exqlite, force_build: true"
+      assert Regex.match?(~r/_build\/prod\/lib\n\s+key:.*env\.MACOSX_DEPLOYMENT_TARGET/, workflow)
+
+      # A binary that wants newer than macOS 11 fails the build, by name.
+      assert build_app =~ "supported=11.0"
+      assert build_app =~ ~s(newer "$minos" "$supported")
+      assert build_app =~ ~s(sed 's/^/  /' "$too_new")
+    end
+
     test "the shell scripts have Unix line endings" do
       for file <- Path.wildcard(Path.join(@root, "rel/macos/*.sh")) do
         refute File.read!(file) =~ "\r", "#{file} has CRLF line endings"
