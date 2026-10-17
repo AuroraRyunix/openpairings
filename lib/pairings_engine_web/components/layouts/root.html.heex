@@ -188,6 +188,7 @@
           sight until focused - see `.skip-link`. Its target is the layout's
           `<main>`, or the phone page's own. --%>
     <a class="skip-link" href="#main-content">{gettext("Skip to content")}</a>
+    <.moved_notice host={assigns[:conn] && @conn.host} />
     <%!-- Where the scripts speak to a screen reader - see `announce` in
           assets/js/app.js. The three banners below used to be live regions
           themselves, rendered `hidden`, which is a region that is not in the

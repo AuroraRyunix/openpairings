@@ -1261,4 +1261,35 @@ defmodule PairingsEngineWeb.Layouts do
     </details>
     """
   end
+
+  attr :host, :string, default: nil
+
+  @doc """
+  The domain-move banner: on every page opened anywhere but the new address,
+  and nowhere at all unless `PHX_MOVED_TO` is set. In the root layout, so a
+  live navigation can't shake it off and no page can forget it.
+  """
+  def moved_notice(assigns) do
+    assigns = assign(assigns, :moved_to, moved_to(assigns.host))
+
+    ~H"""
+    <div :if={@moved_to} id="moved-notice" class="moved-notice" role="note">
+      <span>
+        <strong>{gettext("OpenPairings is moving to %{host}.", host: @moved_to)}</strong>
+        {gettext(
+          "This address keeps working, but update your bookmarks. You sign in once more on the new one."
+        )}
+      </span>
+      <a href={"https://" <> @moved_to} class="pe-btn">{gettext("Go to %{host}", host: @moved_to)}</a>
+    </div>
+    """
+  end
+
+  @doc false
+  def moved_to(host) do
+    case Application.get_env(:pairings_engine, :host_policy, [])[:moved_to] do
+      nil -> nil
+      target -> if String.downcase(host || "") == target, do: nil, else: target
+    end
+  end
 end

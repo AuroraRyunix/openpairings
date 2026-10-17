@@ -633,9 +633,20 @@ if config_env() == :prod do
 
   origin_hosts = Enum.uniq([host | allowed_hosts ++ redirect_hosts])
 
+  # PHX_MOVED_TO - the new address, during a move. Set, every page opened on
+  # any other host carries a banner saying where the app went; the new host
+  # itself is spared the news. Empty = no banner.
+  moved_to =
+    case parse_hosts.("PHX_MOVED_TO") do
+      [] -> nil
+      [one] -> one
+      _ -> raise "PHX_MOVED_TO takes one hostname, not a list."
+    end
+
   config :pairings_engine, :host_policy,
     canonical: String.downcase(host),
-    redirect_hosts: redirect_hosts
+    redirect_hosts: redirect_hosts,
+    moved_to: moved_to
 
   config :pairings_engine, PairingsEngineWeb.Endpoint,
     # Only a server needs the list: local mode answers on loopback and keeps

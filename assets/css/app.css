@@ -3497,6 +3497,22 @@ a.pending-chip:hover {
 }
 .archived-banner > span:first-child { flex: 1; min-width: 220px; }
 
+/* The domain move. Above everything, full width, and not dismissible: a
+   banner you can close is a banner people close and then forget. */
+.moved-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 16px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  background: color-mix(in srgb, var(--warn) 16%, var(--bg, transparent));
+  border-bottom: 1.5px solid color-mix(in srgb, var(--warn) 40%, transparent);
+}
+@media print { .moved-notice { display: none; } }
+
 /* "Not in FIDE mode" on every page of a tournament that has left it
    (VCL4THP Q46). A state worth knowing, not a warning: one muted line. */
 .fide-mode-strip {

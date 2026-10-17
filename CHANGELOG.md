@@ -24,6 +24,7 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **Place cards and the next round preview are on the Print page now**, with the category selector like the rest. They used to live only behind other pages' buttons, which is a fine place to hide things you don't want found. The preview stays unlinked until you have worked it out on the Pairings page.
 - [Feature] A hosted installation can now answer on a second web address while the first keeps working, and the old address can be set to forward visitors to the new one. Off until it is turned on; nothing changes for anyone before then.
 - [Change] The address of the public results site that a desktop copy publishes to, and that the publishing form suggests, can be set by the operator instead of being fixed in the build.
+- [Feature] **A banner for the domain move.** With `PHX_MOVED_TO` set, every page opened anywhere but the new address says where the app went and links there. It can't be closed, because a banner you can close is a banner you never read again. The new address is spared, and so is paper.
 
 ## [0.89.7] - 2026-10-17
 
