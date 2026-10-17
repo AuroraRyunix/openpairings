@@ -21198,7 +21198,7 @@ msgid "Applies to the player list, cards, pairings, result slips, score sheets, 
 msgstr ""
 
 #: lib/pairings_engine_web/live/print_live.ex:263
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Print for"
 msgstr ""
 
@@ -21320,7 +21320,7 @@ msgid "Go to %{host}"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:1278
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "OpenPairings is moving to %{host}."
 msgstr ""
 

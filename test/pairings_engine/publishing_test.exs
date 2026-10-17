@@ -99,8 +99,8 @@ defmodule PairingsEngine.PublishingTest do
       # likely to bring a trailing slash or no scheme as the exact string.
       # Normalising means the error they eventually see is about the server
       # rather than about their typing.
-      Publishing.put_endpoint("openresults.zerotwo.cloud/")
-      assert Publishing.endpoint() == "https://openresults.zerotwo.cloud"
+      Publishing.put_endpoint("openresults.cloud/")
+      assert Publishing.endpoint() == "https://openresults.cloud"
 
       Publishing.put_endpoint("http://localhost:4001")
       assert Publishing.endpoint() == "http://localhost:4001"

@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.90.0] - 2026-10-17
+
 - [Fix] **The Mac app opens on macOS 11 and newer**, not only on 15. The Erlang inside is compiled for 11 now, SQLite too, and the build fails, naming the file, if anything in the app asks for a newer macOS. The ready-made runtime had demanded the latest macOS all along; it just never said so to anyone who had it.
 - [Feature] **Print one category at a time.** Tournaments with categories get a *Print for* selector on the Print page, and the player list, cards, pairings, result slips, score sheets, standings and cross table follow it. Board numbers stay where they were, so the U1800 sheet no longer needs a pair of scissors and a steady hand.
 - [Change] The manual now calls them what they are to the person using them: live boards.
@@ -27,6 +29,7 @@ Each entry is tagged so a version can be skimmed:
 - [Change] The address of the public results site that a desktop copy publishes to, and that the publishing form suggests, can be set by the operator instead of being fixed in the build.
 - [Feature] **A banner for the domain move.** With `PHX_MOVED_TO` set, every page opened anywhere but the new address says where the app went and links there. It can't be closed, because a banner you can close is a banner you never read again. The new address is spared, and so is paper.
 - [Change] **The Players page has three buttons instead of seven.** *Add player* stays the main one, *Print player list* stays beside it, and the place cards, *Pairing numbers*, *Starting numbers*, *Refresh ratings* and *Update player data* moved into a grouped **More** menu that the arrow keys can walk. All of them are still two clicks away. Registering players is the job; the toolbar no longer pretends otherwise.
+- [Change] A desktop copy now publishes to **openresults.cloud** unless told otherwise. Copies from before this release keep using the old address, which keeps answering, so nobody's tournament goes anywhere it wasn't sent.
 
 ## [0.89.7] - 2026-10-17
 

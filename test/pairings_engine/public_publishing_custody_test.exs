@@ -81,11 +81,11 @@ defmodule PairingsEngine.PublicPublishingCustodyTest do
       prefix = Installation.meta_prefix()
 
       rows = [
-        {"openresults_endpoint", "https://openresults.zerotwo.cloud"},
+        {"openresults_endpoint", "https://openresults.cloud"},
         {prefix <> "key", Server.key()},
         {prefix <> "id", Server.installation_id()},
-        {prefix <> "server", "https://openresults.zerotwo.cloud"},
-        {prefix <> "consent", ~s({"server":"https://openresults.zerotwo.cloud"})},
+        {prefix <> "server", "https://openresults.cloud"},
+        {prefix <> "consent", ~s({"server":"https://openresults.cloud"})},
         {prefix <> "state", ~s({"status":403,"code":"address_blocked"})}
       ]
 
@@ -233,7 +233,7 @@ defmodule PairingsEngine.PublicPublishingCustodyTest do
       envelope = t |> TournamentExport.export_tournament() |> Jason.encode!() |> Jason.decode!()
 
       # Forget this installation, as a different machine would be.
-      Installation.start_over(%{host: "openresults.zerotwo.cloud", operator: nil})
+      Installation.start_over(%{host: "openresults.cloud", operator: nil})
       PairingsEngine.Meta.delete(Installation.meta_prefix() <> "consent")
       refute Installation.registered?()
 

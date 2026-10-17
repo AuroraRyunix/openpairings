@@ -176,9 +176,10 @@ defmodule PairingsEngine.Publishing do
   # "Public mode" in the moduledoc.
   # Overridable with OPENRESULTS_PUBLIC_URL (`config :pairings_engine,
   # :openresults_public_url`). This compiled value is what a desktop copy
-  # uses, since it has no environment to set it from: change it in the
-  # release that follows the move to openresults.cloud, not before.
-  @public_server "https://openresults.zerotwo.cloud"
+  # uses, since it has no environment to set it from. Moved to
+  # openresults.cloud in 0.90.0; the old name still answers, so copies that
+  # predate the move keep publishing where they always did.
+  @public_server "https://openresults.cloud"
 
   @doc """
   The results site this build publishes to when nothing else is configured -

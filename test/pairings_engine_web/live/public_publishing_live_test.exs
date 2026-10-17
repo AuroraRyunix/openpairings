@@ -91,9 +91,9 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       lv |> element("#site-presence-link") |> render_click()
       html = render_async(lv)
 
-      assert html =~ "Publish on openresults.zerotwo.cloud?"
+      assert html =~ "Publish on openresults.cloud?"
       assert html =~ "is run by ZeroTwo"
-      assert html =~ ~s|href="https://openresults.zerotwo.cloud/terms"|
+      assert html =~ ~s|href="https://openresults.cloud/terms"|
       assert html =~ "Agree and publish"
 
       # Only the question has gone out, and it carried no credential.
@@ -112,7 +112,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       lv |> element("#site-presence-link") |> render_click()
       html = render_async(lv)
 
-      assert html =~ "Publish on openresults.zerotwo.cloud?"
+      assert html =~ "Publish on openresults.cloud?"
       refute html =~ "is run by"
       refute html =~ "terms"
     end
@@ -149,7 +149,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       render_async(lv)
       html = lv |> element("#public-consent button", "Agree and publish") |> render_click()
 
-      assert html =~ "registers with openresults.zerotwo.cloud"
+      assert html =~ "registers with openresults.cloud"
       assert Installation.consented?()
       Server.requests()
 
@@ -169,7 +169,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
       minted = Tournaments.get_tournament!(tournament.id)
       {:ok, _lv, html} = results_page(conn, minted)
-      assert html =~ "https://openresults.zerotwo.cloud/t/#{minted.public_slug}"
+      assert html =~ "https://openresults.cloud/t/#{minted.public_slug}"
 
       # Custody: the page never renders the key, and nor does the audit trail.
       refute html =~ Server.key()
@@ -239,7 +239,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
 
     defp no_link!(html, slugs) do
       for slug <- slugs, do: refute(html =~ "/t/#{slug}")
-      refute html =~ "openresults.zerotwo.cloud/t/"
+      refute html =~ "openresults.cloud/t/"
     end
 
     defp surfaces(conn, t) do
@@ -285,7 +285,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
       Publishing.retry(t.id)
       assert {1, 0} = Publishing.drain()
       published = Tournaments.get_tournament!(t.id)
-      link = "https://openresults.zerotwo.cloud/t/#{published.public_slug}"
+      link = "https://openresults.cloud/t/#{published.public_slug}"
 
       pages = surfaces(conn, published)
       assert pages.results =~ "Share link"
@@ -413,7 +413,7 @@ defmodule PairingsEngineWeb.PublicPublishingLiveTest do
   describe "the Connections panel in public mode" do
     test "says what will happen, shows the installation id and never the key", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/fide")
-      assert html =~ "Without a token, this computer publishes to openresults.zerotwo.cloud"
+      assert html =~ "Without a token, this computer publishes to openresults.cloud"
       refute html =~ "Test connection"
       refute html =~ "Nothing is published until both an address and a token are set."
       assert Server.requests() == []

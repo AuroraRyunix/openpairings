@@ -24,7 +24,7 @@ defmodule PairingsEngine.PublicServerStub do
         "name" => "OpenResults",
         "version" => "0.14.0",
         "operator" => "ZeroTwo",
-        "terms_url" => "https://openresults.zerotwo.cloud/terms",
+        "terms_url" => "https://openresults.cloud/terms",
         "public_registration" => "open",
         "public_publishing" => "active"
       },

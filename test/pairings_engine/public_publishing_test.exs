@@ -101,8 +101,8 @@ defmodule PairingsEngine.PublicPublishingTest do
 
   describe "which mode applies" do
     test "a local run with nothing configured defaults to the public results site" do
-      assert Publishing.endpoint() == "https://openresults.zerotwo.cloud"
-      assert Publishing.public_base() == "https://openresults.zerotwo.cloud"
+      assert Publishing.endpoint() == "https://openresults.cloud"
+      assert Publishing.public_base() == "https://openresults.cloud"
       assert Publishing.stored_endpoint() == nil
       assert Publishing.mode() == :public
       assert Publishing.public_mode?()
@@ -119,8 +119,8 @@ defmodule PairingsEngine.PublicPublishingTest do
 
       # Even with an address, and even with a consent somebody planted in the
       # table, a hosted server sends nothing that could register it.
-      Publishing.put_endpoint("https://openresults.zerotwo.cloud")
-      Installation.give_consent(%{host: "openresults.zerotwo.cloud", operator: nil})
+      Publishing.put_endpoint("https://openresults.cloud")
+      Installation.give_consent(%{host: "openresults.cloud", operator: nil})
       t = tournament()
       Publishing.enqueue(t)
       Server.install(self())
@@ -205,8 +205,8 @@ defmodule PairingsEngine.PublicPublishingTest do
       # 1. The question for the dialog, with no credential.
       info = consent!()
       assert info.operator == "ZeroTwo"
-      assert info.terms_url == "https://openresults.zerotwo.cloud/terms"
-      assert info.host == "openresults.zerotwo.cloud"
+      assert info.terms_url == "https://openresults.cloud/terms"
+      assert info.host == "openresults.cloud"
 
       assert [{"GET", "/api/server", headers, _}] = Server.requests()
       refute bearer(headers)
@@ -237,7 +237,7 @@ defmodule PairingsEngine.PublicPublishingTest do
       assert Jason.decode!(snapshot)["tournament"]["slug"] == minted.public_slug
 
       assert Installation.id() == Server.installation_id()
-      assert PublicLink.url(minted) == "https://openresults.zerotwo.cloud/t/#{minted.public_slug}"
+      assert PublicLink.url(minted) == "https://openresults.cloud/t/#{minted.public_slug}"
 
       # Once per installation, once per tournament: the next publish is just
       # the publish.
@@ -1130,7 +1130,7 @@ defmodule PairingsEngine.PublicPublishingTest do
       Publishing.enqueue(t)
       assert {1, 0} = Publishing.drain()
       on_first = Tournaments.get_tournament!(t.id)
-      assert on_first.public_slug_server == "https://openresults.zerotwo.cloud"
+      assert on_first.public_slug_server == "https://openresults.cloud"
       Server.requests()
 
       Publishing.put_endpoint("https://results.club.example")

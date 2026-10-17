@@ -66,7 +66,11 @@ defmodule PairingsEngine.HostPolicyTest do
 
       # The canonical host is never its own redirect source.
       assert config[:pairings_engine][:host_policy] ==
-               [canonical: "openpairings.cloud", redirect_hosts: ["legacy.example.org"]]
+               [
+                 canonical: "openpairings.cloud",
+                 redirect_hosts: ["legacy.example.org"],
+                 moved_to: nil
+               ]
     end
 
     test "an entry that is not a hostname stops the boot" do
@@ -91,7 +95,7 @@ defmodule PairingsEngine.HostPolicyTest do
 
     test "unset leaves the compiled default" do
       assert PairingsEngine.Publishing.default_public_server() ==
-               "https://openresults.zerotwo.cloud"
+               "https://openresults.cloud"
     end
   end
 

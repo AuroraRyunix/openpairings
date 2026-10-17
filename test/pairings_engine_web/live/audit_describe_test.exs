@@ -740,14 +740,14 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "openresults.claim_discarded" => [%{}],
     "openresults.public_consent_given" => [
       %{
-        "host" => "openresults.zerotwo.cloud",
+        "host" => "openresults.cloud",
         "operator" => "ZeroTwo",
         "register_again" => false
       },
-      %{"host" => "openresults.zerotwo.cloud", "operator" => nil, "register_again" => false},
-      %{"host" => "openresults.zerotwo.cloud", "operator" => "ZeroTwo", "register_again" => true}
+      %{"host" => "openresults.cloud", "operator" => nil, "register_again" => false},
+      %{"host" => "openresults.cloud", "operator" => "ZeroTwo", "register_again" => true}
     ],
-    "openresults.public_consent_declined" => [%{"host" => "openresults.zerotwo.cloud"}],
+    "openresults.public_consent_declined" => [%{"host" => "openresults.cloud"}],
     "swar.published" => [%{"guid" => "3f2a-77c1"}],
     "swar.publish_failed" => [
       %{"guid" => "3f2a-77c1", "step" => "upload", "error" => "HTTP 500"},
@@ -774,8 +774,8 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "publishing.token_replaced" => [%{}],
     "publishing.token_cleared" => [%{}],
     "publishing.public_consent_given" => [
-      %{"host" => "openresults.zerotwo.cloud", "operator" => "ZeroTwo", "register_again" => true},
-      %{"host" => "openresults.zerotwo.cloud", "operator" => nil, "register_again" => true}
+      %{"host" => "openresults.cloud", "operator" => "ZeroTwo", "register_again" => true},
+      %{"host" => "openresults.cloud", "operator" => nil, "register_again" => true}
     ],
     "fide.sync_started" => [%{}]
   }
