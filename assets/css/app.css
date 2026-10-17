@@ -4266,6 +4266,7 @@ a.pending-chip:hover {
 .radio-row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
 .radio-row label { display: flex; align-items: center; gap: 6px; font-weight: 500; cursor: pointer; }
 .radio-row input { width: auto; accent-color: var(--accent); }
+.radio-row.sex-needed { outline: 2px solid var(--danger); outline-offset: 4px; border-radius: 6px; }
 
 .checkbox-row { display: flex; gap: 20px; flex-wrap: wrap; margin: 10px 0; }
 .checkbox-row label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 500; }

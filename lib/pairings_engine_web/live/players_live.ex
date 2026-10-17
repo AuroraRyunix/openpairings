@@ -154,6 +154,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        # match the search (see `PairingsEngine.RatingLists`).
        custom_results: [],
        form_values: %{},
+       confirm_sex: false,
        visible: @default_visible,
        editing_player: nil,
        edit_form: %{},
@@ -759,6 +760,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        adding: false,
        error: nil,
        form_values: %{},
+       confirm_sex: false,
        query: "",
        results: [],
        kbsb_results: [],
@@ -1053,8 +1055,21 @@ defmodule PairingsEngineWeb.PlayersLive do
            missing_setup_summary(socket.assigns.missing_setup)
        )}
     else
-      do_save(socket, params)
+      # A new player with no sex is asked about once (Escape or "Choose sex"
+      # goes back to the form, "Save without" carries `sex_ack`). Only this
+      # handler asks: edits, imports and the lookups never come through it.
+      {ack, params} = Map.pop(params, "sex_ack")
+
+      if blank?(params["sex"]) and ack != "true" do
+        {:noreply, assign(socket, confirm_sex: true, error: nil, form_values: params)}
+      else
+        do_save(assign(socket, confirm_sex: false), params)
+      end
     end
+  end
+
+  def handle_event("dismiss_sex_confirm", _params, socket) do
+    {:noreply, assign(socket, confirm_sex: false)}
   end
 
   def handle_event("delete", %{"id" => id}, socket) do
@@ -2003,6 +2018,7 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> assign(
            error: nil,
            form_values: %{},
+           confirm_sex: false,
            add_start_round: Tournaments.next_start_round(socket.assigns.tournament.id)
          )
          |> assign_players()}
@@ -3261,7 +3277,32 @@ defmodule PairingsEngineWeb.PlayersLive do
           <label class="field">
             <span>{gettext("Club")}</span> <input name="player[club]" value={@form_values["club"]} />
           </label>
-          <input type="hidden" name="player[sex]" value={@form_values["sex"]} />
+
+          <div class="field" id="add-player-sex-field">
+            <span>{gettext("Sex")}</span>
+            <div class={["radio-row", @confirm_sex && "sex-needed"]} id="add-player-sex">
+              <label>
+                <input
+                  type="radio"
+                  id="add-player-sex-m"
+                  name="player[sex]"
+                  value="m"
+                  checked={@form_values["sex"] == "m"}
+                /> M
+              </label>
+
+              <label>
+                <input
+                  type="radio"
+                  id="add-player-sex-w"
+                  name="player[sex]"
+                  value="w"
+                  checked={@form_values["sex"] == "w"}
+                /> F
+              </label>
+            </div>
+          </div>
+
           <%!-- Hidden, like sex above: the club NUMBER is filled in by the KBSB
                 lookup and is not something an arbiter types. It still has to be
                 submitted, though - `PlayerDataRefresh` treats name and number as a
@@ -3286,6 +3327,51 @@ defmodule PairingsEngineWeb.PlayersLive do
         </p>
 
         <p :if={@error} class="error-note">{@error}</p>
+
+        <%!-- Same inline-card pattern as the FIDE-conflict box in the edit
+              dialog. Focus moves in on appearing; Escape goes back to the
+              sex radios. --%>
+        <div
+          :if={@confirm_sex}
+          id="add-sex-confirm"
+          class="card"
+          role="alertdialog"
+          aria-labelledby="add-sex-confirm-text"
+          tabindex="-1"
+          phx-mounted={Phoenix.LiveView.JS.focus()}
+          phx-window-keydown={
+            Phoenix.LiveView.JS.push("dismiss_sex_confirm")
+            |> Phoenix.LiveView.JS.focus(to: "#add-player-sex-m")
+          }
+          phx-key="escape"
+          style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; padding: 10px 12px"
+        >
+          <span id="add-sex-confirm-text">
+            {gettext("No sex chosen. FIDE reports and women's prizes need it.")}
+          </span>
+
+          <button
+            type="button"
+            id="add-sex-confirm-choose"
+            class="pe-btn"
+            phx-click={
+              Phoenix.LiveView.JS.push("dismiss_sex_confirm")
+              |> Phoenix.LiveView.JS.focus(to: "#add-player-sex-m")
+            }
+          >
+            {gettext("Choose sex")}
+          </button>
+
+          <button
+            type="submit"
+            id="add-sex-confirm-skip"
+            name="player[sex_ack]"
+            value="true"
+            class="pe-btn"
+          >
+            {gettext("Save without")}
+          </button>
+        </div>
 
         <div class="actions">
           <button
@@ -3565,8 +3651,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         :if={@data_refresh}
         summary={@data_refresh}
         selected={@data_selected}
-      />
-      <.starting_numbers_modal :if={@starting_numbers} order={@starting_numbers} />
+      /> <.starting_numbers_modal :if={@starting_numbers} order={@starting_numbers} />
       <.tpn_modal
         :if={@tpn}
         order={@tpn}

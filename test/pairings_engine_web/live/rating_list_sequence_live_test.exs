@@ -71,7 +71,7 @@ defmodule PairingsEngineWeb.RatingListSequenceLiveTest do
       assert has_element?(lv, "#add-rating-source")
       assert render(lv) =~ "From the FIDE Rapid list of"
 
-      lv |> form("#add-player-form") |> render_submit()
+      lv |> form("#add-player-form") |> render_submit(%{"player" => %{"sex" => "m"}})
 
       player = Tournaments.list_players(tournament.id) |> Enum.find(&(&1.fide_id == 41))
       assert player.fide_rating == 1850
@@ -85,7 +85,7 @@ defmodule PairingsEngineWeb.RatingListSequenceLiveTest do
       {:ok, lv, _} = live(conn, ~p"/t/#{tournament.id}/players")
       search(lv, "Rapidonly")
       lv |> element("#fide-result-41-pick") |> render_click()
-      lv |> form("#add-player-form") |> render_submit()
+      lv |> form("#add-player-form") |> render_submit(%{"player" => %{"sex" => "m"}})
 
       player = Tournaments.list_players(tournament.id) |> Enum.find(&(&1.fide_id == 41))
       assert player.fide_rating in [nil, 0]
@@ -148,7 +148,7 @@ defmodule PairingsEngineWeb.RatingListSequenceLiveTest do
       refute has_element?(lv, "#fide-result-42-use-fide_blitz")
 
       lv |> element("#fide-result-42-pick") |> render_click()
-      lv |> form("#add-player-form") |> render_submit()
+      lv |> form("#add-player-form") |> render_submit(%{"player" => %{"sex" => "m"}})
       player = Tournaments.list_players(t.id) |> Enum.find(&(&1.fide_id == 42))
       assert player.fide_rating == 1600
       assert player.fide_rating_source == "rapid"
@@ -183,7 +183,7 @@ defmodule PairingsEngineWeb.RatingListSequenceLiveTest do
       [{_, entry}] = RatingLists.search_custom(["custom:#{list.id}"], "Clubber")
       assert has_element?(lv, "#custom-result-#{entry.id}")
       lv |> element("#custom-result-#{entry.id}") |> render_click()
-      lv |> form("#add-player-form") |> render_submit()
+      lv |> form("#add-player-form") |> render_submit(%{"player" => %{"sex" => "m"}})
 
       player = Tournaments.list_players(t.id) |> Enum.find(&(&1.name == "Clubber, Carl"))
       assert player.national_rating == 1480

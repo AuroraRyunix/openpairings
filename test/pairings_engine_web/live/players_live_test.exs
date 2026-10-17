@@ -1709,7 +1709,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       assert has_element?(lv, "#add-rating-source")
       assert render(lv) =~ "From the FIDE Standard list of"
 
-      lv |> form("#add-player-form") |> render_submit()
+      lv |> form("#add-player-form") |> render_submit(%{"player" => %{"sex" => "w"}})
 
       player =
         Tournaments.list_players(tournament.id) |> Enum.find(&(&1.name == "Listed, Lena"))
@@ -1729,13 +1729,103 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       lv
       |> form("#add-player-form", %{
-        "player" => %{"name" => "Hand, Hans", "fide_rating" => "1444"}
+        "player" => %{"name" => "Hand, Hans", "fide_rating" => "1444", "sex" => "m"}
       })
       |> render_submit()
 
       player = Tournaments.list_players(tournament.id) |> Enum.find(&(&1.name == "Hand, Hans"))
       assert player.fide_rating == 1444
       assert player.fide_rating_source == nil
+    end
+  end
+
+  describe "adding a player with no sex" do
+    setup %{scope: scope} do
+      %{tournament: complete_tournament(scope, "Sex Test", Date.to_iso8601(Date.utc_today()))}
+    end
+
+    test "asks first and saves nothing", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      lv
+      |> form("#add-player-form", %{"player" => %{"name" => "Nosex, Nina"}})
+      |> render_submit()
+
+      assert has_element?(lv, "#add-sex-confirm")
+      assert has_element?(lv, "#add-sex-confirm-skip")
+      assert Tournaments.list_players(tournament.id) == []
+    end
+
+    test "Save without saves it", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      lv
+      |> form("#add-player-form", %{"player" => %{"name" => "Nosex, Nina"}})
+      |> render_submit()
+
+      lv
+      |> form("#add-player-form", %{"player" => %{"name" => "Nosex, Nina"}})
+      |> render_submit(%{"player" => %{"sex_ack" => "true"}})
+
+      refute has_element?(lv, "#add-sex-confirm")
+      [player] = Tournaments.list_players(tournament.id)
+      assert player.name == "Nosex, Nina"
+      assert player.sex in [nil, ""]
+    end
+
+    test "Choose sex goes back to the form, and a sex then saves normally", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      lv
+      |> form("#add-player-form", %{"player" => %{"name" => "Nosex, Nina"}})
+      |> render_submit()
+
+      render_click(lv, "dismiss_sex_confirm", %{})
+      refute has_element?(lv, "#add-sex-confirm")
+
+      lv
+      |> form("#add-player-form", %{"player" => %{"name" => "Nosex, Nina", "sex" => "w"}})
+      |> render_submit()
+
+      refute has_element?(lv, "#add-sex-confirm")
+      [player] = Tournaments.list_players(tournament.id)
+      assert player.sex == "w"
+    end
+
+    test "adding with a sex saves directly", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      lv
+      |> form("#add-player-form", %{"player" => %{"name" => "Sexed, Sam", "sex" => "m"}})
+      |> render_submit()
+
+      refute has_element?(lv, "#add-sex-confirm")
+      assert [%{sex: "m"}] = Tournaments.list_players(tournament.id)
+    end
+
+    test "editing an existing sexless player saves without asking", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, player} = Tournaments.create_player(tournament.id, %{"name" => "Old, Olga"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "edit_player", %{"id" => to_string(player.id)})
+
+      lv
+      |> form("#player-edit-form", %{"player" => %{"name" => "Old, Olga B"}})
+      |> render_submit()
+
+      refute has_element?(lv, "#add-sex-confirm")
+      refute has_element?(lv, "#player-edit-form")
+      assert Tournaments.get_player(tournament.id, player.id).name == "Old, Olga B"
     end
   end
 
@@ -2373,7 +2463,10 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = render_click(lv, "add", %{})
       assert html =~ ~s(name="player[name]")
 
-      html = lv |> form("form", %{"player" => %{"name" => "New Player"}}) |> render_submit()
+      html =
+        lv
+        |> form("form", %{"player" => %{"name" => "New Player", "sex" => "m"}})
+        |> render_submit()
 
       assert html =~ "New Player"
 
@@ -2723,7 +2816,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       lv
       |> form("#add-player-form", %{
-        "player" => %{"name" => "Latecomer, Lena", "start_round" => "2"}
+        "player" => %{"name" => "Latecomer, Lena", "start_round" => "2", "sex" => "w"}
       })
       |> render_submit()
 

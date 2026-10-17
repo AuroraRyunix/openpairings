@@ -128,11 +128,15 @@ Press **Add player**. The form first offers a search box:
 ![The Add player form with the search box and the search results](screenshots/04-add-player-form.png "Adding a player")
 
 The form fields: full name (required), title, FIDE rating, national ID,
-national rating, federation, birth year, club, and further down the fixed
+national rating, federation, birth year, sex (M or F), club, and further down the fixed
 table, the extra points, category assignments, registration status (*No Paid*,
 *Paid*, *Gratis*), *Joins in round*, and the presence settings
 ([Byes and absences](05-byes-and-absences.md)). A player with a FIDE ID that is
-already in the tournament is refused. The registration form's **FIDE lookup** (and, with the Belgian pack, **KBSB lookup**)
+already in the tournament is refused. Adding a player with no sex chosen
+does not save at once: the form says that FIDE reports and women's prizes
+need it, and offers **Choose sex** (back to the M and F buttons; Escape does
+the same) or **Save without**. Editing a player, importing and the lookups
+never ask. The registration form's **FIDE lookup** (and, with the Belgian pack, **KBSB lookup**)
 looks the player up again in the local list. If the list says something
 different from what is on file, the form shows what FIDE says and asks
 *apply this?* for each difference.

@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Adding a player with no sex now asks first.** The form used to save "unknown" without a murmur, and the murmur turned up later in the FIDE report. It now says what it needs the answer for and offers *Choose sex* or *Save without*. Editing, imports and lookups stay quiet.
+
 ## [0.89.6] - 2026-10-17
 
 - [Fix] **The KBSB list fetches its own sexes.** 0.89.3 started keeping each member's sex, but only for rows imported after it, and a list synced earlier stayed sexless until somebody pressed *Sync from KBSB*, which nobody did. A list with rows and not one sex among them now re-syncs itself once, a minute after the server starts. *Update player data* then has something to offer.

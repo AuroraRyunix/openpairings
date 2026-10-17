@@ -132,11 +132,15 @@ Druk op **Speler toevoegen**. Het formulier biedt eerst een zoekvak aan:
 ![Het formulier Speler toevoegen met het zoekvak en de zoekresultaten](screenshots/04-add-player-form.png "Een speler toevoegen")
 
 De velden van het formulier: volledige naam (verplicht), titel, FIDE-rating,
-nationaal ID, nationale rating, federatie, geboortejaar, club, en verder naar
+nationaal ID, nationale rating, federatie, geboortejaar, geslacht (M of F), club, en verder naar
 beneden de vaste tabel, de extra punten, categoriekoppelingen, inschrijfstatus
 (*Niet betaald*, *Betaald*, *Gratis*), *Speelt mee vanaf ronde*, en de
 aanwezigheidsinstellingen ([Byes en afwezigheid](05-byes-and-absences.md)). Een
-speler met een FIDE-ID die al in het toernooi zit, wordt geweigerd. De
+speler met een FIDE-ID die al in het toernooi zit, wordt geweigerd. Een speler
+toevoegen zonder gekozen geslacht slaat niet meteen op: het formulier zegt dat
+FIDE-rapporten en damesprijzen het nodig hebben en biedt **Geslacht kiezen**
+(terug naar de knoppen M en F; Escape doet hetzelfde) of **Zonder opslaan**.
+Een speler bewerken, importeren en de opzoekingen vragen er nooit naar. De
 **FIDE-opzoeking** van het inschrijfformulier (en, met het Belgische pakket, de
 **KBSB-opzoeking**) zoekt de speler opnieuw op in de lokale lijst. Als de lijst iets
 anders zegt dan wat op bestand staat, toont het formulier wat FIDE zegt en vraagt
