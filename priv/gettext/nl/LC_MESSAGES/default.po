@@ -21109,8 +21109,8 @@ msgstr "De M of F van elke speler op de openbare spelerslijst en de stand."
 
 #: lib/pairings_engine/public_display.ex:279
 #, elixir-autogen, elixir-format
-msgid "Each player's tournament performance rating (TPR) on the public standings."
-msgstr "Het prestatiecijfer (TPR) van elke speler op de openbare stand."
+msgid "Each player's performance in this tournament on the public standings (the Perf column of the Players page)."
+msgstr "De prestatie van elke speler in dit toernooi op de openbare stand (de kolom Perf van de pagina Spelers)."
 
 #: lib/pairings_engine/public_display.ex:277
 #, elixir-autogen, elixir-format

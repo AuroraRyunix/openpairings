@@ -21117,7 +21117,7 @@ msgstr ""
 
 #: lib/pairings_engine/public_display.ex:279
 #, elixir-autogen, elixir-format
-msgid "Each player's tournament performance rating (TPR) on the public standings."
+msgid "Each player's performance in this tournament on the public standings (the Perf column of the Players page)."
 msgstr ""
 
 #: lib/pairings_engine/public_display.ex:277

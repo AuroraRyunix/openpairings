@@ -99,8 +99,14 @@ defmodule PairingsEngine.Federations.BEL.Members do
   def find_by_national_id(nil), do: nil
   def find_by_national_id(""), do: nil
 
-  def find_by_national_id(national_id) when is_binary(national_id),
-    do: Repo.get(Member, national_id)
+  # Trimmed here too: a player saved before the changeset trimmed its ids
+  # can still carry a pasted tab, and that is no reason to be a stranger.
+  def find_by_national_id(national_id) when is_binary(national_id) do
+    case String.trim(national_id) do
+      "" -> nil
+      id -> Repo.get(Member, id)
+    end
+  end
 
   @doc """
   Looks up a KBSB row by FIDE ID, used to enrich a FIDE-database pick with

@@ -276,7 +276,9 @@ defmodule PairingsEngine.PublicDisplay do
         default: false,
         label: gettext("Performance"),
         hint:
-          gettext("Each player's tournament performance rating (TPR) on the public standings.")
+          gettext(
+            "Each player's performance in this tournament on the public standings (the Perf column of the Players page)."
+          )
       },
       %{
         key: "pairing_scores",
