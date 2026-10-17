@@ -2195,7 +2195,23 @@ defmodule PairingsEngine.Publishing do
           set: [publish_due_at: nil]
         )
 
-      tournament_ids |> Enum.uniq() |> Enum.each(&enqueue_id/1)
+      tournament_ids
+      |> Enum.uniq()
+      |> Enum.each(fn tournament_id ->
+        enqueue_id(tournament_id)
+
+        # The round went public just now, and nothing else says so: the
+        # pairing that set the delay broadcast long ago, before it was true.
+        # An open Pairings page, and any plugin listening for rounds
+        # (`PairingsEngine.Plugin`, "Listening"), hear it here. PubSub
+        # rather than `Tournaments.broadcast_tournament_change/2`, which
+        # would only enqueue the publish the line above already did.
+        Phoenix.PubSub.broadcast(
+          PairingsEngine.PubSub,
+          Tournaments.tournament_topic(tournament_id),
+          {:tournament_changed, tournament_id, :settings}
+        )
+      end)
 
       claimed
     end

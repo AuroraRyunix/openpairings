@@ -69,6 +69,20 @@ defmodule PairingsEngine.Plugins do
     if plugins == [], do: [], else: [{"/plugins", PairingsEngineWeb.PluginsLive, :index} | own]
   end
 
+  @doc """
+  The plain plugs `plugins` mount (`http_routes/0`), as
+  `{verb, path, plug, plug_opts}` under `/p/<id>`. Called by the router at
+  compile time.
+  """
+  @spec http_routes([module()]) :: [{atom(), String.t(), module(), term()}]
+  def http_routes(plugins \\ compiled()) do
+    for plugin <- plugins,
+        Code.ensure_compiled!(plugin) && exports?(plugin, :http_routes, 0),
+        {verb, path, plug, opts} <- plugin.http_routes() do
+      {verb, "/p/" <> plugin.id() <> normalise_path(path), plug, opts}
+    end
+  end
+
   defp normalise_path(""), do: ""
   defp normalise_path("/" <> _ = path), do: String.trim_trailing(path, "/")
   defp normalise_path(path), do: normalise_path("/" <> path)

@@ -36,6 +36,7 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       if Enum.empty?(Plugins.compiled()) do
         assert plugin_paths == []
         assert Plugins.routes([]) == []
+        assert Plugins.http_routes([]) == []
       else
         assert "/plugins" in plugin_paths
       end
@@ -141,6 +142,13 @@ defmodule PairingsEngineWeb.PluginSeamTest do
                {"/p/fake", FakePlugin, :index},
                {"/p/fake/series/:id", FakePlugin, :show}
              ] = Plugins.routes([FakePlugin])
+    end
+
+    test "its plain plugs are mounted under /p/<id> too, and nothing else is" do
+      # No overview page among them: the plugs are for programs, and nothing
+      # about the seam is anyone's business before they sign in.
+      assert [{:post, "/p/fake/join/:code", FakePlugin, :join}] =
+               Plugins.http_routes([FakePlugin])
     end
 
     test "its features join the catalogue under their federation" do

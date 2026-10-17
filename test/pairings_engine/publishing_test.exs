@@ -1684,6 +1684,16 @@ defmodule PairingsEngine.PublishingTest do
       assert Publishing.pending_count() == 0
     end
 
+    test "tells the tournament's topic, so pages and plugins hear the round go public" do
+      t = tournament()
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(t.id))
+      due_round(t, DateTime.add(DateTime.utc_now(), -1, :second) |> DateTime.truncate(:second))
+
+      assert Publishing.promote_due_rounds() == 1
+      tid = t.id
+      assert_receive {:tournament_changed, ^tid, :settings}
+    end
+
     test "a round not yet due is left alone" do
       t = tournament()
       due_round(t, DateTime.add(DateTime.utc_now(), 900, :second) |> DateTime.truncate(:second))

@@ -243,6 +243,15 @@ defmodule PairingsEngineWeb.Router do
     end
   end
 
+  # A plugin's plain plugs (`http_routes/0`): no pipeline at all, because
+  # their callers are programs - a print station, a hall announcer - which
+  # keep neither cookies nor CSRF tokens. Under `/p/<id>` like the pages, so
+  # they cannot shadow a core route either; and the plugin, not this file,
+  # decides who gets an answer.
+  for {verb, path, plug, plug_opts} <- PairingsEngine.Plugins.http_routes() do
+    match verb, path, plug, plug_opts
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", PairingsEngineWeb do
   #   pipe_through :api

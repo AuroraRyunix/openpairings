@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A round published after a delay now tells the open Pairings page the moment it goes public.** The publish itself always happened on time; the page just kept saying *scheduled* until somebody reloaded it, which is the kind of patience nobody asked for.
+- [Feature] **Plug-ins can talk to devices in the playing hall** (hosted edition only). A plug-in may answer plain requests under its own `/p/<id>` address, without a sign-in, so a printer PC or a laptop by the speakers can join a tournament with a one-time link and keep a line open, outbound, with no port forwarding. The plug-in checks who is calling; the core only points the way. Every round going public now reaches the plug-ins too, whichever way it got there.
 - [Change] **The Archived table on the Tournaments list has the same More menu** as the rows above it, instead of three buttons in a row: *Export*, *Unarchive* and, last in red, *Delete* or *Leave*. The previous release did the active rows and left these to their own devices.
 - [Removed] **The single-file Mac download is gone.** It carried its own copy of Erlang that insisted on macOS 15, which made it a very small download for very few Macs. The Mac app (`openpairings_app_macos_aarch64.zip`) and the portable zip stay, and both run on macOS 11 and newer. Nothing in the program looked for the old file, so installed copies are unaffected.
 
