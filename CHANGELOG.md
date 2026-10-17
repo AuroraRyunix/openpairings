@@ -20,6 +20,7 @@ Each entry is tagged so a version can be skimmed:
 ## [0.89.4] - 2026-10-17
 
 - [Change] **Performance sits with Sex, under *About each player*.** It had been filed under *Columns*, a row away from the only other tick it resembles, where nobody would look for it.
+
 ## [0.89.3] - 2026-10-17
 
 - [Removed] **The round's right-click menu on the Pairings page.** Its only content was the "what spectators see" switch, which already sits at the top of the page; a second copy under the mouse only hid the board you had clicked. A right-click away from a seat now gets the browser's own menu.
