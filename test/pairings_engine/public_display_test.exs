@@ -35,7 +35,7 @@ defmodule PairingsEngine.PublicDisplayTest do
 
     test "performance is the third opt-in key: hidden unless ticked" do
       assert "performance" in PublicDisplay.keys()
-      assert Enum.find(PublicDisplay.fields(), &(&1.key == "performance")).group == :columns
+      assert Enum.find(PublicDisplay.fields(), &(&1.key == "performance")).group == :player
       refute PublicDisplay.show?(nil, "performance")
       refute PublicDisplay.show?(%{}, "performance")
       refute PublicDisplay.show?(%{"club" => false}, "performance")

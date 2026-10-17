@@ -184,6 +184,17 @@ defmodule PairingsEngine.PublicDisplay do
         hint: gettext("Each player's M/F on the public players list and standings.")
       },
       %{
+        key: "performance",
+        group: :player,
+        # Opt-in, like `rounds_played`: a number nobody published before.
+        default: false,
+        label: gettext("Performance"),
+        hint:
+          gettext(
+            "Each player's performance in this tournament on the public standings (the Perf column of the Players page)."
+          )
+      },
+      %{
         key: "club",
         group: :player,
         label: gettext("Clubs"),
@@ -267,17 +278,6 @@ defmodule PairingsEngine.PublicDisplay do
               "field was odd, and a win by forfeit. For a prize for attending every round. Off " <>
               "unless you ask for it, and independent of the \"Rds\" column tick on your own " <>
               "screens."
-          )
-      },
-      %{
-        key: "performance",
-        group: :columns,
-        # Opt-in, like `rounds_played`: a number nobody published before.
-        default: false,
-        label: gettext("Performance"),
-        hint:
-          gettext(
-            "Each player's performance in this tournament on the public standings (the Perf column of the Players page)."
           )
       },
       %{
