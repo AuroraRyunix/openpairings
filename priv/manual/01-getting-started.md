@@ -177,7 +177,7 @@ desktop build that is always you.
 4. **Players**: add the players (search the FIDE list or type them in).
 5. **Pairings**: **Pair round 1**.
 6. Enter the results on the Pairings page. When every board has a result,
-   pair the next round.
+   **On to round N** opens the next round: pair it.
 7. **Standings**, **Print** whenever needed.
 8. After the last round: Settings, **Export**, send the TRF file to the
    rating office (see [Sending to FIDE](11-fide-report.md)).

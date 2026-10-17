@@ -12,14 +12,38 @@ knop die haar paart. De tabel heeft één rij per bord: het bordnummer, de witte
 speler, het resultaat en de zwarte speler. Een speler met een bye is een bord
 met *bye* en zonder zwarte speler.
 
-![De pagina Paringen met ronde 3 gepaard: rondeknoppen, de bordentabel en de menu's Afdrukken en Meer](screenshots/06-pairings-round-paired.png "Een gepaarde ronde op de pagina Paringen")
+![De pagina Paringen met ronde 3 gepaard: rondeknoppen, de bordentabel en de knoppen van de ronde](screenshots/06-pairings-round-paired.png "Een gepaarde ronde op de pagina Paringen")
 
-Naast de tabel heeft de pagina een menu **Afdrukken** (paringen, paringen met de
-rubriek afwezigen, resultaatkaartjes, testafdruk, volgorde voor stapelsnijden),
-een menu **Meer** (de livepagina, de publieke pagina, PGN, het importeren van
-resultaten uit een CSV-bestand, ronde ontparen) en, voor een gepubliceerd
-toernooi, de bediening die bepaalt wat toeschouwers van de ronde zien
-([Publiceren](14-publishing.md)).
+Boven de tabel heeft de rondebalk één knop die opvalt, en welke dat is hangt af
+van hoe de ronde ervoor staat. Ernaast staan de twee of drie dingen die op dat
+moment tellen:
+
+| De ronde | De hoofdknop | Ernaast |
+| --- | --- | --- |
+| Nog niet gepaard | **Ronde N paren** | **Afwezigheden** (de pagina Spelers, waar je aanduidt wie de ronde niet speelt); in een round robin **Ronde N met de hand paren…**; als het van toepassing is, **Ontbrekende resultaten als uitgesteld noteren en ronde N paren** |
+| Wordt gespeeld | Geen: de resultaten invoeren is het werk | **Paringen afdrukken**, en de bediening die bepaalt wat toeschouwers van de ronde zien ([Publiceren](14-publishing.md)) |
+| Alle resultaten binnen | **Door naar ronde N**, die de volgende ronde opent met haar knop **Ronde N paren** | **Stand**, en wat toeschouwers zien |
+| De laatste ronde, alle resultaten binnen | **Stand** | **Insturen voor rating** (de pagina Exporteren, zie [Versturen naar FIDE](11-fide-report.md)), en wat toeschouwers zien |
+
+In een Chess960-toernooi staat daar ook **Chess960-stelling trekken**, tot de
+stelling van de ronde getrokken is.
+
+Al de rest zit in **Meer**, aan het einde van de balk, in groepen:
+
+- **Afdrukken**: paringen, paringen met de rubriek afwezigen,
+  resultaatkaartjes, een testafdruk van de eerste drie kaartjes, volgorde voor
+  stapelsnijden;
+- **Ronde**: **Paringen met de hand aanpassen**, **Resultaten importeren
+  (CSV)** en, in een round robin, **Rondes wisselen…**;
+- **PGN**: deze ronde of alle rondes, met of zonder bordnummers, of een reeks
+  borden;
+- **Weergaven**: **Lokale weergave & telefoon-QR** en, voor een gepubliceerd
+  toernooi, **Publieke pagina**;
+- **Gevarenzone**: **Ronde ontparen**, alleen op de laatst gepaarde ronde.
+
+Voor een ronde gepaard is, bevat Meer de weergaven (en *Rondes wisselen…*). Je
+bedient het ook met het toetsenbord: de pijltjestoetsen gaan door het menu,
+<kbd>Escape</kbd> sluit het, en een klik ergens anders ook.
 
 ## Voor het paren {#before-pairing}
 
@@ -159,8 +183,8 @@ twee.
 ### Rondes in een andere volgorde spelen {#playing-rounds-out-of-table-order}
 
 Moet de tabel in een andere volgorde worden gespeeld - de zaal is bezet, een
-ploeg kan dat weekend niet reizen - dan wisselt **Rondes wisselen…** in de
-rondebalk twee rondes: kies de twee rondenummers en *Wissel de rondes*. Hun
+ploeg kan dat weekend niet reizen - dan wisselt **Rondes wisselen…** in het
+menu **Meer** van de rondebalk twee rondes: kies de twee rondenummers en *Wissel de rondes*. Hun
 borden ruilen van plaats, zodat de rondenummers de volgorde volgen waarin je
 echt speelt: ronde 4 is de vierde avond, hoe de tabel ze ook noemt, en de
 stand, de afdrukken en de resultatensite volgen. Elke partij houdt de kleuren

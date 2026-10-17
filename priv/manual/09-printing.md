@@ -12,7 +12,8 @@ starts the browser's print dialog.
 The **Print** tab lists every document, with a short description and a
 **Print…** button. A document that needs a paired round is greyed out until the
 first round is paired. Several documents can also be reached from the page they
-belong to: the Pairings page has a **Print** menu, the Players page has **Print
+belong to: the Pairings page has **Print pairings** while a round is played
+and the rest in **More**, under *Print*; the Players page has **Print
 player list** and **Print place cards**, the Standings page has **Print**, the
 postponed games list has the notices.
 

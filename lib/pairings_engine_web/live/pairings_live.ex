@@ -4640,6 +4640,25 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # A board still waiting for its result: the round is being played. The
+  # status badge and the round bar both go by this, so they cannot disagree
+  # about whether the round is over.
+  defp results_missing?(round), do: Enum.any?(round.pairings, &(&1.result == ""))
+
+  # Where the round on screen stands, which decides what the round bar puts
+  # in front: not paired yet, being played, over, or over and the last one.
+  # A postponed game is not a missing result here - it does not stop the
+  # next round either.
+  defp round_stage(nil, _tournament, _n), do: :unpaired
+
+  defp round_stage(round, tournament, n) do
+    cond do
+      results_missing?(round) -> :playing
+      n >= tournament.rounds_count -> :finished
+      true -> :complete
+    end
+  end
+
   defp match_number(n), do: div(n - 1, 2) + 1
   defp leg_number(n), do: if(rem(n, 2) == 1, do: 1, else: 2)
 
@@ -6077,6 +6096,19 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   @impl true
   def render(assigns) do
+    %{tournament: t, round: round} = assigns
+    open? = is_nil(t.archived_at)
+
+    assigns =
+      assign(assigns,
+        round_stage: round_stage(round, t, assigns.round_number),
+        # The More menu's "Round" group: swapping is about the whole
+        # schedule, so it is offered on any round; the rest needs this one
+        # paired.
+        more_swap?: RoundSwap.available?(t) and assigns.paired_rounds > 0 and open?,
+        more_edits?: round != nil and open?
+      )
+
     ~H"""
     <Layouts.app
       publish_status={assigns[:publish_status]}
@@ -6410,7 +6442,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               @round == nil ->
                 "not paired"
 
-              Enum.any?(@round.pairings, &(&1.result == "")) ->
+              results_missing?(@round) ->
                 "playing"
 
               Enum.any?(@round.pairings, &PairingsEngine.Results.postponed?(&1.result)) ->
@@ -6437,7 +6469,13 @@ defmodule PairingsEngineWeb.PairingsLive do
           </.link>
         </div>
 
-        <div id="round-actions" class="round-bar-actions">
+        <%!-- What the round bar offers goes by where the round stands
+              (`round_stage/3`, in `data-stage`): one primary button - pair
+              it, nothing (the results ARE the work), on to the next round,
+              or the standings - and the two or three things that matter
+              then. Everything else is in More. Nothing was taken away; it
+              just stopped shouting. --%>
+        <div id="round-actions" class="round-bar-actions" data-stage={@round_stage}>
           <%!-- `display: contents`: the control is a flex item of this row
                 like its neighbours, and the note it may carry wraps onto a
                 line of its own below them (see `.pe-level-note`). --%>
@@ -6458,6 +6496,8 @@ defmodule PairingsEngineWeb.PairingsLive do
             </div>
           </details>
 
+          <%!-- Stays out of More: until it is drawn nobody can set up a
+                board, so it is the round's business while it is missing. --%>
           <button
             :if={
               @round != nil && @tournament.chess960 && @round.chess960_position == nil &&
@@ -6475,6 +6515,107 @@ defmodule PairingsEngineWeb.PairingsLive do
             <.publish_level tournament={@tournament} round={@round} />
           </div>
 
+          <%!-- Not paired yet: who sits it out is the last thing to settle
+                before pairing, and it is settled on the Players page. --%>
+          <.link
+            :if={
+              @round_stage == :unpaired && @round_number == @next_pairable &&
+                !@tournament.archived_at
+            }
+            id="round-absences-link"
+            class="pe-btn"
+            navigate={~p"/t/#{@tournament.id}/players"}
+            title={gettext("Mark who sits this round out, on the Players page")}
+          >
+            <.icon name="hero-user-minus-micro" class="pe-btn-icon" /> {gettext("Absences")}
+          </.link>
+
+          <%!-- Being played: the pairing sheet for the wall. The other
+                prints are in More. --%>
+          <a
+            :if={@round_stage == :playing}
+            id={"quick-print-pairings-#{@round_number}"}
+            class="pe-btn"
+            href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
+            target="_blank"
+          >
+            <.icon name="hero-printer-micro" class="pe-btn-icon" /> {gettext("Print pairings")}
+          </a>
+
+          <%!-- The last round is over: the file for the rating officer is on
+                the Export settings page, and that is where this goes. --%>
+          <.link
+            :if={@round_stage == :finished}
+            id="round-send-rating-link"
+            class="pe-btn"
+            navigate={~p"/t/#{@tournament.id}/settings/export"}
+            title={gettext("The rating report (TRF) is made and sent on the Export page")}
+          >
+            <.icon name="hero-paper-airplane-micro" class="pe-btn-icon" /> {gettext(
+              "Send for rating"
+            )}
+          </.link>
+
+          <%!-- VCL4THP Q100: a round robin's next round paired by hand
+                instead of from the table, checked when the hand edits
+                finish (Q101, Q102). Beside the pair button: it is the
+                other way to do the same thing. --%>
+          <button
+            :if={
+              @rr_by_hand && @round == nil && @round_number == @next_pairable &&
+                !@tournament.archived_at
+            }
+            type="button"
+            class="pe-btn"
+            id="rr-pair-by-hand"
+            phx-click="rr_pair_by_hand"
+            disabled={
+              !@setup_complete || @mpa_open != nil ||
+                (@paired_rounds > 0 && @paired_rounds >= @tournament.rounds_count)
+            }
+          >
+            {gettext("Pair round %{n} by hand…", n: @round_number)}
+          </button>
+
+          <%!-- The last round still has boards without a result, and every
+                one of them has two players: pairing can record them as
+                postponed and go ahead (VCL4THP Q159), once the arbiter has
+                read what that does (Q160). The pair button stays disabled
+                for exactly this case, so recording is always a separate,
+                deliberate click. --%>
+          <button
+            :if={
+              @round == nil && @round_number == @next_pairable && !@tournament.archived_at &&
+                !@can_pair && @setup_complete && @next_pairable <= @tournament.rounds_count &&
+                has_warning?(@pairing_warnings, :missing_results_recorded_as_adjourned)
+            }
+            id="pair-recording-postponed"
+            class="pe-btn"
+            phx-click="pair"
+            phx-value-acknowledged={
+              acknowledged_value(@pairing_warnings, [
+                :missing_results_recorded_as_adjourned,
+                :adjourned_older_round_open
+              ])
+            }
+            disabled={@pairing_in_progress}
+            data-confirm={
+              pair_confirm_text(
+                @pairing_warnings,
+                [
+                  :missing_results_recorded_as_adjourned,
+                  :adjourned_older_round_open,
+                  :adjourned_counted_as_draw
+                ],
+                @next_pairable,
+                @postponed_open
+              )
+            }
+          >
+            {gettext("Record missing results as postponed and pair round %{n}", n: @round_number)}
+          </button>
+
+          <%!-- The primary button, one per stage. Not paired: pair it. --%>
           <button
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
             class="pe-btn primary"
@@ -6539,188 +6680,156 @@ defmodule PairingsEngineWeb.PairingsLive do
             end}
           </button>
 
-          <%!-- VCL4THP Q100: a round robin's next round paired by hand
-                instead of from the table, checked when the hand edits
-                finish (Q101, Q102). --%>
+          <%!-- Over: the standings. A plain button beside "On to round N",
+                and THE button once the last round is over. Printing them
+                stays on the Standings page, where it moved in September. --%>
+          <.link
+            :if={@round_stage in [:complete, :finished]}
+            id="round-standings-link"
+            class={["pe-btn", @round_stage == :finished && "primary"]}
+            navigate={~p"/t/#{@tournament.id}/standings"}
+          >
+            <.icon name="hero-trophy-micro" class="pe-btn-icon" /> {gettext("Standings")}
+          </.link>
+
+          <%!-- Over, and not the last: the next round, where its pair button
+                is. Only a change of round - pairing still asks there, with
+                everything it asks about. --%>
           <button
             :if={
-              @rr_by_hand && @round == nil && @round_number == @next_pairable &&
-                !@tournament.archived_at
+              @round_stage == :complete && @round_number == @paired_rounds &&
+                @paired_rounds < @tournament.rounds_count
             }
             type="button"
-            class="pe-btn"
-            id="rr-pair-by-hand"
-            phx-click="rr_pair_by_hand"
-            disabled={
-              !@setup_complete || @mpa_open != nil ||
-                (@paired_rounds > 0 && @paired_rounds >= @tournament.rounds_count)
-            }
+            id="round-next-go"
+            class="pe-btn primary"
+            phx-click="select_round"
+            phx-value-number={@round_number + 1}
           >
-            {gettext("Pair round %{n} by hand…", n: @round_number)}
+            {gettext("On to round %{n}", n: round_label(@round_number + 1, @tournament))}
+            <.icon name="hero-arrow-right-micro" class="pe-btn-icon" />
           </button>
 
-          <button
-            :if={RoundSwap.available?(@tournament) && @paired_rounds > 0 && !@tournament.archived_at}
-            type="button"
-            class="pe-btn"
-            id="rr-swap-open"
-            phx-click="rr_swap_open"
-            disabled={@mpa_open != nil}
-          >
-            {gettext("Swap rounds…")}
-          </button>
-
-          <%!-- The last round still has boards without a result, and every
-                one of them has two players: pairing can record them as
-                postponed and go ahead (VCL4THP Q159), once the arbiter has
-                read what that does (Q160). The button above stays disabled
-                for exactly this case, so recording is always a separate,
-                deliberate click. --%>
-          <button
-            :if={
-              @round == nil && @round_number == @next_pairable && !@tournament.archived_at &&
-                !@can_pair && @setup_complete && @next_pairable <= @tournament.rounds_count &&
-                has_warning?(@pairing_warnings, :missing_results_recorded_as_adjourned)
-            }
-            id="pair-recording-postponed"
-            class="pe-btn"
-            phx-click="pair"
-            phx-value-acknowledged={
-              acknowledged_value(@pairing_warnings, [
-                :missing_results_recorded_as_adjourned,
-                :adjourned_older_round_open
-              ])
-            }
-            disabled={@pairing_in_progress}
-            data-confirm={
-              pair_confirm_text(
-                @pairing_warnings,
-                [
-                  :missing_results_recorded_as_adjourned,
-                  :adjourned_older_round_open,
-                  :adjourned_counted_as_draw
-                ],
-                @next_pairable,
-                @postponed_open
-              )
-            }
-          >
-            {gettext("Record missing results as postponed and pair round %{n}", n: @round_number)}
-          </button>
-
-          <%!-- Everything for this round that is not entering results: what
-                to print, and a "More" menu for the rest - PGN, a results CSV,
-                and unpairing, last and apart. Native <details> menus, so every
-                item is a real link or LiveView button; `.RoundMenu` closes
-                them on an outside click, Escape or a choice, and the `open`
-                attribute survives a re-render (results arrive live). --%>
-          <details
-            :if={@round != nil}
-            id={"round-print-menu-#{@round_number}"}
-            class="pe-dropdown"
-            phx-hook=".RoundMenu"
-            phx-mounted={JS.ignore_attributes(["open"])}
-          >
-            <summary class="pe-btn">{gettext("Print")}</summary>
-
-            <div class="pe-dropdown-panel" role="menu">
-              <a
-                role="menuitem"
-                id={"print-pairings-#{@round_number}"}
-                href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
-                target="_blank"
-              >
-                {gettext("Pairings")}
-              </a>
-
-              <a
-                role="menuitem"
-                href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
-                target="_blank"
-                title={
-                  gettext(
-                    "Same pairing sheet, with a below-the-table section listing requested byes and absences"
-                  )
-                }
-              >
-                {gettext("Pairings, with absentees section")}
-              </a>
-              <hr />
-              <a
-                role="menuitem"
-                id={"print-results-#{@round_number}"}
-                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
-                target="_blank"
-              >
-                {gettext("Result cards")}
-              </a>
-
-              <a
-                role="menuitem"
-                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
-                target="_blank"
-                title={
-                  gettext(
-                    "Print just the first 3 result cards, to check printer alignment before printing the full stack"
-                  )
-                }
-              >
-                {gettext("Result cards: test print (first 3)")}
-              </a>
-
-              <a
-                role="menuitem"
-                href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
-                target="_blank"
-                title={
-                  gettext(
-                    "Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
-                  )
-                }
-              >
-                {gettext("Result cards: stack-cut order")}
-              </a>
-            </div>
-          </details>
-
-          <%!-- There even before a round is paired: the local view and the
-                public page are not about one round, and More is where they
-                live now. --%>
+          <%!-- Everything else this page can do with the round, in one menu,
+                grouped: printing, the round's own changes, exports, the
+                views, and unpairing - last, apart and in red. A native
+                <details> menu, so every item is a real link or LiveView
+                button; `.RoundMenu` closes it on an outside click, Escape or
+                a choice, moves through it with the arrow keys, and the `open`
+                attribute survives a re-render (results arrive live). There
+                even before a round is paired: the local view and the public
+                page are not about one round. --%>
           <details
             id={"round-more-menu-#{@round_number}"}
             class="pe-dropdown"
             phx-hook=".RoundMenu"
             phx-mounted={JS.ignore_attributes(["open"])}
           >
-            <summary class="pe-btn">{gettext("More")}</summary>
+            <summary class="pe-btn" aria-haspopup="menu">
+              <.icon name="hero-ellipsis-horizontal-micro" class="pe-btn-icon" /> {gettext("More")}
+            </summary>
 
-            <div class="pe-dropdown-panel" role="menu">
-              <%!-- "Live" reads as "live to the public", and this is the
-                    opposite: the LOCAL view, the screen in the venue and the
-                    arbiter's own tab. What's public is OpenResults - and that
-                    page also carries the projector cycle and only ever shows
-                    PUBLISHED rounds, so calling this one "live" invited
-                    exactly the confusion the publish gating exists to
-                    remove. --%>
-              <a
-                role="menuitem"
-                id="local-view-link"
-                href={~p"/t/#{@tournament.id}/live"}
-                target="_blank"
-              >
-                {gettext("Local view & phone QR")}
-              </a>
+            <div
+              class="pe-dropdown-panel"
+              role="menu"
+              aria-label={gettext("More for round %{n}", n: @round_number)}
+            >
+              <%= if @round != nil do %>
+                <span class="pe-dropdown-label">{gettext("Print")}</span>
+                <a
+                  role="menuitem"
+                  id={"print-pairings-#{@round_number}"}
+                  href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}"}
+                  target="_blank"
+                >
+                  {gettext("Pairings")}
+                </a>
 
-              <a
-                :if={PublicLink.public?(@tournament)}
-                role="menuitem"
-                id="public-page-link"
-                href={PublicLink.url(@tournament, :pairings)}
-                target="_blank"
-                title={gettext("Opens the results site - no login needed, share this link")}
-              >
-                {gettext("Public page")}
-              </a>
+                <a
+                  role="menuitem"
+                  href={~p"/t/#{@tournament.id}/print/pairings?round=#{@round_number}&absentees=1"}
+                  target="_blank"
+                  title={
+                    gettext(
+                      "Same pairing sheet, with a below-the-table section listing requested byes and absences"
+                    )
+                  }
+                >
+                  {gettext("Pairings, with absentees section")}
+                </a>
+
+                <a
+                  role="menuitem"
+                  id={"print-results-#{@round_number}"}
+                  href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}"}
+                  target="_blank"
+                >
+                  {gettext("Result cards")}
+                </a>
+
+                <a
+                  role="menuitem"
+                  href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&limit=3"}
+                  target="_blank"
+                  title={
+                    gettext(
+                      "Print just the first 3 result cards, to check printer alignment before printing the full stack"
+                    )
+                  }
+                >
+                  {gettext("Result cards: test print (first 3)")}
+                </a>
+
+                <a
+                  role="menuitem"
+                  href={~p"/t/#{@tournament.id}/print/results?round=#{@round_number}&order=stack"}
+                  target="_blank"
+                  title={
+                    gettext(
+                      "Reorders cards so guillotine-cutting the printed stack into 8 piles and collating them recovers board order"
+                    )
+                  }
+                >
+                  {gettext("Result cards: stack-cut order")}
+                </a>
+              <% end %>
+
+              <%!-- The round's own changes. Swap rounds is a round robin's
+                    whole schedule, so it is here even on a round not paired. --%>
+              <%= if @more_swap? or @more_edits? do %>
+                <hr :if={@round != nil} />
+                <span class="pe-dropdown-label">{gettext("Round")}</span>
+                <button
+                  :if={@more_edits? && !@round.mpa_session}
+                  type="button"
+                  role="menuitem"
+                  id={"mpa-start-#{@round_number}"}
+                  phx-click="mpa_start"
+                >
+                  {gettext("Edit pairings by hand")}
+                </button>
+
+                <button
+                  :if={@more_edits?}
+                  type="button"
+                  role="menuitem"
+                  id={"import-results-csv-#{@round_number}"}
+                  phx-click="toggle_import_results"
+                >
+                  {gettext("Import results (CSV)")}
+                </button>
+
+                <button
+                  :if={@more_swap?}
+                  type="button"
+                  role="menuitem"
+                  id="rr-swap-open"
+                  phx-click="rr_swap_open"
+                  disabled={@mpa_open != nil}
+                >
+                  {gettext("Swap rounds…")}
+                </button>
+              <% end %>
 
               <%= if @round != nil do %>
                 <hr />
@@ -6782,29 +6891,43 @@ defmodule PairingsEngineWeb.PairingsLive do
                     {gettext("This round, these boards")}
                   </button>
                 </form>
-                <hr :if={!@tournament.archived_at} />
-                <button
-                  :if={!@tournament.archived_at}
-                  type="button"
-                  role="menuitem"
-                  id={"import-results-csv-#{@round_number}"}
-                  phx-click="toggle_import_results"
-                >
-                  {gettext("Import results (CSV)")}
-                </button>
+              <% end %>
 
+              <%!-- "Live" reads as "live to the public", and this is the
+                    opposite: the LOCAL view, the screen in the venue and the
+                    arbiter's own tab. What's public is OpenResults - and that
+                    page also carries the projector cycle and only ever shows
+                    PUBLISHED rounds, so calling this one "live" invited
+                    exactly the confusion the publish gating exists to
+                    remove. --%>
+              <hr :if={@round != nil or @more_swap?} />
+              <span class="pe-dropdown-label">{gettext("Views")}</span>
+              <a
+                role="menuitem"
+                id="local-view-link"
+                href={~p"/t/#{@tournament.id}/live"}
+                target="_blank"
+              >
+                {gettext("Local view & phone QR")}
+              </a>
+
+              <a
+                :if={PublicLink.public?(@tournament)}
+                role="menuitem"
+                id="public-page-link"
+                href={PublicLink.url(@tournament, :pairings)}
+                target="_blank"
+                title={gettext("Opens the results site - no login needed, share this link")}
+              >
+                {gettext("Public page")}
+              </a>
+
+              <%!-- Unpairing deletes results: last, apart, red, and it still
+                    asks. --%>
+              <%= if @round != nil && @round_number == @paired_rounds && !@tournament.archived_at do %>
+                <hr />
+                <span class="pe-dropdown-label is-danger">{gettext("Danger zone")}</span>
                 <button
-                  :if={!@tournament.archived_at && !@round.mpa_session}
-                  type="button"
-                  role="menuitem"
-                  id={"mpa-start-#{@round_number}"}
-                  phx-click="mpa_start"
-                >
-                  {gettext("Edit pairings by hand")}
-                </button>
-                <hr :if={@round_number == @paired_rounds && !@tournament.archived_at} />
-                <button
-                  :if={@round_number == @paired_rounds && !@tournament.archived_at}
                   type="button"
                   role="menuitem"
                   id={"unpair-round-#{@round_number}"}
@@ -8814,6 +8937,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         // A <details> menu that closes like a menu: on a tap or click outside it
         // (pointerdown: iOS sends no mouse events for a tap on plain page),
         // on Escape (focus back to its button), and once an item is chosen.
+        // The arrow keys walk its items (Home and End jump to the ends), and
+        // ArrowDown on the closed button opens it at the first one; a text
+        // field in the menu keeps its own keys.
         export default {
           mounted() {
             this.close = (refocus) => {
@@ -8821,11 +8947,27 @@ defmodule PairingsEngineWeb.PairingsLive do
               this.el.open = false;
               if (refocus) this.el.querySelector("summary").focus();
             };
+            this.items = () =>
+              Array.from(this.el.querySelectorAll("[role=menuitem]")).filter((i) => !i.disabled);
             this.onDocPointerdown = (e) => {
               if (!this.el.contains(e.target)) this.close(false);
             };
             this.onKeydown = (e) => {
-              if (e.key === "Escape") this.close(true);
+              if (e.key === "Escape") return this.close(true);
+              if (e.target.matches("input, textarea, select")) return;
+              const items = this.items();
+              if (items.length === 0) return;
+              const at = items.indexOf(document.activeElement);
+              let next = null;
+              if (e.key === "ArrowDown") next = at < 0 ? 0 : (at + 1) % items.length;
+              else if (e.key === "ArrowUp") next = at <= 0 ? items.length - 1 : at - 1;
+              else if (e.key === "Home") next = 0;
+              else if (e.key === "End") next = items.length - 1;
+              if (next === null) return;
+              e.preventDefault();
+              e.stopPropagation();
+              this.el.open = true;
+              items[next].focus();
             };
             this.onClick = (e) => {
               if (e.target.closest("[role=menuitem]")) this.close(false);
