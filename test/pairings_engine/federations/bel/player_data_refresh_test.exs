@@ -537,6 +537,19 @@ defmodule PairingsEngine.Federations.BEL.PlayerDataRefreshTest do
                summary.proposals
     end
 
+    test "a name stored untidy before the changeset tidied names is proposed", %{tournament: t} do
+      p = player(t, %{"name" => "Holovatyi, Toma", "national_id" => "1009"})
+
+      Repo.update_all(from(x in PairingsEngine.Tournaments.Player, where: x.id == ^p.id),
+        set: [name: "Holovatyi ,Toma"]
+      )
+
+      Repo.insert!(%Member{national_id: "1009", last_name: "Holovatyi", first_name: "Toma"})
+
+      assert %{old: "Holovatyi ,Toma", new: "Holovatyi, Toma"} =
+               only(PlayerDataRefresh.dry_run(t), :name)
+    end
+
     test "a missing FIDE id is filled in, unless another player already has it", %{tournament: t} do
       player(t, %{"name" => "Linked, Lea", "national_id" => "1009"})
       player(t, %{"name" => "Twin, Tia", "national_id" => "1010"})

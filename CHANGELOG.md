@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.89.5] - 2026-10-17
+
+- [Fix] **A name saved untidy before names were tidied is now offered the list's spelling.** *Update player data* compared names after tidying both, so "Holovatyi ,Toma" and "Holovatyi, Toma" were the same name to it and the comma stayed where it was pasted.
+
 ## [0.89.4] - 2026-10-17
 
 - [Change] **Performance sits with Sex, under *About each player*.** It had been filed under *Columns*, a row away from the only other tick it resembles, where nobody would look for it.

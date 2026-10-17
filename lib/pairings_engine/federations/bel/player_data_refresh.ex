@@ -262,7 +262,13 @@ defmodule PairingsEngine.Federations.BEL.PlayerDataRefresh do
   defp proposal_id(player, field) when field in [:club, :club_number], do: "#{player.id}:club"
   defp proposal_id(player, field), do: "#{player.id}:#{field}"
 
-  defp same?(:name, old, new), do: tidy_name(old) == tidy_name(new)
+  # Equal once tidied is only "the same" if the stored name was already tidy:
+  # "Holovatyi ,Toma" matches the list's "Holovatyi, Toma" after tidying, and
+  # that was exactly why it never got fixed. Saved before the changeset
+  # tidied names, it is a row in the preview like any other difference.
+  defp same?(:name, old, new),
+    do: tidy_name(old) == tidy_name(new) and trim(old) == tidy_name(old)
+
   defp same?(:sex, old, new), do: Player.normalize_sex(old) == new
   defp same?(:title, old, new), do: trim(old) == trim(new)
 
