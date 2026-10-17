@@ -25,7 +25,13 @@ FIDE-ID of geen rating", niet een mislukte download.
 
 > [!NOTE]
 > De download is groot (ongeveer 40 MB) en vervangt de hele lokale kopie; er is
-> een verbinding met de FIDE-ratingsite nodig.
+> een verbinding met de FIDE-ratingsite nodig. De nieuwe lijst wordt naast de
+> oude opgebouwd en pas op het einde ingeschakeld: de oude lijst blijft dus
+> werken tijdens het laden, en een onderbroken update (bijvoorbeeld door een
+> herstart) laat ze zoals ze was. Vindt het programma bij het opstarten sporen
+> van een onderbroken update, dan zegt de pagina Verbindingen dat en biedt ze
+> **Opnieuw synchroniseren** aan; een server die zelf downloadt start die update
+> uit zichzelf.
 
 **De nationale ratinglijst.** De Belgische lijst (KBSB/FRBE) is een ingebouwde
 nationale lijst. Ze hoort bij het *Belgische pakket* van functies, dat voor elk

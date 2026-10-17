@@ -675,6 +675,35 @@ defmodule PairingsEngineWeb.FideLive do
           {gettext("Update failed:")} {@status.error}
         </p>
 
+        <div
+          :if={@status.damage && !busy?(@status)}
+          id="fide-damage-note"
+          class="error-note"
+          role="alert"
+        >
+          <p style="margin-top: 0">
+            {if @status.damage == :incomplete,
+              do:
+                gettext(
+                  "The local list is incomplete: an earlier update was interrupted halfway, so searches may miss players."
+                ),
+              else:
+                gettext(
+                  "An earlier update was interrupted. The previous list is still in use, but it is not the newest one."
+                )}
+          </p>
+
+          <button
+            :if={@may_admin?}
+            id="fide-sync-again"
+            type="button"
+            class="pe-btn primary"
+            phx-click="sync"
+          >
+            {gettext("Sync again")}
+          </button>
+        </div>
+
         <p class="hint">
           {gettext(
             "FIDE publishes a new list every month (~1.9 million players, download is around 41 MB). Updating takes a minute or two."

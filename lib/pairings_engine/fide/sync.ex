@@ -30,7 +30,7 @@ defmodule PairingsEngine.Fide.Sync do
   use GenServer
   require Logger
   alias PairingsEngine.{Repo, Fide, SafeError}
-  alias PairingsEngine.Fide.FidePlayer
+  alias PairingsEngine.Fide.{AutoSync, FidePlayer}
 
   @default_list_url "https://ratings.fide.com/download/players_list.zip"
   @topic "fide_sync"
@@ -142,6 +142,16 @@ defmodule PairingsEngine.Fide.Sync do
   @fts_scratch_table "fide_players_fts_new"
   @fts_retired_table "fide_players_fts_old"
 
+  # The same trio for the rows themselves.
+  @rows_table "fide_players"
+  @rows_scratch_table "fide_players_new"
+  @rows_retired_table "fide_players_old"
+
+  @row_indexes [
+    {"fide_players_name_index", "name COLLATE NOCASE"},
+    {"fide_players_federation_index", "federation"}
+  ]
+
   # Row-chunk size for both `fide_players` and the FTS scratch table built
   # beside it in `do_import_list/4` - one constant so the two stay in step.
   @import_chunk_size 2000
@@ -155,7 +165,8 @@ defmodule PairingsEngine.Fide.Sync do
             total_rows: 0,
             task_pid: nil,
             task_ref: nil,
-            watchdog_timer: nil
+            watchdog_timer: nil,
+            damage: nil
 
   ## API
 
@@ -178,7 +189,20 @@ defmodule PairingsEngine.Fide.Sync do
   ## GenServer
 
   @impl true
-  def init(state), do: {:ok, state}
+  def init(state) do
+    # Looked at after start-up, not during it: counting two tables of
+    # 1.9 million rows is not something the supervision tree should wait for.
+    {:ok, state, {:continue, :boot_check}}
+  end
+
+  @impl true
+  def handle_continue(:boot_check, state) do
+    if Application.get_env(:pairings_engine, :fide_boot_check, true) do
+      {:noreply, boot_check(state)}
+    else
+      {:noreply, state}
+    end
+  end
 
   @impl true
   def handle_call(:status, _from, state), do: {:reply, state, state}
@@ -188,12 +212,13 @@ defmodule PairingsEngine.Fide.Sync do
     {:noreply, state}
   end
 
-  def handle_cast(:start_sync, _state) do
+  def handle_cast(:start_sync, state) do
     server = self()
     {pid, ref} = spawn_monitor(fn -> run_sync(server) end)
 
     state = %__MODULE__{
       status: :downloading,
+      damage: state.damage,
       progress: "Contacting #{source_label()}…",
       task_pid: pid,
       task_ref: ref,
@@ -204,11 +229,11 @@ defmodule PairingsEngine.Fide.Sync do
   end
 
   @impl true
-  def handle_cast(:cancel_sync, %{status: s, task_pid: pid, watchdog_timer: timer})
+  def handle_cast(:cancel_sync, %{status: s, task_pid: pid, watchdog_timer: timer} = state)
       when s in [:downloading, :importing] do
     cancel_watchdog(timer)
     if pid, do: Process.exit(pid, :kill)
-    {:noreply, broadcast(%__MODULE__{status: :idle})}
+    {:noreply, broadcast(%__MODULE__{status: :idle, damage: state.damage})}
   end
 
   def handle_cast(:cancel_sync, state), do: {:noreply, state}
@@ -222,13 +247,25 @@ defmodule PairingsEngine.Fide.Sync do
     cancel_watchdog(state.watchdog_timer)
 
     if new_state.status in [:done, :error] do
-      {:noreply, broadcast(%{new_state | task_pid: nil, task_ref: nil, watchdog_timer: nil})}
+      # A finished sync is a whole new list: whatever was wrong with the old
+      # one is gone. A failed one changed nothing, so the verdict stands.
+      damage = if new_state.status == :done, do: nil, else: state.damage
+
+      {:noreply,
+       broadcast(%{
+         new_state
+         | task_pid: nil,
+           task_ref: nil,
+           watchdog_timer: nil,
+           damage: damage
+       })}
     else
       merged = %{
         new_state
         | task_pid: state.task_pid,
           task_ref: state.task_ref,
-          watchdog_timer: schedule_watchdog()
+          watchdog_timer: schedule_watchdog(),
+          damage: state.damage
       }
 
       {:noreply, broadcast(merged)}
@@ -248,6 +285,7 @@ defmodule PairingsEngine.Fide.Sync do
 
     new_state = %__MODULE__{
       status: :error,
+      damage: state.damage,
       error: "Sync crashed unexpectedly (#{summary}). Please try again."
     }
 
@@ -265,6 +303,7 @@ defmodule PairingsEngine.Fide.Sync do
 
     new_state = %__MODULE__{
       status: :error,
+      damage: state.damage,
       error:
         "Sync stalled with no progress - the FIDE server may be slow or unreachable. Please try again."
     }
@@ -290,6 +329,77 @@ defmodule PairingsEngine.Fide.Sync do
   defp update(server, state) do
     send(server, {:sync_update, state})
     state
+  end
+
+  ## Interrupted runs
+
+  @doc """
+  Whether the local list looks like a sync was killed in the middle of it:
+  `nil` when it looks fine, otherwise
+
+    * `:interrupted` - a scratch table of a run that never finished is lying
+      around. Since the swap design the live list is untouched by such a run,
+      so this is a warning rather than a loss;
+    * `:incomplete` - the row table holds well under the entries of the name
+      index, which is what the old delete-then-refill import left behind when
+      it was killed (894,000 rows against 1.9 million index entries).
+
+  Reads only; counts two large tables, so it is run once at boot and not on
+  every page.
+  """
+  @spec damage() :: nil | :interrupted | :incomplete
+  def damage do
+    %{rows: tables} =
+      Repo.query!(
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (?, ?)",
+        [@rows_scratch_table, @fts_scratch_table]
+      )
+
+    rows = Repo.aggregate(FidePlayer, :count)
+    %{rows: [[indexed]]} = Repo.query!("SELECT count(*) FROM #{@fts_table}")
+
+    cond do
+      indexed > 0 and rows * 10 < indexed * 9 -> :incomplete
+      tables != [] -> :interrupted
+      true -> nil
+    end
+  end
+
+  defp boot_check(state) do
+    case damage() do
+      nil ->
+        state
+
+      kind ->
+        Logger.warning(
+          "FIDE rating list looks damaged by an interrupted sync (#{kind}); " <>
+            "a new sync repairs it."
+        )
+
+        state = %{state | damage: kind}
+        resync_unasked()
+        broadcast(state)
+    end
+  rescue
+    # No database yet, a sandbox that was never checked out, a missing FTS
+    # table: none of those are worth taking the sync server down for.
+    e ->
+      Logger.debug("FIDE boot check skipped: #{Exception.message(e)}")
+      state
+  catch
+    :exit, _ -> state
+  end
+
+  # The existing daily look (`PairingsEngine.Fide.AutoSync`) would call a
+  # month with an unchanged period "current" and never repair anything, so
+  # the repair is started here - but only where that module would download
+  # without asking (a hosted server, or a desktop set to :auto) and only
+  # while auto-sync is on at all. Elsewhere it stays a button.
+  defp resync_unasked do
+    if Application.get_env(:pairings_engine, :fide_auto_sync, true) and
+         AutoSync.enabled?() and AutoSync.download_unasked?() do
+      GenServer.cast(self(), :start_sync)
+    end
   end
 
   ## The sync job (runs in its own task)
@@ -587,96 +697,44 @@ defmodule PairingsEngine.Fide.Sync do
   # the write lock is free again between an insert chunk and the next - see
   # the moduledoc for why that matters.
   #
-  # The FTS index used to be rebuilt in place: one `DELETE FROM
-  # fide_players_fts` (no fast "drop everything" path for FTS5 - measured
-  # 9.3s against a synthetic 1.9M-row table), then one `INSERT ... SELECT`
-  # to refill it (measured 11.5s) - two single statements, each holding
-  # SQLite's one database-wide write lock for several seconds apiece no
-  # matter how finely everything else here was chunked, and the one place a
-  # concurrent search could see the index itself empty or half-built rather
-  # than merely stale (`fide_players` accepts a "sees a partly reloaded
-  # table" trade-off below; a search box going blank for several seconds is
-  # a worse failure than a slow one). That ~21s combined is what a sync
-  # confirmation in `PairingsEngineWeb.FideLive` used to warn about, before
-  # this change removed the need for it - see that module's
-  # `start_fide_sync/1` for the measurement behind removing it.
+  # Nothing live is touched until the very end. A scratch copy of the rows
+  # (`fide_players_new`, same columns and indexes) and a scratch copy of the
+  # name index (`fide_players_fts_new`) are built side by side, chunk for
+  # chunk, while `fide_players` and `fide_players_fts` keep answering every
+  # lookup with the old, complete list. Only when both are finished does one
+  # short transaction rename all four tables into their new places and put
+  # the FTS triggers back on the new row table; the retired pair is dropped
+  # afterwards.
   #
-  # Now a fresh `fide_players_fts_new` table is built - in the same 2000-row
-  # chunks as `fide_players` itself - while the LIVE `fide_players_fts` is
-  # untouched and keeps answering searches with the old (but complete and
-  # correct) list. Only once the new table is fully built does an atomic
-  # `ALTER TABLE ... RENAME` swap - one transaction, two statements - make
-  # it live; the now-orphaned old table is dropped right after, which is
-  # cleanup rather than something correctness depends on. Measured locally
-  # (2026-09-12) against the same synthetic 1.9M-row
-  # table: every chunk of the new build stayed under 100ms, the swap itself
-  # took 13ms, and the drop of the orphaned table took 134ms. The longest
-  # single lock left anywhere in this function is the plain `DELETE FROM
-  # fide_players` a few lines down, which was already there and already
-  # accepted.
+  # This used to be `DELETE FROM fide_players` followed by a refill, which a
+  # restart in the middle (a deploy, say) turned into a table holding half a
+  # list until somebody noticed and ran another sync - in production, 894,000
+  # rows against 1.9 million index entries, for weeks. A kill at any point
+  # here now leaves the old list exactly as it was, plus some scratch tables
+  # that the next run (and `damage/0` at boot) knows what to do with.
+  #
+  # Measured earlier (2026-09-12) against a synthetic 1.9M-row table: every
+  # FTS chunk stayed under 100ms, the FTS rename swap took 13ms and dropping
+  # the retired FTS table 134ms. The new retired row table is dropped the
+  # same way, as one statement after the swap, and is cleanup rather than
+  # something correctness depends on.
   defp do_import_list(server, rows, state, total) do
-    # A run killed between building `fide_players_fts_new` and the rename
-    # swap below (`cancel_sync`, or the watchdog) leaves that scratch table
-    # behind - half-built and never made live, so harmless on its own
-    # (nothing ever queries it by name) - but the NEXT sync must not try to
-    # `CREATE` over it. A run killed right after a PREVIOUS sync's swap but
-    # before that sync's own cleanup leaves `fide_players_fts_old` behind
-    # the same way. Both are dropped unconditionally before anything else
-    # starts, so an interrupted run never accumulates leftovers across
-    # retries and the search index itself is never the thing left broken.
-    Repo.query!("DROP TABLE IF EXISTS #{@fts_scratch_table}")
-    Repo.query!("DROP TABLE IF EXISTS #{@fts_retired_table}")
+    # Leftovers of a killed run. A scratch pair from a run that never reached
+    # the swap is half-built and was never live; a retired pair from a run
+    # killed right after the swap is merely unreclaimed space. Either would
+    # make the `CREATE` below fail, and neither is worth keeping, so all are
+    # dropped before anything else starts. Dropping a table takes its indexes
+    # along.
+    drop_scratch_tables()
 
-    # The `fide_players_fts` triggers are per-row, and the delete/update
-    # ones look the doomed row up with `WHERE fide_id = ?` on a column the
-    # FTS5 table declares UNINDEXED - so each firing scans the whole index.
-    # Fine for the ad-hoc single-row writes they exist for; quadratic for
-    # this full replace, which fires them ~1.9M times and never finishes.
-    # Suspend them, do the bulk work set-based, then put them back.
-    #
-    # There is no surrounding transaction to undo this with any more. A hard
-    # kill here (cancel_sync, or the watchdog) between this drop and the
-    # recreate at the bottom of this function leaves the triggers absent and
-    # `fide_players` holding a partial replacement until the next sync runs
-    # to completion - accepted, because the alternative is the multi-minute
-    # lock this change exists to remove, and both a partial table and
-    # missing triggers are repaired by that next sync: it drops whatever
-    # triggers it finds (possibly none) and rebuilds the index from
-    # whatever's in the table either way. The triggers are still captured
-    # from `sqlite_master` rather than written out here, so on an ordinary
-    # (non-crashed) run they go back exactly as the migration defined them,
-    # even if that changes.
+    # Captured before anything changes, from the live table. Read from
+    # `sqlite_master` rather than written out here so an ordinary run puts
+    # them back as the migration defined them; the built-in copies cover a
+    # database that has none (an older killed run, see `fts_triggers/0`).
     triggers = fts_triggers()
-    # `name: nil` marks a fallback definition - a trigger that is not in the
-    # database to be dropped, because a killed run already removed it. Only
-    # what actually exists gets dropped; all three get recreated either way.
-    Enum.each(triggers, fn
-      %{name: nil} -> :ok
-      %{name: name} -> Repo.query!("DROP TRIGGER #{name}")
-    end)
 
-    # Full replace: the monthly list is authoritative (players do get
-    # removed). Deleting first and inserting after means a lookup landing
-    # between the DELETE below and the last insert chunk sees a table that
-    # is empty or only partly reloaded - accepted, because the guard in
-    # `import_list/3` already ran, so what follows is known-good data going
-    # in, and a shrunken read is a far smaller failure than every write in
-    # the app queuing behind a multi-minute transaction. SQLite still
-    # guarantees each statement below is atomic to any other connection, so
-    # what a reader sees mid-import is always a real, fully-committed count
-    # - never a torn row.
-    #
-    # Measured locally (2026-09-12) on a synthetic 1.9M-row table, the real
-    # list's rough size: this DELETE (which SQLite can satisfy with its
-    # "drop every page" fast path, since it has no WHERE clause) took
-    # 195-215ms.
-    Repo.query!("DELETE FROM fide_players")
+    create_scratch_rows_table()
 
-    # See this function's own comment above: everything from here to the
-    # rename swap below builds `fide_players_fts_new` from nothing, and
-    # `fide_players_fts` - the table search actually reads - is not touched
-    # until that swap. Same schema as the migration that created the live
-    # table, byte for byte.
     Repo.query!("""
     CREATE VIRTUAL TABLE #{@fts_scratch_table} USING fts5(
       fide_id UNINDEXED,
@@ -690,15 +748,14 @@ defmodule PairingsEngine.Fide.Sync do
       |> Stream.chunk_every(@import_chunk_size)
       |> Stream.with_index(1)
       |> Enum.reduce(0, fn {chunk, i}, acc ->
-        Repo.insert_all(FidePlayer, chunk,
+        Repo.insert_all({@rows_scratch_table, FidePlayer}, chunk,
           on_conflict: :replace_all,
           conflict_target: :fide_id
         )
 
-        # Built alongside `fide_players`, chunk for chunk, rather than one
+        # Built alongside the rows, chunk for chunk, rather than one
         # `INSERT ... SELECT` after the fact once every row is in - that
-        # one statement is exactly what used to cost 11.5s. See the measured
-        # per-chunk cost (under 100ms) in the comment above this function.
+        # one statement is exactly what used to cost 11.5s.
         insert_fts_chunk(chunk)
 
         # Real running total (not an i * 2000 approximation, which
@@ -719,33 +776,93 @@ defmodule PairingsEngine.Fide.Sync do
     update(server, %{
       state
       | imported_rows: imported,
-        progress: "Rebuilding the name index…"
+        progress: "Switching to the new list…"
     })
 
-    # The atomic switch: `fide_players_fts` - the OLD table, fully intact and
-    # exactly what every search up to this instant has been reading - is
-    # renamed out of the way and the freshly-built scratch table renamed
-    # into its place, both inside one transaction. Any other connection
-    # therefore sees either the complete old index or the complete new one
-    # - never that name missing, and never a partially swapped one. SQLite
-    # renames a virtual table's shadow storage along with it, so this moves
-    # rather than rebuilds it. Measured locally (2026-09-12): 13ms for both
-    # statements together.
+    # The atomic switch. Any other connection sees either the complete old
+    # pair or the complete new pair - never a missing name, never a mixture.
+    # SQLite renames a virtual table's shadow storage along with it, so the
+    # FTS pair moves rather than rebuilds.
+    #
+    # The triggers go first: they are attached to the table they were
+    # created on, so a rename would carry them to the retired table, where
+    # they would go on mirroring writes into whatever the FTS name pointed
+    # at. Dropped before, recreated after, they end up on the new table
+    # whatever `legacy_alter_table` is set to. No foreign key in the schema
+    # points at `fide_players`, so there is nothing else for a rename to
+    # rewrite. DDL is transactional in SQLite: a failure anywhere in here
+    # rolls the lot back and the old list stays live.
     Repo.transaction(fn ->
+      Enum.each(triggers, fn
+        %{name: nil} -> :ok
+        %{name: name} -> Repo.query!("DROP TRIGGER #{name}")
+      end)
+
+      Repo.query!("ALTER TABLE #{@rows_table} RENAME TO #{@rows_retired_table}")
+      Repo.query!("ALTER TABLE #{@rows_scratch_table} RENAME TO #{@rows_table}")
       Repo.query!("ALTER TABLE #{@fts_table} RENAME TO #{@fts_retired_table}")
       Repo.query!("ALTER TABLE #{@fts_scratch_table} RENAME TO #{@fts_table}")
+
+      Enum.each(triggers, fn %{sql: sql} -> Repo.query!(sql) end)
     end)
 
-    # Cosmetic from here on: the swap above already made the new index
-    # live, so this DROP reclaims space rather than protecting correctness.
-    # Measured locally (2026-09-12): 134ms for the full 1.9M-row table. If a
-    # hard kill lands before this runs, the cleanup at the top of this
-    # function drops it on the next sync instead.
-    Repo.query!("DROP TABLE #{@fts_retired_table}")
-
-    Enum.each(triggers, fn %{sql: sql} -> Repo.query!(sql) end)
+    # Cosmetic from here on: the swap already made the new list live. If a
+    # hard kill lands before this runs, the cleanup at the top of the next
+    # run drops them instead.
+    drop_scratch_tables()
 
     {:ok, %{state | imported_rows: imported}}
+  end
+
+  defp drop_scratch_tables do
+    for table <- [
+          @fts_scratch_table,
+          @fts_retired_table,
+          @rows_scratch_table,
+          @rows_retired_table
+        ] do
+      Repo.query!("DROP TABLE IF EXISTS #{table}")
+    end
+
+    :ok
+  end
+
+  # Same columns as the migration that created `fide_players`, and the same
+  # two indexes as the migrations that added them. Index names are global in
+  # SQLite and cannot be renamed, so the scratch copy cannot reuse the live
+  # names while the live table still holds them: each run takes whichever of
+  # `name` / `name_b` the live table is NOT using, and that name simply
+  # stays with the table after the swap. The names carry no meaning to
+  # anything but a migration that drops them by name.
+  defp create_scratch_rows_table do
+    Repo.query!("""
+    CREATE TABLE #{@rows_scratch_table} (
+      fide_id INTEGER PRIMARY KEY,
+      name TEXT NOT NULL,
+      federation TEXT NOT NULL DEFAULT '',
+      sex TEXT NOT NULL DEFAULT '',
+      title TEXT NOT NULL DEFAULT '',
+      standard_rating INTEGER,
+      rapid_rating INTEGER,
+      blitz_rating INTEGER,
+      birth_year INTEGER,
+      flag TEXT NOT NULL DEFAULT ''
+    )
+    """)
+
+    %{rows: live} =
+      Repo.query!("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ?", [
+        @rows_table
+      ])
+
+    live = List.flatten(live)
+
+    for {base, columns} <- @row_indexes do
+      name = if base in live, do: base <> "_b", else: base
+      Repo.query!("CREATE INDEX #{name} ON #{@rows_scratch_table} (#{columns})")
+    end
+
+    :ok
   end
 
   # One multi-row `INSERT ... VALUES (?, ?), (?, ?), ...` per chunk - the

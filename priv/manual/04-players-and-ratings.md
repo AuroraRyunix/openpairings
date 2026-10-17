@@ -23,7 +23,12 @@ means "no FIDE ID or no rating", not a failure of the download.
 
 > [!NOTE]
 > The download is large (about 40 MB) and replaces the whole local copy; it
-> needs a connection to the FIDE rating site.
+> needs a connection to the FIDE rating site. The new list is built next to
+> the old one and switched in at the end, so the old list keeps working while
+> it loads, and an update that is interrupted (a restart, say) leaves it as it
+> was. If the program finds traces of an interrupted update when it starts, the
+> Connections page says so and offers **Sync again**; a server that downloads
+> by itself starts that update on its own.
 
 **The national rating list.** The Belgian list (KBSB/FRBE) is a built-in
 national list. It is part of the *Belgian pack* of features that is switched
