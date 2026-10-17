@@ -578,7 +578,8 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       # that leans this way.
       assert display["rounds_played"] == false
       assert display["sex"] == false
-      assert Enum.all?(Map.values(Map.drop(display, ["rounds_played", "sex"])))
+      assert display["performance"] == false
+      assert Enum.all?(Map.values(Map.drop(display, ["rounds_played", "sex", "performance"])))
     end
 
     test "unticking a box hides that column and nothing else", %{conn: conn, scope: scope} do

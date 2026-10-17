@@ -678,21 +678,9 @@ defmodule PairingsEngineWeb.PlayersLive do
       # (`Standings.finished_game?/1`).
       played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
 
-      opponent_ratings =
-        played_games
-        |> Enum.map(&Map.get(players_by_id, &1.opponent_id))
-        |> Enum.reject(&is_nil/1)
-        |> Enum.map(&Player.rating/1)
-
-      # Won and lost over the board, from the result code rather than from
-      # the point total - a 3-2-1 draw is worth exactly `points_win` and used
-      # to be counted here as a win. See PairingsEngine.Results.
-      wins = Enum.count(played_games, &(&1.outcome == :win))
-      losses = Enum.count(played_games, &(&1.outcome == :loss))
-
       # FIDE expected score (We / W−We, Table 8.1.2): only games against a
-      # rated opponent count, per Article 8.3 - mirrors `opponent_ratings`
-      # above but drops unrated (rating <= 0) opponents, since the table has
+      # rated opponent count, per Article 8.3 - like the performance
+      # column but drops unrated (rating <= 0) opponents, since the table has
       # no defined probability against "no rating".
       # For a tournament lasting more than 30 days, each game with both
       # players' ratings in its round (VCL4THP Q213).
@@ -723,7 +711,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         "games" => length(played_games),
         "rds" => Standings.rounds_played(entry.games),
         "pts" => entry.points,
-        "perf" => PlayerStats.performance(opponent_ratings, wins, losses),
+        "perf" => PlayerStats.entry_performance(entry, players_by_id),
         "we" => we,
         "wmwe" => PlayerStats.w_minus_we(w_counted, we),
         "buch" => Map.get(entry.tiebreaks, "BH"),

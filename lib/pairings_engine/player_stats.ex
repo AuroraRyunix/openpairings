@@ -6,6 +6,7 @@ defmodule PairingsEngine.PlayerStats do
   """
 
   alias PairingsEngine.CategoryRules
+  alias PairingsEngine.Standings
   alias PairingsEngine.Tournaments.Player
 
   @doc """
@@ -107,6 +108,34 @@ defmodule PairingsEngine.PlayerStats do
     games_played = length(opponent_ratings)
     average = Enum.sum(opponent_ratings) / games_played
     round(average + 400 * (wins - losses) / games_played)
+  end
+
+  @doc """
+  The performance rating of one standings entry: `performance/3` over the
+  finished games of `entry.games`, opponents looked up in `players_by_id`.
+
+  This is the number the Players grid's "Perf" column shows and the one the
+  results site is sent; both call here so there is only one formula. A game
+  against an opponent missing from `players_by_id` is skipped, an unrated
+  opponent counts at `Player.rating/1`, and `nil` means no finished games.
+  """
+  def entry_performance(entry, players_by_id) do
+    # Finished games only - a postponed one has no result yet
+    # (`Standings.finished_game?/1`).
+    played_games = Enum.filter(entry.games, &Standings.finished_game?/1)
+
+    opponent_ratings =
+      played_games
+      |> Enum.map(&Map.get(players_by_id, &1.opponent_id))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.map(&Player.rating/1)
+
+    # Won and lost over the board, from the result code rather than from the
+    # point total - see PairingsEngine.Results.
+    wins = Enum.count(played_games, &(&1.outcome == :win))
+    losses = Enum.count(played_games, &(&1.outcome == :loss))
+
+    performance(opponent_ratings, wins, losses)
   end
 
   # ---------- FIDE expected score (We / W−We) ----------

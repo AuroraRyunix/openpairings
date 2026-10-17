@@ -111,6 +111,7 @@ defmodule PairingsEngine.Snapshot do
     Tournaments
   }
 
+  alias PairingsEngine.PlayerStats
   alias PairingsEngine.TiebreakWorking
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
   alias PairingsEngine.{Authz, Repo}
@@ -1199,6 +1200,19 @@ defmodule PairingsEngine.Snapshot do
   # a Keizer row already uses for something else. Additive and absent
   # otherwise, like `rounds_played` above; see docs/snapshot-schema.md.
   # Only the Swiss/round-robin rows: a Keizer entry has no extra points.
+  # Behind the "performance" display tick, which starts OFF. The number is the
+  # Players grid's "Perf" column (`PlayerStats.entry_performance/2`), worked
+  # out on the games up to this snapshot's round. Absent while off and for a
+  # player with no finished game; never null.
+  defp maybe_put_performance(row, %Tournament{} = t, entry, players_by_id) do
+    with true <- PublicDisplay.show?(t.public_display, "performance"),
+         perf when is_integer(perf) <- PlayerStats.entry_performance(entry, players_by_id) do
+      Map.put(row, "performance", perf)
+    else
+      _hidden_or_no_games -> row
+    end
+  end
+
   defp maybe_put_extra_points(row, %Tournament{count_extra_points: true}, %{total: total} = e) do
     row
     |> Map.put("extra_points", e.extra_points)
@@ -1316,6 +1330,8 @@ defmodule PairingsEngine.Snapshot do
         %{}
       end
 
+    players_by_id = Map.new(entries, &{&1.player.id, &1.player})
+
     rows =
       entries
       |> Enum.map(fn e ->
@@ -1334,6 +1350,7 @@ defmodule PairingsEngine.Snapshot do
           "category" => blank_to_nil(Categories.pairing_category(t, e.player))
         }
         |> maybe_put_rounds_played(t, e)
+        |> maybe_put_performance(t, e, players_by_id)
         |> maybe_put_extra_points(t, e)
         |> maybe_put_uncounted(e)
       end)

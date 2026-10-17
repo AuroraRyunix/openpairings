@@ -11,7 +11,7 @@ defmodule PairingsEngine.SnapshotTest do
       boards: 2
     ]
 
-  alias PairingsEngine.{Repo, Snapshot, SnapshotFixtures, Tournaments}
+  alias PairingsEngine.{PlayerStats, Repo, Snapshot, SnapshotFixtures, Standings, Tournaments}
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
 
   # Personal data deliberately loaded onto the fixture's players. Every one of
@@ -394,6 +394,57 @@ defmodule PairingsEngine.SnapshotTest do
       # Nothing has been played yet, so everybody is on nought - the point
       # being that the field travels at all, for every row.
       assert Enum.all?(rows, &(Map.get(&1, "rounds_played") == 0))
+    end
+  end
+
+  describe "the optional performance field on standings rows" do
+    defp perf_fixture do
+      import Ecto.Query
+      {tournament, a, b} = floor_fixture()
+
+      Repo.update_all(from(p in Player, where: p.id == ^a.id), set: [fide_rating: 2000])
+      Repo.update_all(from(p in Player, where: p.id == ^b.id), set: [fide_rating: 1800])
+
+      # Registered but never paired: no games, so no performance.
+      Repo.insert!(%Player{tournament_id: tournament.id, pairing_number: 3, name: "Idle"})
+      Tournaments.get_tournament!(tournament.id)
+    end
+
+    defp perf_rows(tournament) do
+      snapshot = Snapshot.build(tournament)
+      by_no = Map.new(snapshot["players"], &{&1["name"], &1["no"]})
+      rows = Map.new(snapshot["standings"]["rows"], &{&1["player"], &1})
+      {rows, by_no}
+    end
+
+    test "off by default: no row carries it" do
+      tournament = perf_fixture()
+      {rows, _} = perf_rows(tournament)
+      assert map_size(rows) > 0
+      refute Enum.any?(rows, fn {_, r} -> Map.has_key?(r, "performance") end)
+      assert Snapshot.build(tournament)["tournament"]["display"]["performance"] == false
+    end
+
+    test "ticked, it is the integer the Players grid computes, and absent for no games" do
+      tournament = perf_fixture()
+      {:ok, tournament} = Tournaments.set_public_display(tournament, %{"performance" => "true"})
+      {rows, by_no} = perf_rows(tournament)
+
+      # After round 1: A (2000) beat B (1800); B lost to A.
+      assert rows[by_no["P1"]]["performance"] == 2200
+      assert rows[by_no["P2"]]["performance"] == 1600
+      refute Map.has_key?(rows[by_no["Idle"]], "performance")
+
+      # The same number the app's own standings entries give.
+      entries = Standings.standings(tournament, through_round: 1, pending: true)
+      players = Map.new(entries, &{&1.player.id, &1.player})
+
+      for e <- entries, e.player.name in ["P1", "P2"] do
+        assert PlayerStats.entry_performance(e, players) ==
+                 rows[by_no[e.player.name]]["performance"]
+      end
+
+      assert Snapshot.build(tournament)["tournament"]["display"]["performance"] == true
     end
   end
 
