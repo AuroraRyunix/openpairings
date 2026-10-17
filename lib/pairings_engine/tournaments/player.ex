@@ -975,7 +975,7 @@ defmodule PairingsEngine.Tournaments.Player do
 
   @doc """
   Display label for `sex`: stored internally as "m"/"w" (see
-  `PairingsEngineWeb.PlayersLive.normalize_fide_sex/1`, matching
+  `normalize_sex/1`, matching
   `Ainalrami.Trf`'s own `trf_sex/1` export convention), shown as FIDE's own
   capital letters "M"/"F". Blank/unset renders as an empty string, letting
   callers decide their own placeholder ("-", "" etc).
@@ -983,4 +983,26 @@ defmodule PairingsEngine.Tournaments.Player do
   def sex_label("m"), do: "M"
   def sex_label("w"), do: "F"
   def sex_label(_), do: ""
+
+  @doc """
+  A sex as some list spelled it, in the app's own "m"/"w" - what the Sex
+  radio buttons compare against and what `Ainalrami.Trf`'s `trf_sex/1`
+  exports. FIDE writes "M"/"F"; the KBSB file writes "M"/"F" too, and the
+  Dutch "V" (vrouw) and French "H" (homme) are taken on the off chance a
+  month ever arrives localised. Anything else is "" - unknown, which every
+  caller treats as "says nothing", never as an answer.
+
+  A raw "F" left as-is would match neither radio, and since a radio group
+  sends nothing when none is checked, the next live form sync would quietly
+  drop it again. Hence the one spelling.
+  """
+  def normalize_sex(s) when is_binary(s) do
+    case s |> String.trim() |> String.downcase() do
+      v when v in ~w(m h) -> "m"
+      v when v in ~w(f w v) -> "w"
+      _ -> ""
+    end
+  end
+
+  def normalize_sex(_), do: ""
 end
