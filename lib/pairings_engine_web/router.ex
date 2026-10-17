@@ -83,6 +83,7 @@ defmodule PairingsEngineWeb.Router do
         PairingsEngineWeb.PublishStatusHook,
         PairingsEngineWeb.UpdateNotice,
         PairingsEngineWeb.FideDownloadNotice,
+        PairingsEngineWeb.EnrollmentRevokedHook,
         {PairingsEngineWeb.UserAuth, :require_authenticated}
       ] do
       live "/", TournamentsLive
