@@ -9,8 +9,8 @@ a Mac still has to confirm.
 | | |
 |---|---|
 | Apple Silicon only (M1 and later) | `openpairings_app_macos_aarch64.zip`, built on `macos-15` |
-| Runtime | Erlang/OTP 29.0.5 and Elixir 1.20 from `erlef/setup-beam`, the same action and versions as the Linux and Windows jobs. On macOS it installs `erlef/otp_builds`, which links OpenSSL statically, so the app needs nothing from Homebrew |
-| Oldest macOS | 11 (Big Sur) is what the build asks for (`MACOSX_DEPLOYMENT_TARGET`); the build log prints what the binaries really accept and writes that into `Info.plist` |
+| Runtime | Erlang/OTP 29.0.5 compiled on the runner by `rel/macos/build_otp.sh`, for macOS 11, with OpenSSL 3.5 compiled the same way and linked into `crypto` statically; Elixir 1.20 from its own precompiled zip. Cached, so only the first run with a given set of versions pays. Linux and Windows use `erlef/setup-beam`; on macOS that would be `erlef/otp_builds`, which is built for macOS 15 and made the app refuse to open on 14 (see [Why the runtime is built here](#why-the-runtime-is-built-here)) |
+| Oldest macOS | 11 (Big Sur). Everything compiled on the runner is built for it (`MACOSX_DEPLOYMENT_TARGET=11.0`, the SQLite NIF from source with `EXQLITE_FORCE_BUILD`), and `build_app.sh` fails the build, naming the files, if any binary asks for newer; what they accept goes into `Info.plist` |
 | Signed | ad-hoc only, for now - see [Unsigned, for now](#unsigned-for-now) |
 
 The single-file binary (`openpairings_macos_aarch64`) and the portable zip
@@ -162,6 +162,32 @@ Gatekeeper whether it agrees, all before the zip is made. The opening
 instructions above then become "double-click it". The first signed build
 needs a Mac test of its own: the entitlements are right on paper.
 
+## Why the runtime is built here
+
+Until 2026-10-17 the Mac job took Erlang from `erlef/setup-beam`, as Linux
+and Windows still do. On macOS that is `erlef/otp_builds`, which is built
+on the newest runner without a deployment target, so `beam.smp`, `erlexec`
+and the OTP NIFs all said "macOS 15 or newer" (`minos 15.0` in
+`LC_BUILD_VERSION`), and the precompiled SQLite NIF said 14.0. The build
+script wrote the newest of those into `LSMinimumSystemVersion`, faithfully,
+and a Mac on 14.6 answered *You can't use this version of the application
+with this version of macOS*.
+
+So now `rel/macos/build_otp.sh` compiles OpenSSL (static) and Erlang/OTP
+(no wx, no Java, no ODBC, no docs) with `MACOSX_DEPLOYMENT_TARGET=11.0`,
+checks each download against a SHA-256 in the script, and installs Elixir's
+precompiled zip for that OTP major. `actions/cache` keeps the result under a
+key of the OTP, OpenSSL and Elixir versions, the target, the runner and the
+script itself. The versions are in the workflow's `env`; a version bump
+also needs its checksum in the script, which fails loudly without one.
+`exqlite` is compiled from source on the Mac (`EXQLITE_FORCE_BUILD=true`,
+read in `config/config.exs`), and the deployment target is in the deps
+cache key so a NIF built for another macOS cannot come back from it.
+
+`build_app.sh` fails the build if any Mach-O file in the bundle asks for a
+macOS newer than 11.0, and prints each of them with its `minos`. It used to
+only report the number, which is how 15.0 shipped.
+
 ## What CI checks on every push
 
 In the macOS jobs of `.github/workflows/binaries.yml`, after the existing
@@ -171,8 +197,9 @@ checks of the single-file binary and the portable release:
    annotations on the run); every binary in the bundle links only to the
    system - `/usr/lib` (the Swift runtime in `/usr/lib/swift` included) and
    `/System` - since a Homebrew library would work on the runner and nowhere
-   else; the oldest macOS all of them accept goes into `Info.plist`; the
-   ad-hoc signature verifies.
+   else; none asks for a macOS newer than 11.0 (the build fails and names
+   the files); the oldest macOS all of them accept goes into `Info.plist`;
+   the ad-hoc signature verifies.
 2. The zip is unpacked as an arbiter would and the bundle made read-only.
    `Info.plist` must have no `LSUIElement`, and `CFBundleExecutable` must be
    a Mach-O arm64 executable. The bundle's own executable is started with

@@ -66,6 +66,12 @@ jobs:
     env:
       MIX_ENV: prod
       BURRITO_TARGET: ${{ matrix.target }}
+      # One OTP everywhere. On Linux and Windows setup-beam installs it; on
+      # the Mac rel/macos/build_otp.sh compiles it, with this OpenSSL and
+      # this exact Elixir (setup-beam's "1.20" is the newest 1.20 there).
+      OTP_VERSION: "29.0.5"
+      OPENSSL_VERSION: "3.5.9"
+      ELIXIR_VERSION: "1.20.4"
 
     steps:
       # Actions are pinned to a commit, not to a tag. A tag is mutable, and
@@ -79,35 +85,69 @@ jobs:
       # the old pins were being silently forced onto Node 24 already.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Not on the Mac. There setup-beam installs erlef/otp_builds' runtime,
+      # which is built on the newest runner for the newest macOS: every
+      # program in it said "macOS 15 or newer", and a Mac on 14 refused to
+      # open the app (2026-10-17). It is compiled below instead.
       - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+        if: runner.os != 'macOS'
         with:
-          otp-version: "29.0.5"
+          otp-version: ${{ env.OTP_VERSION }}
           elixir-version: "1.20"
 
-      # On macOS setup-beam installs erlef/otp_builds' runtime, which links
-      # OpenSSL statically - so the release carries no Homebrew library
-      # (rel/macos/build_app.sh checks every binary for that). What the
-      # runner compiles itself - the SQLite NIF - would otherwise demand the
-      # runner's own macOS version as a minimum, because clang defaults to
-      # the system it runs on. 11.0 is the first version with Apple Silicon.
+      # Everything compiled on the Mac - the runtime, the SQLite NIF - for
+      # macOS 11, the first version with Apple Silicon, rather than clang's
+      # default of the system it runs on. EXQLITE_FORCE_BUILD
+      # (config/config.exs): the precompiled SQLite NIF wants macOS 14.
       - name: Build for macOS 11 and newer (macOS)
         if: runner.os == 'macOS'
-        run: echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+        run: |
+          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+          echo "EXQLITE_FORCE_BUILD=true" >> "$GITHUB_ENV"
+
+      # Erlang/OTP with a static OpenSSL, both from source: the release
+      # carries no Homebrew library (rel/macos/build_app.sh checks every
+      # binary for that, and for anything newer than macOS 11). Only the
+      # first run with a given set of versions pays; the script is in the
+      # key, so a change to how it builds is a new build too.
+      - name: Cache Erlang/OTP for macOS 11 (macOS)
+        if: runner.os == 'macOS'
+        id: otp-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/otp-macos
+          key: otp-${{ env.OTP_VERSION }}-openssl-${{ env.OPENSSL_VERSION }}-elixir-${{ env.ELIXIR_VERSION }}-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ matrix.runner }}-${{ runner.arch }}-${{ hashFiles('rel/macos/build_otp.sh') }}
+
+      - name: Build Erlang/OTP and OpenSSL from source (macOS, not cached yet)
+        if: runner.os == 'macOS' && steps.otp-cache.outputs.cache-hit != 'true'
+        run: sh rel/macos/build_otp.sh "$HOME/otp-macos"
+
+      - name: Put Erlang/OTP and Elixir on the PATH (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          echo "$HOME/otp-macos/otp/bin" >> "$GITHUB_PATH"
+          echo "$HOME/otp-macos/elixir/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/otp-macos/otp/bin:$HOME/otp-macos/elixir/bin:$PATH"
+          mix local.hex --force
+          mix local.rebar --force
+          elixir --version
 
       # Compiled dependencies, per target. Without this every push downloaded
       # and compiled every dependency from scratch on every runner. Keyed on
       # the lock file and the toolchain, so a dependency or OTP/Elixir change
       # starts clean; `_build/prod/lib` only - never `rel`, which is this
-      # run's output and must not come from an earlier commit.
+      # run's output and must not come from an earlier commit. The macOS
+      # deployment target too (empty off the Mac): a NIF compiled, or
+      # downloaded, for another macOS must not come back from the cache.
       - name: Cache deps and compiled dependencies
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             deps
             _build/prod/lib
-          key: binaries-${{ matrix.target }}-otp29.0.5-ex1.20-${{ hashFiles('mix.lock') }}
+          key: binaries-${{ matrix.target }}-otp29.0.5-ex1.20-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-${{ hashFiles('mix.lock') }}
           restore-keys: |
-            binaries-${{ matrix.target }}-otp29.0.5-ex1.20-
+            binaries-${{ matrix.target }}-otp29.0.5-ex1.20-macos${{ env.MACOSX_DEPLOYMENT_TARGET }}-
 
       - uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
