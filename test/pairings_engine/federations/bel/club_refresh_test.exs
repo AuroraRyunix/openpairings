@@ -53,6 +53,44 @@ defmodule PairingsEngine.Federations.BEL.ClubRefreshTest do
              ] = summary.proposals
     end
 
+    test "a pasted row is saved without its tab, and its comma tidied", %{tournament: tournament} do
+      {:ok, p} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Holovatyi ,Toma",
+          "national_id" => "-66002\t",
+          "club" => " ninklijke\t"
+        })
+
+      assert p.national_id == "-66002"
+      assert p.name == "Holovatyi, Toma"
+      assert p.club == "ninklijke"
+    end
+
+    test "a tab stored before the trim still finds its KBSB row", %{tournament: tournament} do
+      {:ok, p} =
+        Tournaments.create_player(tournament.id, %{
+          "name" => "Fisyuk, Semyon",
+          "national_id" => "-14996",
+          "club" => "ninklijke Waregemse",
+          "club_number" => 465
+        })
+
+      Repo.update_all(
+        from(x in PairingsEngine.Tournaments.Player, where: x.id == ^p.id),
+        set: [national_id: "-14996\t"]
+      )
+
+      Repo.insert!(%Member{
+        national_id: "-14996",
+        last_name: "Fisyuk",
+        club_name: "Koninklijke Waregemse",
+        club_number: 313
+      })
+
+      assert %{changed: 1, unmatched: 0, proposals: proposals} = ClubRefresh.dry_run(tournament)
+      assert Enum.any?(proposals, &(&1.field == :club and &1.new == "Koninklijke Waregemse"))
+    end
+
     test "a player already on the right club produces no proposals", %{tournament: tournament} do
       {:ok, _p} =
         Tournaments.create_player(tournament.id, %{

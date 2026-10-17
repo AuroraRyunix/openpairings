@@ -199,6 +199,25 @@ defmodule PairingsEngine.Tournaments.Player do
   def expelled?(%{status: "expelled"}), do: true
   def expelled?(_player), do: false
 
+  # A row pasted from a spreadsheet brings its tabs along. "-66002\t" looks
+  # exactly like "-66002" on every screen and matches nothing in the KBSB
+  # list, so *Update clubs* walked past it forever. Ends trimmed; and in a
+  # name, whatever spacing surrounds the comma becomes ", " - "Holovatyi
+  # ,Toma" is a typo, not a surname.
+  @trimmed_text ~w(name national_id club federation title)a
+
+  defp trim_typed_text(changeset) do
+    Enum.reduce(@trimmed_text, changeset, fn field, cs ->
+      case get_change(cs, field) do
+        value when is_binary(value) -> put_change(cs, field, tidy(field, value))
+        _ -> cs
+      end
+    end)
+  end
+
+  defp tidy(:name, value), do: value |> String.replace(~r/\s*,\s*/u, ", ") |> String.trim()
+  defp tidy(_field, value), do: String.trim(value)
+
   def changeset(player, attrs) do
     player
     |> cast(attrs, [
@@ -247,6 +266,7 @@ defmodule PairingsEngine.Tournaments.Player do
     # Kept as typed, blank included: an emptied box is "no later ratings",
     # which the default empty-to-nil cast would not see as a change.
     |> cast(attrs, [:period_ratings_text], empty_values: [])
+    |> trim_typed_text()
     |> normalize_rating_provenance()
     |> validate_required([:name])
     |> validate_length(:name, min: 1, max: 100)
