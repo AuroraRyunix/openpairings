@@ -111,7 +111,14 @@ and can then enter results for that tournament only, without an account.
 - A **helper** phone fills in boards that have no result, in the latest paired
   round only, and cannot change a result that is on file - also not one the
   arbiter entered a moment ago, before the phone's screen caught up.
-- A **deputy** phone can enter and correct a result in any round.
+- A **deputy** phone can enter and correct a result in any round, and can
+  clear one: under a board that has a result there is a **Clear result**
+  button. The first tap turns it into *Tap again to clear board N* for a few
+  seconds, the second clears the board and puts it back among the unfinished
+  ones. Tapping the result that is already chosen changes nothing. The button
+  is absent where the program would refuse the clear (an archived tournament, a
+  result already sent in a finalised TRF, a closed round in FIDE mode) and on
+  helper phones.
 - A phone can be limited to a range of boards.
 
 The code expires after 24 hours and can be revoked at any time on the same

@@ -58,8 +58,15 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   @entry_codes PairingsEngine.Results.entry_codes()
 
+  # How long the clear button waits for its second tap before it goes back
+  # to being a plain "Clear result". Long enough to read the board number
+  # and mean it, short enough that a stray tap does not leave a loaded gun
+  # lying about in a noisy hall.
+  @confirm_ms 4_000
+
   # The buttons must offer everything the guard accepts, minus the blank
-  # (cleared by tapping the chosen result again, not by its own button).
+  # (which has its own labelled, two-tap "Clear result" button below the
+  # results; tapping the chosen result again does nothing at all).
   # A build that drifts from that fails here rather than shipping a button
   # that writes nothing, or a code with no way to enter it.
   @offered Enum.map(@results ++ @extra_results, &elem(&1, 0))
@@ -97,6 +104,9 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        # Boards entered within the last `@settle_ms`, kept visible so the
        # helper can confirm what landed before the list closes over it.
        just_saved: MapSet.new(),
+       # The board whose "Clear result" has had its first tap and is waiting
+       # for the second (see `@confirm_ms`).
+       confirm_clear: nil,
        saved_notice: "",
        # Which board's "More…" panel is open, if any - one at a time, so
        # the page doesn't grow tall with several boards expanded at once.
@@ -118,6 +128,12 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   # and each timer must retire only its own.
   def handle_info({:settle_board, pairing_id}, socket) do
     {:noreply, update(socket, :just_saved, &MapSet.delete(&1, pairing_id))}
+  end
+
+  def handle_info({:clear_confirm_expired, pairing_id}, socket) do
+    if socket.assigns.confirm_clear == pairing_id,
+      do: {:noreply, assign(socket, confirm_clear: nil)},
+      else: {:noreply, socket}
   end
 
   def handle_info({:mobile_enrollment_revoked, id}, socket) do
@@ -169,7 +185,8 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
     case Mobile.permit_round(socket.assigns.mobile_enrollment, requested, latest) do
       :ok ->
-        {:noreply, socket |> assign(expanded_id: nil) |> load_round(requested)}
+        {:noreply,
+         socket |> assign(expanded_id: nil, confirm_clear: nil) |> load_round(requested)}
 
       {:error, :earlier_round} ->
         {:noreply,
@@ -204,6 +221,35 @@ defmodule PairingsEngineWeb.MobileResultsLive do
       when socket.assigns.locked or socket.assigns.read_only?,
       do: {:noreply, socket}
 
+  # Clearing takes two taps on a button that says what it does. The first
+  # arms it for `@confirm_ms`; the second, on the same board, clears. The
+  # button is only drawn where `clearable` allows it, and this is the check
+  # behind that courtesy - the write still goes through
+  # `Mobile.permit_result/4` and `Tournaments.update_pairing_result/3`.
+  def handle_event("clear_result", _params, socket)
+      when socket.assigns.locked or socket.assigns.read_only?,
+      do: {:noreply, socket}
+
+  def handle_event("clear_result", %{"id" => id}, socket) do
+    pairing_id = String.to_integer(id)
+
+    cond do
+      not MapSet.member?(socket.assigns.clearable, pairing_id) ->
+        {:noreply, socket}
+
+      socket.assigns.confirm_clear == pairing_id ->
+        handle_event(
+          "set_result",
+          %{"id" => id, "result" => ""},
+          assign(socket, confirm_clear: nil)
+        )
+
+      true ->
+        Process.send_after(self(), {:clear_confirm_expired, pairing_id}, @confirm_ms)
+        {:noreply, assign(socket, confirm_clear: pairing_id)}
+    end
+  end
+
   # Only pairings belonging to the loaded round (which is loaded from the
   # enrollment's own tournament) can be set - a crafted pairing id from
   # another tournament simply isn't in the set and is ignored. The codes
@@ -218,6 +264,12 @@ defmodule PairingsEngineWeb.MobileResultsLive do
       round = socket.assigns.round
 
       case round && Enum.find(round.pairings, &(to_string(&1.id) == id)) do
+        # Tapping the result a board already has is not a change. It used to
+        # be re-saved, and logged as a change from X to X, by a deputy who
+        # was trying to clear the board.
+        %Pairing{result: current} when current == result ->
+          {:noreply, socket}
+
         %Pairing{} = pairing ->
           # The domain decides, not this LiveView - see `Mobile.permit_result/4`
           # for the three rules (round, board range, fill-once) and why each
@@ -489,8 +541,30 @@ defmodule PairingsEngineWeb.MobileResultsLive do
       |> Standings.standings(through_round: number - 1)
       |> Map.new(&{&1.player.id, &1.points})
 
-    assign(socket, round_number: number, round: round, boards: boards, scores: scores)
+    assign(socket,
+      round_number: number,
+      round: round,
+      boards: boards,
+      scores: scores,
+      clearable: clearable_boards(enrollment, boards)
+    )
   end
+
+  # The boards this phone may be offered "Clear result" on: a deputy's, with
+  # a result on them, that the write would not turn away
+  # (`Tournaments.result_clearable?/1`: archived, handed off, a closed
+  # FIDE-mode round, a result already sent, a match with a score). A helper
+  # is fill-once, so none.
+  defp clearable_boards(%Mobile.Enrollment{level: "deputy"} = enrollment, boards) do
+    boards
+    |> Enum.filter(fn p ->
+      p.result not in [nil, ""] and Mobile.board_in_range?(enrollment, p.board) and
+        Tournaments.result_clearable?(p)
+    end)
+    |> MapSet.new(& &1.id)
+  end
+
+  defp clearable_boards(_enrollment, _boards), do: MapSet.new()
 
   defp player_meta(nil, _scores), do: ""
 
@@ -656,19 +730,6 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               {label}
             </button>
             <button
-              :if={p.result != ""}
-              type="button"
-              disabled={@locked || @read_only?}
-              class="mobile-result-btn mobile-clear"
-              phx-click="set_result"
-              phx-value-id={p.id}
-              phx-value-result=""
-              title={gettext("Clear the result")}
-              aria-label={gettext("Clear the result")}
-            >
-              ⟲
-            </button>
-            <button
               type="button"
               disabled={@locked || @read_only?}
               class={["mobile-result-btn", "mobile-more", @expanded_id == p.id && "chosen"]}
@@ -676,6 +737,25 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               phx-value-id={p.id}
             >
               {if @expanded_id == p.id, do: "▲ Less", else: "▼ More"}
+            </button>
+          </div>
+
+          <%!-- Deputies only, and only where the clear would be accepted.
+              Two taps: the first arms the button, the second clears. --%>
+          <div :if={MapSet.member?(@clearable, p.id)} class="mobile-clear-row">
+            <button
+              type="button"
+              id={"mobile-clear-#{p.id}"}
+              disabled={@locked || @read_only?}
+              class={["mobile-clear-btn", @confirm_clear == p.id && "confirming"]}
+              phx-click="clear_result"
+              phx-value-id={p.id}
+            >
+              <%= if @confirm_clear == p.id do %>
+                {gettext("Tap again to clear board %{board}", board: p.board)}
+              <% else %>
+                {gettext("Clear result")}
+              <% end %>
             </button>
           </div>
 

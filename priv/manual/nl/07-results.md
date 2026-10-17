@@ -115,7 +115,7 @@ kan daarna resultaten voor dat toernooi invoeren, zonder account.
   laatst gepaarde ronde, en kan een resultaat dat al is vastgelegd niet wijzigen -
   ook niet een resultaat dat de arbiter net heeft ingevoerd, voordat het scherm van
   de telefoon was bijgewerkt.
-- Een **deputy-telefoon** kan in elke ronde een resultaat invoeren en corrigeren.
+- Een **deputy-telefoon** kan in elke ronde een resultaat invoeren en corrigeren, en ook wissen: onder een bord met een resultaat staat een knop **Wissen**. De eerste tik verandert die een paar seconden in *Tik nogmaals om bord N te wissen*, de tweede wist het bord en zet het terug tussen de onafgemaakte. Het al gekozen resultaat nog eens aantikken verandert niets. De knop ontbreekt waar het programma het wissen zou weigeren (een gearchiveerd toernooi, een resultaat dat al in een afgesloten TRF is verstuurd, een gesloten ronde in FIDE-modus) en op helpertelefoons.
 - Een telefoon kan worden beperkt tot een reeks borden.
 
 De code verloopt na 24 uur en kan op elk moment worden ingetrokken op dezelfde kaart.

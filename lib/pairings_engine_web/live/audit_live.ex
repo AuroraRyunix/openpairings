@@ -166,13 +166,22 @@ defmodule PairingsEngineWeb.AuditLive do
         tournament: tournament,
         page_title: page_title(socket.assigns.live_action, tournament),
         category: "all",
-        page: 0
+        page: 0,
+        reload_pending?: false
       )
 
     socket =
       case socket.assigns.live_action do
-        :explain -> assign(socket, paired_rounds: Engine.paired_rounds_count(tournament.id))
-        _ -> load_entries(socket)
+        :explain ->
+          assign(socket, paired_rounds: Engine.paired_rounds_count(tournament.id))
+
+        _ ->
+          # Rows are written by everyone working on the tournament, not
+          # just the person looking at the log, so the page listens for them.
+          if connected?(socket),
+            do: Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Audit.topic(tournament.id))
+
+          load_entries(socket)
       end
 
     {:ok, socket}
@@ -182,6 +191,25 @@ defmodule PairingsEngineWeb.AuditLive do
     do: gettext("%{name} · Pairing rationale", name: tournament.name)
 
   defp page_title(_, tournament), do: gettext("%{name} · Audit trail", name: tournament.name)
+
+  # A burst of rows (an import, a bulk edit) becomes one reload: the first
+  # announcement arms a timer and the rest ride along. The reload keeps the
+  # category and page being looked at.
+  @reload_ms 400
+
+  @impl true
+  def handle_info({:audit_logged, _tournament_id}, socket) do
+    if socket.assigns.reload_pending? do
+      {:noreply, socket}
+    else
+      Process.send_after(self(), :reload_entries, @reload_ms)
+      {:noreply, assign(socket, reload_pending?: true)}
+    end
+  end
+
+  def handle_info(:reload_entries, socket) do
+    {:noreply, socket |> assign(reload_pending?: false) |> load_entries()}
+  end
 
   @impl true
   def handle_event("filter", %{"category" => category}, socket) do

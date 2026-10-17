@@ -55,7 +55,10 @@ The owner can invite other arbiters. Settings, **Tournament**, card
 - A collaborator can do everything the owner can except managing collaborators
   and deleting the tournament.
 - Everyone sees changes as they happen: when a colleague pairs a round or
-  enters a result, your pages update by themselves.
+  enters a result, your pages update by themselves. That includes the audit
+  trail: a row written while you have it open appears within a moment, on the
+  page and filter you were looking at, and every collaborator sees the same
+  rows as the owner.
 - The owner can remove a collaborator; a collaborator can **Leave** a shared
   tournament from the list.
 

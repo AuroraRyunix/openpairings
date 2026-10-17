@@ -325,4 +325,67 @@ defmodule PairingsEngineWeb.AuditLiveTest do
       """
     end
   end
+
+  describe "who sees whose rows, and when" do
+    setup %{scope: owner_scope} do
+      t = make_tournament(owner_scope)
+      collab = user_fixture()
+      collab_scope = PairingsEngine.Accounts.Scope.for_user(collab)
+
+      {:ok, c} = Tournaments.add_collaborator(owner_scope, t, collab.email)
+      {:ok, _} = Tournaments.accept_invitation(collab_scope, c.invite_token)
+
+      {:ok, tournament: t, collab: collab, collab_scope: collab_scope}
+    end
+
+    test "owner and collaborator each see the other's rows", %{
+      conn: owner_conn,
+      scope: owner_scope,
+      tournament: t,
+      collab: collab,
+      collab_scope: collab_scope
+    } do
+      Audit.log(t.id, owner_scope, "pairing.round_deleted", %{round: 1})
+      Audit.log(t.id, collab_scope, "pairing.round_deleted", %{round: 2})
+
+      collab_conn = log_in_user(build_conn(), collab)
+
+      {:ok, _lv, owner_html} = live(owner_conn, ~p"/t/#{t.id}/audit")
+      {:ok, _lv, collab_html} = live(collab_conn, ~p"/t/#{t.id}/audit")
+
+      for html <- [owner_html, collab_html] do
+        assert html =~ "Unpaired round 1"
+        assert html =~ "Unpaired round 2"
+        assert html =~ owner_scope.user.email
+        assert html =~ collab.email
+      end
+    end
+
+    test "a row written while the page is open appears without a reload, filter and page kept", %{
+      conn: conn,
+      tournament: t,
+      collab_scope: collab_scope
+    } do
+      {:ok, lv, html} = live(conn, ~p"/t/#{t.id}/audit")
+      refute html =~ "Unpaired round 7"
+
+      lv |> element("[phx-click=filter][phx-value-category=pairings]") |> render_click()
+
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Audit.topic(t.id))
+      Audit.log(t.id, collab_scope, "pairing.round_deleted", %{round: 7})
+      Audit.log(t.id, collab_scope, "player.created", %{player_id: 1, player_name: "Zed"})
+
+      # The page heard it (a burst arms one timer, not two) ...
+      assert_receive {:audit_logged, _}
+      assert :sys.get_state(lv.pid).socket.assigns.reload_pending?
+
+      # ... and waits a moment to collect the burst; deliver that moment.
+      send(lv.pid, :reload_entries)
+      html = render(lv)
+
+      assert html =~ "Unpaired round 7"
+      # Still on the pairings filter: the player row is not shown.
+      refute html =~ "Registered player Zed"
+    end
+  end
 end

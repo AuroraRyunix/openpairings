@@ -611,4 +611,126 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
       assert Repo.reload!(pairing).result == ""
     end
   end
+
+  describe "clearing a result" do
+    setup do
+      tournament = new_tournament("Clear test")
+      {white, black} = two_players(tournament)
+      insert_round(tournament, 1, "playing", [{white, black, "1-0"}])
+      pairing = Repo.one!(Pairing)
+      {:ok, tournament: tournament, pairing: pairing}
+    end
+
+    test "a deputy clears a board with the labelled button, on the second tap", %{
+      conn: conn,
+      tournament: t,
+      pairing: pairing
+    } do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+      # Finished boards are hidden by default; the deputy has to look.
+      render_click(lv, "toggle_show_all", %{})
+
+      button = "#mobile-clear-#{pairing.id}"
+      assert has_element?(lv, button, "Clear result")
+
+      # First tap arms; nothing is written.
+      lv |> element(button) |> render_click()
+      assert has_element?(lv, button, "Tap again to clear board 1")
+      assert Repo.reload!(pairing).result == "1-0"
+
+      # Second tap clears, and the board is back among the unfinished.
+      lv |> element(button) |> render_click()
+      assert Repo.reload!(pairing).result == ""
+      refute has_element?(lv, button)
+
+      render_click(lv, "toggle_show_all", %{})
+      assert has_element?(lv, "#mobile-board-#{pairing.id}")
+      assert render(lv) =~ "1 board left"
+
+      assert [%{details: %{"from" => "1-0", "to" => ""}}] =
+               Audit.list_for_tournament(t.id, action: "pairing.result_cleared")
+    end
+
+    test "the first tap wears off by itself", %{conn: conn, tournament: t, pairing: pairing} do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+      render_click(lv, "toggle_show_all", %{})
+
+      button = "#mobile-clear-#{pairing.id}"
+      lv |> element(button) |> render_click()
+      assert has_element?(lv, button, "Tap again")
+
+      send(lv.pid, {:clear_confirm_expired, pairing.id})
+      assert has_element?(lv, button, "Clear result")
+      refute has_element?(lv, button, "Tap again")
+    end
+
+    test "tapping the chosen result again writes nothing and logs nothing", %{
+      conn: conn,
+      tournament: t,
+      pairing: pairing
+    } do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+      render_click(lv, "toggle_show_all", %{})
+
+      render_click(lv, "set_result", %{"id" => to_string(pairing.id), "result" => "1-0"})
+
+      assert Repo.reload!(pairing).result == "1-0"
+      assert Audit.list_for_tournament(t.id) == []
+    end
+
+    test "a helper is not offered the clear, and is refused if it asks anyway", %{
+      conn: conn,
+      tournament: t,
+      pairing: pairing
+    } do
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "helper"), ~p"/m/results")
+      render_click(lv, "toggle_show_all", %{})
+
+      refute has_element?(lv, "#mobile-clear-#{pairing.id}")
+
+      render_click(lv, "clear_result", %{"id" => to_string(pairing.id)})
+      render_click(lv, "clear_result", %{"id" => to_string(pairing.id)})
+      render_click(lv, "set_result", %{"id" => to_string(pairing.id), "result" => ""})
+      assert Repo.reload!(pairing).result == "1-0"
+    end
+
+    test "nothing to clear on a blank board", %{conn: conn, tournament: t, pairing: pairing} do
+      Repo.update_all(Pairing, set: [result: ""])
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+      refute has_element?(lv, "#mobile-clear-#{pairing.id}")
+    end
+
+    test "not offered outside the phone's board range", %{conn: conn, tournament: t} do
+      {:ok, lv, _html} =
+        live(enrolled_conn(conn, t, level: "deputy", board_from: 2, board_to: 3), ~p"/m/results")
+
+      render_click(lv, "toggle_show_all", %{})
+      refute has_element?(lv, ".mobile-clear-btn")
+    end
+
+    test "clearing is still on offer once a later round is paired - it corrects nothing", %{
+      conn: conn,
+      tournament: t,
+      pairing: pairing
+    } do
+      white = Repo.get_by!(PairingsEngine.Tournaments.Player, name: "White Player")
+      black = Repo.get_by!(PairingsEngine.Tournaments.Player, name: "Black Player")
+      insert_round(t, 2, "playing", [{black, white, ""}])
+
+      {:ok, lv, _html} = live(enrolled_conn(conn, t, level: "deputy"), ~p"/m/results")
+      render_click(lv, "select_round", %{"number" => "1"})
+      render_click(lv, "toggle_show_all", %{})
+
+      assert has_element?(lv, "#mobile-clear-#{pairing.id}")
+    end
+
+    test "not offered on an archived tournament", %{conn: conn, tournament: t, pairing: pairing} do
+      conn = enrolled_conn(conn, t, level: "deputy")
+      {:ok, _} = Tournaments.archive_tournament(t)
+      {:ok, lv, _html} = live(conn, ~p"/m/results")
+      render_click(lv, "toggle_show_all", %{})
+
+      refute has_element?(lv, "#mobile-clear-#{pairing.id}")
+    end
+  end
 end
