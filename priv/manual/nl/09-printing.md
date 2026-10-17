@@ -18,7 +18,7 @@ heeft **Spelerslijst afdrukken** en **Plaatskaartjes afdrukken**, de pagina Stan
 
 ![Het tabblad Afdrukken met de documenten van een toernooi](screenshots/09-print-tab.png "Het tabblad Afdrukken")
 
-Een toernooilogo (Instellingen, Toernooi, *Logo*) wordt op de documenten afgedrukt.
+Een toernooilogo (Instellingen, Toernooi, *Logo*, geavanceerd tot er een is) wordt op de documenten afgedrukt.
 Documenten van een toernooi waarin nog een uitgestelde partij open staat, of waarin
 een bord geen resultaat heeft, krijgen een regel die zegt dat de cijfers nog niet
 definitief zijn.

@@ -19,6 +19,7 @@ Each entry is tagged so a version can be skimmed:
 
 - [Feature] **Print one category at a time.** Tournaments with categories get a *Print for* selector on the Print page, and the player list, cards, pairings, result slips, score sheets, standings and cross table follow it. Board numbers stay where they were, so the U1800 sheet no longer needs a pair of scissors and a steady hand.
 - [Change] The manual now calls them what they are to the person using them: live boards.
+- [Change] **Tournament settings, calmer.** The Settings pages now sit in the account page's frame: a rail of pages on the left, the settings most tournaments touch up front, the rest behind *Show advanced settings*. The switch is remembered on your account. Nothing was removed, and an advanced setting you changed is never hidden quietly: a note counts them and opens them. Features the tournament doesn't use fold down to their on/off switch, because nobody needs the homologation fields of a tournament nobody is homologating.
 
 ## [0.89.7] - 2026-10-17
 

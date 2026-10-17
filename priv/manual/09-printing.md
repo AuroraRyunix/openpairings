@@ -18,7 +18,7 @@ postponed games list has the notices.
 
 ![The Print tab listing the documents of a tournament](screenshots/09-print-tab.png "The Print tab")
 
-A tournament logo (Settings, Tournament, *Logo*) is printed on the
+A tournament logo (Settings, Tournament, *Logo*, advanced until one is set) is printed on the
 documents. Print documents of a tournament in which a postponed game is
 still open, or a board has no result, carry a line saying that the figures are
 not final.

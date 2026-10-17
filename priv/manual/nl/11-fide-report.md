@@ -14,7 +14,7 @@ Instellingen, **FIDE**:
 - vink **Dit toernooi is FIDE-gehomologeerd (gerate/rapporteerbaar)** aan wanneer de
   competitie gerate moet worden; het FIDE-toernooi-ID is dan verplicht;
 - **FIDE-toernooi-ID**: het ID van het toernooi; als verschillende delen van de
-  competitie verschillende ID's hebben, vul dan **FIDE-ID-bereiken per ronde** in (van ronde,
+  competitie verschillende ID's hebben, vul dan **FIDE-ID-bereiken per ronde** in (geavanceerd tot er een rij is; van ronde,
   tot ronde, ID);
 - **FIDE-evenementcode**.
 

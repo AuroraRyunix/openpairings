@@ -82,7 +82,7 @@ By default a round sat out is worth what the Scoring page pays an absence,
 and that is all there is to it. Some events want to decide per absence: a
 half-point bye for the player who asked in time, a zero-point one for the
 player who did not. Turn on **Ask the bye type for each absence** on the
-Scoring page, under *Byes and absences*. It is off by default, and only an
+Scoring page, under *Byes and absences* (advanced). It is off by default, and only an
 individual Swiss offers it.
 
 With it on, the registration form shows a line for every round in **Absent

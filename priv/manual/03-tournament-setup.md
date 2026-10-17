@@ -52,31 +52,66 @@ tournament ID.
 
 ## The Settings pages
 
-The **Settings** menu in the top bar has these pages:
+The **Settings** menu in the top bar opens the Tournament page. Every
+Settings page has the list of pages beside it (above it on a phone), in three
+groups: **Set-up** (Tournament, Options, Scoring, Dates, Categories, Extra
+points, Forbidden pairings), **Publishing** (OpenResults, Live boards) and
+**Reporting** (FIDE, Export, About).
 
-| Page | Holds |
-| --- | --- |
-| Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; officials; tie-breaks; sharing; logo |
-| Options | pairing system and engine, initial colour, acceleration, Swiss match format, teams, type and rate of play |
-| Forbidden pairings | forbidden pairs, rules by club or federation, groups of players who must not meet, and the wishes |
-| OpenResults | publishing to the results site ([Publishing](14-publishing.md)) |
-| Scoring | points, byes, absences, postponed games |
-| Dates | one date per round |
-| Categories | see [Categories and norms](13-categories-and-norms.md) |
-| Extra points | bonus or handicap points by rating band |
-| FIDE | FIDE mode and the report identifiers ([FIDE mode](02-fide-mode.md)); the rating-list sequence and the consistency checks of the ratings ([Players and rating lists](04-players-and-ratings.md)) |
-| Export | TRF, backups, CSV ([Import and export](10-import-export.md)) |
-| About | version and the pairing engine this tournament uses |
+### Common and advanced settings
 
-A page saves with its own **Save settings** button. When a colleague changes
-the same settings while you are typing, the page tells you that it is out of
-date instead of overwriting what you typed. Every settings change is written
-to the audit trail with the old and the new value.
+Each page first shows what nearly every tournament sets. The rest waits
+behind the switch **Show advanced settings** at the top of the page. The
+switch belongs to your account: it is the same on every Settings page, in
+every tournament and on every computer you sign in on. Hiding a setting
+never changes it - an advanced setting keeps its value and is saved with
+the page as before.
+
+When an advanced setting on the page is not at its default, the page says
+so beside the switch (*2 advanced settings are not at their defaults - show
+them*); a click shows them. A few cards are advanced only while unused: a
+tournament in a group, with a logo, with wishes among its forbidden pairings,
+with a per-round FIDE ID range or with its entry form open always shows that
+card.
+
+Two more things keep the pages short:
+
+- The settings of one pairing system show only while that system is chosen
+  on the Options page. Pick *Round robin* and the Swiss settings go away at
+  once, before you save.
+- A feature with its own tick box shows only the tick box until it is on:
+  *Tournament lasts more than 30 days*, *Allow postponed games*, *This
+  tournament is FIDE-homologated*. The two limits on paid absences appear
+  once *Points for a round sat out* has a value.
+
+| Page | Shown | With *Show advanced settings* |
+| --- | --- | --- |
+| Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; officials; tie-breaks; Chess960 and the 30-day tick; sharing | organiser's club number; how an unrated player is counted in the tie-breaks; players still level share a place; group; logo |
+| Options | pairing system, tournament rating, cycles (round robin), Keizer top value (Keizer), line-ups (teams), type and rate of play | engine, initial colour, equal rating and title, late entrants' pairing numbers, round-1 absentees, acceleration, the match formats, team rating and unrated rating (teams), other rate of play |
+| Scoring | points, match points, points for a round sat out and its limits, postponed games | voluntary unplayed rounds, late entrants' absences, asking the bye type; a team's bye, forfeit and withdrawal rules |
+| Dates | one date per round | - |
+| Categories | see [Categories and norms](13-categories-and-norms.md) | - |
+| Extra points | bonus or handicap points by rating band | - |
+| Forbidden pairings | the effect on the next round, the rules, players who must not meet | how hard to try the wishes |
+| OpenResults | publishing to the results site and each round ([Publishing](14-publishing.md)) | what the public page shows, the hall display, the entry form |
+| Live boards | the boxes and the games they reported ([Live boards](17-live-boards.md)) | - |
+| FIDE | FIDE mode, the homologated tick, the report identifiers, the rating-list sequence ([FIDE mode](02-fide-mode.md), [Players and rating lists](04-players-and-ratings.md)) | event type for title norms, per-round FIDE-ID ranges, consistency checks of the ratings |
+| Export | TRF, backups, the players' CSV download ([Import and export](10-import-export.md)) | the CSV's columns, separator, order and options |
+| About | version and the pairing engine this tournament uses | - |
+
+A form saves with its own **Save** button, and the answer appears beside it.
+When a colleague changes the same settings while you are typing, the page
+tells you that it is out of date instead of overwriting what you typed.
+Every settings change is written to the audit trail with the old and the new
+value.
+
+A hint under a setting shows one line; point at the setting, or click into
+it, for the rest.
 
 ## Tournament page
 
-**General.** Name (required), venue, city, federation, organiser, and the
-organiser's club number. **Tournament format** is the type: Swiss
+**General.** Name (required), venue, city, federation, organiser, and
+(advanced) the organiser's club number. **Tournament format** is the type: Swiss
 (individual), Round robin (individual), Swiss (teams), Round robin (teams).
 **Number of rounds** can be changed until the first round is paired (in a
 round robin the number follows from the players and cycles).
@@ -86,18 +121,23 @@ arbiters, and the data that the FIDE reports use. The same officials can be
 edited on the Norms page.
 
 **Tie-breaks.** Described in [Standings and tie-breaks](08-standings-and-tiebreaks.md).
-This section also holds *How an unrated player is counted in the tie-breaks*
-(with the rating typed for it) and *Players still level share a place*.
+With *Show advanced settings* this card also holds *How an unrated player is
+counted in the tie-breaks* (with the rating typed for it) and *Players still
+level share a place*.
 
-**Chess960.** The tick *Chess960* says that the tournament is played as
-Chess960. The arbiter then draws a starting position for each round on the
-Pairings page ([Pairing a round](06-pairing.md)).
+**Special formats.** The tick *Chess960* says that the tournament is played
+as Chess960. The arbiter then draws a starting position for each round on the
+Pairings page ([Pairing a round](06-pairing.md)). The tick *Tournament lasts
+more than 30 days* lets a player hold more than one rating during the event;
+once it is on, the two settings for the rating-based tie-breaks appear under
+it ([Standings and tie-breaks](08-standings-and-tiebreaks.md)). When the
+round dates span more than 30 days and the tick is off, the card says so.
 
 **Share / Team.** The owner can invite other arbiters by e-mail address (see
 [Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
 
-**Logo.** A PNG, JPEG, GIF or WebP image of at most 2 MB, stored with the
-tournament and printed on the documents.
+**Logo** (advanced until a logo is set). A PNG, JPEG, GIF or WebP image of at
+most 2 MB, stored with the tournament and printed on the documents.
 
 ## Tournament groups
 
@@ -107,7 +147,8 @@ what makes them separate tournaments rather than
 [categories](13-categories-and-norms.md) of one. A **group** strings them
 together.
 
-On **Settings → Tournament**, the **Group** card:
+On **Settings → Tournament**, the **Group** card (with *Show advanced
+settings*, or always once the tournament is in a group):
 
 - **Create group** starts a new group, named as you like, with this tournament
   in it.
@@ -166,6 +207,11 @@ this tournament is part of one.
   do not publish them one by one.
 
 ## Options page
+
+Shown by default: the pairing system, the tournament rating, the cycles (round
+robin), the Keizer top value (Keizer), the line-ups (team events) and the type
+and rate of play. Everything else on this page is advanced. The Swiss
+settings show only for a Swiss, the round robin ones only for a round robin.
 
 **Pairing system.** The system is fixed once the first round is paired.
 
@@ -255,13 +301,13 @@ is two rounds).
 > [!FIDE] Departure from FIDE mode
 > The Swiss match format is a departure from FIDE mode.
 
-**Teams** (team tournaments): whether line-ups are required, the way a team's
-rating is worked out for the order of the teams, and the rating counted for
-an unrated player. See [Teams](12-teams.md).
+**Teams** (team tournaments): whether line-ups are required, and (advanced)
+the way a team's rating is worked out for the order of the teams, and the
+rating counted for an unrated player. See [Teams](12-teams.md).
 
 **Type and rate of play.** The type (Standard, Rapid, Blitz) and the time
-control, from a list or typed in. The rate of play is written into the TRF
-report.
+control from a list, or (advanced) typed in under *Other rate of play*. The
+rate of play is written into the TRF report.
 
 Forbidden pairings and the club and federation rules have their own page,
 below.
@@ -301,7 +347,7 @@ A pair or a rule added once rounds are paired holds from the next round to be
 paired, and the TRF report says so. Unpair a round afterwards and it holds
 from that round: pair it again and the restriction is applied.
 
-**How hard to try the wishes.** *Strong* puts the wishes before the colour
+**How hard to try the wishes** (advanced until there is a wish). *Strong* puts the wishes before the colour
 and float criteria, *Weak* uses them only as a last tie-break. Wishes are
 applied by the Swiss engine only: Keizer keeps the rules but ignores the
 wishes, and the page says so.
@@ -331,14 +377,15 @@ the **pairing-allocated bye** (default: a win).
 > from the FIDE rules.
 
 **Match points** (team events): 2 for a won match, 1 for a drawn match, 0 for
-a lost match by default; the match points and game points of a
+a lost match by default; and, advanced, the match points and game points of a
 pairing-allocated bye; what a match forfeited as a whole pays in game points
 ([Teams](12-teams.md)); and the treatment of a team that withdraws.
 
 **Byes and absences.** *Points for a round sat out* is the value of a round a
 player was absent for (blank: absences score nothing). Two optional limits go
-with it: the last round it still applies to, and a cap on how many of a
-player's rounds are paid. *Treat a round sat out as a voluntary unplayed round
+with it, shown once it has a value: the last round it still applies to, and a
+cap on how many of a player's rounds are paid. The three settings after them
+are advanced. *Treat a round sat out as a voluntary unplayed round
 for tiebreaks* changes how the tie-breaks of C.07 treat those rounds; a round
 paid as much as a win is a full-point bye there whatever this says (C.07
 16.1.1 keeps "requested bye" for half a point or none). *Rounds
@@ -351,8 +398,9 @@ with the answer the points above give already picked; see
 [Byes and absences](05-byes-and-absences.md#asking-the-bye-type).
 
 **Postponed games.** *Allow postponed games* offers a postponed result on the
-Pairings page. Until a postponed game is played it counts for the player who
-postponed it, and for the opponent, as set here (a draw for both by default,
+Pairings page; the two values below it show once it is ticked. Until a
+postponed game is played it counts for the player who postponed it, and for
+the opponent, as set here (a draw for both by default,
 which is the FIDE rule). A round robin always offers postponed results, so
 there the switch is shown on and locked; the values still apply. See
 [Results](07-results.md).

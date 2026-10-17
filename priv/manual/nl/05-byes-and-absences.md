@@ -77,7 +77,7 @@ Standaard is een overgeslagen ronde waard wat de pagina Puntentelling voor een
 afwezigheid betaalt, en daarmee is het gezegd. Sommige evenementen willen per
 afwezigheid beslissen: een halvepuntsbye voor de speler die op tijd vroeg, een
 nulpuntsbye voor de speler die dat niet deed. Zet **Het byetype vragen bij elke
-afwezigheid** aan op de pagina Puntentelling, onder *Byes en afwezigheden*. Het
+afwezigheid** aan op de pagina Puntentelling, onder *Byes en afwezigheden* (geavanceerd). Het
 staat standaard uit, en alleen een individueel Zwitsers toernooi biedt het aan.
 
 Staat het aan, dan toont het inschrijfformulier een regel voor elke ronde in

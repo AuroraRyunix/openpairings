@@ -7,7 +7,7 @@ the table has the rank, the name, the rating, the points, and one column for
 every tie-break of the tournament, in the order in which they are applied.
 The page header says *Standings after round N*. Players still level after
 every tie-break are ordered by rating and name, or share a place, as the
-setting *Players still level share a place* says (see below).
+setting *Players still level share a place* (Settings, Tournament, advanced) says (see below).
 
 ![The Standings page of a Swiss tournament with the tie-break columns](screenshots/08-standings-swiss.png "Standings after round 5")
 
@@ -156,7 +156,7 @@ are the last group of the list.
   contribute a "virtual opponent" to Buchholz-type sums, and an opponent's
   score is adjusted for the games that opponent did not play. The program applies
   this in full, for byes, forfeits and absences. A setting on the
-  Scoring page (*Treat a round sat out as a voluntary unplayed round*)
+  Scoring page (*Treat a round sat out as a voluntary unplayed round*, advanced)
   chooses how absences count.
 - **Rating-based tie-breaks and unrated players.** The rating-based
   tie-breaks (ARO and its cuts and medians, TPR, PTP, APRO, APPO, RTNG) are

@@ -7,7 +7,7 @@ heeft de tabel de plaats, de naam, de rating, de punten en één kolom voor elke
 tiebreak van het toernooi, in de volgorde waarin ze worden toegepast. De kop van de
 pagina zegt *Stand na ronde N*. Spelers die na elke tiebreak nog gelijk staan,
 worden gerangschikt op rating en naam, of delen een plaats, al naar gelang de
-instelling *Spelers die nog gelijk staan delen een plaats* (zie hieronder).
+instelling *Spelers die nog gelijk staan delen een plaats* (Instellingen, Toernooi, geavanceerd) (zie hieronder).
 
 ![De pagina Stand van een Zwitsers toernooi met de tiebreakkolommen](screenshots/08-standings-swiss.png "Stand na ronde 5")
 
@@ -161,7 +161,7 @@ vormen de laatste groep van de lijst.
   en de score van een tegenstander wordt aangepast voor de partijen die die
   tegenstander niet heeft gespeeld. Het programma past dit volledig toe, voor byes,
   forfaits en afwezigheden. Een instelling op de pagina Puntentelling (*Een ronde
-  waarin wordt uitgerust, behandelen als een vrijwillig niet-gespeelde ronde*) kiest
+  waarin wordt uitgerust, behandelen als een vrijwillig niet-gespeelde ronde*, geavanceerd) kiest
   hoe afwezigheden tellen.
 - **Op rating gebaseerde tiebreaks en ongeratete spelers.** De op rating gebaseerde
   tiebreaks (ARO en zijn cuts en medianen, TPR, PTP, APRO, APPO, RTNG) vallen weg

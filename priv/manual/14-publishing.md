@@ -91,7 +91,7 @@ the boards in the hall, see [Setting up electronic boards](18-setting-up-boards.
 
 ### What the public page shows
 
-Switches choose which details a published page may show (ratings, titles,
+Switches (advanced) choose which details a published page may show (ratings, titles,
 federations, clubs, categories, player cards, the standings page, the pairings
 pages, the columns of the standings, and which tie-breaks), and, separately,
 whether the working of the tie-breaks is published. A detail you hide is not sent to the results site at all. Hiding a
@@ -115,7 +115,7 @@ FIDE itself, or with a code that names no country, gets no picture.
 
 A full-screen page for a television or projector in the playing hall, at an
 address shown on the settings page once the tournament is published. The
-**Hall display** card chooses what it cycles through (pairings, the *Find your
+**Hall display** card (advanced) chooses what it cycles through (pairings, the *Find your
 board* list by name, results, standings), seconds per page, how many
 places of the standings to show, whether to hold on the pairings until the
 first result of a new round is in, and an **Announcement** (plain text, up to 500
@@ -140,7 +140,7 @@ Team tournaments are published too, with team standings and matches.
 
 ## Entries through the results site
 
-**Entry form** on the OpenResults settings page lets players register on the
+**Entry form** on the OpenResults settings page (advanced until it is open) lets players register on the
 results site: switch on **Accepting entries**, set when it opens and closes, a
 maximum number of players, and whether the list of entrants is shown on the
 form. **Review entries** opens the page of entries, where you fetch new ones,
