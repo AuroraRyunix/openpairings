@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.89.2] - 2026-10-17
+
 - [Feature] **Performance on the public standings, off unless you ask.** The Results site settings have a new "Performance" tick under the columns. Ticked, each standings row carries the same performance rating the Players page already shows, worked out on the games up to that round; unticked, which is where every tournament starts, the key is simply not sent. A player with no finished game has no number and no key, rather than a zero that would look like a very bad tournament. One formula, one function, so the two screens can no longer disagree out of spite.
 - [Fix] **A pasted player is no longer a stranger to *Update clubs*.** A row copied from a spreadsheet kept its tab at the end of the national ID, which looks like nothing on screen and matches nothing in the KBSB list, so the club refresh walked past it every time and the club stayed as pasted. Names, IDs, clubs, federations and titles are trimmed on save, a name's comma gets one space after it and none before, the IDs already stored with a tab are cleaned by a migration, and the KBSB lookup trims as well, for good measure.
 - [Feature] **Sex on the public pages, off unless you ask.** The Results site settings have a new "Sex" tick under the player details. Ticked, the published players carry an M or F and the standings and starting list gain a column for it; unticked, which is where every tournament starts, old ones included, the key is not sent at all rather than sent blank. It is personal data, and nobody had published it before, so nobody gets surprised by it now. Like the rounds-present column, it is the exception to "absent means shown".
