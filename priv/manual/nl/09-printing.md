@@ -43,9 +43,9 @@ de methoden met de hoogste rating of een met de hand ingetypte rating.
 | **Resultaatkaartjes** | Eén kaartje per bord van een ronde, acht op een A4-pagina, met de namen, ratings, paringsnummers en de drie resultaten om aan te kruisen, een regel voor een ander resultaat, en handtekeningvakjes. Byes worden overgeslagen. |
 | **Notatiebriefjes** | Eén voorbereid briefje per bord: namen, ratings, zetkolommen en handtekeningen. |
 | **Kruistabel** | Het volledige resultatenrooster. Een Zwitsers of Keizer-toernooi krijgt één rij per speler in standvolgorde en één kolom per ronde; elke cel leest *paringsnummer van de tegenstander, kleur, resultaat* (`12w1`: wit tegen nummer 12, gewonnen). Een rondetoernooi krijgt het klassieke rooster speler tegen speler, met het resultaat van elke cyclus in dezelfde cel als iedereen meer dan eens tegen iedereen speelt. |
-| **Plaatskaartjes** | Eén opgevouwen tentkaartje per speler op een volledige A4-pagina (zie hieronder). Vanaf de pagina Spelers. |
+| **Plaatskaartjes** | Eén opgevouwen tentkaartje per speler op een volledige A4-pagina (zie hieronder). Op het tabblad Afdrukken en op de pagina Spelers. |
 | **Briefjes voor uitgestelde partijen** | Eén briefje per speler van elke openstaande uitgestelde partij ([Resultaten invoeren](07-results.md)). |
-| **Voorvertoning volgende ronde** | De borden die vast liggen, wat de openstaande resultaten ook zijn, met een lijst op naam voor de naamkaartjes ([Een ronde paren](06-pairing.md)). |
+| **Voorvertoning volgende ronde** | De borden die vast liggen, wat de openstaande resultaten ook zijn, met een lijst op naam voor de naamkaartjes ([Een ronde paren](06-pairing.md)). Op het tabblad Afdrukken zodra je ze op de pagina Paringen hebt berekend; tot dan is er niets af te drukken. |
 
 ### Welke ronde {#which-round}
 

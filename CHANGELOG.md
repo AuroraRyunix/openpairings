@@ -21,6 +21,7 @@ Each entry is tagged so a version can be skimmed:
 - [Change] The manual now calls them what they are to the person using them: live boards.
 - [Change] **The Pairings page's round bar shows what the round needs, not everything it could ever need.** One main button per stage: *Pair round N* before pairing, nothing while the results come in (they are the work), *On to round N* once they are in, *Standings* after the last round, with *Send for rating* beside it. The Print menu, *Swap rounds…* and the rest went into one **More** menu, grouped, with unpairing at the bottom in red where it can't be hit by accident. Nothing was removed. It just stopped shouting.
 - [Change] **Tournament settings, calmer.** The Settings pages now sit in the account page's frame: a rail of pages on the left, the settings most tournaments touch up front, the rest behind *Show advanced settings*. The switch is remembered on your account. Nothing was removed, and an advanced setting you changed is never hidden quietly: a note counts them and opens them. Features the tournament doesn't use fold down to their on/off switch, because nobody needs the homologation fields of a tournament nobody is homologating.
+- [Change] **Place cards and the next round preview are on the Print page now**, with the category selector like the rest. They used to live only behind other pages' buttons, which is a fine place to hide things you don't want found. The preview stays unlinked until you have worked it out on the Pairings page.
 
 ## [0.89.7] - 2026-10-17
 

@@ -195,8 +195,32 @@ defmodule PairingsEngineWeb.PrintLive do
         name: "Cross table",
         desc: "Full results grid of the tournament.",
         href: ~p"/t/#{tournament.id}/print/crosstable"
+      },
+      %{
+        id: "print-doc-placecards",
+        name: "Place cards",
+        desc: "A folded name card per player, to stand at their seat.",
+        href: ~p"/t/#{tournament.id}/print/placecards"
+      },
+      %{
+        id: "print-doc-next-round-preview",
+        name: "Next round preview",
+        desc:
+          "The next round's boards that are already certain. Work it out on the Pairings page first; until then there is nothing to print.",
+        href:
+          if(next_round_preview_ready?(tournament),
+            do: ~p"/t/#{tournament.id}/print/next-round-preview"
+          )
       }
     ]
+  end
+
+  # The controller refuses (409) a preview the Pairings page has not worked
+  # out for the tournament as it is now, so the link is only offered when it
+  # would print something.
+  defp next_round_preview_ready?(tournament) do
+    fingerprint = PairingsEngine.NextRoundPreview.fingerprint(tournament.id)
+    PairingsEngine.NextRoundPreview.Cache.get(tournament.id, fingerprint) != nil
   end
 
   @impl true
