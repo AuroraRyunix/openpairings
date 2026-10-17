@@ -203,26 +203,47 @@ defmodule PairingsEngineWeb.HookEventsTest do
   end
 
   describe "the round menus (.RoundMenu)" do
-    # The round's Print and More menus are native <details>: the <summary> is
-    # the button (focusable, Enter/Space toggle it, the browser reports it
-    # expanded or not), they start closed, and `open` survives a re-render.
-    test "Print and More start closed, with their items inside", %{conn: conn, tournament: t} do
+    # The round's More menu is a native <details>: the <summary> is the
+    # button (focusable, Enter/Space toggle it, the browser reports it
+    # expanded or not), it starts closed, and `open` survives a re-render.
+    # It was a Print menu and a More menu until the round bar's declutter
+    # folded Print into More, under its own heading.
+    test "More starts closed, with its items inside", %{conn: conn, tournament: t} do
       {:ok, _round} = Pairing.pair_next_round(Tournaments.get_tournament!(t.id))
       {:ok, view, _} = live(conn, ~p"/t/#{t.id}/pairings")
 
       document = view |> render() |> LazyHTML.from_fragment()
       menus = LazyHTML.query(document, "details[phx-hook$='.RoundMenu']")
 
-      assert Enum.count(menus) == 2
+      assert Enum.count(menus) == 1
       assert menus |> LazyHTML.attribute("open") |> Enum.reject(&is_nil/1) == []
 
       assert Enum.count(LazyHTML.query(document, "details[phx-hook$='.RoundMenu'] > summary")) ==
-               2
+               1
 
       assert Enum.count(
                LazyHTML.query(document, "details[phx-hook$='.RoundMenu'] [role='menuitem']")
              ) >
                5
+    end
+  end
+
+  describe "the Players page's More menu (.PlayersMenu)" do
+    test "it starts closed, with its items inside", %{conn: conn, tournament: t} do
+      {:ok, view, _} = live(conn, ~p"/t/#{t.id}/players")
+
+      document = view |> render() |> LazyHTML.from_fragment()
+      menus = LazyHTML.query(document, "details[phx-hook$='.PlayersMenu']")
+
+      assert Enum.count(menus) == 1
+      assert menus |> LazyHTML.attribute("open") |> Enum.reject(&is_nil/1) == []
+
+      assert Enum.count(LazyHTML.query(document, "details[phx-hook$='.PlayersMenu'] > summary")) ==
+               1
+
+      assert Enum.count(
+               LazyHTML.query(document, "details[phx-hook$='.PlayersMenu'] [role='menuitem']")
+             ) >= 3
     end
   end
 end
