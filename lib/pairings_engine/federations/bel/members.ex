@@ -204,7 +204,7 @@ defmodule PairingsEngine.Federations.BEL.Members do
   @doc """
   Builds `%{normalize_name(full_name) => [Member]}` across the whole
   list, for callers matching many players in one go (see
-  `PairingsEngine.Federations.BEL.ClubRefresh`).
+  `PairingsEngine.Federations.BEL.PlayerDataRefresh`).
 
   Deliberately one query and one pass rather than a lookup per player: the
   list is tens of thousands of rows but a tournament is a few hundred

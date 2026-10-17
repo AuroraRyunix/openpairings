@@ -35,9 +35,10 @@ national list. It is part of the *Belgian pack* of features that is switched
 off for every account unless you turn it on: Account menu, **Features**. With
 *National rating list sync* on, Connections shows the section *Belgian
 national rating list*, where **Sync from KBSB** downloads the federation's
-public monthly file (about 36,000 players: national ID, name, club, FIDE ID,
-national rating). *KBSB player lookup* adds the list to the player search.
-*Bulk club update* adds the **Update clubs** button on the Players page.
+public monthly file (about 36,000 players: national ID, name, sex, club, FIDE
+ID, national rating). *KBSB player lookup* adds the list to the player search.
+*Bulk player data update* adds the **Update player data** button on the
+Players page.
 An arbiter outside Belgium never sees any of it. The sync only copies the
 federation's file; it never writes ratings into your tournaments by itself.
 
@@ -100,7 +101,7 @@ buttons
 
 - **Add player** (also <kbd>Ctrl</kbd>+<kbd>I</kbd>),
 - **Refresh ratings**,
-- **Update clubs** (only with the Belgian feature on),
+- **Update player data** (only with the Belgian feature on),
 - **Print player list** and **Print place cards**,
 - **Enter results**, which leads to the Pairings page.
 
@@ -255,8 +256,28 @@ machine is current and updates it first, or says that it could not.
 In the table of proposed changes each line has a tick, and there is **Select
 all**: **Apply selected** writes only the ticked ones.
 
-**Update clubs** (Belgian pack) works the same way for the club and the club
-number, matching by national ID, then FIDE ID. It never blanks a club.
+**Update player data** (Belgian pack) works the same way for everything
+except the ratings. It finds each player on the KBSB list by national ID, then
+FIDE ID, then name plus birth year (only when that names exactly one person),
+and on the FIDE list by FIDE ID. It proposes every field that differs:
+
+- from the KBSB list: the name as the list spells it, the club and club number
+  (one tick for both: they are applied together), affiliation, and a FIDE ID
+  or national ID the player does not have yet;
+- from the FIDE list: the title;
+- sex, birth year and federation from the FIDE list, or from the KBSB list
+  when the player has no FIDE record. The FIDE list wins because the rating
+  report is checked against it.
+
+The table shows the old and the new value, which list it came from, and how the
+player was matched. Look at a name change before you tick it. A player with a
+full date of birth keeps it when the year agrees; when the list gives another
+year, the old value shows the date, and applying it sets the new year and
+removes the date. Nothing is ever blanked because a list leaves a field empty,
+and ratings stay with **Refresh ratings**.
+
+The sex on the KBSB list arrives with the next **Sync from KBSB** on the
+Connections page. Before that, the program did not store it.
 
 > [!TIP]
 > Refresh the ratings before round 1 is paired. Changing a rating afterwards

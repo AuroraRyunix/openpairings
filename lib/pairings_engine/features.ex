@@ -131,10 +131,10 @@ defmodule PairingsEngine.Features do
       %{
         key: "bel_club_sync",
         federation: "BEL",
-        label: gettext("Bulk club update"),
+        label: gettext("Bulk player data update"),
         description:
           gettext(
-            "Adds the \"Update clubs\" action on the players page: compares everyone against the local member list and proposes their current club before writing anything. Reads the local copy of the member list."
+            "Adds the \"Update player data\" action on the players page: compares everyone against the local member list and FIDE list and proposes their current club, sex, birth year, federation, title and name before writing anything. Ratings stay with Refresh ratings."
           )
       },
       %{

@@ -214,11 +214,11 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
   describe "bel_club_sync, switched off" do
     setup %{scope: scope}, do: %{tournament: tournament(scope, "Clubs Off")}
 
-    test "no Update clubs button", %{conn: conn, tournament: t} do
+    test "no Update player data button", %{conn: conn, tournament: t} do
       {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/players")
 
-      refute html =~ "Update clubs"
-      refute html =~ ~s(phx-click="open_club_refresh")
+      refute html =~ "Update player data"
+      refute html =~ ~s(phx-click="open_data_refresh")
       # The rating refresh beside it is a FIDE gesture and stays.
       assert html =~ "Refresh ratings"
     end
@@ -243,8 +243,8 @@ defmodule PairingsEngineWeb.FederationFeaturesGatingTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
 
-      assert render_click(lv, "open_club_refresh", %{}) =~ "switched off for your account"
-      assert render_click(lv, "apply_club_refresh", %{}) =~ "switched off for your account"
+      assert render_click(lv, "open_data_refresh", %{}) =~ "switched off for your account"
+      assert render_click(lv, "apply_data_refresh", %{}) =~ "switched off for your account"
 
       unchanged = Tournaments.get_player!(t.id, player.id)
       assert unchanged.club == "Old Club"

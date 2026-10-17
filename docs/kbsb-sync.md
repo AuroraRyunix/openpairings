@@ -167,7 +167,7 @@ Three sources, in this precedence, decided fresh on every sync
 A club with no name known from ANY of the three is shown by its **number**
 in the UI (`Member.club_label/1`, e.g. `"#417"`) rather than hidden or
 guessed at. This is what `bel_club_sync`
-(`PairingsEngine.Federations.BEL.ClubRefresh`) and the Players page both
+(`PairingsEngine.Federations.BEL.PlayerDataRefresh`) and the Players page both
 read - `club_name` is still resolved and stored denormalized onto each
 `kbsb_players` row at import time (unchanged from before), so neither of
 those readers needed to change.
@@ -185,11 +185,12 @@ those readers needed to change.
 | `club_number` | `Club` | |
 | `club_name` | (resolved) | see "Club names" above |
 | `federation` | `Fed` | the wing inside Belgium (V, F, D), NOT a country: never copied into a player's `federation` (`Members.fide_federation/1` supplies the FIDE list's country instead) |
-| `birth_year` | `Birthday` | **year only** - the leading 4 digits. The full birth date is never stored: no feature reads a day of birth, only the year (`ClubRefresh.year_agrees?/2`) |
+| `birth_year` | `Birthday` | **year only** - the leading 4 digits. The full birth date is never stored: no feature reads a day of birth, only the year (`PlayerDataRefresh.year_agrees?/2`) |
+| `sex` | `Sex` | `"m"`/`"w"`, the app's own spelling (`Player.normalize_sex/1`): `M`/`H` -> `m`, `F`/`W`/`V` -> `w`, an integer 1/2 as SWAR numbers it; anything else `nil`. Kept since 2026-10; rows imported before have `nil` until the next sync, which the migration forces to be a full download by forgetting the stored ETag |
 | `died` | `Died` | boolean (`1`/`0` -> `true`/`false`) |
 | `affiliated` | `Affiliated` | boolean, same conversion |
 
-Never stored, from anywhere: `Sex`, `EloPrevious`, `Gain`, `Games`,
+Never stored, from anywhere: `EloPrevious`, `Gain`, `Games`,
 `GamesPrevious`, `Performance`, `Opponents`, `LastGames`, `Border`,
 `Arbiter`, `NatPlayer`, `NatFideSign`, `G`, and - deliberately, always -
 `LoginModif`/`DateModif`, which are not even read off disk.
