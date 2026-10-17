@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.89.7] - 2026-10-17
+
 - [Change] **Adding a player with no sex now asks first.** The form used to save "unknown" without a murmur, and the murmur turned up later in the FIDE report. It now says what it needs the answer for and offers *Choose sex* or *Save without*. Editing, imports and lookups stay quiet.
 
 ## [0.89.6] - 2026-10-17

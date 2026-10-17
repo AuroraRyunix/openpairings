@@ -21177,4 +21177,4 @@ msgstr "Geen geslacht gekozen. FIDE-rapporten en damesprijzen hebben het nodig."
 #: lib/pairings_engine_web/live/players_live.ex:3372
 #, elixir-autogen, elixir-format
 msgid "Save without"
-msgstr "Zonder opslaan"
+msgstr "Toch opslaan"

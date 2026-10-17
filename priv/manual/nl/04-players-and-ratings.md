@@ -139,7 +139,7 @@ aanwezigheidsinstellingen ([Byes en afwezigheid](05-byes-and-absences.md)). Een
 speler met een FIDE-ID die al in het toernooi zit, wordt geweigerd. Een speler
 toevoegen zonder gekozen geslacht slaat niet meteen op: het formulier zegt dat
 FIDE-rapporten en damesprijzen het nodig hebben en biedt **Geslacht kiezen**
-(terug naar de knoppen M en F; Escape doet hetzelfde) of **Zonder opslaan**.
+(terug naar de knoppen M en F; Escape doet hetzelfde) of **Toch opslaan**.
 Een speler bewerken, importeren en de opzoekingen vragen er nooit naar. De
 **FIDE-opzoeking** van het inschrijfformulier (en, met het Belgische pakket, de
 **KBSB-opzoeking**) zoekt de speler opnieuw op in de lokale lijst. Als de lijst iets
