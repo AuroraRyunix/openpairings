@@ -57,6 +57,21 @@ has not been paired yet*, not another round. The standings print takes a
 round in the same way (`?round=N`) and then shows the standings as they stood
 after that round.
 
+### One category only
+
+When the tournament has categories, the Print page gets a *Print for* selector
+above the documents. Choose a category and the links of the player list, player
+cards, pairing lists, result cards, score sheets, standings and cross table carry
+`?category=` (the place cards and the next-round preview accept it too) and print
+that category alone; the choice stays
+in the address, so a reload keeps it, and the subtitle of the printout names the
+category. Pairings, result cards and score sheets keep only the boards where a
+player of the category sits, with the board numbers as they were. The standings
+show just that category's table, ranked by place within the category. In a
+tournament paired by category each player belongs to the category they are paired
+in; otherwise a player is in every category they are tagged with. Team documents
+are not affected.
+
 ### Result cards: test print and stack cutting
 
 - **Result cards: test print (first 3)** prints three cards, to check the
