@@ -91,7 +91,8 @@ defmodule PairingsEngine.Publishing do
 
   OpenResults' `docs/public-publishing.md` ("OpenPairings desktop") is the
   contract. A local run (`PairingsEngine.Authz.local_mode?/0`) with no
-  operator token defaults its address to `https://openresults.zerotwo.cloud`
+  operator token defaults its address to `default_public_server/0`
+  (`https://openresults.zerotwo.cloud` until the move to openresults.cloud)
   and publishes under an installation key of its own rather than a token -
   see `PairingsEngine.Publishing.Installation` for how that key is obtained
   and kept. `mode/0` is the one answer to which of the two applies.
@@ -173,7 +174,23 @@ defmodule PairingsEngine.Publishing do
 
   # Where a desktop copy publishes when nobody has configured anything. See
   # "Public mode" in the moduledoc.
+  # Overridable with OPENRESULTS_PUBLIC_URL (`config :pairings_engine,
+  # :openresults_public_url`). This compiled value is what a desktop copy
+  # uses, since it has no environment to set it from: change it in the
+  # release that follows the move to openresults.cloud, not before.
   @public_server "https://openresults.zerotwo.cloud"
+
+  @doc """
+  The results site this build publishes to when nothing else is configured -
+  the `OPENRESULTS_PUBLIC_URL` setting, else the compiled default. Also the
+  placeholder the settings form suggests.
+  """
+  def default_public_server do
+    case Application.get_env(:pairings_engine, :openresults_public_url) do
+      url when is_binary(url) and url != "" -> url
+      _unset -> @public_server
+    end
+  end
 
   @doc """
   Where this machine SENDS to, or nil.
@@ -198,7 +215,7 @@ defmodule PairingsEngine.Publishing do
   end
 
   @doc "The address a local run publishes to when none is stored, or nil when hosted."
-  def default_endpoint, do: if(Authz.local_mode?(), do: @public_server)
+  def default_endpoint, do: if(Authz.local_mode?(), do: default_public_server())
 
   @doc """
   Which credential this machine publishes with.

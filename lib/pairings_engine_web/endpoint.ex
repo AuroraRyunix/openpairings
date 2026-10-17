@@ -66,6 +66,10 @@ defmodule PairingsEngineWeb.Endpoint do
 
   plug Plug.RequestId
 
+  # Old hostname -> canonical hostname, for GET/HEAD, and only when
+  # PHX_REDIRECT_HOSTS names the old host. A no-op otherwise.
+  plug PairingsEngineWeb.Plugs.CanonicalHost
+
   # Five routes carry a bearer token in the PATH, which is the one part of a
   # request Phoenix logs at `:info` in production. The plug redacts those and
   # logs them itself; the `:log` option below is what stops Phoenix writing
