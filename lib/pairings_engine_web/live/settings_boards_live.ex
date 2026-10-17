@@ -62,6 +62,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
 
     assign(socket,
       links: BoardLink.list_links(tournament),
+      account_links: BoardLink.account_links(tournament.id),
       group: TournamentGroups.membership(tournament.id),
       target: BoardLink.openresults_target(tournament),
       relay: RelayKeys.status(tournament),
@@ -634,6 +635,12 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         tournament={@tournament}
         lan={@lan}
       />
+      <.account_links_card
+        :if={@account_links != []}
+        links={@account_links}
+        current_scope={@current_scope}
+        now={@now}
+      />
       <div class="card" id="boards-results-site">
         <h2>{gettext("The results site")}</h2>
 
@@ -1087,6 +1094,60 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
     </div>
     """
   end
+
+  # Read-only: the account-wide links that also reach this tournament. They
+  # are withdrawn on the account page, by the account they belong to. Only
+  # the main listener ever sees them: the network listener accepts nothing
+  # but its own codes, and this page is not served there.
+  attr :links, :list, required: true
+  attr :current_scope, :map, required: true
+  attr :now, :any, required: true
+
+  defp account_links_card(assigns) do
+    ~H"""
+    <div class="card" id="account-codes">
+      <h2>{gettext("Account-wide links")}</h2>
+
+      <p class="hint" style="margin-top: 0">
+        {gettext(
+          "These board boxes are connected to a whole account and reach this tournament along with the rest of that account's current tournaments. They are listed here, not managed: an account withdraws its own on its account page."
+        )}
+      </p>
+
+      <ul class="acct-boards" id="account-code-list">
+        <li :for={link <- @links} id={"account-code-#{link.id}"} class="acct-board">
+          <div class="acct-board-text">
+            <span class="acct-board-name">
+              {link.label || link.box_name || gettext("A board box")}
+            </span>
+            <span class="acct-board-meta" id={"account-code-meta-#{link.id}"}>
+              {gettext("Account %{email}", email: link.user.email)} · {gettext("made %{date}",
+                date: Calendar.strftime(link.inserted_at, "%Y-%m-%d")
+              )} · {account_seen(link, @now)}
+            </span>
+          </div>
+
+          <%= if link.user_id == @current_scope.user.id do %>
+            <.link
+              id={"account-code-withdraw-#{link.id}"}
+              navigate={~p"/users/settings"}
+              class="pe-btn danger-link"
+            >
+              {gettext("Withdraw on your account page")}
+            </.link>
+          <% else %>
+            <span class="hint" id={"account-code-other-#{link.id}"}>
+              {gettext("Withdrawn by that account")}
+            </span>
+          <% end %>
+        </li>
+      </ul>
+    </div>
+    """
+  end
+
+  defp account_seen(%{last_seen_at: nil}, _now), do: gettext("Never used")
+  defp account_seen(link, now), do: gettext("last seen %{ago}", ago: ago(link.last_seen_at, now))
 
   defp present?(link, now), do: DateTime.diff(now, link.last_seen_at) < @present_s
 

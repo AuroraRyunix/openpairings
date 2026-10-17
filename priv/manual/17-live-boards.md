@@ -124,6 +124,12 @@ the box's name, when it last called, and the last characters of its code.
 to 8 boxes connected. Making and withdrawing one are in the installation's
 audit trail, since they belong to no single tournament.
 
+A tournament's own **Settings, Live boards** page also lists the account
+connections that reach it, under **Account-wide links**: the box, the account,
+when it was made and when it last called. The list is read-only and only people
+who may edit the tournament see it. Each entry links to the account page, where
+the account it belongs to withdraws it.
+
 On a desktop copy this works for a box program on the same computer. A box
 elsewhere on the hall network still needs a network code (below): the network
 listener does not take account connections.

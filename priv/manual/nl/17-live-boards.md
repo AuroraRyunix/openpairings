@@ -126,6 +126,13 @@ code. **Intrekken** sluit een kastje af vanaf zijn volgende verzoek. Een account
 kan tot 8 kastjes gekoppeld hebben. Een koppeling maken en intrekken staan in
 het auditlogboek van de installatie, omdat ze bij geen enkel toernooi horen.
 
+Op de pagina **Instellingen, Live borden** van een toernooi staan de
+accountkoppelingen die dat toernooi bereiken ook, onder **Accountbrede
+koppelingen**: het kastje, het account, wanneer ze gemaakt is en wanneer het
+kastje het laatst belde. De lijst is alleen-lezen en alleen wie het toernooi
+mag bewerken ziet hem. Elke regel verwijst naar de accountpagina, waar het
+account waartoe ze behoort haar intrekt.
+
 Op een desktopkopie werkt dit voor een kastjesprogramma op dezelfde computer.
 Een kastje elders op het zaalnetwerk heeft nog altijd een netwerkcode nodig
 (hieronder): de netwerkluisteraar neemt geen accountkoppelingen aan.
