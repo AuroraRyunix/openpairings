@@ -17,6 +17,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The Archived table on the Tournaments list has the same More menu** as the rows above it, instead of three buttons in a row: *Export*, *Unarchive* and, last in red, *Delete* or *Leave*. The previous release did the active rows and left these to their own devices.
 - [Removed] **The single-file Mac download is gone.** It carried its own copy of Erlang that insisted on macOS 15, which made it a very small download for very few Macs. The Mac app (`openpairings_app_macos_aarch64.zip`) and the portable zip stay, and both run on macOS 11 and newer. Nothing in the program looked for the old file, so installed copies are unaffected.
 ## [0.90.0] - 2026-10-17
 

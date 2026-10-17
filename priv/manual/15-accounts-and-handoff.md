@@ -77,6 +77,8 @@ players, dates and status. Each row has one **More** menu with these actions
 | Hand off / Give back / Bring it back | See below. |
 | Leave | For a shared tournament that is not yours. |
 
+The **Archived** table below the list has the same **More** menu on each row, with *Export*, *Unarchive* and, last in red, *Delete* or *Leave*.
+
 The **Recycle bin** lists deleted tournaments; **Restore** brings one back.
 
 > [!WARNING]
