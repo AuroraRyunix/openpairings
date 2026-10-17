@@ -231,6 +231,11 @@ defmodule PairingsEngine.Federations.BEL.Members do
 
   def player_count, do: Repo.aggregate(Member, :count)
 
+  @doc "True when the list has rows and none of them carries a sex: imported before 0.89.3."
+  def missing_sex? do
+    Repo.exists?(Member) and not Repo.exists?(from m in Member, where: not is_nil(m.sex))
+  end
+
   def last_sync do
     case Repo.query!("SELECT value FROM meta WHERE key = 'kbsb_last_sync'").rows do
       [[value]] -> value

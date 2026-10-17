@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.89.6] - 2026-10-17
+
+- [Fix] **The KBSB list fetches its own sexes.** 0.89.3 started keeping each member's sex, but only for rows imported after it, and a list synced earlier stayed sexless until somebody pressed *Sync from KBSB*, which nobody did. A list with rows and not one sex among them now re-syncs itself once, a minute after the server starts. *Update player data* then has something to offer.
+
 ## [0.89.5] - 2026-10-17
 
 - [Fix] **A name saved untidy before names were tidied is now offered the list's spelling.** *Update player data* compared names after tidying both, so "Holovatyi ,Toma" and "Holovatyi, Toma" were the same name to it and the comma stayed where it was pasted.

@@ -156,6 +156,20 @@ defmodule PairingsEngine.Federations.BEL.MembersTest do
     end
   end
 
+  describe "missing_sex?/0" do
+    test "an empty list is not missing anything" do
+      refute Members.missing_sex?()
+    end
+
+    test "rows imported before sex was kept are, until one row has it" do
+      Repo.insert!(%Member{national_id: "501", last_name: "Old"})
+      assert Members.missing_sex?()
+
+      Repo.insert!(%Member{national_id: "502", last_name: "New", sex: "w"})
+      refute Members.missing_sex?()
+    end
+  end
+
   describe "player_count/0 and last_sync/0" do
     test "player_count reflects the table, last_sync starts nil and updates on put_last_sync" do
       assert Members.player_count() == 0

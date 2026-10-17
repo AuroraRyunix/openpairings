@@ -90,8 +90,21 @@ defmodule PairingsEngine.Federations.BEL.Sync do
 
   ## GenServer
 
+  # 0.89.3 added `sex` to the local list. Rows imported before it carry
+  # none, and they stay that way until somebody presses *Sync from KBSB* -
+  # which, it turns out, nobody does just because a CHANGELOG said so. A list
+  # that has rows and not one sex among them is that list; it re-syncs once,
+  # on its own, a minute after boot, when the box has finished compiling and
+  # starting everything else.
+  @backfill_delay :timer.minutes(1)
+
   @impl true
-  def init(state), do: {:ok, state}
+  def init(state) do
+    if Application.get_env(:pairings_engine, :kbsb_backfill_on_boot, true),
+      do: Process.send_after(self(), :backfill_check, @backfill_delay)
+
+    {:ok, state}
+  end
 
   @impl true
   def handle_call(:status, _from, state), do: {:reply, state, state}
@@ -200,6 +213,21 @@ defmodule PairingsEngine.Federations.BEL.Sync do
   end
 
   def handle_info(:watchdog_timeout, state), do: {:noreply, state}
+
+  def handle_info(:backfill_check, %{status: :importing} = state), do: {:noreply, state}
+
+  def handle_info(:backfill_check, state) do
+    if Members.missing_sex?() do
+      Logger.info("KBSB list has rows but no sex recorded; syncing once to fill it in")
+      handle_cast(:start_http_import, state)
+    else
+      {:noreply, state}
+    end
+  rescue
+    # A database not there yet, or a table mid-migration: no backfill this
+    # boot, and certainly no crash of the sync server over a convenience.
+    _ -> {:noreply, state}
+  end
 
   defp schedule_watchdog, do: Process.send_after(self(), :watchdog_timeout, @watchdog_timeout_ms)
 

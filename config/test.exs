@@ -149,3 +149,6 @@ config :pairings_engine, :fide_req_options, plug: {Req.Test, PairingsEngine.Fide
 # from another process, between two tests, is a failure with no test to
 # blame.
 config :pairings_engine, :board_lan_tick_ms, false
+
+# No KBSB download a minute into the test run.
+config :pairings_engine, :kbsb_backfill_on_boot, false
