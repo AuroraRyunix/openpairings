@@ -577,7 +577,8 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       # `PairingsEngine.PublicDisplay`'s moduledoc for why it is the only key
       # that leans this way.
       assert display["rounds_played"] == false
-      assert Enum.all?(Map.values(Map.delete(display, "rounds_played")))
+      assert display["sex"] == false
+      assert Enum.all?(Map.values(Map.drop(display, ["rounds_played", "sex"])))
     end
 
     test "unticking a box hides that column and nothing else", %{conn: conn, scope: scope} do

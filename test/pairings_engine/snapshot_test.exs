@@ -103,7 +103,9 @@ defmodule PairingsEngine.SnapshotTest do
       refute json =~ "national_id"
       refute json =~ "birth"
       refute json =~ "norm_data"
-      refute json =~ "sex"
+      # The "sex" display key is in the resolved `display` map, off; what must
+      # not travel is a sex on any player.
+      refute Enum.any?(snapshot_players(tournament), &Map.has_key?(&1, "sex"))
 
       # The allowlist itself, asserted as a whole set rather than key by key:
       # a field added to `player_row/1` fails this until someone decides it
@@ -324,6 +326,52 @@ defmodule PairingsEngine.SnapshotTest do
 
       rows = Snapshot.build(tournament)["standings"]["rows"]
       assert Enum.all?(rows, &(Map.has_key?(&1, "extra_points") and Map.has_key?(&1, "total")))
+    end
+  end
+
+  describe "the optional sex field on players" do
+    defp snapshot_players(tournament), do: Snapshot.build(tournament)["players"]
+
+    defp with_sexes(tournament) do
+      import Ecto.Query
+
+      for {name, sex} <- [{"Carol", "w"}, {"Bob", "m"}, {"Alice", "w"}] do
+        Repo.update_all(
+          from(p in Player, where: p.tournament_id == ^tournament.id and p.name == ^name),
+          set: [sex: sex]
+        )
+      end
+
+      tournament
+    end
+
+    test "a tournament that never touched the setting publishes no sex" do
+      tournament = %{unnumbered_tournament(%{}) | public_display: nil} |> with_sexes()
+
+      players = snapshot_players(tournament)
+      assert players != []
+      refute Enum.any?(players, &Map.has_key?(&1, "sex"))
+      assert Snapshot.build(tournament)["tournament"]["display"]["sex"] == false
+    end
+
+    test "an existing tournament whose stored display predates the key publishes none" do
+      tournament =
+        %{unnumbered_tournament(%{}) | public_display: %{"club" => false}} |> with_sexes()
+
+      refute Enum.any?(snapshot_players(tournament), &Map.has_key?(&1, "sex"))
+    end
+
+    test "ticked, it publishes M or F, and nothing for a player with none recorded" do
+      tournament = unnumbered_tournament(%{}) |> with_sexes()
+      {:ok, tournament} = Tournaments.set_public_display(tournament, %{"sex" => "true"})
+
+      by_name = Map.new(snapshot_players(tournament), &{&1["name"], &1})
+
+      assert by_name["Carol"]["sex"] == "F"
+      assert by_name["Bob"]["sex"] == "M"
+      assert by_name["Alice"]["sex"] == "F"
+      refute Map.has_key?(by_name["Walter"] || %{}, "sex")
+      assert Snapshot.build(tournament)["tournament"]["display"]["sex"] == true
     end
   end
 

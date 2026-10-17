@@ -2764,7 +2764,7 @@ msgstr "Annuleren"
 msgid "Candidate"
 msgstr "Kandidaat"
 
-#: lib/pairings_engine/public_display.ex:182
+#: lib/pairings_engine/public_display.ex:193
 #: lib/pairings_engine_web/components/layouts.ex:269
 #: lib/pairings_engine_web/live/categories_live.ex:661
 #: lib/pairings_engine_web/live/categories_live.ex:671
@@ -2881,7 +2881,7 @@ msgstr "Eigen"
 msgid "Cycle %{cycle} of %{total}, schedule round %{round}. The Berger table fixes every pairing in advance - this round's boards are the deterministic slot, not a computed choice."
 msgstr "Cyclus %{cycle} van %{total}, schemaronde %{round}. De Berger-tabel legt elke paring vooraf vast - de borden van deze ronde zijn de vaste plaats in het schema, geen berekende keuze."
 
-#: lib/pairings_engine/public_display.ex:196
+#: lib/pairings_engine/public_display.ex:207
 #: lib/pairings_engine_web/components/layouts.ex:265
 #: lib/pairings_engine_web/live/settings_support.ex:109
 #: lib/pairings_engine_web/live/tournaments_live.ex:3110
@@ -3021,7 +3021,7 @@ msgstr "Federatie"
 msgid "Federation: %{value}"
 msgstr "Federatie: %{value}"
 
-#: lib/pairings_engine/public_display.ex:155
+#: lib/pairings_engine/public_display.ex:158
 #: lib/pairings_engine_web/components/it3_counts_explain.ex:95
 #, elixir-autogen, elixir-format
 msgid "Federations"
@@ -3365,7 +3365,7 @@ msgstr "Plaatskaartjes"
 msgid "Player"
 msgstr "Speler"
 
-#: lib/pairings_engine/public_display.ex:114
+#: lib/pairings_engine/public_display.ex:117
 #: lib/pairings_engine_web/controllers/print_controller.ex:565
 #, elixir-autogen, elixir-format
 msgid "Player cards"
@@ -3652,6 +3652,7 @@ msgstr "Puntentelling"
 msgid "Settings"
 msgstr "Instellingen"
 
+#: lib/pairings_engine/public_display.ex:181
 #: lib/pairings_engine_web/controllers/print_controller.ex:1407
 #, elixir-autogen, elixir-format
 msgid "Sex"
@@ -5752,7 +5753,7 @@ msgid "Aanw"
 msgstr "Aanw"
 
 #: lib/pairings_engine/federations/bel/swar_publish.ex:513
-#: lib/pairings_engine/public_display.ex:202
+#: lib/pairings_engine/public_display.ex:213
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:287
 #, elixir-autogen, elixir-format
 msgid "Arbiter"
@@ -10339,7 +10340,7 @@ msgstr "Met de hand gewijzigd en behouden bij opnieuw importeren:"
 msgid "Changed by hand; an import will not overwrite these fields."
 msgstr "Met de hand gewijzigd; een import overschrijft deze velden niet."
 
-#: lib/pairings_engine/public_display.ex:190
+#: lib/pairings_engine/public_display.ex:201
 #: lib/pairings_engine_web/live/badge_studio_live.ex:1356
 #, elixir-autogen, elixir-format
 msgid "City"
@@ -20583,202 +20584,202 @@ msgstr "Door %{author}"
 msgid "refused: %{reason}"
 msgstr "geweigerd: %{reason}"
 
-#: lib/pairings_engine/public_display.ex:116
+#: lib/pairings_engine/public_display.ex:119
 #, elixir-autogen, elixir-format
 msgid "A page per player: every round, who they played and how it went. Off leaves no way to follow one player through the event."
 msgstr "Een pagina per speler: elke ronde, tegen wie hij of zij speelde en hoe het afliep. Uit laat geen enkele manier over om één speler door het toernooi te volgen."
 
-#: lib/pairings_engine/public_display.ex:167
+#: lib/pairings_engine/public_display.ex:170
 #, elixir-autogen, elixir-format
 msgid "A small flag beside each player's name and federation code. Part of Federations: not offered while that is off. None for a player under the FIDE flag."
 msgstr "Een kleine vlag naast de naam en de federatiecode van elke speler. Hoort bij Federaties: wordt niet aangeboden zolang die uit staat. Geen vlag voor een speler onder de FIDE-vlag."
 
-#: lib/pairings_engine/public_display.ex:279
+#: lib/pairings_engine/public_display.ex:290
 #, elixir-autogen, elixir-format
 msgid "About each player"
 msgstr "Over elke speler"
 
-#: lib/pairings_engine/public_display.ex:280
+#: lib/pairings_engine/public_display.ex:291
 #, elixir-autogen, elixir-format
 msgid "About the tournament"
 msgstr "Over het toernooi"
 
-#: lib/pairings_engine/public_display.ex:124
+#: lib/pairings_engine/public_display.ex:127
 #, elixir-autogen, elixir-format
 msgid "Byes"
 msgstr "Byes"
 
-#: lib/pairings_engine/public_display.ex:176
+#: lib/pairings_engine/public_display.ex:187
 #, elixir-autogen, elixir-format
 msgid "Clubs"
 msgstr "Clubs"
 
-#: lib/pairings_engine/public_display.ex:282
+#: lib/pairings_engine/public_display.ex:293
 #, elixir-autogen, elixir-format
 msgid "Columns"
 msgstr "Kolommen"
 
-#: lib/pairings_engine/public_display.ex:208
+#: lib/pairings_engine/public_display.ex:219
 #, elixir-autogen, elixir-format
 msgid "Deputy arbiter"
 msgstr "Hulparbiter"
 
-#: lib/pairings_engine/public_display.ex:144
+#: lib/pairings_engine/public_display.ex:147
 #, elixir-autogen, elixir-format
 msgid "Each player's Elo, on the standings, the pairings and their card."
 msgstr "De Elo van elke speler, op de stand, de paringen en de spelerskaart."
 
-#: lib/pairings_engine/public_display.ex:282
+#: lib/pairings_engine/public_display.ex:293
 #, elixir-autogen, elixir-format
 msgid "Extra detail inside a page that is shown."
 msgstr "Extra detail binnen een pagina die wel getoond wordt."
 
-#: lib/pairings_engine/public_display.ex:220
+#: lib/pairings_engine/public_display.ex:231
 #, elixir-autogen, elixir-format
 msgid "FIDE-rated badge"
 msgstr "Badge FIDE-ratingtoernooi"
 
-#: lib/pairings_engine/public_display.ex:161
+#: lib/pairings_engine/public_display.ex:164
 #, elixir-autogen, elixir-format
 msgid "Federation flags"
 msgstr "Federatievlaggen"
 
-#: lib/pairings_engine/public_display.ex:150
+#: lib/pairings_engine/public_display.ex:153
 #, elixir-autogen, elixir-format
 msgid "GM, IM, WFM and the rest, shown before a player's name."
 msgstr "GM, IM, WFM en de rest, getoond voor de naam van een speler."
 
-#: lib/pairings_engine/public_display.ex:252
+#: lib/pairings_engine/public_display.ex:263
 #, elixir-autogen, elixir-format
 msgid "How many rounds each player was there for: games played, a bye given because the field was odd, and a win by forfeit. For a prize for attending every round. Off unless you ask for it, and independent of the \"Rds\" column tick on your own screens."
 msgstr "In hoeveel rondes elke speler aanwezig was: gespeelde partijen, een bye omdat het veld oneven was en een winst door forfait. Voor een prijs voor wie elke ronde aanwezig was. Uit tenzij je erom vraagt, en los van het vinkje voor de kolom \"Aanw\" op je eigen schermen."
 
-#: lib/pairings_engine/public_display.ex:238
+#: lib/pairings_engine/public_display.ex:249
 #, elixir-autogen, elixir-format
 msgid "How the tie-breaks were reached"
 msgstr "Hoe de tiebreaks tot stand kwamen"
 
-#: lib/pairings_engine/public_display.ex:278
+#: lib/pairings_engine/public_display.ex:289
 #, elixir-autogen, elixir-format
 msgid "Pages"
 msgstr "Pagina's"
 
-#: lib/pairings_engine/public_display.ex:130
+#: lib/pairings_engine/public_display.ex:133
 #, elixir-autogen, elixir-format
 msgid "Projector and hall display links"
 msgstr "Links naar projectorweergave en zaalscherm"
 
-#: lib/pairings_engine/public_display.ex:143
+#: lib/pairings_engine/public_display.ex:146
 #, elixir-autogen, elixir-format
 msgid "Ratings"
 msgstr "Ratings"
 
-#: lib/pairings_engine/public_display.ex:250
+#: lib/pairings_engine/public_display.ex:261
 #, elixir-autogen, elixir-format
 msgid "Rounds-present column"
 msgstr "Kolom aantal aanwezige rondes"
 
-#: lib/pairings_engine/public_display.ex:262
+#: lib/pairings_engine/public_display.ex:273
 #, elixir-autogen, elixir-format
 msgid "Scores on the pairings"
 msgstr "Scores op de paringen"
 
-#: lib/pairings_engine/public_display.ex:279
+#: lib/pairings_engine/public_display.ex:290
 #, elixir-autogen, elixir-format
 msgid "Shown beside every name."
 msgstr "Getoond naast elke naam."
 
-#: lib/pairings_engine/public_display.ex:203
+#: lib/pairings_engine/public_display.ex:214
 #, elixir-autogen, elixir-format
 msgid "The chief arbiter's name, as a printed pairing sheet carries it."
 msgstr "De naam van de hoofdarbiter, zoals een afgedrukt paringsblad die draagt."
 
-#: lib/pairings_engine/public_display.ex:209
+#: lib/pairings_engine/public_display.ex:220
 #, elixir-autogen, elixir-format
 msgid "The deputy's name, where there is one."
 msgstr "De naam van de hulparbiter, als er een is."
 
-#: lib/pairings_engine/public_display.ex:281
+#: lib/pairings_engine/public_display.ex:292
 #, elixir-autogen, elixir-format
 msgid "The header line a printed pairing sheet carries."
 msgstr "De kopregel van een afgedrukt paringsblad."
 
-#: lib/pairings_engine/public_display.ex:221
+#: lib/pairings_engine/public_display.ex:232
 #, elixir-autogen, elixir-format
 msgid "The note saying this event is submitted for FIDE rating."
 msgstr "De vermelding dat dit toernooi wordt ingediend voor FIDE-rating."
 
-#: lib/pairings_engine/public_display.ex:230
+#: lib/pairings_engine/public_display.ex:241
 #, elixir-autogen, elixir-format
 msgid "The numbers behind the placings. The order itself is unaffected - this hides the arithmetic, not the result."
 msgstr "De cijfers achter de plaatsing. De volgorde zelf verandert niet - dit verbergt de rekensom, niet de uitslag."
 
-#: lib/pairings_engine/public_display.ex:264
+#: lib/pairings_engine/public_display.ex:275
 #, elixir-autogen, elixir-format
 msgid "The points each player carried into the round, which is what explains why those two are on that board."
 msgstr "De punten die elke speler de ronde in meenam, en dat verklaart waarom die twee aan dat bord zitten."
 
-#: lib/pairings_engine/public_display.ex:240
+#: lib/pairings_engine/public_display.ex:251
 #, elixir-autogen, elixir-format
 msgid "The round-by-round breakdown behind each tie-break on a player's card. Publishing the numbers and publishing where they came from are separate decisions."
 msgstr "De ronde-per-ronde-uitsplitsing achter elke tiebreak op de spelerskaart. De cijfers publiceren en publiceren waar ze vandaan komen zijn aparte beslissingen."
 
-#: lib/pairings_engine/public_display.ex:125
+#: lib/pairings_engine/public_display.ex:128
 #, elixir-autogen, elixir-format
 msgid "The table of players sitting a round out, and why."
 msgstr "De tabel van spelers die een ronde overslaan, en waarom."
 
-#: lib/pairings_engine/public_display.ex:215
+#: lib/pairings_engine/public_display.ex:226
 #, elixir-autogen, elixir-format
 msgid "The tempo, as the arbiter wrote it."
 msgstr "Het tempo, zoals de arbiter het schreef."
 
-#: lib/pairings_engine/public_display.ex:156
+#: lib/pairings_engine/public_display.ex:159
 #, elixir-autogen, elixir-format
 msgid "The three-letter country code."
 msgstr "De landcode van drie letters."
 
-#: lib/pairings_engine/public_display.ex:197
+#: lib/pairings_engine/public_display.ex:208
 #, elixir-autogen, elixir-format
 msgid "The tournament's own dates, and each round's."
 msgstr "De data van het toernooi zelf, en die van elke ronde."
 
-#: lib/pairings_engine/public_display.ex:183
+#: lib/pairings_engine/public_display.ex:194
 #, elixir-autogen, elixir-format
 msgid "The tournament's own groupings, where it has them."
 msgstr "De eigen indelingen van het toernooi, als het die heeft."
 
-#: lib/pairings_engine/public_display.ex:132
+#: lib/pairings_engine/public_display.ex:135
 #, elixir-autogen, elixir-format
 msgid "The two cards under the standings, pairings and crosstable that open the projector view and the hall display. Off hides the cards only; the screens themselves still open from their own address."
 msgstr "De twee kaarten onder de stand, de paringen en de kruistabel die de projectorweergave en het zaalscherm openen. Uit verbergt alleen de kaarten; de schermen zelf blijven openen via hun eigen adres."
 
-#: lib/pairings_engine/public_display.ex:228
+#: lib/pairings_engine/public_display.ex:239
 #, elixir-autogen, elixir-format
 msgid "Tiebreak columns"
 msgstr "Tiebreakkolommen"
 
-#: lib/pairings_engine/public_display.ex:214
+#: lib/pairings_engine/public_display.ex:225
 #, elixir-autogen, elixir-format
 msgid "Time control"
 msgstr "Tempo"
 
-#: lib/pairings_engine/public_display.ex:149
+#: lib/pairings_engine/public_display.ex:152
 #, elixir-autogen, elixir-format
 msgid "Titles"
 msgstr "Titels"
 
-#: lib/pairings_engine/public_display.ex:191
+#: lib/pairings_engine/public_display.ex:202
 #, elixir-autogen, elixir-format
 msgid "Where it is being played."
 msgstr "Waar het gespeeld wordt."
 
-#: lib/pairings_engine/public_display.ex:177
+#: lib/pairings_engine/public_display.ex:188
 #, elixir-autogen, elixir-format
 msgid "Which club a player belongs to."
 msgstr "Bij welke club een speler hoort."
 
-#: lib/pairings_engine/public_display.ex:278
+#: lib/pairings_engine/public_display.ex:289
 #, elixir-autogen, elixir-format
 msgid "Which pages exist at all."
 msgstr "Welke pagina's er überhaupt bestaan."
@@ -21100,3 +21101,8 @@ msgstr "Wissen"
 #, elixir-autogen, elixir-format
 msgid "Tap again to clear board %{board}"
 msgstr "Tik nogmaals om bord %{board} te wissen"
+
+#: lib/pairings_engine/public_display.ex:182
+#, elixir-autogen, elixir-format
+msgid "Each player's M/F on the public players list and standings."
+msgstr "De M of F van elke speler op de openbare spelerslijst en de stand."

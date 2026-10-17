@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Sex on the public pages, off unless you ask.** The Results site settings have a new "Sex" tick under the player details. Ticked, the published players carry an M or F and the standings and starting list gain a column for it; unticked, which is where every tournament starts, old ones included, the key is not sent at all rather than sent blank. It is personal data, and nobody had published it before, so nobody gets surprised by it now. Like the rounds-present column, it is the exception to "absent means shown".
+
 ## [0.89.1] - 2026-10-17
 
 - [Fix] **A deputy's phone can now clear a result, and says so.** The only way to get a board back to blank was a small unlabelled arrow, which sat on a board that vanished from the list a second and a half after its result went in; the screen's own advice was to tap the chosen result again, which re-saved the same result and wrote "changed from 1-0 to 1-0" into the audit log. Tapping the chosen result is now a non-event, as on the Pairings page. Under every board with a result, a deputy's phone shows a **Clear result** button (Dutch: **Wissen**); the first tap turns it into *Tap again to clear board N* for four seconds, the second clears and puts the board back among the unfinished. It is only shown where the clear would be accepted: not on a helper's phone, not outside the phone's boards, not on an archived or handed-off tournament, not on a closed FIDE-mode round or a result already sent in a finalised TRF.

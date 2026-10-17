@@ -38,10 +38,13 @@ defmodule PairingsEngine.PublicDisplay do
   That is the line: this decides which pages exist and which columns they
   carry, never whether a shown page tells the truth.
 
-  ## One key defaults to OFF
+  ## Two keys default to OFF
 
-  `rounds_played` - the attendance column - is opt-in, and it is the only key
-  that is. The asymmetry above is about information an arbiter ALREADY
+  `rounds_played` - the attendance column - and `sex` are opt-in, and they are
+  the only keys that are. `sex` is personal data on a public page, and no
+  tournament published it before it existed, so none starts showing it; unlike
+  the other keys it is withheld from the snapshot entirely while off (the
+  players simply carry no `sex`). The asymmetry above is about information an arbiter ALREADY
   publishes and expects to see: hiding that silently is the invisible failure.
   A column nobody had until it was built is the other way round - switching it
   on for every published tournament in the world puts a number on their public
@@ -169,6 +172,14 @@ defmodule PairingsEngine.PublicDisplay do
               "Federations: not offered while that is off. None for a player under " <>
               "the FIDE flag."
           )
+      },
+      %{
+        key: "sex",
+        group: :player,
+        # Opt-in, like `rounds_played`: personal data nobody published before.
+        default: false,
+        label: gettext("Sex"),
+        hint: gettext("Each player's M/F on the public players list and standings.")
       },
       %{
         key: "club",
@@ -352,7 +363,7 @@ defmodule PairingsEngine.PublicDisplay do
   @doc """
   Whether `key` is shown when the tournament has said nothing about it.
 
-  True for every key but `rounds_played` - see the moduledoc. An unknown key
+  True for every key but `rounds_played` and `sex` - see the moduledoc. An unknown key
   (a database outliving the code that wrote it) answers true, which is the
   same direction the rest of this module leans.
   """
@@ -402,7 +413,7 @@ defmodule PairingsEngine.PublicDisplay do
   key's own default are kept: the stored map is the record of what an arbiter
   changed, which keeps a future key from being silently pinned to today's
   default on every tournament that has ever visited this page. For every key
-  but `rounds_played` that is the same thing it has always been - a map of
+  but `rounds_played` and `sex` that is the same thing it has always been - a map of
   what was turned off.
   """
   @spec cast(map(), map() | nil) :: map()

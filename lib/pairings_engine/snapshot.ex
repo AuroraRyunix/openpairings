@@ -554,6 +554,21 @@ defmodule PairingsEngine.Snapshot do
       "category" => blank_to_nil(Categories.pairing_category(t, p))
     }
     |> put_player_categories(t, p)
+    |> put_player_sex(t, p)
+  end
+
+  # Added 2026-10-17, behind the "sex" display key, which starts OFF. OMITTED
+  # while off - and for a player with no sex recorded - never sent as null or
+  # a blank: personal data that is not shown does not travel at all, and the
+  # results site draws a Sex column only when a player carries the key.
+  # Stored as "m"/"w", published as "M"/"F" (`Player.sex_label/1`).
+  defp put_player_sex(row, %Tournament{} = t, %Player{} = p) do
+    with true <- PublicDisplay.show?(t.public_display, "sex"),
+         label when label != "" <- Player.sex_label(p.sex) do
+      Map.put(row, "sex", label)
+    else
+      _hidden_or_unrecorded -> row
+    end
   end
 
   # Added 0.53.0, gated 2026-09-13. Every category, in the tournament's own

@@ -15,13 +15,22 @@ defmodule PairingsEngine.PublicDisplayTest do
     test "a tournament that predates the feature shows everything it used to" do
       # Every key but the one opt-in column - see the moduledoc on why
       # `rounds_played` is the exception and why it is the only one.
-      for key <- PublicDisplay.keys() -- ["rounds_played"] do
+      for key <- PublicDisplay.keys() -- ["rounds_played", "sex"] do
         assert PublicDisplay.show?(nil, key)
       end
 
       refute PublicDisplay.show?(nil, "rounds_played")
       refute PublicDisplay.show?(%{}, "rounds_played")
       assert PublicDisplay.show?(%{"rounds_played" => true}, "rounds_played")
+    end
+
+    test "sex is the other opt-in key: hidden unless ticked" do
+      assert "sex" in PublicDisplay.keys()
+      assert Enum.find(PublicDisplay.fields(), &(&1.key == "sex")).group == :player
+      refute PublicDisplay.show?(nil, "sex")
+      refute PublicDisplay.show?(%{}, "sex")
+      refute PublicDisplay.show?(%{"club" => false}, "sex")
+      assert PublicDisplay.show?(%{"sex" => true}, "sex")
     end
 
     test "the screen-card links are shown by default and hidden when unticked" do
@@ -65,6 +74,7 @@ defmodule PairingsEngine.PublicDisplayTest do
       refute Map.has_key?(cast, "rating")
       # Already off by default, so leaving it unticked records nothing.
       refute Map.has_key?(cast, "rounds_played")
+      refute Map.has_key?(cast, "sex")
     end
 
     test "records only what differs from each key's own default" do
@@ -73,7 +83,7 @@ defmodule PairingsEngine.PublicDisplayTest do
       # Every ordinary key defaults to shown, so ticking them all records
       # nothing; the one opt-in key is recorded precisely because it was
       # asked for.
-      assert cast == %{"rounds_played" => true}
+      assert cast == %{"rounds_played" => true, "sex" => true}
     end
 
     test "accepts every shape a checkbox actually arrives in" do
@@ -106,8 +116,11 @@ defmodule PairingsEngine.PublicDisplayTest do
 
       assert resolved["club"] == false
       assert resolved["rounds_played"] == false
+      assert resolved["sex"] == false
 
-      assert Enum.all?(Map.drop(resolved, ["club", "rounds_played"]), fn {_k, v} -> v == true end)
+      assert Enum.all?(Map.drop(resolved, ["club", "rounds_played", "sex"]), fn {_k, v} ->
+               v == true
+             end)
     end
   end
 
@@ -156,7 +169,7 @@ defmodule PairingsEngine.PublicDisplayTest do
 
     test "the stored flags tick survives federations being off, either way round" do
       # Every box at its default, so the stored map holds only what the test did.
-      everything = Map.new(PublicDisplay.keys() -- ["rounds_played"], &{&1, "true"})
+      everything = Map.new(PublicDisplay.keys() -- ["rounds_played", "sex"], &{&1, "true"})
 
       # Federations unticked on a form that still had the flags box: both
       # are read off the form.
