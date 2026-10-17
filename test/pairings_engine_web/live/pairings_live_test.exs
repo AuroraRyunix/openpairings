@@ -91,7 +91,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    html = lv |> element("button[phx-value-number='3']") |> render_click()
+    html = lv |> element("#round-pick-3") |> render_click()
 
     refute html =~ ~s(print/pairings?round=3)
   end
@@ -2112,7 +2112,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
   end
 
   describe "the round header" do
-    test "carries the public level and puts printing, PGN, import and unpairing in two menus",
+    test "carries the public level and puts printing, PGN, import and unpairing in one grouped More menu",
          %{conn: conn, scope: scope} do
       tournament = fixture(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
@@ -2123,8 +2123,9 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
         |> length()
 
       assert has_element?(lv, "#round-publish-group #publish-level-#{n}-1", "Pairings")
-      assert has_element?(lv, "#round-print-menu-#{n} #print-pairings-#{n}")
-      assert has_element?(lv, "#round-print-menu-#{n} #print-results-#{n}")
+      assert has_element?(lv, "#round-more-menu-#{n} #print-pairings-#{n}")
+      assert has_element?(lv, "#round-more-menu-#{n} #print-results-#{n}")
+      refute has_element?(lv, "[id^='round-print-menu-']")
       assert has_element?(lv, "#round-more-menu-#{n} #export-pgn-#{n}")
       assert has_element?(lv, "#round-more-menu-#{n} #import-results-csv-#{n}")
       assert has_element?(lv, "#round-more-menu-#{n} #unpair-round-#{n}.is-danger")
@@ -2151,7 +2152,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert has_element?(lv, "#round-bar .round-bar-main #round-status", "finished")
 
       assert has_element?(lv, "#round-bar #round-actions #round-publish-group #publish-level-2")
-      assert has_element?(lv, "#round-bar #round-actions #round-print-menu-2")
+      assert has_element?(lv, "#round-bar #round-actions #round-next-go")
       assert has_element?(lv, "#round-bar #round-actions #round-more-menu-2")
 
       # No visible "Round N" heading; the screen reader's one stays.
@@ -2176,7 +2177,10 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       assert has_element?(lv, "#round-status.muted", "not paired")
       assert has_element?(lv, "#round-actions #pair-round", "Pair round 1")
       refute has_element?(lv, "#round-publish-group")
-      refute has_element?(lv, "[id^='round-print-menu-']")
+      refute has_element?(lv, "[id^='print-pairings-']")
+      refute has_element?(lv, "[id^='quick-print-']")
+      refute has_element?(lv, "#round-standings-link")
+      assert has_element?(lv, "#round-actions #round-absences-link")
 
       assert has_element?(lv, "#round-actions #round-more-menu-1 #local-view-link")
       refute has_element?(lv, "#round-more-menu-1 [id^='export-pgn-']")
@@ -2196,6 +2200,94 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
                "#round-more-menu-2 #public-page-link[href^='https://results.example.org/t/#{tournament.public_slug}']",
                "Public page"
              )
+    end
+
+    test "a round being played offers the pairing sheet, and no next-round button",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      [pairing] = Tournaments.get_round(tournament.id, 2).pairings
+      pairing |> Ecto.Changeset.change(result: "") |> Repo.update!()
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "#round-actions[data-stage='playing']")
+
+      assert has_element?(
+               lv,
+               "#round-actions #quick-print-pairings-2[href='/t/#{tournament.id}/print/pairings?round=2'][target='_blank']"
+             )
+
+      assert has_element?(lv, "#round-actions #round-publish-group")
+      refute has_element?(lv, "#round-actions .pe-btn.primary")
+      refute has_element?(lv, "#round-standings-link")
+    end
+
+    test "a finished round that is not the last leads on to the next one",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "#round-actions[data-stage='complete']")
+      assert has_element?(lv, "#round-actions #round-next-go.primary", "On to round 3")
+
+      assert has_element?(
+               lv,
+               "#round-actions #round-standings-link:not(.primary)[href='/t/#{tournament.id}/standings']"
+             )
+
+      refute has_element?(lv, "#round-send-rating-link")
+
+      # Only a change of round: round 3 opens with its own pair button.
+      lv |> element("#round-next-go") |> render_click()
+      assert has_element?(lv, "#round-pick-3[aria-pressed='true']")
+      assert has_element?(lv, "#round-actions[data-stage='unpaired']")
+      assert has_element?(lv, "#round-actions #pair-round.primary")
+    end
+
+    test "the last round finished puts the standings first, with sending for rating beside them",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+
+      tournament
+      |> Ecto.Changeset.change(rounds_count: 2)
+      |> Repo.update!()
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      assert has_element?(lv, "#round-actions[data-stage='finished']")
+
+      assert has_element?(
+               lv,
+               "#round-actions #round-standings-link.primary[href='/t/#{tournament.id}/standings']"
+             )
+
+      assert has_element?(
+               lv,
+               "#round-actions #round-send-rating-link[href='/t/#{tournament.id}/settings/export']"
+             )
+
+      refute has_element?(lv, "#round-next-go")
+    end
+
+    test "More groups its items, with unpairing last under its own danger heading",
+         %{conn: conn, scope: scope} do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      menu = "#round-more-menu-2"
+      assert has_element?(lv, "#{menu} > summary[aria-haspopup='menu']", "More")
+      assert has_element?(lv, "#{menu} .pe-dropdown-panel[role='menu']")
+      assert has_element?(lv, "#{menu} .pe-dropdown-label", "Print")
+      assert has_element?(lv, "#{menu} .pe-dropdown-label", "Round")
+      assert has_element?(lv, "#{menu} .pe-dropdown-label", "Views")
+      assert has_element?(lv, "#{menu} .pe-dropdown-label.is-danger", "Danger zone")
+
+      assert has_element?(
+               lv,
+               "#{menu} .pe-dropdown-label.is-danger + #unpair-round-2.is-danger[data-confirm]"
+             )
+
+      assert has_element?(lv, "#{menu} #mpa-start-2[role='menuitem']")
     end
 
     test "the level is captioned for spectators", %{conn: conn, scope: scope} do

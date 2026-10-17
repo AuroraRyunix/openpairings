@@ -12,13 +12,37 @@ the button that pairs it. The table has one row per board: the board number,
 the White player, the result, the Black player. A player with a bye is a
 board with *bye* and no Black player.
 
-![The Pairings page with round 3 paired: round buttons, the board table and the Print and More menus](screenshots/06-pairings-round-paired.png "A paired round on the Pairings page")
+![The Pairings page with round 3 paired: round buttons, the board table and the round's buttons](screenshots/06-pairings-round-paired.png "A paired round on the Pairings page")
 
-Besides the table, the page has a **Print** menu (pairings, pairings with the
-absentees section, result cards, test print, stack-cut order), a **More**
-menu (the live page, the public page, PGN, CSV result import, unpair), and,
-for a published tournament, the control that decides what spectators see
-of the round ([Publishing](14-publishing.md)).
+Above the table, the round bar has one button that stands out, and which one
+depends on where the round stands. Beside it are the two or three things that
+matter at that moment:
+
+| The round | The main button | Beside it |
+| --- | --- | --- |
+| Not paired yet | **Pair round N** | **Absences** (the Players page, where you mark who sits the round out); in a round robin **Pair round N by hand…**; when it applies, **Record missing results as postponed and pair round N** |
+| Being played | None: entering the results is the work | **Print pairings**, and the control that decides what spectators see of the round ([Publishing](14-publishing.md)) |
+| Every result in | **On to round N**, which opens the next round with its **Pair round N** button | **Standings**, and what spectators see |
+| The last round, every result in | **Standings** | **Send for rating** (the Export page, see [Sending to FIDE](11-fide-report.md)), and what spectators see |
+
+In a Chess960 tournament **Draw Chess960 position** also sits there until the
+round's position is drawn.
+
+Everything else is in **More**, at the end of the bar, in groups:
+
+- **Print**: pairings, pairings with the absentees section, result cards, a
+  test print of the first three cards, stack-cut order;
+- **Round**: **Edit pairings by hand**, **Import results (CSV)** and, in a
+  round robin, **Swap rounds…**;
+- **PGN**: this round or all rounds, with or without board numbers, or a
+  range of boards;
+- **Views**: **Local view & phone QR** and, for a published tournament,
+  **Public page**;
+- **Danger zone**: **Unpair round**, on the last paired round only.
+
+Before a round is paired, More holds the views (and *Swap rounds…*). It works
+from the keyboard: the arrow keys move through it, <kbd>Escape</kbd> closes
+it, and so does a click anywhere else.
 
 ## Before pairing
 
@@ -149,8 +173,8 @@ already met in that cycle: then it refuses and says which two.
 ### Playing rounds out of table order
 
 When the table has to be played in another order - a hall booked out, a
-team that cannot travel that weekend - **Swap rounds…** in the round bar
-exchanges two rounds: pick the two round numbers and *Swap the rounds*.
+team that cannot travel that weekend - **Swap rounds…** in the round bar's
+**More** menu exchanges two rounds: pick the two round numbers and *Swap the rounds*.
 Their boards trade places, so the round numbers follow the order you
 actually play in: round 4 is the fourth evening, whatever the table calls
 it, and the standings, the prints and the results site follow. Every game

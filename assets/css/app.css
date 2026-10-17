@@ -3005,6 +3005,21 @@ button.pe-btn, .pe-btn {
   outline-offset: -2px;
 }
 .pe-dropdown-panel > .is-danger { color: var(--danger); }
+.pe-dropdown-panel > button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  background: transparent;
+}
+.pe-dropdown-label.is-danger { color: var(--danger); }
+/* Opens with a short drop instead of appearing out of nowhere. */
+.pe-dropdown[open] > .pe-dropdown-panel { animation: pe-dropdown-in 0.12s ease-out; }
+@keyframes pe-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pe-dropdown[open] > .pe-dropdown-panel { animation: none; }
+}
 .pe-dropdown-panel > hr { border: 0; border-top: 1px solid var(--border); margin: 4px 2px; }
 /* The Pairings page's confirmation for a postponed or already-sent result:
    a full sentence, so it wraps inside the result cell instead of stretching
@@ -4115,6 +4130,21 @@ a.pending-chip:hover {
 /* The pair button's in-progress label is a sentence; let it wrap inside
    the button instead of pushing the row wider than the page. */
 .round-bar-actions > .pe-btn { max-width: 100%; white-space: normal; }
+/* The round bar's buttons: one primary, a few plain ones and More, each
+   with a small icon where it helps the eye find it (`round_stage/3`). */
+.round-bar-actions .pe-btn {
+  transition: background-color 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.08s ease;
+}
+.round-bar-actions .pe-btn:active:not(:disabled) { transform: translateY(1px); }
+.round-bar-actions .pe-btn.primary:hover:not(:disabled) {
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.pe-btn-icon { width: 14px; height: 14px; vertical-align: -2px; }
+@media (prefers-reduced-motion: reduce) {
+  .round-bar-actions .pe-btn { transition: none; }
+  .round-bar-actions .pe-btn:active:not(:disabled) { transform: none; }
+}
 .round-status { flex-shrink: 0; }
 
 @media (max-width: 900px) {

@@ -180,7 +180,7 @@ desktopversie bent dat altijd jij.
 4. **Spelers**: voeg de spelers toe (doorzoek de FIDE-lijst of typ ze in).
 5. **Paringen**: **Ronde 1 paren**.
 6. Voer de resultaten in op de pagina Paringen. Wanneer elk bord een resultaat
-   heeft, paar je de volgende ronde.
+   heeft, opent **Door naar ronde N** de volgende ronde: die paar je dan.
 7. **Stand**, **Afdrukken** wanneer nodig.
 8. Na de laatste ronde: Instellingen, **Exporteren**, stuur het TRF-bestand naar
    het rating-bureau (zie [Versturen naar FIDE](11-fide-report.md)).
