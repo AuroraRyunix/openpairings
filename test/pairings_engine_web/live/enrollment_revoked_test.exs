@@ -40,12 +40,15 @@ defmodule PairingsEngineWeb.EnrollmentRevokedTest do
     assert Process.alive?(view.pid)
   end
 
-  test "the page that lists phones drops the revoked one", %{conn: conn, t: t} do
+  # The phones moved from the local view into the Phone QR dialog on the
+  # Pairings page; the list there has to forget a revoked one just the same.
+  test "the Phone QR dialog drops the revoked phone", %{conn: conn, t: t} do
     {:ok, enrollment} = Mobile.create_enrollment(t.id, label: "Gone Helper")
-    {:ok, view, html} = live(conn, ~p"/t/#{t.id}/live")
-    assert html =~ "Gone Helper"
+    {:ok, view, _html} = live(conn, ~p"/t/#{t.id}/pairings")
+    assert render_hook(view, "phone_qr_open", %{}) =~ "Gone Helper"
 
     {:ok, _} = Mobile.revoke(enrollment)
+    send(view.pid, {:mobile_enrollment_revoked, enrollment.id})
 
     refute render(view) =~ "Gone Helper"
   end
