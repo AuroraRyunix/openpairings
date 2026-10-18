@@ -96,9 +96,16 @@ Nothing is stored: the files live in memory only while you work.
 **Advanced**, **History**. A restore point is a full copy of the tournament at
 one moment. The program takes one automatically before an action that is hard
 to undo (pairing or unpairing a round, importing results from a file, a forfeit
-or score of a match, a changed line-up, a withdrawn team, a hand-off); the newest fifty are kept. Press **Save
-restore point** (with an optional name, for example *End of day 1*) to take one
-yourself.
+or score of a match, a changed line-up, a withdrawn team, a hand-off) and
+before a bulk change that rewrites many players with one click (giving
+everyone a category, **Assign categories**, re-seeding the pairing numbers or the
+starting numbers, **Refresh ratings** and the player-data refresh, applying the
+extra-points bands, re-seeding the manual ranking, ordering teams by rating).
+Each is labelled with what is about to happen, for example *Before assigning
+categories to 24 players*. The newest fifty automatic points are kept; the
+older ones are pruned. Press **Save restore point** (with an optional name, for
+example *End of day 1*) to take one yourself: those are never pruned and do not
+count towards the fifty.
 
 **Go back to this point** restores the tournament to that moment.
 

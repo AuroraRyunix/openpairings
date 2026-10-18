@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Restore points before bulk changes.** One click that rewrites a whole roster now leaves a restore point behind, labelled with what was about to happen: giving everyone a category, Assign categories, re-seeding the pairing numbers or the starting numbers (rating, entry order, lots), Refresh ratings and the player-data refresh (only when something is actually applied), the extra-points bands, re-seeding the manual ranking, and ordering teams by rating. The audit trail records what changed per field, which is a poor way to un-change forty players. Automatic points are still capped at the newest fifty per tournament; the ones you save by hand are now exempt from that pruning and no longer count towards it, since a busy bulk-editing afternoon would otherwise evict *End of day 1*.
+
 ## [0.94.0] - 2026-10-18
 
 - [Feature] **Rooms.** Settings, Rooms gives a hall of more than one room its names and the boards each holds (`1-20, 35, 40-45`), checked as you type: no name twice, no board in two rooms, and a board in none is its own business. The Pairings page then names the room above its first board, and both printed pairing lists grow a Room column, so the player looking for board 37 learns it is in the annexe before walking the main hall twice. A tournament without rooms looks exactly as it did. Rooms travel in the JSON export and come back on import.

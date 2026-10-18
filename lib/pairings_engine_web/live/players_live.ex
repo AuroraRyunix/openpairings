@@ -12,6 +12,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     PlayerStats,
     PlayerCard,
     RatingRefresh,
+    Snapshots,
     StartingNumbers,
     Tiebreaks,
     Tpn
@@ -1266,6 +1267,16 @@ defmodule PairingsEngineWeb.PlayersLive do
     tournament = socket.assigns.tournament
     add? = value == "true"
 
+    # Rewrites every player's categories in one click - restore point first.
+    capture_bulk(
+      socket,
+      "player.bulk_category_set",
+      if(add?,
+        do: "Before adding category #{name} to everyone",
+        else: "Before removing category #{name} from everyone"
+      )
+    )
+
     case Tournaments.set_all_players_category(tournament, name, add?) do
       {:ok, players} ->
         Audit.log(
@@ -1373,6 +1384,12 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("sn_draw_lots", _params, socket) do
     seed = StartingNumbers.new_seed()
 
+    capture_bulk(
+      socket,
+      "player.starting_numbers_set",
+      "Before drawing lots for the starting numbers"
+    )
+
     starting_numbers_result(
       socket,
       StartingNumbers.draw_lots_seeded(socket.assigns.tournament, seed),
@@ -1381,6 +1398,12 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("sn_by_rating", _params, socket) do
+    capture_bulk(
+      socket,
+      "player.starting_numbers_set",
+      "Before re-seeding the starting numbers by rating"
+    )
+
     starting_numbers_result(
       socket,
       StartingNumbers.by_rating(socket.assigns.tournament),
@@ -1389,6 +1412,12 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   def handle_event("sn_by_entry", _params, socket) do
+    capture_bulk(
+      socket,
+      "player.starting_numbers_set",
+      "Before re-seeding the starting numbers by entry order"
+    )
+
     starting_numbers_result(
       socket,
       StartingNumbers.by_entry(socket.assigns.tournament),
@@ -1489,6 +1518,14 @@ defmodule PairingsEngineWeb.PlayersLive do
     summary = socket.assigns.rating_refresh || %{proposals: []}
     proposals = RatingRefresh.select(summary, socket.assigns.rating_selected)
 
+    if proposals != [],
+      do:
+        capture_bulk(
+          socket,
+          "player.ratings_refreshed",
+          "Before refreshing the ratings of #{distinct_players(proposals)} #{players_word(distinct_players(proposals))}"
+        )
+
     case RatingRefresh.apply(socket.assigns.tournament, proposals) do
       {:ok, players} ->
         Audit.log(
@@ -1566,6 +1603,14 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("apply_data_refresh", _params, socket) do
     summary = socket.assigns.data_refresh || %{proposals: []}
     proposals = PlayerDataRefresh.select(summary, socket.assigns.data_selected)
+
+    if proposals != [],
+      do:
+        capture_bulk(
+          socket,
+          "player.data_refreshed",
+          "Before updating the data of #{distinct_players(proposals)} #{players_word(distinct_players(proposals))}"
+        )
 
     case PlayerDataRefresh.apply(socket.assigns.tournament, proposals) do
       {:ok, players} ->
@@ -3792,7 +3837,32 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp tpn_round(socket), do: Standings.rounds_paired(socket.assigns.tournament.id)
 
+  # A restore point ahead of a bulk change: one click rewrites many players,
+  # and the audit trail's per-field diff does not scale to "all of them".
+  # Fire-and-forget, like every other call site - see `PairingsEngine.Snapshots`.
+  defp capture_bulk(socket, trigger, summary) do
+    Snapshots.capture(
+      socket.assigns.tournament,
+      trigger,
+      socket.assigns.current_scope,
+      summary: summary
+    )
+  end
+
+  # A proposal is per field, so one player with a new rating and a new title
+  # is two of them; the restore point's label counts people.
+  defp distinct_players(proposals), do: proposals |> Enum.uniq_by(& &1.player.id) |> length()
+
+  defp players_word(1), do: "player"
+  defp players_word(_), do: "players"
+
   defp apply_regeneration(socket, changes) do
+    capture_bulk(
+      socket,
+      "player.pairing_numbers_changed",
+      "Before re-seeding the pairing numbers"
+    )
+
     tpn_result(
       assign(socket, :tpn_changes, nil),
       Tpn.regenerate(socket.assigns.tournament),

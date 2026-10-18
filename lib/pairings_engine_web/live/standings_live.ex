@@ -11,6 +11,7 @@ defmodule PairingsEngineWeb.StandingsLive do
     Standings,
     Keizer,
     PeriodRatings,
+    Snapshots,
     PlayerStats,
     PostponedGames,
     TeamStandings
@@ -157,6 +158,13 @@ defmodule PairingsEngineWeb.StandingsLive do
 
   @impl true
   def handle_event("reseed_manual_ranking", _params, socket) do
+    Snapshots.capture(
+      socket.assigns.tournament,
+      "standings.manual_reseeded",
+      socket.assigns.current_scope,
+      summary: "Before re-seeding the manual ranking"
+    )
+
     case Tournaments.reseed_manual_ranking(socket.assigns.tournament) do
       {:ok, tournament} ->
         Audit.log(tournament.id, socket.assigns.current_scope, "standings.manual_reseeded", %{})

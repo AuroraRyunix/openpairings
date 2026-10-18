@@ -17,7 +17,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, Tournaments}
+  alias PairingsEngine.{Audit, Snapshots, Tournaments}
   alias PairingsEngine.Tournaments.Tournament
 
   @impl true
@@ -104,6 +104,14 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
   end
 
   def handle_event("apply_extra_points_bands", _params, socket) do
+    # Writes extra points onto every player the bands match - restore point first.
+    Snapshots.capture(
+      socket.assigns.tournament,
+      "standings.extra_points_applied",
+      socket.assigns.current_scope,
+      summary: "Before applying the extra-points bands"
+    )
+
     case Tournaments.apply_extra_points_bands(socket.assigns.tournament) do
       {:ok, %{matched: matched, total: total}} ->
         Audit.log(

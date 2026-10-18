@@ -44,9 +44,11 @@ defmodule PairingsEngine.Snapshots do
 
   ## Retention
 
-  `@keep_per_tournament` most recent snapshots per tournament, pruned on
-  every capture. These are full tournament copies, so they'd otherwise grow
-  without bound on a long-running event.
+  `@keep_per_tournament` most recent *automatic* snapshots per tournament,
+  pruned on every capture. These are full tournament copies, so they'd
+  otherwise grow without bound on a long-running event. Restore points saved
+  by hand (`"snapshot.manual"`) and the pinned ones a restore takes are never
+  pruned and do not count towards the cap.
   """
 
   import Ecto.Query
@@ -58,6 +60,12 @@ defmodule PairingsEngine.Snapshots do
   alias PairingsEngine.Tournaments.{Player, Round, Team, Tournament}
 
   @keep_per_tournament 50
+
+  # The trigger code of a restore point someone saved on purpose (the History
+  # page's "Save restore point"). Retention only ever prunes the automatic
+  # ones: a hand-saved point is a promise, and bulk actions now take automatic
+  # points often enough to push it out of the newest fifty.
+  @manual_trigger "snapshot.manual"
 
   @doc "How many snapshots are kept per tournament before the oldest are pruned."
   def keep_per_tournament, do: @keep_per_tournament
@@ -167,8 +175,8 @@ defmodule PairingsEngine.Snapshots do
   end
 
   @doc """
-  Deletes all but the `@keep_per_tournament` most recent *unpinned* snapshots
-  for `tournament_id`. Called automatically by `capture/4`; returns the number
+  Deletes all but the `@keep_per_tournament` most recent *unpinned, automatic*
+  snapshots for `tournament_id` (hand-saved ones are exempt). Called automatically by `capture/4`; returns the number
   deleted.
 
   Pinned snapshots (the ones a restore takes of the state it replaced) are
@@ -179,7 +187,9 @@ defmodule PairingsEngine.Snapshots do
     keep_ids =
       Repo.all(
         from s in Snapshot,
-          where: s.tournament_id == ^tournament_id and s.pinned == false,
+          where:
+            s.tournament_id == ^tournament_id and s.pinned == false and
+              s.trigger != ^@manual_trigger,
           order_by: [desc: s.inserted_at, desc: s.id],
           limit: @keep_per_tournament,
           select: s.id
@@ -188,7 +198,9 @@ defmodule PairingsEngine.Snapshots do
     {deleted, _} =
       Repo.delete_all(
         from s in Snapshot,
-          where: s.tournament_id == ^tournament_id and s.pinned == false and s.id not in ^keep_ids
+          where:
+            s.tournament_id == ^tournament_id and s.pinned == false and
+              s.trigger != ^@manual_trigger and s.id not in ^keep_ids
       )
 
     deleted

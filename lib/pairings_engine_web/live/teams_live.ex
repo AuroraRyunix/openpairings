@@ -222,6 +222,13 @@ defmodule PairingsEngineWeb.TeamsLive do
   end
 
   def handle_event("seed_by_rating", _params, socket) do
+    PairingsEngine.Snapshots.capture(
+      socket.assigns.tournament,
+      "team.seeding_changed",
+      socket.assigns.current_scope,
+      summary: "Before ordering the teams by rating"
+    )
+
     case Tournaments.seed_teams_by_rating(socket.assigns.tournament) do
       {:ok, _} ->
         Audit.log(
