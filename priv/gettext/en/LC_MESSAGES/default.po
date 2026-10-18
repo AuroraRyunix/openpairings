@@ -21575,7 +21575,7 @@ msgid "Also list entries waiting for your decision, marked unconfirmed"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_results_live.ex:1817
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Amount"
 msgstr ""
 
@@ -21585,7 +21585,7 @@ msgid "Currency"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_results_live.ex:1803
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Entry fee"
 msgstr ""
 
@@ -21595,12 +21595,12 @@ msgid "Free for juniors"
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_results_live.ex:1786
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Lists the players already on your entry list, with the columns the public page shows. Email addresses never appear."
 msgstr ""
 
 #: lib/pairings_engine_web/live/settings_results_live.ex:1831
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Note"
 msgstr ""
 
