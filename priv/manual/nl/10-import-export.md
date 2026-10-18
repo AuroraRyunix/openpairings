@@ -140,10 +140,40 @@ Met de functie *SWAR-import* aan (menu Account, **Functies**, Belgisch pakket) l
 **Een SWAR-toernooi importeren** een `.swar`-bestand met spelers, rondes, resultaten,
 byes, puntentelling (met de 3-2-1 clubpuntentelling inbegrepen), afwezigheden en de
 categorieën. Spelers zonder FIDE-ID worden in de FIDE-lijst opgezocht, en je bevestigt de
-overeenkomsten in een stap *FIDE-ID's oplossen*. Bestaat er al een toernooi dat er
-hetzelfde uitziet, dan zegt het paneel dat en biedt het aan het te openen of een andere
-kopie te importeren. Een SWAR-teamcompetitie kan worden geïmporteerd als individueel
-toernooi (de partijen), niet als teamevenement.
+overeenkomsten in een stap *FIDE-ID's oplossen*. Een SWAR-teamcompetitie kan worden
+geïmporteerd als individueel toernooi (de partijen), niet als teamevenement.
+
+#### Een SWAR-bestand opnieuw uploaden {#uploading-a-swar-file-again}
+
+Is het bestand een toernooi dat je hier al hebt (SWAR bewaart in elk bestand één ID per
+toernooi), dan zegt het paneel dat en biedt het drie wegen aan: **Vergelijken en
+samenvoegen**, het toernooi openen, of een andere kopie importeren.
+
+**Vergelijken en samenvoegen** toont alles wat verschilt tussen het bestand en het
+toernooi, en er verandert niets tot je op **Samenvoegen** drukt:
+
+- **Toernooi-instellingen** - houd die van hier of neem die van het bestand over.
+  Instellingen die bepalen hoe rondes gepaard worden, blijven zoals ze zijn zodra er een
+  ronde gepaard is. Instellingen die het bestand niet heeft (normen, een handmatige
+  rangschikking, publiceren) worden nooit aangeraakt.
+- **Spelersgegevens** - houden of die van het bestand overnemen. Spelers worden herkend
+  aan hun FIDE-ID, dan hun nationaal ID, dan naam en geboortejaar. Spelers die alleen in
+  het bestand staan, kun je toevoegen: ze krijgen de volgende vrije paringsnummers en
+  spelen mee na de laatste ronde hier. Niemand krijgt een ander nummer, en spelers die
+  alleen hier staan, blijven.
+- **Resultaten en byes** - één keuze per partij. Een resultaat dat het bestand heeft en
+  dat hier ontbreekt, wordt overgenomen tenzij je anders kiest. Een resultaat dat
+  verschilt van een resultaat dat hier is ingevoerd, is een conflict, gemarkeerd in de
+  marge, en blijft zoals het hier is tenzij je dat van het bestand kiest.
+- **Paringen die verschillen** worden getoond en nooit gewijzigd: een ronde die hier
+  gepaard is, wordt niet opnieuw gepaard vanuit een bestand. Wil je de paring van het
+  bestand, verwijder dan de ronde hier en voeg opnieuw samen.
+- **Rondes alleen in het bestand**, na de laatste ronde hier, kun je toevoegen.
+
+Voor er iets geschreven wordt, wordt het toernooi zoals het was bewaard als herstelpunt
+op de pagina **Geschiedenis**, zodat je een samenvoeging waar je spijt van hebt met één
+klik ongedaan maakt. Verandert het toernooi terwijl je de vergelijking bekijkt, dan wordt
+er niets samengevoegd en vraagt het paneel je het bestand opnieuw te uploaden.
 
 ### Resultaten uit een CSV-bestand {#results-from-a-csv-file}
 

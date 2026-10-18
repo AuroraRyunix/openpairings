@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Uploading a SWAR file you already have: compare and merge.** Instead of choosing between a second copy and doing nothing, the panel now lays the file beside the tournament - settings, players, results, byes, pairings, rounds - and lets you take from it what you want: a section at a time, a game at a time for results. A result the file adds where there was none is taken; one that disagrees with a result entered here is a conflict, and stays as it is unless you say so. Played rounds are never re-paired, nobody is renumbered, and the file's later rounds can be added. A pinned restore point is saved first, because everybody trusts a merge right up until they read it.
+
 ## [0.94.0] - 2026-10-18
 
 - [Feature] **Rooms.** Settings, Rooms gives a hall of more than one room its names and the boards each holds (`1-20, 35, 40-45`), checked as you type: no name twice, no board in two rooms, and a board in none is its own business. The Pairings page then names the room above its first board, and both printed pairing lists grow a Room column, so the player looking for board 37 learns it is in the annexe before walking the main hall twice. A tournament without rooms looks exactly as it did. Rooms travel in the JSON export and come back on import.

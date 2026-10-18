@@ -1232,6 +1232,57 @@ The export writes a 3-2-1 tournament's pairing bye as LOST_BYE, and a Swiss
 created here with its own point values as a 3-2-1 file; imported back, that
 file is scored by these rules, as SWAR scores it.
 
+## Re-uploading a file: compare and merge (`SwarMerge`)
+
+A `.swar` file carries SWAR's per-tournament GUID, unchanged across every
+save (`tournaments.swar_guid`). When an upload's GUID belongs to a
+tournament the uploader can reach (`Tournaments.find_tournament_by_swar_guid/2`),
+the Tournaments page stops and offers **Compare and merge**, opening the
+tournament, or importing a second copy.
+
+`PairingsEngine.Federations.BEL.SwarMerge` does the comparing and the
+merging, in two steps:
+
+1. **`review/2`** reads the file through the import itself:
+   `SwarImport.stage/2` imports it into an unowned tournament, hands that to
+   a reader, and rolls the transaction back. Both sides are then read by the
+   same function (`read_side/2`), so a difference is in the data and never in
+   how the bytes were read. Nothing is written.
+2. **`apply/3`** writes what the arbiter chose, in one transaction: first
+   `ensure_writable`, a check that the tournament still reads exactly as it
+   did at review time (a hash of the read side; a co-arbiter's result in
+   between refuses the merge with `:changed_since_review`), then a **pinned
+   restore point** (`Snapshots.capture/4`, trigger `import.swar_merge`),
+   then the writes, then one `import.swar_merged` audit row. Any refusal on
+   the way rolls the whole merge back.
+
+What is compared, and the rules each part follows:
+
+| Part | Compared | Choice | Never |
+|---|---|---|---|
+| Settings | only the keys the import's own `tournament_attrs/1` sets (plus `swar_settings`, without its version string) | one, for the section; default keep | a `Tournaments.locked_fields/1` field once rounds are paired (shown, not taken); anything the file is silent on - norms data, manual ranking, publishing, forbidden pairs |
+| Player details | the fields the import writes; a FIDE id the file lacks is not a change | one, for the section; default keep | the pairing number, status or start round |
+| New players | file players with no match | add (default) or not | renumbering: they get the next free numbers, `start_round` after the last round here |
+| Players only here | - | - | removed |
+| Results and byes | per board seating the same two players the same way round; byes of players on no board on either side | one per row; a result added where there was none defaults to the file's, a differing one (a conflict) to keeping it | overwritten without the row being picked |
+| Pairings | boards that do not match | - | changed: a played round is never re-paired |
+| New rounds | the file's rounds after the last one here, without a gap | add (default) or not; refused without the new players who play in them | - |
+
+Players are matched in three passes - FIDE id, national id, then name
+(accents, case, commas and word order ignored) plus year of birth - each
+player here taken once, and two ids that both exist and disagree never
+match. A result written by the merge goes through
+`Tournaments.update_pairing_result/3`, so the FIDE-mode round window, match
+scores and a result already sent to the federation still refuse it; a
+correction of a closed round is confirmed by the arbiter's pick, keeps its
+`corrected_from`, and is logged as a `pibe.correction` like one made on the
+Pairings page. Team tournaments are not merged.
+
+Tests: `test/pairings_engine/federations/bel/swar_merge_test.exs`
+(synthetic files via `SwarFixture`, and the real fixtures each compared with
+their own import, which must come out identical) and the duplicate-upload
+describe block of `tournaments_live_test.exs`.
+
 ## Import and export: what goes where
 
 Completed 2026-09-27: everything a `.swar` file holds is either used by the

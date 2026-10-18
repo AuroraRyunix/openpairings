@@ -137,10 +137,40 @@ With the *SWAR import* feature on (Account menu, **Features**, Belgian pack),
 **Import a SWAR tournament** reads a `.swar` file with players, rounds,
 results, byes, scoring configuration (including the 3-2-1 club scoring),
 absences and the categories. Players without a FIDE ID are looked up in the
-FIDE list and you confirm the matches in a *Resolve FIDE ids* step. If a
-tournament that looks the same already exists, the panel says so and offers to
-open it or import another copy. A SWAR team competition can be imported as
-an individual tournament (the games), not as a team event.
+FIDE list and you confirm the matches in a *Resolve FIDE ids* step. A SWAR
+team competition can be imported as an individual tournament (the games), not
+as a team event.
+
+#### Uploading a SWAR file again
+
+If the file is a tournament you already have here (SWAR keeps one id per
+tournament in every file it saves), the panel says so and offers three ways
+on: **Compare and merge**, open the tournament, or import another copy.
+
+**Compare and merge** lists everything that differs between the file and the
+tournament, and nothing changes until you press **Merge**:
+
+- **Tournament settings** - keep the ones here or take the file's. Settings
+  that decide how rounds are paired stay as they are once a round is paired.
+  Settings the file does not have (norms, a manual ranking, publishing) are
+  never touched.
+- **Player details** - keep or take the file's. Players are recognised by
+  FIDE ID, then national ID, then name and year of birth. Players only in the
+  file can be added: they get the next free pairing numbers and join after
+  the last round here. Nobody is renumbered, and players only here stay.
+- **Results and byes** - one choice per game. A result the file has where
+  there is none here is taken unless you say otherwise. A result that
+  differs from one entered here is a conflict, marked in the margin, and is
+  kept as it is here unless you pick the file's.
+- **Pairings that differ** are shown and never changed: a round paired here
+  is not re-paired from a file. To use the file's pairing, delete the round
+  here and merge again.
+- **Rounds only in the file**, after the last round here, can be added.
+
+Before anything is written, the tournament as it was is saved as a restore
+point on its **History** page, so a merge you regret is one click away from
+undone. If the tournament changes while you are looking at the comparison,
+nothing is merged and you are asked to upload the file again.
 
 ### Results from a CSV file
 
