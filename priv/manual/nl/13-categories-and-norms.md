@@ -36,7 +36,7 @@ Twee schakelaars op de pagina:
 | **FA1 / IA1** | het rapport voor een arbitersnorm (FIDE Arbiter / International Arbiter) voor één kandidaat |
 | **IT4** | het titelnormrapport voor de spelers die een titelnorm claimen (tot 40) |
 
-De pagina toont eerst de **FIDE-instellingen** en **Officials & FIDE-rapportgegevens**: hoofdarbiter, organisator, persoon verantwoordelijk voor de paringen, het IT4-evenementtype, link naar de paringspagina op het web, plaatsvervangende arbiters en extra arbiters met e-mailadressen, en speciale opmerkingen voor de IT3. Een banner zegt *Nog niet klaar om bij FIDE in te dienen* zolang iets vereists ontbreekt.
+De formulieren worden ingevuld met de functionarissen en arbiters onder Instellingen, **Functionarissen & normen**, de identificaties onder Instellingen, **FIDE**, en de spelerslijst ([Een toernooi instellen](03-tournament-setup.md)). Een banner zegt *Nog niet klaar om bij FIDE in te dienen* zolang iets vereists ontbreekt, en noemt wat.
 
 - Voor **FA1/IA1** neemt *Kies een arbiter* de kandidaat uit de officials van het evenement, of typ de naam, het FIDE-ID en de federatie van elke arbiter; er wordt niets opgeslagen.
 - Voor **IT4** wordt een speler opgenomen zodra een geclaimde titel voor hem is ingesteld (*Normgegevens bewerken*: de geclaimde titel, de normomschrijving, medaillepercentage, groep, deelnemende federaties, opmerkingen).
@@ -54,6 +54,14 @@ voor een forfaitoverwinning is geen score, dus een speler zonder rating met alle
 zulke punten blijft buiten beschouwing, en één remise aan het bord volstaat om zijn
 partijen te laten meetellen. De partijen blijven in de rangschikking en in het
 ratingverslag staan; alleen de normberekening laat ze weg.
+
+De beoordeling gebruikt het *type evenement voor titelnormen* onder Instellingen,
+**Functionarissen & normen**, dat het aantal partijen kan verlagen (B.01 1.4.1 b)
+of de federatiemix kan laten vallen (1.4.3 a-c), en kijkt zelf na of het
+evenement een groot open Zwitsers toernooi is (1.4.3 d), wat de federatiemix
+voor iedereen laat vallen. Een vrijgestelde controle slaagt en zegt welk artikel
+haar liet vallen. De tabel onder de titel noemt het type evenement waarmee de
+spelers werden beoordeeld.
 
 ### Normen zonder account {#norms-without-an-account}
 

@@ -90,7 +90,7 @@ Nog twee dingen houden de pagina's kort:
 
 | Pagina | Getoond | Met *Geavanceerde instellingen tonen* |
 | --- | --- | --- |
-| Toernooi | naam, speelzaal, stad, federatie, organisator; toernooiformaat; aantal rondes; functionarissen; tiebreaks; Chess960 en het vinkje voor 30 dagen; delen | clubnummer van de organisator; hoe een ongerate speler in de tiebreaks telt; spelers die nog gelijk staan delen een plaats; logo |
+| Toernooi | naam, speelzaal, stad, federatie, organisator; toernooiformaat; aantal rondes; tiebreaks; Chess960 en het vinkje voor 30 dagen; delen | clubnummer van de organisator; hoe een ongerate speler in de tiebreaks telt; spelers die nog gelijk staan delen een plaats; logo |
 | Opties | paringssysteem, toernooirating, cycli (rondetoernooi), Keizer-topwaarde (Keizer), opstellingen (ploegen), type en speeltempo | engine, beginkleur, gelijke rating en titel, paringsnummers van laatkomers, afwezigen in ronde 1, acceleratie, de matchformaten, ploegrating en rating van een ongerate speler (ploegen), ander speeltempo |
 | Puntentelling | punten, matchpunten, uitgestelde partijen | de hele kaart *Byes en afwezigheden* (punten voor een overgeslagen ronde en de grenzen ervan, vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen); bye, forfait en terugtrekking van een ploeg |
 | Data | één datum per ronde | - |
@@ -100,7 +100,8 @@ Nog twee dingen houden de pagina's kort:
 | Verboden paringen | het effect op de volgende ronde, de regels, spelers die elkaar niet mogen treffen | hoe zwaar de wensen wegen |
 | OpenResults | publiceren naar de uitslagensite en per ronde ([Publiceren](14-publishing.md)) | wat de publieke pagina toont, het zaalscherm, het inschrijvingsformulier |
 | Live borden | de boxen en de partijen die ze meldden ([Live borden](17-live-boards.md)) | - |
-| FIDE | de FIDE-modus, het vinkje gehomologeerd, de rapportidentificaties, de volgorde van de ratinglijsten ([FIDE-modus](02-fide-mode.md), [Spelers en ratinglijsten](04-players-and-ratings.md)) | type evenement voor titelnormen, FIDE-ID-bereiken per ronde, consistentiecontroles van de ratings |
+| FIDE | de FIDE-modus, het vinkje gehomologeerd, de rapportidentificaties, de volgorde van de ratinglijsten ([FIDE-modus](02-fide-mode.md), [Spelers en ratinglijsten](04-players-and-ratings.md)) | FIDE-ID-bereiken per ronde, consistentiecontroles van de ratings |
+| Functionarissen & normen | de functionarissen en arbiters die de FIDE-formulieren noemen; het type evenement voor titelnormen; of de regel voor het grote open Zwitserse toernooi geldt | - |
 | Exporteren | TRF, back-ups, de CSV-download van de spelers ([Importeren en exporteren](10-import-export.md)) | de kolommen, het scheidingsteken, de volgorde en de opties van de CSV |
 | Over | versie en de paringsengine die dit toernooi gebruikt | - |
 
@@ -120,10 +121,6 @@ erin, voor de rest.
 (individueel), Rondetoernooi (individueel), Zwitsers (ploegen), Rondetoernooi
 (ploegen). **Aantal rondes** kan worden gewijzigd tot de eerste ronde is gepaard
 (bij een rondetoernooi volgt het aantal uit de spelers en de cycli).
-
-**Functionarissen.** De hoofdarbiter (naam, en FIDE-ID wanneer bekend),
-hulparbiters, en de gegevens die de FIDE-rapporten gebruiken. Dezelfde
-functionarissen kunnen op de pagina Normen worden bewerkt.
 
 **Tiebreaks.** Beschreven in [Rangschikking en tiebreaks](08-standings-and-tiebreaks.md).
 Met *Geavanceerde instellingen tonen* bevat deze kaart ook *Hoe een ongerate
@@ -488,6 +485,46 @@ behouden in de eindrangschikking*. In het TRF-rapport verschijnen ze in record
 > [!FIDE] Afwijking van de FIDE-modus
 > Extra punten maken geen deel uit van de FIDE-regels; een ronde waarvoor de
 > paring ze gebruikte, wordt als afwijking vastgelegd.
+
+## Pagina Functionarissen & normen {#officials-and-norms-page}
+
+**Functionarissen.** De hoofdarbiter, de organisator, de persoon die
+verantwoordelijk is voor de paringen, twee gerangschikte hulparbiters en zoveel
+andere arbiters als het evenement had (*+ Arbiter toevoegen*), de e-mailadressen
+van de hoofdarbiter en de organisator, het IT4-evenementtype en de link naar de
+paringswebpagina, en vier bijzondere opmerkingen voor het IT3. Typ een naam of
+een FIDE-ID en kies de juiste speler: elke functionaris heeft een FIDE-ID nodig,
+en opslaan met een functionaris zonder ID wordt geweigerd, want FIDE stuurt zo'n
+rapport terug. De formulieren IT3, FA1, IA1 en IT4 op de pagina Normen worden
+hiermee ingevuld ([Categorieën en normen](13-categories-and-norms.md)).
+
+**Titelnormen.** *Type evenement voor titelnormen* zegt de normbeoordeling als
+wat voor evenement de FIDE Title Regulations (B.01) dit toernooi zien. Enkel de
+soorten die bij het toernooi passen (team of individueel) worden aangeboden:
+
+| Type evenement | Wat er verandert |
+| --- | --- |
+| Gewoon evenement (de standaard) | niets: 9 partijen en de normale federatiemix |
+| Wereld- of continentaal kampioenschap voor teams / clubs | 7 partijen volstaan als het evenement 7, 8 of 9 rondes heeft (1.4.1 b) |
+| World Cup of Women's World Cup | 8 partijen volstaan (1.4.1 b) |
+| Finale van een nationaal kampioenschap | geen federatiemix voor spelers van de eigen federatie van het toernooi (1.4.3 a) |
+| Nationaal teamkampioenschap | hetzelfde, voor een teamtoernooi (1.4.3 b) |
+| Zonaal of subzonaal toernooi | voor niemand een federatiemix (1.4.3 c) |
+
+Daarnaast zegt de pagina of de regel voor het **grote open Zwitserse toernooi**
+(1.4.3 d) geldt. Je hoeft niets in te stellen: het programma telt het uit de
+spelers. Een individueel Zwitsers toernooi komt in aanmerking als minstens 20
+FIDE-gerate spelers van buiten de organiserende federatie (de eigen federatie
+van het toernooi, onder Toernooi), uit minstens 3 federaties, van wie minstens
+10 GM, IM, WGM of WIM, elk hoogstens een van de afgewerkte rondes misten. Een
+door de paring toegekende bye is geen gemiste ronde; een gevraagde bye, een
+afwezigheid of een verloren forfait wel. Spelers onder de FIDE-vlag tellen niet
+mee. Als de regel geldt, heeft niemands norm de federatiemix nodig.
+
+> [!FIDE] Eén norm met de normale mix
+> Elke vrijstelling geldt voor één norm. Een titelaanvraag heeft nog altijd
+> minstens één norm nodig die aan de normale federatievereiste voldoet (B.01
+> 1.4.3 e); de normbeoordeling zegt dat bij elke vrijgestelde controle.
 
 ## Vergrendelingen {#locks}
 

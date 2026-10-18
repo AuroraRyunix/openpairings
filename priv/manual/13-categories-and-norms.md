@@ -54,11 +54,10 @@ in from the tournament:
 | **FA1 / IA1** | the report for an arbiter norm (FIDE Arbiter / International Arbiter) for one candidate |
 | **IT4** | the title norm report for the players who claim a title norm (up to 40) |
 
-The page first shows the **FIDE settings** and **Officials & FIDE report
-data**: chief arbiter, organiser, person responsible for the pairings, IT4 event
-type, link to the pairings web page, deputy arbiters and extra arbiters with
-e-mail addresses, and special remarks for the IT3. A banner says *Not ready to
-submit to FIDE* while something required is missing.
+The forms are filled in from the officials and arbiters under Settings,
+**Officials & norms**, the identifiers under Settings, **FIDE**, and the player
+list ([Tournament set-up](03-tournament-setup.md)). A banner says *Not ready to
+submit to FIDE* while something required is missing, and names it.
 
 - For **FA1/IA1**, *Pick an arbiter* takes the candidate from the event's
   officials, or type the name, FIDE ID and federation of any arbiter; nothing is
@@ -83,6 +82,13 @@ win by forfeit is not a score, so an unrated player with only such points is
 still left out, and one draw over the board is enough for their games to
 count. The games stay in the standings and in the rating report; only the
 norm calculation leaves them out.
+
+The judgment uses the *event type for title norms* set under Settings,
+**Officials & norms**, which can lower the number of games (B.01 1.4.1 b) or
+lift the federation mix (1.4.3 a-c), and checks by itself whether the event is
+a big open Swiss (1.4.3 d), which lifts the federation mix for everyone. An
+exempted check passes and says which article lifted it. The table under the
+heading names the event type the players were judged as.
 
 ### Norms without an account
 

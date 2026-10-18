@@ -18,9 +18,9 @@ Instellingen, **FIDE**:
   tot ronde, ID);
 - **FIDE-evenementcode**.
 
-Instellingen, **Toernooi** (en **Geavanceerd**, **Normen**): de hoofdarbiter en de
-plaatsvervangers met hun FIDE-ID's, de federatie, de locatie, het speeltempo en
-de data. Het programma herinner je aan de aanbevolen velden op de pagina's Spelers
+Instellingen, **Toernooi**, **Opties** en **Data**: de federatie, de locatie, het
+speeltempo en de data. Instellingen, **Functionarissen & normen**: de
+hoofdarbiter en de plaatsvervangers met hun FIDE-ID's. Het programma herinner je aan de aanbevolen velden op de pagina's Spelers
 en Paringen; geen daarvan blokkeert de paring.
 
 > [!FIDE] Byeuitsluiting en bye-voorkeur

@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Officials & norms is its own Settings page**, under Reporting. The chief arbiter, deputies, further arbiters, e-mail addresses and IT3/IT4 extras moved there from the Norms page, where the one person looking for "chief arbiter" never looked, and the event type for title norms moved there from the FIDE page. The Tournament page's card explaining where the officials really were is gone, its job done by being unnecessary. The Norms page keeps the reports and the judgment, and links to the page when something is missing.
+- [Feature] **The big open Swiss clause (B.01 1.4.3 d) is spotted on its own.** An individual Swiss with at least 20 FIDE-rated players from outside the host federation, from 3 federations or more, 10 of them GM/IM/WGM/WIM, each missing at most one round (a pairing-allocated bye is not missing), lifts the federation mix for everyone, and the norm judgment now notices without being told. Nothing to set; the new page says whether it applies and with what counts. Players under the FIDE flag are not counted, and a tournament with no federation set never claims it.
+- [Verified] **The event type travels in the JSON export** and comes back on import; a file from before it existed imports as an ordinary event, which judges exactly as before. The TRF has no field for it (record 092 is the pairing system), so the rating report is unchanged.
+
 ## [0.94.0] - 2026-10-18
 
 - [Feature] **Rooms.** Settings, Rooms gives a hall of more than one room its names and the boards each holds (`1-20, 35, 40-45`), checked as you type: no name twice, no board in two rooms, and a board in none is its own business. The Pairings page then names the room above its first board, and both printed pairing lists grow a Room column, so the player looking for board 37 learns it is in the annexe before walking the main hall twice. A tournament without rooms looks exactly as it did. Rooms travel in the JSON export and come back on import.

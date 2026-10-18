@@ -154,7 +154,7 @@ ranges of rounds), the event code, and the box *This tournament is FIDE-homologa
 (rated/reportable)*. When that box is ticked, organiser-only bye
 preferences are not applied (they are not FIDE rules), and the tournament ID
 becomes a required field. The officials (chief arbiter, deputies) and the
-norm-related data are entered on the Tournament page; see
+event type for title norms are entered under **Officials & norms**; see
 [Tournament set-up](03-tournament-setup.md) and [Sending to FIDE](11-fide-report.md).
 
 ![The FIDE page of the settings with the tournament ID, event code and the homologated tick box](screenshots/02-settings-fide-page.png "Settings, FIDE")
