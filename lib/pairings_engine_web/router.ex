@@ -486,6 +486,8 @@ defmodule PairingsEngineWeb.Router do
       ] do
       live "/changelog", ChangelogLive
       live "/help", HelpLive
+      live "/help/other/:program", HelpLive
+      live "/help/other/:program/:page", HelpLive
       live "/help/:chapter", HelpLive
     end
   end

@@ -1,0 +1,133 @@
+{
+  "programs": [
+    {
+      "commit": "581bc864f25c7aebb78a748636eb57f45ccb2065",
+      "dirty": false,
+      "files": [
+        {
+          "file": "01-getting-started.md",
+          "nl": true,
+          "source": "priv/manual/01-getting-started.md"
+        },
+        {
+          "file": "02-boards-and-ports.md",
+          "nl": true,
+          "source": "priv/manual/02-boards-and-ports.md"
+        },
+        {
+          "file": "03-bridges.md",
+          "nl": true,
+          "source": "priv/manual/03-bridges.md"
+        },
+        {
+          "file": "04-following-games.md",
+          "nl": true,
+          "source": "priv/manual/04-following-games.md"
+        },
+        {
+          "file": "05-openpairings-and-openresults.md",
+          "nl": true,
+          "source": "priv/manual/05-openpairings-and-openresults.md"
+        },
+        {
+          "file": "06-accounts-and-halls.md",
+          "nl": true,
+          "source": "priv/manual/06-accounts-and-halls.md"
+        },
+        {
+          "file": "07-recording-and-troubleshooting.md",
+          "nl": true,
+          "source": "priv/manual/07-recording-and-troubleshooting.md"
+        }
+      ],
+      "name": "Alnasl",
+      "repo": "Alnasl",
+      "slug": "alnasl"
+    },
+    {
+      "commit": "d97d71dd4c59ec0a035e670644f11e94c3ca5644",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        }
+      ],
+      "name": "Arkab",
+      "repo": "Arkab",
+      "slug": "arkab"
+    },
+    {
+      "commit": "08a6eac26e6c5216e2007e8ee7bdca2a11800545",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        }
+      ],
+      "name": "Ascella",
+      "repo": "Ascella",
+      "slug": "ascella"
+    },
+    {
+      "commit": "de7e0b6a38e2b6ca2f1d8f5a6ba7947057fcd121",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        },
+        {
+          "file": "openpairings-integration.md",
+          "nl": false,
+          "source": "docs/openpairings-integration.md"
+        }
+      ],
+      "name": "Polis",
+      "repo": "Polis",
+      "slug": "polis"
+    },
+    {
+      "commit": "2a47721b936d5676690abf1719b9769b36b67d74",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        },
+        {
+          "file": "openpairings-integration.md",
+          "nl": false,
+          "source": "docs/openpairings-integration.md"
+        }
+      ],
+      "name": "Nunki",
+      "repo": "Nunki",
+      "slug": "nunki"
+    },
+    {
+      "commit": "cc07dbfa4d3372f27dbf53e965d661a9d21144a0",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        },
+        {
+          "file": "public-extras.md",
+          "nl": false,
+          "source": "docs/public-extras.md"
+        }
+      ],
+      "name": "OpenResults",
+      "repo": "openresults",
+      "slug": "openresults"
+    }
+  ]
+}

@@ -3399,7 +3399,7 @@ msgstr ""
 msgid "Press \"Pair round %{n}\" to generate the %{engine}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:387
+#: lib/pairings_engine_web/live/help_live.ex:511
 #: lib/pairings_engine_web/live/players_live.ex:5404
 #, elixir-autogen, elixir-format
 msgid "Previous"
@@ -7202,7 +7202,7 @@ msgstr ""
 msgid "Asking the results site who runs it..."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:481
+#: lib/pairings_engine_web/live/help_live.ex:631
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:352
 #: lib/pairings_engine_web/live/players_live.ex:4023
 #: lib/pairings_engine_web/live/players_live.ex:4157
@@ -16280,12 +16280,13 @@ msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:406
 #: lib/pairings_engine_web/components/layouts.ex:418
-#: lib/pairings_engine_web/live/help_live.ex:54
-#: lib/pairings_engine_web/live/help_live.ex:76
-#: lib/pairings_engine_web/live/help_live.ex:87
-#: lib/pairings_engine_web/live/help_live.ex:263
-#: lib/pairings_engine_web/live/help_live.ex:317
-#: lib/pairings_engine_web/live/help_live.ex:413
+#: lib/pairings_engine_web/live/help_live.ex:57
+#: lib/pairings_engine_web/live/help_live.ex:82
+#: lib/pairings_engine_web/live/help_live.ex:106
+#: lib/pairings_engine_web/live/help_live.ex:117
+#: lib/pairings_engine_web/live/help_live.ex:356
+#: lib/pairings_engine_web/live/help_live.ex:410
+#: lib/pairings_engine_web/live/help_live.ex:537
 #, elixir-autogen, elixir-format
 msgid "Help"
 msgstr ""
@@ -16433,7 +16434,7 @@ msgstr ""
 msgid "Lowest rating in the field"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:232
+#: lib/pairings_engine_web/live/help_live.ex:286
 #, elixir-autogen, elixir-format
 msgid "Manual contents"
 msgstr ""
@@ -16555,9 +16556,9 @@ msgstr ""
 msgid "Oldest first"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:345
-#: lib/pairings_engine_web/live/help_live.ex:358
-#: lib/pairings_engine_web/live/help_live.ex:361
+#: lib/pairings_engine_web/live/help_live.ex:469
+#: lib/pairings_engine_web/live/help_live.ex:482
+#: lib/pairings_engine_web/live/help_live.ex:485
 #, elixir-autogen, elixir-format
 msgid "On this page"
 msgstr ""
@@ -16862,7 +16863,8 @@ msgstr ""
 msgid "Tell me when the FIDE list gives a player a different rating or title"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:64
+#: lib/pairings_engine_web/live/help_live.ex:69
+#: lib/pairings_engine_web/live/help_live.ex:93
 #, elixir-autogen, elixir-format
 msgid "That help chapter does not exist."
 msgstr ""
@@ -17450,65 +17452,65 @@ msgstr ""
 msgid "Warning"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:332
+#: lib/pairings_engine_web/live/help_live.ex:437
 #, elixir-autogen, elixir-format
 msgid "1 minute read"
 msgid_plural "%{count} minutes read"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/help_live.ex:370
+#: lib/pairings_engine_web/live/help_live.ex:494
 #, elixir-autogen, elixir-format
 msgid "Back to top"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:261
-#: lib/pairings_engine_web/live/help_live.ex:315
+#: lib/pairings_engine_web/live/help_live.ex:354
+#: lib/pairings_engine_web/live/help_live.ex:408
 #, elixir-autogen, elixir-format
 msgid "Breadcrumb"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:328
+#: lib/pairings_engine_web/live/help_live.ex:433
 #, elixir-autogen, elixir-format
 msgid "Chapter %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:226
+#: lib/pairings_engine_web/live/help_live.ex:279
 #, elixir-autogen, elixir-format
 msgid "Chapter %{n}: %{title}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:227
+#: lib/pairings_engine_web/live/help_live.ex:280
 #, elixir-autogen, elixir-format
 msgid "Chapters"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:420
+#: lib/pairings_engine_web/live/help_live.ex:544
 #, elixir-autogen, elixir-format
 msgid "Everything the program does, from the first player to the FIDE report, written for the arbiter at the board. New here? Start with Getting started."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:427
+#: lib/pairings_engine_web/live/help_live.ex:551
 #, elixir-autogen, elixir-format
 msgid "Getting started"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:174
+#: lib/pairings_engine_web/live/help_live.ex:226
 #, elixir-autogen, elixir-format
 msgid "Link copied"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:400
+#: lib/pairings_engine_web/live/help_live.ex:524
 #, elixir-autogen, elixir-format
 msgid "Next"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:303
+#: lib/pairings_engine_web/live/help_live.ex:396
 #, elixir-autogen, elixir-format
 msgid "Nothing in the manual matches every word. Try fewer or shorter words, or browse the chapters."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:274
+#: lib/pairings_engine_web/live/help_live.ex:367
 #, elixir-autogen, elixir-format
 msgid "One section matches \"%{query}\"."
 msgid_plural "%{count} sections match \"%{query}\"."
@@ -17521,64 +17523,64 @@ msgstr[1] ""
 msgid "Open the manual for this page"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:118
+#: lib/pairings_engine_web/live/help_live.ex:148
 #, elixir-autogen, elixir-format
 msgid "Preparing the tournament"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:431
+#: lib/pairings_engine_web/live/help_live.ex:555
 #, elixir-autogen, elixir-format
 msgid "Press"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:378
+#: lib/pairings_engine_web/live/help_live.ex:502
 #, elixir-autogen, elixir-format
 msgid "Previous and next chapter"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:120
+#: lib/pairings_engine_web/live/help_live.ex:150
 #, elixir-autogen, elixir-format
 msgid "Reports, teams and sharing"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:119
+#: lib/pairings_engine_web/live/help_live.ex:149
 #, elixir-autogen, elixir-format
 msgid "Round by round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:474
+#: lib/pairings_engine_web/live/help_live.ex:624
 #, elixir-autogen, elixir-format
 msgid "Screenshot"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:265
+#: lib/pairings_engine_web/live/help_live.ex:358
 #, elixir-autogen, elixir-format
 msgid "Search"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:270
+#: lib/pairings_engine_web/live/help_live.ex:363
 #, elixir-autogen, elixir-format
 msgid "Search results"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:205
-#: lib/pairings_engine_web/live/help_live.ex:206
+#: lib/pairings_engine_web/live/help_live.ex:257
+#: lib/pairings_engine_web/live/help_live.ex:258
 #, elixir-autogen, elixir-format
 msgid "Search the manual"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:416
+#: lib/pairings_engine_web/live/help_live.ex:540
 #, elixir-autogen, elixir-format
 msgid "The OpenPairings user manual"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:176
-#: lib/pairings_engine_web/live/help_live.ex:184
+#: lib/pairings_engine_web/live/help_live.ex:228
+#: lib/pairings_engine_web/live/help_live.ex:236
 #, elixir-autogen, elixir-format
 msgid "User manual"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:431
+#: lib/pairings_engine_web/live/help_live.ex:555
 #, elixir-autogen, elixir-format
 msgid "to search"
 msgstr ""
@@ -21375,4 +21377,26 @@ msgstr ""
 #: lib/pairings_engine_web/live/tournaments_live.ex:2284
 #, elixir-autogen, elixir-format
 msgid "setup"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:460
+#, elixir-autogen, elixir-format
+msgid "Latest %{name} release on GitHub"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:306
+#: lib/pairings_engine_web/live/help_live.ex:413
+#: lib/pairings_engine_web/live/help_live.ex:591
+#, elixir-autogen, elixir-format
+msgid "Other programs"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:191
+#, elixir-autogen, elixir-format
+msgid "Overview"
+msgstr ""
+
+#: lib/pairings_engine_web/live/help_live.ex:450
+#, elixir-autogen, elixir-format
+msgid "This page is only available in English."
 msgstr ""

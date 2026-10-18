@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **The Help now also holds the manuals of the other programs in the family**: Alnasl, Arkab, Ascella, Polis, Nunki and OpenResults, under *Other programs* at the bottom of the contents. Their text is copied in on purpose, so an arbiter with six programs in one hall can read all of it in one place, and the search looks through it as well. Alnasl's manual is available in Dutch; the others show their English text on the Dutch side and say so. Pictures are not copied, links between pages of one program stay in the Help, and anything else points at the program's GitHub. `mix help.sync_family` refreshes the copies from the sibling checkouts and records the commit each came from, because the public builds cannot see those checkouts and somebody has to carry the text across.
+
 ## [0.91.0] - 2026-10-18
 
 - [Feature] **A plug-in can do work when the program starts** (hosted edition only), once the database and the rest are up, instead of waiting for somebody to open a page. One that fails is logged and the program starts regardless, because a plug-in is a guest.

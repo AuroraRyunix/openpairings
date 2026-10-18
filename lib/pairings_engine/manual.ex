@@ -160,7 +160,7 @@ defmodule PairingsEngine.Manual do
     if terms == [] do
       []
     else
-      for chapter <- chapters(locale),
+      for chapter <- chapters(locale) ++ PairingsEngine.Manual.Family.pages(locale),
           section <- chapter.sections,
           heading = section.heading || chapter.title,
           haystack = String.downcase(heading <> " " <> section.text),
@@ -182,7 +182,7 @@ defmodule PairingsEngine.Manual do
           score: score
         }
       end
-      |> Enum.sort_by(&{-&1.score, &1.chapter.number})
+      |> Enum.sort_by(&{-&1.score, Map.get(&1.chapter, :order) || &1.chapter.number})
       |> Enum.take(limit)
     end
   end

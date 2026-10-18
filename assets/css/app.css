@@ -1445,6 +1445,8 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 .manual-hero-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; margin: 0; }
 .manual-hero-actions .pe-btn { display: inline-flex; align-items: center; gap: 6px; }
 .manual-hint { font-size: 13.5px; color: var(--text-soft); }
+.manual-note-line { font-size: 13.5px; color: var(--text-soft); margin: 8px 0 0; }
+.manual-toc-sub { margin: 2px 0 6px 14px; }
 
 .manual-index-part { margin-top: 30px; }
 .page .manual-index-part-title {
