@@ -37,7 +37,8 @@ Al de rest zit in **Meer**, aan het einde van de balk, in groepen:
   (CSV)** en, in een round robin, **Rondes wisselen…**;
 - **PGN**: deze ronde of alle rondes, met of zonder bordnummers, of een reeks
   borden;
-- **Weergaven**: **Lokale weergave & telefoon-QR** en, voor een gepubliceerd
+- **Weergaven**: **Lokale weergave**, **Telefoon-QR** (een groot venster met de QR-codes om
+  met een telefoon te scannen) en, voor een gepubliceerd
   toernooi, **Publieke pagina**;
 - **Gevarenzone**: **Ronde ontparen**, alleen op de laatst gepaarde ronde.
 

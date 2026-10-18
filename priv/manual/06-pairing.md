@@ -36,7 +36,8 @@ Everything else is in **More**, at the end of the bar, in groups:
   round robin, **Swap rounds…**;
 - **PGN**: this round or all rounds, with or without board numbers, or a
   range of boards;
-- **Views**: **Local view & phone QR** and, for a published tournament,
+- **Views**: **Local view**, **Phone QR** (a large dialog with the QR codes for a
+  phone to scan) and, for a published tournament,
   **Public page**;
 - **Danger zone**: **Unpair round**, on the last paired round only.
 

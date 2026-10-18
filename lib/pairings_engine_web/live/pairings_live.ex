@@ -4,6 +4,8 @@ defmodule PairingsEngineWeb.PairingsLive do
   alias PairingsEngineWeb.ByePreferenceText
   alias PairingsEngineWeb.LateEntryNotice
   alias PairingsEngineWeb.PublicLink
+  alias PairingsEngineWeb.Components.PhoneQr
+  alias PairingsEngine.Mobile
 
   import PairingsEngineWeb.SettingsSupport,
     only: [
@@ -171,6 +173,11 @@ defmodule PairingsEngineWeb.PairingsLive do
        # pairing (or before its first round is made by hand): the choice, the
        # list it gives and the draw's seed. See "Round-robin starting numbers".
        rr_numbers: nil,
+       # The "Phone QR" dialog: open or not, the code just minted and the
+       # list of phones enrolled so far (loaded when the dialog opens).
+       phone_qr?: false,
+       new_enrollment: nil,
+       enrollments: [],
        # The "Swap rounds" dialog of a round robin (`PairingsEngine.RoundSwap`):
        # nil while closed, else what is typed in it and the refusal, if any.
        rr_swap: nil,
@@ -1097,6 +1104,69 @@ defmodule PairingsEngineWeb.PairingsLive do
       nil -> {:noreply, socket}
       dialog -> {:noreply, assign(socket, mpa_dialog: Map.update!(dialog, :ack, &(!&1)))}
     end
+  end
+
+  ## ---------- Phone QR ----------
+  #
+  # The codes a phone can scan, in a dialog over this page. Opening loads the
+  # phones already enrolled; the code just minted lives only as long as the
+  # dialog does (it is shown once, like any other secret).
+  def handle_event("phone_qr_open", _params, socket) do
+    {:noreply,
+     assign(socket,
+       phone_qr?: true,
+       new_enrollment: nil,
+       enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
+     )}
+  end
+
+  def handle_event("phone_qr_close", _params, socket),
+    do: {:noreply, assign(socket, phone_qr?: false, new_enrollment: nil)}
+
+  # `create_enrollment/2` refuses on an archived or handed-off tournament, and
+  # on a local run; say why instead of crashing the page.
+  def handle_event("generate_enrollment", params, socket) do
+    case Mobile.create_enrollment(
+           socket.assigns.tournament.id,
+           PhoneQr.enrollment_opts(params)
+         ) do
+      {:ok, enrollment} ->
+        {:noreply,
+         assign(socket,
+           new_enrollment: enrollment,
+           enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
+         )}
+
+      {:error, reason} when is_atom(reason) ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           Tournaments.refusal_message(reason, gettext("enrolling a phone"))
+         )}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, put_flash(socket, :error, PhoneQr.enrollment_changeset_error(changeset))}
+    end
+  end
+
+  def handle_event("revoke_enrollment", %{"id" => id}, socket) do
+    case Integer.parse(to_string(id)) do
+      {int, _} -> Mobile.revoke(socket.assigns.tournament.id, int)
+      _ -> :ok
+    end
+
+    new_enrollment =
+      if socket.assigns.new_enrollment &&
+           to_string(socket.assigns.new_enrollment.id) == to_string(id),
+         do: nil,
+         else: socket.assigns.new_enrollment
+
+    {:noreply,
+     assign(socket,
+       new_enrollment: new_enrollment,
+       enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
+     )}
   end
 
   def handle_event("mpa_dialog_cancel", _params, socket),
@@ -6906,8 +6976,15 @@ defmodule PairingsEngineWeb.PairingsLive do
                 href={~p"/t/#{@tournament.id}/live"}
                 target="_blank"
               >
-                {gettext("Local view & phone QR")}
+                {gettext("Local view")}
               </a>
+
+              <%!-- The QR codes that used to sit on the local view, in a
+                    dialog over this page instead. A button, not a link:
+                    nothing opens, it only draws. --%>
+              <button type="button" role="menuitem" id="phone-qr-link" phx-click="phone_qr_open">
+                {gettext("Phone QR")}
+              </button>
 
               <a
                 :if={PublicLink.public?(@tournament)}
@@ -7552,6 +7629,13 @@ defmodule PairingsEngineWeb.PairingsLive do
       <.mpa_dialog :if={@mpa_dialog} dialog={@mpa_dialog} numbers={@rr_numbers} />
       <.rr_numbers_dialog :if={@rr_numbers && @rr_numbers.purpose == :pair} numbers={@rr_numbers} />
       <.rr_swap_dialog :if={@rr_swap} swap={@rr_swap} tournament={@tournament} />
+      <PhoneQr.phone_qr_dialog
+        :if={@phone_qr?}
+        tournament={@tournament}
+        new_enrollment={@new_enrollment}
+        enrollments={@enrollments}
+        local_mode?={PairingsEngine.Authz.local_mode?()}
+      />
       <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">

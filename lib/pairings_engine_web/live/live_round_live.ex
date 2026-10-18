@@ -1,10 +1,10 @@
 defmodule PairingsEngineWeb.LiveRoundLive do
   @moduledoc """
   Read-only "projector" view of a tournament's latest paired round: the
-  pairing list with live results, and current standings below it. Also the
-  arbiter's mobile-enrollment QR generator (see PairingsEngine.Mobile) - both
-  live here since an arbiter typically opens this page once and leaves it up.
-  Meant to be popped into its own tab/window (see the "Local view & phone QR"
+  pairing list with live results, and current standings below it. The phone
+  QR codes are not here any more: they are the "Phone QR" dialog on
+  PairingsLive, so this page carries nothing but the boards.
+  Meant to be popped into its own tab/window (see the "Local view"
   link on PairingsLive) and left open - it subscribes to the same tournament
   topic as every other tournament-scoped view and updates the instant a
   result is entered elsewhere, no polling.
@@ -12,7 +12,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
   use PairingsEngineWeb, :live_view
 
-  alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, Mobile, PairingDisplay}
+  alias PairingsEngine.{Tournaments, Standings, Tiebreaks, Keizer, PairingDisplay}
   alias PairingsEngine.Pairing, as: Engine
 
   # How long each page of boards stays up.
@@ -54,7 +54,6 @@ defmodule PairingsEngineWeb.LiveRoundLive do
      |> assign(
        tournament: tournament,
        page_title: "#{tournament.name} · Live",
-       new_enrollment: nil,
        # Projector mode: the boards, full screen, nothing else. Reached by the
        # button on this page, or by `?display=1` so a machine that drives a
        # hall screen can be pointed at a URL and left alone.
@@ -72,7 +71,6 @@ defmodule PairingsEngineWeb.LiveRoundLive do
        paused?: false,
        cycle_timer: nil
      )
-     |> assign_enrollments()
      |> reload()
      # Start the cycle here, not only when the button is pressed.
      #
@@ -128,111 +126,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     end
   end
 
-  defp assign_enrollments(socket) do
-    assign(socket, :enrollments, Mobile.list_enrollments(socket.assigns.tournament.id))
-  end
-
-  defp enroll_expiry(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
-
-  # A QR code as one image with a name, rather than a raw SVG of a few hundred
-  # unnamed squares. The address it encodes is printed beside it in both
-  # places this is used, so the name says what it is for, not the address.
-  attr :url, :string, required: true
-  attr :label, :string, required: true
-
-  defp qr_code(assigns) do
-    ~H"""
-    <div class="enroll-qr-inner" role="img" aria-label={@label}>
-      {Phoenix.HTML.raw(
-        String.replace(Mobile.qr_svg(@url), "<svg", ~s(<svg aria-hidden="true"), global: false)
-      )}
-    </div>
-    """
-  end
-
-  defp enrollment_level_label("deputy"), do: gettext("Deputy")
-  defp enrollment_level_label(_helper), do: gettext("Helper")
-
-  defp board_range_label(nil, nil), do: nil
-  defp board_range_label(from, nil), do: gettext("Boards %{from}+", from: from)
-  defp board_range_label(nil, to), do: gettext("Boards up to %{to}", to: to)
-  defp board_range_label(from, to), do: gettext("Boards %{from}-%{to}", from: from, to: to)
-
-  # "Boards 1-10 · Helper" rather than a bare token id - one enrolment can
-  # be used by unlimited phones, so this line IS the audit trail for what
-  # the CODE may do, not a particular device. An arbiter checking "did I
-  # hand out the right thing" needs the range and the level together, not
-  # a code number to cross-reference against memory.
-  defp enrollment_scope_label(e) do
-    level = enrollment_level_label(e.level)
-
-    case board_range_label(e.board_from, e.board_to) do
-      nil -> level
-      range -> gettext("%{range} · %{level}", range: range, level: level)
-    end
-  end
-
-  # Blank stays "no restriction" rather than an error - the field is
-  # optional. Anything that doesn't parse as a positive integer (a stray
-  # non-numeric value from outside the `type="number"` input) is treated
-  # the same way rather than surfacing a confusing error on a field the
-  # arbiter may not have touched at all; `Mobile.create_enrollment/2`'s own
-  # validation is what actually guards the range that DOES get set.
-  defp parse_board(nil), do: nil
-  defp parse_board(""), do: nil
-
-  defp parse_board(str) do
-    case Integer.parse(str) do
-      {n, _} -> n
-      :error -> nil
-    end
-  end
-
-  defp enrollment_opts(params) do
-    [
-      label: params |> Map.get("label", "") |> to_string() |> String.trim(),
-      level: Map.get(params, "level", "helper"),
-      board_from: parse_board(params["board_from"]),
-      board_to: parse_board(params["board_to"])
-    ]
-  end
-
-  # Shown wherever a code needs a face - the just-minted panel and the
-  # device list - so an arbiter matching phone to person doesn't fall back
-  # to reading out an 8-digit code. Naming is optional (an arbiter in a
-  # hurry must still be able to mint one with zero fields filled), so this
-  # is the one place that decides what an empty name reads as instead of a
-  # blank cell that looks like the row failed to load.
-  defp enrollment_name_label(%Mobile.Enrollment{label: ""}), do: gettext("No name given")
-  defp enrollment_name_label(%Mobile.Enrollment{label: label}), do: label
-
-  # What tells an arbiter whether the code they just handed over actually
-  # got scanned - "Not used yet" versus claimed-and-when, not just present
-  # in the list. `claimed_at` only ever moves nil -> a timestamp
-  # (`Mobile.claim/1`), never back, so there is no third state to render.
-  defp claim_status_label(%Mobile.Enrollment{claimed_at: nil}), do: gettext("Not used yet")
-
-  defp claim_status_label(%Mobile.Enrollment{claimed_at: %DateTime{} = claimed_at}),
-    do: gettext("Claimed %{when}", when: enroll_expiry(claimed_at))
-
-  # A board-range validation failure gets its own message (what to fix);
-  # anything else - a `:level` that didn't come from the `<select>`, say -
-  # falls back to the same generic retry message this already had.
-  defp enrollment_changeset_error(%Ecto.Changeset{} = changeset) do
-    if changeset.errors[:board_from] || changeset.errors[:board_to] do
-      gettext(
-        "Board range is invalid - \"to\" must be at least \"from\", and both must be 1 or higher."
-      )
-    else
-      gettext("Could not enrol a phone - please retry.")
-    end
-  end
-
   @impl true
-  # `create_enrollment/2` refuses on an archived or handed-off tournament, so
-  # the old `{:ok, enrollment} =` would have taken the page down with a
-  # MatchError instead of saying why - on the one page an arbiter leaves open
-  # on a projector all day.
   # ---- the pairing cycle ---------------------------------------------------
   #
   # Only ever pairings. Standings are the arbiter's business and belong on the
@@ -268,42 +162,6 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   end
 
   def handle_event("rows_fit", _params, socket), do: {:noreply, socket}
-
-  def handle_event("generate_enrollment", params, socket) do
-    case Mobile.create_enrollment(socket.assigns.tournament.id, enrollment_opts(params)) do
-      {:ok, enrollment} ->
-        {:noreply,
-         socket
-         |> assign(new_enrollment: enrollment)
-         |> assign_enrollments()}
-
-      {:error, reason} when is_atom(reason) ->
-        {:noreply,
-         put_flash(
-           socket,
-           :error,
-           Tournaments.refusal_message(reason, gettext("enrolling a phone"))
-         )}
-
-      {:error, %Ecto.Changeset{} = changeset} ->
-        {:noreply, put_flash(socket, :error, enrollment_changeset_error(changeset))}
-    end
-  end
-
-  def handle_event("revoke_enrollment", %{"id" => id}, socket) do
-    case Integer.parse(to_string(id)) do
-      {int, _} -> Mobile.revoke(socket.assigns.tournament.id, int)
-      _ -> :ok
-    end
-
-    new_enrollment =
-      if socket.assigns.new_enrollment &&
-           to_string(socket.assigns.new_enrollment.id) == to_string(id),
-         do: nil,
-         else: socket.assigns.new_enrollment
-
-    {:noreply, socket |> assign(new_enrollment: new_enrollment) |> assign_enrollments()}
-  end
 
   # Purely a display page - nothing here is user-editable, so every
   # broadcast just reloads everything.
@@ -547,178 +405,6 @@ defmodule PairingsEngineWeb.LiveRoundLive do
           </button>
         </div>
       </div>
-
-      <%!-- Not offered on a local run, because it cannot work there and
-            looks like it can. Two independent reasons, either of which is
-            enough: the QR encodes this endpoint's host, which local mode
-            sets to "localhost", so a phone scanning it resolves its OWN
-            localhost; and the listener is pinned to 127.0.0.1, so even the
-            laptop's real LAN address would be refused.
-
-            That pin is not incidental - `config/runtime.exs` calls it "what
-            makes local mode safe to have at all", since the mode prints
-            login links to a terminal and auto-signs-in whoever reaches it.
-            Binding wider to make this feature work would hand
-            sign-in-as-the-owner to everyone on the venue wifi. So this is a
-            property of the deployment, not a missing feature, and the panel
-            says which rather than disappearing without explanation. --%>
-      <details :if={local_mode?()} class="card" style="margin-bottom: 20px">
-        <summary style="cursor: pointer; font-weight: 650">
-          {gettext("📱 Enrol a phone to enter results")}
-        </summary>
-
-        <p class="hint">
-          {gettext(
-            "Not available when OpenPairings runs on your own computer. This machine only accepts connections from itself - which is what keeps a no-login build safe - so a phone cannot reach it, and the QR code would point the phone at itself. Helpers can enter results from a phone when a tournament runs on a shared server."
-          )}
-        </p>
-      </details>
-
-      <details :if={not local_mode?()} class="card" style="margin-bottom: 20px">
-        <summary style="cursor: pointer; font-weight: 650">
-          {gettext("📱 Enrol a phone to enter results")}
-        </summary>
-
-        <p class="hint">
-          {gettext(
-            "Let helpers enter results from their phone, no account needed. Show them the QR code or the 8-digit code. Access is result-entry only, scoped to this tournament, and you can revoke it any time."
-          )}
-        </p>
-
-        <%!-- Level + board range travel WITH the code from the moment it is
-              minted - there is no "edit an enrolment" screen, so whatever is
-              picked here is what that code does for its whole life. Kept to
-              two compact fields (a level picker, an optional board range) on
-              purpose: a permission matrix of checkboxes is easier to
-              misconfigure in a hall with players waiting than one dropdown
-              that names the two levels plainly.
-
-              The name field goes FIRST, ahead of the level picker it used
-              to open on - now that a code is good for one phone only, "who
-              is this for" is the first thing worth asking, not an
-              afterthought filled in (or not) after the access decision. Not
-              `required`, though: an arbiter mid-round handing out codes as
-              fast as they can type still needs to mint one with nothing but
-              a tap on the button. --%>
-        <form
-          phx-submit="generate_enrollment"
-          style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0"
-        >
-          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 13px">
-            {gettext("Name (optional)")}
-            <input
-              type="text"
-              name="label"
-              class="pe-input"
-              maxlength="60"
-              placeholder={gettext("Anke, Board 1-10 helper")}
-            />
-          </label>
-
-          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 13px">
-            {gettext("Access level")}
-            <select name="level" class="pe-select">
-              <option value="helper">{gettext("Helper - fill blanks, latest round only")}</option>
-
-              <option value="deputy">{gettext("Deputy - enter and correct, any round")}</option>
-            </select>
-          </label>
-
-          <label style="display: flex; flex-direction: column; gap: 2px; font-size: 13px">
-            {gettext("Boards (optional)")}
-            <span style="display: flex; gap: 4px; align-items: center">
-              <input
-                type="number"
-                min="1"
-                name="board_from"
-                class="pe-input"
-                style="width: 64px"
-                placeholder={gettext("from")}
-              /> <span aria-hidden="true">–</span>
-              <input
-                type="number"
-                min="1"
-                name="board_to"
-                class="pe-input"
-                style="width: 64px"
-                placeholder={gettext("to")}
-              />
-            </span>
-          </label>
-          <button class="pe-btn primary" type="submit">{gettext("Generate a code")}</button>
-        </form>
-
-        <div :if={@new_enrollment} class="enroll-panel" style="margin-top: 16px">
-          <div class="enroll-qr">
-            <.qr_code
-              url={url(~p"/m/e/#{@new_enrollment.token}")}
-              label={gettext("QR code for entering results on a phone")}
-            />
-          </div>
-
-          <div>
-            <%!-- Named FIRST here too, above the code itself - this panel is
-                  what the arbiter is looking at while handing the phone
-                  over, and "which phone is this" is what settles that,
-                  not the digits. Absent when nothing was typed, same as
-                  the device list below leaving no gap where it would sit. --%>
-            <div :if={@new_enrollment.label != ""} class="enroll-name">
-              {@new_enrollment.label}
-            </div>
-
-            <%!-- Eight, not six. `Mobile.random_code/0` draws uniformly from
-                  10_000_000..99_999_999 and always has; the label said six
-                  from the day it shipped, which is the number a helper on a
-                  phone counts to before deciding they have mistyped. --%>
-            <div class="enroll-code-label">{gettext("8-digit code")}</div>
-
-            <div class="enroll-code">{@new_enrollment.code}</div>
-
-            <p class="enroll-url">
-              <.rich_text text={
-                gettext("Scan the QR, or open %[url] on the phone and enter the code.")
-              }>
-                <:part name="url"><strong>{url(~p"/m")}</strong></:part>
-              </.rich_text>
-            </p>
-
-            <p class="hint">{enrollment_scope_label(@new_enrollment)}</p>
-
-            <p class="hint">
-              {gettext("Expires %{when}.", when: enroll_expiry(@new_enrollment.expires_at))}
-            </p>
-          </div>
-        </div>
-
-        <div :if={@enrollments != []} style="margin-top: 18px">
-          <h3 style="margin: 0 0 8px; font-size: 14px">{gettext("Active phones")}</h3>
-
-          <%!-- A list laid out in columns, not a table of data: every cell
-                already says what it is ("Code 12345678", "expires ..."), and
-                there is no header row to associate them with. --%>
-          <table class="pe-table" role="presentation">
-            <tbody>
-              <tr :for={e <- @enrollments}>
-                <td><strong>{enrollment_name_label(e)}</strong></td>
-
-                <td class="hint">{gettext("Code %{code}", code: e.code)}</td>
-
-                <td class="hint">{enrollment_scope_label(e)}</td>
-
-                <td class="hint">{claim_status_label(e)}</td>
-
-                <td class="hint">{gettext("expires %{when}", when: enroll_expiry(e.expires_at))}</td>
-
-                <td style="text-align: right">
-                  <button class="pe-btn danger-link" phx-click="revoke_enrollment" phx-value-id={e.id}>
-                    {gettext("Revoke")}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </details>
 
       <div :if={@round == nil and @paired_rounds == 0} class="card empty">
         <p><strong>{gettext("No round has been paired yet.")}</strong></p>
@@ -1016,8 +702,4 @@ defmodule PairingsEngineWeb.LiveRoundLive do
     </Layouts.app>
     """
   end
-
-  # One reader for "is this a local run", like every other consumer of
-  # this flag in the app.
-  defp local_mode?, do: PairingsEngine.Authz.local_mode?()
 end

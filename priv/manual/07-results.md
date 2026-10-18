@@ -102,9 +102,9 @@ and `*W`, `*B`. Boards not mentioned keep their result.
 
 ## Results from phones
 
-The **Live** page of a tournament (Pairings page, **More**, *Local view &
-phone QR*) shows the round for projection and has a card **Enrol a phone to
-enter results**. It makes a QR code and an
+On the Pairings page, **More**, **Phone QR** opens a large dialog (close it
+with the button, Escape or a click outside it). Its section **Enter results on
+a phone** makes a QR code and an
 8-digit code. A helper scans the QR code or types the code on their own phone
 and can then enter results for that tournament only, without an account.
 

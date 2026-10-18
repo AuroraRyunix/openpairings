@@ -114,8 +114,11 @@ defmodule PairingsEngineWeb.PluginSeamTest do
 
       assert has_element?(lv, "#topbar-plugins #topbar-plugins-toggle", "Plug-ins")
       assert has_element?(lv, "#plugin-menu-fake[href='/p/fake']", "Fake League")
-      assert has_element?(lv, "#plugin-menu-fake", "9.9.9")
-      assert has_element?(lv, "#plugin-menu-fake", "only in the test suite")
+      # One line per entry: the name, with the description as a tooltip only.
+      refute has_element?(lv, "#plugin-menu-fake", "9.9.9")
+      refute has_element?(lv, "#plugin-menu-fake", "only in the test suite")
+      assert has_element?(lv, "#plugin-menu-fake[title*='only in the test suite']")
+      refute has_element?(lv, ".plugin-menu-description")
       assert has_element?(lv, "#plugin-menu-installed[href='/plugins']")
     end
 

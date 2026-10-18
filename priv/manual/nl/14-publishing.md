@@ -75,7 +75,7 @@ Een schermvullende pagina voor een televisie of beamer in de speelzaal, op een a
 
 ### Het adres {#the-address}
 
-*Deellink* is het openbare adres (een QR-code ernaartoe verschijnt op de pagina Live). **Naar een nieuw adres verplaatsen** haalt de oude kopie neer, maakt een nieuw adres en publiceert opnieuw (gebruik het als een link is uitgelekt). **Van de uitslagensite verwijderen** haalt het toernooi van de site. Wanneer een toernooibestand of een back-up een publicatiesleutel bevat, word je gevraagd of je *De publicatie overnemen* of *Opnieuw beginnen* kiest.
+*Deellink* is het openbare adres (een QR-code ernaartoe staat in het venster **Telefoon-QR** op de pagina Paringen). **Naar een nieuw adres verplaatsen** haalt de oude kopie neer, maakt een nieuw adres en publiceert opnieuw (gebruik het als een link is uitgelekt). **Van de uitslagensite verwijderen** haalt het toernooi van de site. Wanneer een toernooibestand of een back-up een publicatiesleutel bevat, word je gevraagd of je *De publicatie overnemen* of *Opnieuw beginnen* kiest.
 
 ### Ploegen {#teams}
 
@@ -90,7 +90,7 @@ Ploegentoernooien worden ook gepubliceerd, met ploegstanden en wedstrijden.
 
 ## De pagina Live (beamerweergave) {#the-live-page-projector-view}
 
-Pagina **Paringen**, **Meer**, **Lokale weergave & telefoon-QR** (de pagina `/t/:id/live` van dit programma): de huidige ronde schermvullend voor een beamer, die doorloopt tussen paringen, resultaten en standen, met een pauzeknop, een knop om te verlaten en een optie voor hoog contrast. Ze toont een QR-code voor het openbare adres als het toernooi gepubliceerd is. Ze bevat ook de kaart **Een telefoon inschrijven om resultaten in te voeren** ([Resultaten](07-results.md)). De pagina werkt zichzelf bij wanneer een resultaat verandert. Ze wordt door dit programma geserveerd, dus het scherm moet op dezelfde computer staan, of op een computer die er kan bij komen; de openbare pagina (hierboven) is voor iedereen anders.
+Pagina **Paringen**, **Meer**, **Lokale weergave** (de pagina `/t/:id/live` van dit programma): de huidige ronde schermvullend voor een beamer, die doorloopt tussen paringen, resultaten en standen, met een pauzeknop, een knop om te verlaten en een optie voor hoog contrast. Ze bevat geen QR-codes; die staan onder **Meer**, **Telefoon-QR** ([Resultaten](07-results.md)). De pagina werkt zichzelf bij wanneer een resultaat verandert. Ze wordt door dit programma geserveerd, dus het scherm moet op dezelfde computer staan, of op een computer die er kan bij komen; de openbare pagina (hierboven) is voor iedereen anders.
 
 ## Als er geen netwerk is {#if-there-is-no-network}
 
