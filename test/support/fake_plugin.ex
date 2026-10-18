@@ -119,6 +119,13 @@ defmodule PairingsEngine.FakePlugin do
   end
 
   @impl true
+  def boot do
+    if pid = opt(:boot_notify), do: send(pid, :fake_plugin_booted)
+    if opt(:boot_raise), do: raise("fake plugin boot failure")
+    :ok
+  end
+
+  @impl true
   def page_overlay(_assigns) do
     maybe_raise()
 

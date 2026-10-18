@@ -17,6 +17,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **A plug-in can do work when the program starts** (hosted edition only), once the database and the rest are up, instead of waiting for somebody to open a page. One that fails is logged and the program starts regardless, because a plug-in is a guest.
 - [Feature] **A plug-in can ask for other programs to be started with the core** (hosted edition only). Its manifest may list `applications:`, and they run beside OpenPairings in development, in tests and in the release, which now also packs them. Until now a plug-in's own dependencies were on the shelf and in nobody's startup list, so the plug-in had to start them by hand and hope. A list that is not a list of names stops the build and says which manifest to blame.
 - [Fix] **A round published after a delay now tells the open Pairings page the moment it goes public.** The publish itself always happened on time; the page just kept saying *scheduled* until somebody reloaded it, which is the kind of patience nobody asked for.
 - [Feature] **Plug-ins can talk to devices in the playing hall** (hosted edition only). A plug-in may answer plain requests under its own `/p/<id>` address, without a sign-in, so a printer PC or a laptop by the speakers can join a tournament with a one-time link and keep a line open, outbound, with no port forwarding. The plug-in checks who is calling; the core only points the way. Every round going public now reaches the plug-ins too, whichever way it got there.

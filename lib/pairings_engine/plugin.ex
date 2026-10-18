@@ -72,6 +72,12 @@ defmodule PairingsEngine.Plugin do
       from its own data, offered on the Teams page.
     * `migrations_path/0` - the plugin's own migrations, run with the
       core's.
+    * `boot/0` - called once, from the core's own application start, after
+      its supervision tree (Repo, PubSub, the endpoint) is up. For work a
+      plugin must do at boot rather than on the first page: configuring
+      and resuming something its `applications:` started. Its return value
+      is ignored, and a plugin that raises is logged while the core boots
+      anyway.
     * `page_overlay/1` - something drawn over every page of the app, after
       the flash messages: a rendered component, or nil for nothing. The
       plugin owns the markup and its styling; the core only gives it a
@@ -167,6 +173,7 @@ defmodule PairingsEngine.Plugin do
               {:ok, String.t(), [map()]} | :none
   @callback migrations_path() :: String.t()
   @callback page_overlay(map()) :: Phoenix.LiveView.Rendered.t() | nil
+  @callback boot() :: any()
 
   @optional_callbacks routes: 0,
                       http_routes: 0,
@@ -177,5 +184,6 @@ defmodule PairingsEngine.Plugin do
                       team_schedule: 1,
                       roster_candidates: 3,
                       migrations_path: 0,
-                      page_overlay: 1
+                      page_overlay: 1,
+                      boot: 0
 end
