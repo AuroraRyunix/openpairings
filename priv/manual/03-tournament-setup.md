@@ -129,8 +129,12 @@ as Chess960. The arbiter then draws a starting position for each round on the
 Pairings page ([Pairing a round](06-pairing.md)). The tick *Tournament lasts
 more than 30 days* lets a player hold more than one rating during the event;
 once it is on, the two settings for the rating-based tie-breaks appear under
-it ([Standings and tie-breaks](08-standings-and-tiebreaks.md)). When the
-round dates span more than 30 days and the tick is off, the card says so.
+it ([Standings and tie-breaks](08-standings-and-tiebreaks.md)). A **?** beside
+the tick explains it. In such an event *Refresh ratings* adds a new list's
+ratings as later ratings from a round instead of replacing the starting rating
+([Refreshing ratings](04-players-and-ratings.md#refreshing-ratings)), and the
+pairing numbers never change because of them. When the round dates span more
+than 30 days and the tick is off, the card says so.
 
 **Share / Team.** The owner can invite other arbiters by e-mail address (see
 [Accounts, sharing and hand-off](15-accounts-and-handoff.md)).

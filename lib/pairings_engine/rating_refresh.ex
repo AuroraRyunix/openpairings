@@ -99,8 +99,14 @@ defmodule PairingsEngine.RatingRefresh do
   `:required_period`, `:reference_date`.
   Writes nothing; pair with `apply/2` to commit.
   """
-  @spec dry_run(Tournaments.Tournament.t(), Date.t()) :: summary()
-  def dry_run(tournament, today \\ Date.utc_today()) do
+  @spec dry_run(Tournaments.Tournament.t(), Date.t(), keyword()) :: summary()
+  def dry_run(tournament, today \\ Date.utc_today(), opts \\ []) do
+    if Map.get(tournament, :long_event) == true,
+      do: long_dry_run(tournament, today, opts),
+      else: standard_dry_run(tournament, today)
+  end
+
+  defp standard_dry_run(tournament, today) do
     reference = reference_date(tournament, today)
     required = Fide.month_of(reference)
     local = Fide.list_period()
@@ -127,6 +133,103 @@ defmodule PairingsEngine.RatingRefresh do
       required_period: required,
       reference_date: reference
     }
+  end
+
+  # A long event (`Tournament.long_event`): `fide_rating` is the starting
+  # rating the first period, the pairing numbers and the tie-breaks rely on,
+  # so it is never proposed for change. The current local list is compared
+  # instead, and each changed rating is proposed as a later rating
+  # (`Player.period_ratings`) from round `:from_round` - by default the first
+  # round dated on or after the list's date, else the next round to be paired.
+  defp long_dry_run(tournament, today, opts) do
+    local = Fide.list_period()
+    status = if local, do: :ok, else: :no_list
+    list_date = list_date(local, today)
+    from_round = Keyword.get(opts, :from_round) || default_from_round(tournament, list_date)
+    players = Tournaments.list_players(tournament.id)
+
+    results =
+      if status == :ok do
+        fides = fide_matches(players)
+        sequence = PairingsEngine.RatingLists.sequence(tournament)
+        Enum.map(players, &long_player_proposals(&1, sequence, fides, from_round))
+      else
+        Enum.map(players, fn _ -> %{proposals: [], matched?: false} end)
+      end
+
+    %{
+      proposals: Enum.flat_map(results, & &1.proposals),
+      checked: length(results),
+      changed: Enum.count(results, &(&1.proposals != [])),
+      unmatched: Enum.count(results, &(not &1.matched?)),
+      list_status: status,
+      local_period: local,
+      required_period: local,
+      reference_date: list_date,
+      long_event: true,
+      from_round: from_round
+    }
+  end
+
+  defp list_date(nil, today), do: today
+
+  defp list_date(period, today) do
+    case Date.from_iso8601(period <> "-01") do
+      {:ok, d} -> d
+      _ -> today
+    end
+  end
+
+  @doc """
+  The round a new list's ratings start from in a long event: the first round
+  whose date (the round's own, else the tournament's `round_dates`) is on or
+  after `list_date`; with no such round, the next round to be paired. Never
+  below 2 (round 1 holds the starting rating) nor above the round count.
+  """
+  def default_from_round(tournament, list_date) do
+    rounds = Tournaments.list_rounds(tournament.id)
+    own = Map.new(rounds, &{&1.number, &1.date})
+    count = max(Map.get(tournament, :rounds_count) || 0, 2)
+    round_dates = Map.get(tournament, :round_dates) || []
+
+    dated =
+      Enum.find(1..count, fn n ->
+        text =
+          case Map.get(own, n) do
+            t when t in [nil, ""] -> Enum.at(round_dates, n - 1)
+            t -> t
+          end
+
+        case parse_date(text && String.replace(text, "/", "-")) do
+          nil -> false
+          d -> Date.compare(d, list_date) != :lt
+        end
+      end)
+
+    (dated || length(rounds) + 1) |> max(2) |> min(count)
+  end
+
+  defp long_player_proposals(player, sequence, fides, from_round) do
+    fide = if player.fide_id, do: Map.get(fides, player.fide_id)
+
+    proposals =
+      []
+      |> maybe_add_period_rating(player, fide, sequence, from_round)
+      |> maybe_add_title(player, fide)
+
+    %{proposals: proposals, matched?: fide != nil}
+  end
+
+  defp maybe_add_period_rating(list, player, fide, sequence, from_round) do
+    case PairingsEngine.RatingLists.main_fide_rating(fide, sequence) do
+      {rating, _source} ->
+        current = PairingsEngine.PeriodRatings.at_round(player, from_round).fide_rating
+
+        maybe_add(list, player, :period_rating, current, rating, %{from_round: from_round})
+
+      nil ->
+        list
+    end
   end
 
   @doc """
@@ -176,7 +279,10 @@ defmodule PairingsEngine.RatingRefresh do
   def notice(tournament, today \\ Date.utc_today()) do
     # Switched off, or nothing downloaded: no comparison to make, and no
     # reason to read the roster on every page open.
-    if Map.get(tournament, :rating_checks_enabled) == false or Fide.list_period() == nil do
+    # A long event is quiet: a later rating changes no pairing, and the check
+    # by hand (`dry_run/3`) adds it as a later rating, never over the first.
+    if Map.get(tournament, :rating_checks_enabled) == false or Fide.list_period() == nil or
+         Map.get(tournament, :long_event) == true do
       nil
     else
       case dry_run(tournament, today) do
@@ -265,16 +371,31 @@ defmodule PairingsEngine.RatingRefresh do
       |> Enum.map(fn {_player_id, props} ->
         player = hd(props).player
 
-        attrs =
-          Enum.reduce(props, %{}, fn p, acc ->
-            acc |> Map.put(p.field, p.new) |> Map.merge(p.extra)
-          end)
+        attrs = Enum.reduce(props, %{}, &apply_proposal(&1, &2, player))
 
         {player, attrs}
       end)
 
     Tournaments.bulk_update_players(tournament.id, updates)
   end
+
+  defp apply_proposal(%{field: :period_rating} = p, acc, player) do
+    round = p.extra.from_round
+    existing = player.period_ratings || []
+    previous = Enum.find(existing, &(&1["from_round"] == round))
+    entry = %{"from_round" => round, "fide_rating" => p.new}
+
+    entry =
+      case previous && previous["national_rating"] do
+        nil -> entry
+        national -> Map.put(entry, "national_rating", national)
+      end
+
+    Map.put(acc, :period_ratings, Enum.reject(existing, &(&1["from_round"] == round)) ++ [entry])
+  end
+
+  defp apply_proposal(p, acc, _player),
+    do: acc |> Map.put(p.field, p.new) |> Map.merge(p.extra)
 
   @doc """
   The proposals of `summary` whose `id` is in `ids` (a list of strings), in

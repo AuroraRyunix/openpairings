@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Refresh ratings no longer overwrites the starting rating in a tournament lasting more than 30 days.** There the starting FIDE rating is what round 1, the pairing numbers and the default tie-breaks stand on, and the button replaced it with whatever the newest list said. It now adds each changed rating as a later rating from a round (by default the first round dated on or after the list, else the next one to be paired; one box changes it for the whole batch), replaces one already given from that round, and leaves the starting rating and every pairing number alone. The automatic notice, which compared the wrong month for such an event anyway, stays quiet there.
+- [Feature] **A "?" beside "Tournament lasts more than 30 days".** The paragraph of hint that sat under the tick is now a small popover: hover, focus or tap, Escape to close. It is a reusable component, so the next setting that needs an essay can have one too.
+
 ## [0.95.0] - 2026-10-18
 
 - [Change] **Ainalrami v0.44.0.** The engine now takes a `?` result for what TRF26 says it is, a played game worth the file's `X`, instead of refusing it. OpenPairings never hands it one, so nothing here pairs differently; the standalone engine just stopped falling over on files this app writes.

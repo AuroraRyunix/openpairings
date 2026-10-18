@@ -1495,6 +1495,27 @@ defmodule PairingsEngineWeb.PlayersLive do
      |> start_async(:rating_freshness, fn -> PairingsEngine.Fide.Freshness.check() end)}
   end
 
+  # A long event's check: the round the new ratings start from, changed once
+  # for the whole batch. The proposals are worked out again for that round.
+  def handle_event("set_rating_round", %{"round" => round}, socket) do
+    summary = socket.assigns.rating_refresh
+
+    case Integer.parse(to_string(round)) do
+      {r, ""} when summary != nil and r >= 2 and r <= 99 ->
+        summary =
+          RatingRefresh.dry_run(socket.assigns.tournament, Date.utc_today(), from_round: r)
+
+        {:noreply,
+         assign(socket,
+           rating_refresh: summary,
+           rating_selected: MapSet.new(Enum.map(summary.proposals, & &1.id))
+         )}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("close_rating_refresh", _params, socket) do
     {:noreply, assign(socket, rating_refresh: nil, rating_waiting: false, rating_note: nil)}
   end
@@ -4273,6 +4294,25 @@ defmodule PairingsEngineWeb.PlayersLive do
           {rating_list_line(@summary)}
         </p>
 
+        <form
+          :if={Map.get(@summary, :long_event) && @summary.list_status == :ok}
+          id="rating-refresh-round-form"
+          phx-change="set_rating_round"
+          phx-submit="set_rating_round"
+          class="field"
+        >
+          <label for="rating-refresh-round">{gettext("Later ratings apply from round")}</label>
+          <input
+            id="rating-refresh-round"
+            type="number"
+            name="round"
+            value={@summary.from_round}
+            min="2"
+            max="99"
+            phx-debounce="400"
+          />
+        </form>
+
         <div
           :if={@summary.proposals == [] and @summary.list_status == :ok}
           class="card empty"
@@ -4324,7 +4364,12 @@ defmodule PairingsEngineWeb.PlayersLive do
 
                 <td class="num">{blank_dash(p.old)}</td>
 
-                <td class="num"><strong>{p.new}</strong></td>
+                <td class="num">
+                  <strong>{p.new}</strong>
+                  <span :if={p.field == :period_rating} class="hint">
+                    {gettext("from round %{round}", round: p.extra.from_round)}
+                  </span>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -4459,6 +4504,13 @@ defmodule PairingsEngineWeb.PlayersLive do
     do: proposals != [] and Enum.all?(proposals, &MapSet.member?(selected, &1.id))
 
   # Which list the check compared with, and why when it could not.
+  defp rating_list_line(%{list_status: :ok, long_event: true} = summary) do
+    gettext(
+      "Compared with the FIDE list of %{period}. This tournament lasts more than 30 days, so a changed rating is added as a later rating from the round below; the starting rating is not touched.",
+      period: summary.local_period
+    )
+  end
+
   defp rating_list_line(%{list_status: :ok} = summary) do
     gettext("Compared with the FIDE list of %{period} (valid on %{date}).",
       period: summary.local_period,
@@ -4606,6 +4658,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   end
 
   defp field_label(:fide_rating), do: "FIDE rating"
+  defp field_label(:period_rating), do: gettext("Later FIDE rating")
   defp field_label(:national_rating), do: "National rating"
   defp field_label(:title), do: "Title"
   defp field_label(:club), do: gettext("Club")
