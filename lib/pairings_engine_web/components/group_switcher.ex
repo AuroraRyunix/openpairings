@@ -55,13 +55,13 @@ defmodule PairingsEngineWeb.Components.GroupSwitcher do
           </.link>
         </li>
       </ul>
-      
+
       <details class="group-switcher-menu" id="group-switcher-menu">
         <summary>
           <span class="group-switcher-menu-current">{current_label(@members)}</span>
           <.icon name="hero-chevron-down" class="size-4" />
         </summary>
-        
+
         <div class="group-switcher-menu-panel">
           <.link
             :for={m <- @members}
