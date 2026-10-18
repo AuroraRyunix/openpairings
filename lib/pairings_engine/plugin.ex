@@ -16,7 +16,14 @@ defmodule PairingsEngine.Plugin do
   with an `openpairings_plugin.exs` manifest (`[name: ..., module: ...]`)
   in `PAIRINGS_PLUGINS_DIR` - by default the directory next to this
   checkout - and `PAIRINGS_PLUGINS` names which ones (all of them when
-  unset); the core names none. Compiling with the core is what lets a
+  unset); the core names none. The manifest may also say
+  `applications: [:some_app]`: OTP applications the plugin needs running,
+  typically its own dependencies. A plugin is compiled with `app: false`,
+  so they would otherwise sit on the code path and start nowhere; listed,
+  they are added to the core's `extra_applications`, start with it in dev,
+  test and the release, and the release includes them. The key is a list
+  of atoms or the build stops with a message naming the manifest
+  (`plugin_manifest.exs`). Compiling with the core is what lets a
   plugin's pages `use PairingsEngineWeb, :live_view` and render inside
   `Layouts.app` like every other page. `config/config.exs` hands the list
   to `PairingsEngine.Plugins`, which every hook below goes through.

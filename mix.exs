@@ -25,11 +25,17 @@ defmodule PairingsEngine.MixProject do
   #
   #     [name: :some_plugin, module: SomePlugin.Plugin]
   #
+  # and optionally `applications: [:some_app]`: OTP applications (a plugin's
+  # dependencies, typically) that start with the core and go into a release.
+  # Parsed and checked by plugin_manifest.exs.
+  #
   # The checkouts are looked for in PAIRINGS_PLUGINS_DIR - by default the
   # directory this checkout sits in. PAIRINGS_PLUGINS (comma-separated
   # checkout names) says which; without it, every checkout there with a
   # manifest. This file names no plugin itself: what is built in is the
   # deploy's business, and the public repository knows nothing of it.
+  Code.require_file("plugin_manifest.exs", __DIR__)
+
   plugins_dir = System.get_env("PAIRINGS_PLUGINS_DIR") || Path.expand("..", __DIR__)
 
   plugin_dirs =
@@ -53,12 +59,7 @@ defmodule PairingsEngine.MixProject do
                 end
 
                 {opts, _binding} = Code.eval_file(manifest)
-
-                %{
-                  name: Keyword.fetch!(opts, :name),
-                  module: Keyword.fetch!(opts, :module),
-                  path: Path.expand(dir)
-                }
+                PairingsEngine.PluginManifest.parse(opts, dir)
               end
             else
               []
@@ -299,7 +300,7 @@ defmodule PairingsEngine.MixProject do
   def application do
     [
       mod: {PairingsEngine.Application, []},
-      extra_applications: [:logger, :runtime_tools]
+      extra_applications: [:logger, :runtime_tools] ++ plugin_applications()
     ]
   end
 
@@ -328,6 +329,15 @@ defmodule PairingsEngine.MixProject do
         path = Path.join(plugin.path, dir),
         File.dir?(path),
         do: Path.relative_to(path, __DIR__)
+  end
+
+  # The OTP applications plugins asked to have started (manifest key
+  # `applications:`). A plugin is compiled with `app: false`, so its own
+  # dependencies sit on the code path but in nobody's list of applications:
+  # not started by `mix phx.server`, not included by `mix release`. Listing
+  # them in `extra_applications` fixes both. Empty in the desktop edition.
+  defp plugin_applications do
+    @plugins |> Enum.flat_map(& &1.applications) |> Enum.uniq()
   end
 
   # The plugins as dependencies: path deps, so `mix deps.get` checks the
