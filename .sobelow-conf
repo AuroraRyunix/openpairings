@@ -1,0 +1,34 @@
+# Sobelow (Phoenix security scanner) - `mix sobelow --config`, run by precommit and CI.
+#
+# skip: true  - findings recorded in .sobelow-skips are accepted. Every entry there
+# was read in context and is a false positive:
+#   * Traversal.FileModule - paths are server-built (data dir, upload temp files
+#     from consume_uploaded_entries, backup names looked up in Backup.list/0,
+#     theme-pack files behind a whitelist regex); none is a raw user string.
+#   * XSS.SendResp / XSS.Raw / XSS.ContentType - bodies are escaped HTML builders,
+#     binaries (xlsx, fonts, images, QR SVG) or the repo's own rendered manual and
+#     changelog; content types come from validated image sniffing or literals.
+#   * DOS.*ToAtom - every atom is interpolated from a guarded `in [...]` list.
+#   * SQL.Query - table names are module attributes, never request data.
+#   * Misc.BinToTerm - an in-process ETS cache written by this node only.
+#   * Config.CSP - PairingsEngineWeb.CSP sets the policy (per-request nonce);
+#     Sobelow only looks for the key in put_secure_browser_headers.
+#   * Config.CSWH - check_origin is set in config/runtime.exs.
+#   * Config.HTTPS - TLS ends at Cloudflare/nginx (hosted) or there is none
+#     (desktop edition on localhost).
+#   * CI.System - the fixed `open`/`xdg-open`/`cmd start` browser launcher.
+[
+  exit: :low,
+  format: "txt",
+  ignore: [],
+  ignore_files: [],
+  include_mix_tasks: false,
+  include_scripts: false,
+  out: nil,
+  private: false,
+  router: nil,
+  skip: true,
+  summary: false,
+  threshold: :low,
+  verbose: false
+]

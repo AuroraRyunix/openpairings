@@ -1,0 +1,111 @@
+CI.System: Command Injection via `System` function,lib/pairings_engine/browser_launcher.ex:135,7E8A381
+Config.CSP: Missing Content-Security-Policy,lib/pairings_engine_web/router.ex:12,36D7BFC
+Config.CSWH: Cross-Site Websocket Hijacking,lib/pairings_engine_web/endpoint.ex:33,125771D
+Config.CSWH: Cross-Site Websocket Hijacking,lib/pairings_engine_web/endpoint.ex:52,35B17BA
+Config.HTTPS: HTTPS Not Enabled,config/prod.exs:0,2B5C077
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:227,7D3352D
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:227,F8DAB
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:229,585BC45
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:241,28C2CC2
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:242,71093EA
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:248,4ED1AAE
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:249,3D99544
+DOS.BinToAtom: Unsafe atom interpolation,lib/pairings_engine/badges.ex:772,3A8050C
+DOS.StringToAtom: Unsafe `String.to_atom`,lib/pairings_engine/round_explanation.ex:457,141639
+DOS.StringToAtom: Unsafe `String.to_atom`,lib/pairings_engine/round_explanation.ex:488,3F3B6FE
+DOS.StringToAtom: Unsafe `String.to_atom`,lib/pairings_engine/round_explanation.ex:507,781E03B
+DOS.StringToAtom: Unsafe `String.to_atom`,lib/pairings_engine/round_explanation.ex:518,1BD804F
+Misc.BinToTerm: Unsafe `binary_to_term`,lib/pairings_engine/next_round_preview/memo.ex:82,4C4A294
+SQL.Query: SQL injection,lib/pairings_engine/fide/sync.ex:798,369D41
+SQL.Query: SQL injection,lib/pairings_engine/fide/sync.ex:806,2D86250
+SQL.Query: SQL injection,lib/pairings_engine/fide/sync.ex:824,5E17D61
+SQL.Query: SQL injection,lib/pairings_engine/fide/sync.ex:862,4F4D86F
+SQL.Query: SQL injection,lib/pairings_engine/fide/sync.ex:876,6AA79FC
+Traversal.FileModule: Directory Traversal in `File.chmod`,lib/pairings_engine/launcher_details.ex:204,226A7B
+Traversal.FileModule: Directory Traversal in `File.chmod`,lib/pairings_engine/launcher_details.ex:209,72F63AF
+Traversal.FileModule: Directory Traversal in `File.cp`,lib/pairings_engine/desktop/data_home.ex:380,337AFE9
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/pairings_engine/desktop/data_home.ex:154,7AA46C4
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/pairings_engine/desktop/data_home.ex:368,338772D
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/pairings_engine/desktop/data_home.ex:488,1CCD737
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/pairings_engine/desktop/data_home.ex:494,74D8A8E
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/pairings_engine/desktop/data_home.ex:499,56DB8F1
+Traversal.FileModule: Directory Traversal in `File.mkdir_p!`,lib/pairings_engine/desktop/data_home.ex:534,3437F15
+Traversal.FileModule: Directory Traversal in `File.mkdir_p`,lib/pairings_engine/backup.ex:163,2797131
+Traversal.FileModule: Directory Traversal in `File.mkdir_p`,lib/pairings_engine/launcher_details.ex:203,76BB38C
+Traversal.FileModule: Directory Traversal in `File.mkdir_p`,lib/pairings_engine/publishing/takedown_journal.ex:150,34F7B74
+Traversal.FileModule: Directory Traversal in `File.mkdir`,lib/pairings_engine/desktop/data_home.ex:209,6F9B31D
+Traversal.FileModule: Directory Traversal in `File.open`,lib/pairings_engine/backup.ex:779,1B54A68
+Traversal.FileModule: Directory Traversal in `File.open`,lib/pairings_engine/launcher_details/cli.ex:223,6F5D7C6
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:442,2DF6CFB
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:464,37ED976
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2208,2E7C41
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:348,C49B3A
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tools_norms_live.ex:296,5A91744
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2570,EA212F
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/backup.ex:167,592C3DF
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/backup.ex:663,33444C3
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/federations/bel/swar_import.ex:645,4005D4C
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/federations/bel/swar_import.ex:804,C87ABE
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/launcher_details/cli.ex:265,350B34
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/publishing/takedown_journal.ex:177,550E565
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/theme_packs.ex:264,2A7F1BB
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/tournament_import.ex:152,D9CBA
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/controllers/theme_pack_controller.ex:47,15D3458
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/live/rating_lists_live.ex:65,378EBED
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:183,15829FF
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:204,383CDC0
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:276,4F910B4
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:325,77E97DC
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:383,B5E09D
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:539,311F45E
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/desktop/data_home.ex:221,30A074A
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/desktop/uninstall_entries.ex:210,7F4A9CC
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/federations/bel/sqlite_file.ex:108,3ADB924
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/launcher_details.ex:158,2E42F5D
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/rating_inbox.ex:430,5CC25DF
+Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/updates/install_kind.ex:91,6C69329
+Traversal.FileModule: Directory Traversal in `File.stream!`,lib/pairings_engine/desktop/data_home.ex:391,17D1C2
+Traversal.FileModule: Directory Traversal in `File.write!`,lib/pairings_engine/federations/bel/sqlite_file.ex:90,73FF361
+Traversal.FileModule: Directory Traversal in `File.write!`,lib/pairings_engine/rating_inbox.ex:415,4C3FC44
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/backup.ex:321,6DDE7B
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/backup.ex:385,3D06F2D
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/backup.ex:625,42D57C0
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/desktop/data_home.ex:210,1FFE3EB
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/desktop/data_home.ex:213,5C70E4D
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/desktop/data_home.ex:222,1FC5787
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/desktop/uninstall_entries.ex:208,56B5E95
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/launcher_details.ex:208,1BEBBD5
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/launcher_details.ex:210,3590DBF
+Traversal.FileModule: Directory Traversal in `File.write`,lib/pairings_engine/updates/install_kind.ex:89,49193CE
+Traversal.SendDownload: Directory Traversal in `send_download`,lib/pairings_engine_web/controllers/backup_controller.ex:71,561662C
+XSS.ContentType: XSS in `put_resp_content_type`,lib/pairings_engine_web/controllers/badge_controller.ex:107,3DC7E1D
+XSS.ContentType: XSS in `put_resp_content_type`,lib/pairings_engine_web/controllers/theme_pack_controller.ex:64,1295B98
+XSS.Raw: XSS,lib/pairings_engine_web/components/badges/badge_card.ex:144,61B1229
+XSS.Raw: XSS,lib/pairings_engine_web/components/badges/badge_card.ex:234,2CD207
+XSS.Raw: XSS,lib/pairings_engine_web/components/phone_qr.ex:229,12981A5
+XSS.Raw: XSS,lib/pairings_engine_web/controllers/badge_print_html.ex:65,53E0166
+XSS.Raw: XSS,lib/pairings_engine_web/live/changelog_live.ex:42,6D9B74E
+XSS.Raw: XSS,lib/pairings_engine_web/live/help_live.ex:504,759F10E
+XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6611,1A1B1F
+XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:916,111B9F9
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/badge_controller.ex:110,673A2CC
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/export_controller.ex:523,4F253E4
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/export_controller.ex:670,1CE83E2
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/norms_controller.ex:134,6E2856A
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:661,72F2E6D
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:770,743AF47
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:852,49530BD
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:1010,5CD82BC
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:1183,665ACE3
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:1614,4AEA023
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:1724,23A8C1
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:1814,64EE795
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:1884,36853B6
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:1927,4906879
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:2425,60D98F8
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/team_print_controller.ex:216,44DFC51
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/team_print_controller.ex:354,4DBC9EE
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/team_print_controller.ex:462,509B58
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/theme_pack_controller.ex:64,590985A
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/tools_controller.ex:100,5996F6F
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/tools_controller.ex:124,38E4DC2

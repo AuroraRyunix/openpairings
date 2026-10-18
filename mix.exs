@@ -414,6 +414,10 @@ defmodule PairingsEngine.MixProject do
       {:gen_smtp, "~> 1.2"},
       {:burrito, "~> 1.3"},
       {:stream_data, "~> 1.1", only: [:dev, :test]},
+      # Security tooling: known-vulnerable dependencies and Phoenix
+      # misconfigurations. Wired into `precommit` and CI; not part of a release.
+      {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
+      {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false},
       # Pure Elixir, no native deps - renders CHANGELOG.md on the
       # Settings > Changelog page (SettingsChangelogLive).
       {:earmark_parser, "~> 1.4"},
@@ -467,6 +471,9 @@ defmodule PairingsEngine.MixProject do
         # Before the tests, because it is instant and the failure is a typo
         # somebody wants to hear about now rather than after a full suite.
         "pairings.version_check",
+        "deps.audit",
+        "hex.audit",
+        "sobelow --config",
         "test"
       ]
     ] ++ migrate_alias()
