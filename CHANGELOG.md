@@ -18,6 +18,7 @@ Each entry is tagged so a version can be skimmed:
 ## [Unreleased]
 
 - [Feature] **Rounds changed elsewhere now say so.** The Pairings and Players pages already reloaded when a colleague paired, unpaired, re-paired or published a round, which left you wondering why round 4 had appeared out of nowhere. A short notice now names the round and says "elsewhere" (the data keeps no author, and inventing one would be worse). The session that did the pairing hears nothing, and a result entered by someone else stays a quiet reload.
+- [Feature] **Restore points before bulk changes.** One click that rewrites a whole roster now leaves a restore point behind, labelled with what was about to happen: giving everyone a category, Assign categories, re-seeding the pairing numbers or the starting numbers (rating, entry order, lots), Refresh ratings and the player-data refresh (only when something is actually applied), the extra-points bands, re-seeding the manual ranking, and ordering teams by rating. The audit trail records what changed per field, which is a poor way to un-change forty players. Automatic points are still capped at the newest fifty per tournament; the ones you save by hand are now exempt from that pruning and no longer count towards it, since a busy bulk-editing afternoon would otherwise evict *End of day 1*.
 
 ## [0.94.0] - 2026-10-18
 

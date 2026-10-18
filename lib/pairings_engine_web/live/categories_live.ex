@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, CategoryRules, Tournaments}
+  alias PairingsEngine.{Audit, CategoryRules, Snapshots, Tournaments}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -454,6 +454,16 @@ defmodule PairingsEngineWeb.CategoriesLive do
   # confirm time - same "read again at apply time" caution as
   # `PairingsLive`'s own `apply_confirm/2`.
   def handle_event("apply_category_confirm", _params, socket) do
+    # Rewrites the categories of every player the rules touch - restore point first.
+    count = length((socket.assigns.category_confirm || %{changes: []}).changes)
+
+    Snapshots.capture(
+      socket.assigns.tournament,
+      "category.auto_assigned",
+      socket.assigns.current_scope,
+      summary: "Before assigning categories to #{count} #{if count == 1, do: "player", else: "players"}"
+    )
+
     case Tournaments.auto_assign_categories(socket.assigns.tournament) do
       {:ok, %{matched: matched, total: total}} ->
         Audit.log(
