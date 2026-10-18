@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.95.0] - 2026-10-18
+
+- [Change] **Ainalrami v0.44.0.** The engine now takes a `?` result for what TRF26 says it is, a played game worth the file's `X`, instead of refusing it. OpenPairings never hands it one, so nothing here pairs differently; the standalone engine just stopped falling over on files this app writes.
 - [Fix] **An empty board no longer stops the tournament.** Mark both players of a board absent and the board stays behind with nobody at it and no result. Since 0.93.0 the next round waits for every earlier round's results, and it waited for this one too: a result nobody could enter, for a game nobody was playing. Round 3 then refused to pair with "Round 2 still has missing results", and hiding the board did not help, because hiding is cosmetic. A board with nobody at it now holds nothing up; a board with one player left still does, because that player is owed a bye or an opponent. The *Hide this board* button also learned Dutch.
 
 - [Feature] **Rounds changed elsewhere now say so.** The Pairings and Players pages already reloaded when a colleague paired, unpaired, re-paired or published a round, which left you wondering why round 4 had appeared out of nowhere. A short notice now names the round and says "elsewhere" (the data keeps no author, and inventing one would be worse). The session that did the pairing hears nothing, and a result entered by someone else stays a quiet reload.
