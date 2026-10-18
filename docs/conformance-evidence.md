@@ -42,7 +42,7 @@ on 2026-08-26 re-measuring after a code sweep:
 
 Both disagreements were adjudicated by hand rather than counted. The full
 per-axis figures, the seeds, and the method are in
-[`validation.md`](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/validation.md).
+[`validation.md`](https://github.com/teapot-chess/Ainalrami/blob/main/docs/validation.md).
 
 **The references, and why these ones.** bbpPairings 6.0.0 and Gacrux (the
 FIDE Tie Break Server) are the primary oracles because both implement the
@@ -88,7 +88,7 @@ written by other people.
   hand, because an instrument firing is not yet a finding. Two earlier
   candidates from the same instrument dissolved on inspection and were
   discarded. Written up with the board table and a fixture in
-  [`finding-gacrux-5-2-5.md`](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/finding-gacrux-5-2-5.md).
+  [`finding-gacrux-5-2-5.md`](https://github.com/teapot-chess/Ainalrami/blob/main/docs/finding-gacrux-5-2-5.md).
   **Gacrux is the Commission's own tie-break server.**
 - A separate Gacrux issue at Article 5.2.4, and a bbpPairings issue in its
   C.2 handling, are written up and have been reported upstream.
@@ -107,17 +107,17 @@ directory is a build artifact and does not exist in a fresh checkout.
 
 | | |
 |---|---|
-| method, corpora, per-axis figures, known gaps | [validation.md](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/validation.md) |
-| C.04.3 clause-by-clause conformance | [conformance-c0403-2026.md](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/conformance-c0403-2026.md) |
-| the Article 5.2.5 finding | [finding-gacrux-5-2-5.md](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/finding-gacrux-5-2-5.md) |
-| the Article 5.2.4 finding | [finding-gacrux-5-2-4.md](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/finding-gacrux-5-2-4.md) |
-| the bbpPairings C.2 report | [bbppairings-c2-bug-report.md](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/bbppairings-c2-bug-report.md) |
-| an initial-colour question put to the SPP, and its answer | [dispute-initial-colour.md](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/dispute-initial-colour.md) |
+| method, corpora, per-axis figures, known gaps | [validation.md](https://github.com/teapot-chess/Ainalrami/blob/main/docs/validation.md) |
+| C.04.3 clause-by-clause conformance | [conformance-c0403-2026.md](https://github.com/teapot-chess/Ainalrami/blob/main/docs/conformance-c0403-2026.md) |
+| the Article 5.2.5 finding | [finding-gacrux-5-2-5.md](https://github.com/teapot-chess/Ainalrami/blob/main/docs/finding-gacrux-5-2-5.md) |
+| the Article 5.2.4 finding | [finding-gacrux-5-2-4.md](https://github.com/teapot-chess/Ainalrami/blob/main/docs/finding-gacrux-5-2-4.md) |
+| the bbpPairings C.2 report | [bbppairings-c2-bug-report.md](https://github.com/teapot-chess/Ainalrami/blob/main/docs/bbppairings-c2-bug-report.md) |
+| an initial-colour question put to the SPP, and its answer | [dispute-initial-colour.md](https://github.com/teapot-chess/Ainalrami/blob/main/docs/dispute-initial-colour.md) |
 | what this program does today | [features.md](features.md) |
 | where it does not yet meet the checklist | [TODO.md](../TODO.md) |
 
 The engine is Apache-2.0 and public at
-<https://github.com/AuroraRyunix/Ainalrami>. The application is
+<https://github.com/teapot-chess/Ainalrami>. The application is
 source-available under the Elastic License 2.0.
 
 ## 6. What this does not cover

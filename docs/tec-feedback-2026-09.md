@@ -22,7 +22,7 @@ things that measurement taught us rather than opinions about the text.
 
 Everything we cite can be reproduced. Sources, harnesses and the full
 per-axis figures are public at
-<https://github.com/AuroraRyunix/Ainalrami>.
+<https://github.com/teapot-chess/Ainalrami>.
 
 ---
 

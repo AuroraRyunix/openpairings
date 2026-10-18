@@ -17,6 +17,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **New address.** The repository moved to github.com/teapot-chess; old links still redirect, out of politeness rather than obligation.
 ## [0.92.0] - 2026-10-18
 
 - [Change] **The local view is now only the boards.** The QR codes it used to carry were one more thing on a screen meant for a projector. The Pairings page's **More** menu has **Local view** (the page, minus the codes) and a new **Phone QR**, which opens a large dialog over the Pairings page: the results-page code when the tournament is public, and the phone result-entry codes, each with its address in words. It closes on the button, Escape or a click outside it.

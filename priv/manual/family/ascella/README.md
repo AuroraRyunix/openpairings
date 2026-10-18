@@ -91,7 +91,7 @@ code. A program that ships the way Alnasl does is one entry:
 {
   "id": "polis",
   "name": "Polis",
-  "repo": "AuroraRyunix/Polis",
+  "repo": "teapot-chess/Polis",
   "layout": "hall",
   "mark": "polis.svg",
   "accent": ["#1f4f8a", "#8fb8ec"],

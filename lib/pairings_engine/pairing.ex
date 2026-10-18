@@ -3,7 +3,7 @@ defmodule PairingsEngine.Pairing do
   Round lifecycle: builds the TRF input for the Swiss engine, runs it, and
   creates the round with its pairings.
 
-  Ainalrami (github.com/AuroraRyunix/Ainalrami), a from-scratch Dutch-system
+  Ainalrami (github.com/teapot-chess/Ainalrami), a from-scratch Dutch-system
   engine in pure Elixir, is the engine. It implements C.04.3 as it stands
   in the edition effective 1 February 2026, and runs in this BEAM: no
   subprocess, no JVM, no scratch file. Its input is still TRF text

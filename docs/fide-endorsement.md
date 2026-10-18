@@ -42,7 +42,7 @@ covered VCL.07 (pairing legality) for them. Programs with their own engine
 (Dubov, JavaPairing, Swiss Master, Swiss-Chess) list their own FPC binary.
 
 **That answer no longer describes the program.** JaVaFo has been removed
-from OpenPairings entirely, and [Ainalrami](https://github.com/AuroraRyunix/Ainalrami),
+from OpenPairings entirely, and [Ainalrami](https://github.com/teapot-chess/Ainalrami),
 a from-scratch Dutch engine in Elixir, is the only Swiss engine. There is no
 per-tournament engine choice and no Java anywhere. Two consequences:
 

@@ -41,7 +41,7 @@ defmodule PairingsEngine.Updates.CheckerTest do
   defp release(tag) do
     %{
       "tag_name" => tag,
-      "html_url" => "https://github.com/AuroraRyunix/openpairings/releases/tag/#{tag}",
+      "html_url" => "https://github.com/teapot-chess/openpairings/releases/tag/#{tag}",
       "draft" => false,
       "prerelease" => false
     }
@@ -94,7 +94,7 @@ defmodule PairingsEngine.Updates.CheckerTest do
       assert Checker.current() == %{
                version: "99.0.0",
                tag: "v99.0.0",
-               url: "https://github.com/AuroraRyunix/openpairings/releases/tag/v99.0.0"
+               url: "https://github.com/teapot-chess/openpairings/releases/tag/v99.0.0"
              }
     end
 
@@ -162,7 +162,7 @@ defmodule PairingsEngine.Updates.CheckerTest do
       assert Checker.current() == %{
                version: "99.0.0",
                tag: "v99.0.0",
-               url: "https://github.com/AuroraRyunix/openpairings/releases/tag/v99.0.0"
+               url: "https://github.com/teapot-chess/openpairings/releases/tag/v99.0.0"
              }
     end
 

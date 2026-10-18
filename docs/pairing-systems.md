@@ -29,7 +29,7 @@ Baku and extra points in the pairing are mutually exclusive.
 
 ### The engine (Swiss only)
 
-Swiss is paired by [Ainalrami](https://github.com/AuroraRyunix/Ainalrami),
+Swiss is paired by [Ainalrami](https://github.com/teapot-chess/Ainalrami),
 a from-scratch Dutch engine in pure Elixir running inside this app's own
 BEAM. It implements C.04.3 as in force from 1 February 2026 and is the only
 Swiss engine: there is no per-tournament choice and no Java anywhere.

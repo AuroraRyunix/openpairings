@@ -9,7 +9,7 @@ This product bundles third-party components under their own terms:
     See priv/bbppairings/LICENSE.txt and priv/bbppairings/Apache-2.0.txt.
 
   * Ainalrami (pairing engine, fetched as a dependency) - Apache License 2.0.
-    https://github.com/AuroraRyunix/Ainalrami
+    https://github.com/teapot-chess/Ainalrami
 
 Elixir, Phoenix and the other Hex dependencies are covered by their own
 licences, recorded in mix.lock and in each package.

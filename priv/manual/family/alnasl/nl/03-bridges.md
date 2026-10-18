@@ -10,10 +10,10 @@ De brug belt zelf naar Alnasl. In het netwerk van de zaal hoeft niets open te st
 
 ## Arkab, het brugprogramma {#arkab}
 
-**Arkab** is de brug: het bordenlezen van Alnasl en niets anders - de stuurprogramma's, de seriële bus, een wachtrij die elke zet bijhoudt tot de server hem heeft, en de uitgaande lijn naar een of meer Alnasls. Geen rondes, geen aanmeldingen, geen eigen partijen. Het is een apart programma met een eigen repository, [github.com/AuroraRyunix/Arkab](https://github.com/AuroraRyunix/Arkab), Apache-2.0 zoals Alnasl, en het deelt zijn bordcode met Alnasl, zodat een bord op beide hetzelfde leest.
+**Arkab** is de brug: het bordenlezen van Alnasl en niets anders - de stuurprogramma's, de seriële bus, een wachtrij die elke zet bijhoudt tot de server hem heeft, en de uitgaande lijn naar een of meer Alnasls. Geen rondes, geen aanmeldingen, geen eigen partijen. Het is een apart programma met een eigen repository, [github.com/teapot-chess/Arkab](https://github.com/teapot-chess/Arkab), Apache-2.0 zoals Alnasl, en het deelt zijn bordcode met Alnasl, zodat een bord op beide hetzelfde leest.
 
 > [!NOTE] Arkab krijgen
-> Download het van [zijn releasepagina](https://github.com/AuroraRyunix/Arkab/releases/latest): een installatieprogramma voor Windows, Linux-archieven voor een pc en voor een Raspberry Pi (met een installatie in één regel die er een dienst van maakt), en een Mac-app. Installeer het op de computer waaraan de borden hangen, en start het. Zijn pagina antwoordt dan op poort 4050 van die computer. De Installatiewizard (Instellingen, eerste onderdeel) zet deze stappen voor jouw zaal op een rij en vinkt ze af zodra de brug aansluit.
+> Download het van [zijn releasepagina](https://github.com/teapot-chess/Arkab/releases/latest): een installatieprogramma voor Windows, Linux-archieven voor een pc en voor een Raspberry Pi (met een installatie in één regel die er een dienst van maakt), en een Mac-app. Installeer het op de computer waaraan de borden hangen, en start het. Zijn pagina antwoordt dan op poort 4050 van die computer. De Installatiewizard (Instellingen, eerste onderdeel) zet deze stappen voor jouw zaal op een rij en vinkt ze af zodra de brug aansluit.
 
 ## Een brug laten aansluiten {#joining}
 

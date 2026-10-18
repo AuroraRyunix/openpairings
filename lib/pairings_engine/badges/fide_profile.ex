@@ -21,7 +21,7 @@ defmodule PairingsEngine.Badges.FideProfile do
   alias PairingsEngine.Badges.Image
 
   @base "https://ratings.fide.com"
-  @user_agent "OpenPairings badge maker (+https://github.com/AuroraRyunix/OpenPairings)"
+  @user_agent "OpenPairings badge maker (+https://github.com/teapot-chess/OpenPairings)"
 
   @type reason ::
           :invalid_id

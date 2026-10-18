@@ -1,7 +1,7 @@
 # Arkab
 
 Electronic chessboard drivers for Elixir, and a bridge that sends a hall's boards to
-one or more [Alnasl](https://github.com/AuroraRyunix/Alnasl) servers.
+one or more [Alnasl](https://github.com/teapot-chess/Alnasl) servers.
 
 Arkab is used in two ways:
 
@@ -15,19 +15,19 @@ addresses are the same for every release.
 
 | What | Download |
 |---|---|
-| Windows installer (one click, updates itself) | [Arkab-Setup.exe](https://github.com/AuroraRyunix/Arkab/releases/latest/download/Arkab-Setup.exe) |
-| Windows, no install | [arkab-windows-x86_64-portable.zip](https://github.com/AuroraRyunix/Arkab/releases/latest/download/arkab-windows-x86_64-portable.zip) |
-| Linux, Raspberry Pi (64-bit) and other arm64 | [arkab-linux-aarch64.tar.gz](https://github.com/AuroraRyunix/Arkab/releases/latest/download/arkab-linux-aarch64.tar.gz) |
-| Linux, PC | [arkab-linux-x86_64.tar.gz](https://github.com/AuroraRyunix/Arkab/releases/latest/download/arkab-linux-x86_64.tar.gz) |
-| Mac, Apple Silicon (macOS 11 and newer) | [arkab-macos-aarch64.zip](https://github.com/AuroraRyunix/Arkab/releases/latest/download/arkab-macos-aarch64.zip) |
-| Checksums | [SHA256SUMS](https://github.com/AuroraRyunix/Arkab/releases/latest/download/SHA256SUMS) |
+| Windows installer (one click, updates itself) | [Arkab-Setup.exe](https://github.com/teapot-chess/Arkab/releases/latest/download/Arkab-Setup.exe) |
+| Windows, no install | [arkab-windows-x86_64-portable.zip](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-windows-x86_64-portable.zip) |
+| Linux, Raspberry Pi (64-bit) and other arm64 | [arkab-linux-aarch64.tar.gz](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-linux-aarch64.tar.gz) |
+| Linux, PC | [arkab-linux-x86_64.tar.gz](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-linux-x86_64.tar.gz) |
+| Mac, Apple Silicon (macOS 11 and newer) | [arkab-macos-aarch64.zip](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-macos-aarch64.zip) |
+| Checksums | [SHA256SUMS](https://github.com/teapot-chess/Arkab/releases/latest/download/SHA256SUMS) |
 
 **Linux and the Raspberry Pi**, one line, as a service that starts with the
 machine (Debian 12, Ubuntu 22.04, Raspberry Pi OS "Bookworm" 64-bit, or
 newer; the runtime is inside):
 
 ```sh
-curl -fsSL https://github.com/AuroraRyunix/Arkab/releases/latest/download/install.sh | sudo sh
+curl -fsSL https://github.com/teapot-chess/Arkab/releases/latest/download/install.sh | sudo sh
 ```
 
 (`--local` keeps the page to the box itself.) The program lives in
@@ -80,7 +80,7 @@ The link itself is described in [docs/protocol.md](docs/protocol.md).
 ## As a dependency
 
 ```elixir
-{:arkab, git: "https://github.com/AuroraRyunix/Arkab.git", tag: "v0.1.0"}
+{:arkab, git: "https://github.com/teapot-chess/Arkab.git", tag: "v0.1.0"}
 ```
 
 Add `Arkab.Drivers` to your supervision tree if you read loops: it holds

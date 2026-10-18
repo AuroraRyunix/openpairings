@@ -2,7 +2,7 @@
 
 The hall announcer. A small program on a computer in the playing hall,
 with speakers attached, that reads the pairings aloud as soon as they are
-published in [OpenPairings](https://github.com/AuroraRyunix/OpenPairings)
+published in [OpenPairings](https://github.com/teapot-chess/OpenPairings)
 and counts down to the start of the round:
 
 > Pairings for round 3 are published. Board 1: ... against ... -
@@ -72,12 +72,12 @@ Every release carries the same files under the same names:
 
 | What | Download |
 |---|---|
-| Windows installer (one click, updates itself) | [Nunki-Setup.exe](https://github.com/AuroraRyunix/Nunki/releases/latest/download/Nunki-Setup.exe) |
-| Windows, no install | [nunki-windows-x86_64-portable.zip](https://github.com/AuroraRyunix/Nunki/releases/latest/download/nunki-windows-x86_64-portable.zip) |
-| Linux, PC | [nunki-linux-x86_64.tar.gz](https://github.com/AuroraRyunix/Nunki/releases/latest/download/nunki-linux-x86_64.tar.gz) |
-| Linux, Raspberry Pi (64-bit) and other arm64 | [nunki-linux-aarch64.tar.gz](https://github.com/AuroraRyunix/Nunki/releases/latest/download/nunki-linux-aarch64.tar.gz) |
-| Mac, Apple Silicon | [nunki-macos-aarch64.zip](https://github.com/AuroraRyunix/Nunki/releases/latest/download/nunki-macos-aarch64.zip) |
-| Checksums | [SHA256SUMS](https://github.com/AuroraRyunix/Nunki/releases/latest/download/SHA256SUMS) |
+| Windows installer (one click, updates itself) | [Nunki-Setup.exe](https://github.com/teapot-chess/Nunki/releases/latest/download/Nunki-Setup.exe) |
+| Windows, no install | [nunki-windows-x86_64-portable.zip](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-windows-x86_64-portable.zip) |
+| Linux, PC | [nunki-linux-x86_64.tar.gz](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-linux-x86_64.tar.gz) |
+| Linux, Raspberry Pi (64-bit) and other arm64 | [nunki-linux-aarch64.tar.gz](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-linux-aarch64.tar.gz) |
+| Mac, Apple Silicon | [nunki-macos-aarch64.zip](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-macos-aarch64.zip) |
+| Checksums | [SHA256SUMS](https://github.com/teapot-chess/Nunki/releases/latest/download/SHA256SUMS) |
 
 **Windows.** The installer is per user, one click, no administrator; Windows
 says it does not know the program, as it does of any unsigned installer:
@@ -89,7 +89,7 @@ control page of an installed copy, off until you turn it on.
 **Linux** (Debian, Ubuntu, Raspberry Pi OS, 64-bit):
 
 ```
-curl -fsSL https://github.com/AuroraRyunix/Nunki/releases/latest/download/install.sh | sudo sh
+curl -fsSL https://github.com/teapot-chess/Nunki/releases/latest/download/install.sh | sudo sh
 sudo apt install espeak-ng
 ```
 

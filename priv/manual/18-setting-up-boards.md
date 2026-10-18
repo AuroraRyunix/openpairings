@@ -37,13 +37,13 @@ live boards are, and what each page of them shows, is in
 - **Alnasl itself.** A separate, free program. Install it with the installer for
   your system:
 - **Windows.** Download **Alnasl-Setup.exe** from
-  `https://github.com/AuroraRyunix/Alnasl/releases/latest/download/Alnasl-Setup.exe`
+  `https://github.com/teapot-chess/Alnasl/releases/latest/download/Alnasl-Setup.exe`
   and run it. It installs for you alone, without administrator rights, and
   starts a small window and your browser on `http://localhost:4040`. Windows
   warns the first time, because Alnasl is not signed: click **More info**, then
   **Run anyway**.
 - **Linux and Raspberry Pi (64-bit).** On the box, in a terminal:
-  `curl -fsSL https://github.com/AuroraRyunix/Alnasl/releases/latest/download/install.sh | sudo sh`.
+  `curl -fsSL https://github.com/teapot-chess/Alnasl/releases/latest/download/install.sh | sudo sh`.
   It installs Alnasl and starts it with the box; the management site is then
   `http://localhost:4040` on the box. A hall without internet can download the
   archive beforehand: the Install section of the README says how.
@@ -51,7 +51,7 @@ live boards are, and what each page of them shows, is in
   installs one only when you say yes (Setup, Updates), and never while a game
   is on a board.
 - **Building from source** is still possible; see the README at
-  `https://github.com/AuroraRyunix/Alnasl`.
+  `https://github.com/teapot-chess/Alnasl`.
 - **The hall's network**, for a hosted OpenPairings: the computer with Alnasl
   must reach the internet. For the desktop edition, no internet is needed: with
   Alnasl on the same PC no network at all, and with Alnasl on another machine

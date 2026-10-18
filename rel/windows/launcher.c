@@ -921,7 +921,7 @@ static fn_free_source p_free_source;
  * through the releases API directly rather than this feed, and
  * .github/workflows/binaries.yml for what publishes releases.win.json and
  * the .nupkg files this feed actually serves. */
-#define VPK_REPO_URL "https://github.com/AuroraRyunix/openpairings"
+#define VPK_REPO_URL "https://github.com/teapot-chess/openpairings"
 
 /* A file-exists probe, nothing more - cheap enough to run on every startup,
  * unlike the real LoadLibrary this deliberately is not. See WinMain, and

@@ -23,7 +23,7 @@ defmodule PairingsEngine.UpdatesTest do
         Keyword.get(
           opts,
           :url,
-          "https://github.com/AuroraRyunix/openpairings/releases/tag/#{Keyword.fetch!(opts, :tag)}"
+          "https://github.com/teapot-chess/openpairings/releases/tag/#{Keyword.fetch!(opts, :tag)}"
         ),
       "draft" => Keyword.get(opts, :draft, false),
       "prerelease" => Keyword.get(opts, :prerelease, false)
@@ -35,7 +35,7 @@ defmodule PairingsEngine.UpdatesTest do
       stub(fn conn -> Req.Test.json(conn, [release(tag: "v99.0.0")]) end)
 
       assert {:ok, %{version: "99.0.0", tag: "v99.0.0", url: url}} = Updates.check()
-      assert url == "https://github.com/AuroraRyunix/openpairings/releases/tag/v99.0.0"
+      assert url == "https://github.com/teapot-chess/openpairings/releases/tag/v99.0.0"
     end
 
     test "accepts a tag with no leading v" do

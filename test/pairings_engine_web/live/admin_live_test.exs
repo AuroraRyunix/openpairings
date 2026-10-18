@@ -54,7 +54,7 @@ defmodule PairingsEngineWeb.AdminLiveTest do
     defp release(tag) do
       %{
         "tag_name" => tag,
-        "html_url" => "https://github.com/AuroraRyunix/openpairings/releases/tag/#{tag}",
+        "html_url" => "https://github.com/teapot-chess/openpairings/releases/tag/#{tag}",
         "draft" => false,
         "prerelease" => false
       }

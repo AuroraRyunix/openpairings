@@ -45,7 +45,7 @@ defmodule PairingsEngineWeb.UpdateNoticeTest do
     notice = %{
       version: "99.0.0",
       tag: "v99.0.0",
-      url: "https://github.com/AuroraRyunix/openpairings/releases/tag/v99.0.0"
+      url: "https://github.com/teapot-chess/openpairings/releases/tag/v99.0.0"
     }
 
     :ets.insert(:update_notice, {:notice, notice})

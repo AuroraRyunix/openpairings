@@ -91,7 +91,7 @@ defmodule PairingsEngineWeb.HelpFamilyLiveTest do
 
     assert has_element?(
              lv,
-             "#manual-chapter-body a[href^='https://github.com/AuroraRyunix/Nunki/blob/main/']"
+             "#manual-chapter-body a[href^='https://github.com/teapot-chess/Nunki/blob/main/']"
            )
   end
 end

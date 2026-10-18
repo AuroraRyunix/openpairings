@@ -37,13 +37,13 @@ borden zijn en wat elke pagina ervan toont, staat in
 - **Alnasl zelf.** Een apart, gratis programma. Installeer het met het
   installatieprogramma voor je systeem:
 - **Windows.** Download **Alnasl-Setup.exe** via
-  `https://github.com/AuroraRyunix/Alnasl/releases/latest/download/Alnasl-Setup.exe`
+  `https://github.com/teapot-chess/Alnasl/releases/latest/download/Alnasl-Setup.exe`
   en start het. Het installeert alleen voor jou, zonder beheerdersrechten, en start
   een klein venster en je browser op `http://localhost:4040`. Windows waarschuwt
   de eerste keer, omdat Alnasl niet ondertekend is: klik op **Meer informatie**
   en dan op **Toch uitvoeren**.
 - **Linux en Raspberry Pi (64-bit).** Op het kastje, in een terminal:
-  `curl -fsSL https://github.com/AuroraRyunix/Alnasl/releases/latest/download/install.sh | sudo sh`.
+  `curl -fsSL https://github.com/teapot-chess/Alnasl/releases/latest/download/install.sh | sudo sh`.
   Dat installeert Alnasl en start het samen met het kastje; de beheersite staat
   dan op `http://localhost:4040` op het kastje. Een zaal zonder internet kan het
   archief vooraf downloaden: de sectie Install van de README zegt hoe.
@@ -51,7 +51,7 @@ borden zijn en wat elke pagina ervan toont, staat in
   pagina's. Het installeert er pas een als je ja zegt (Instellingen, bij de
   updates), en nooit terwijl er een partij op een bord bezig is.
 - **Zelf bouwen uit de broncode** kan nog steeds; zie de README op
-  `https://github.com/AuroraRyunix/Alnasl`.
+  `https://github.com/teapot-chess/Alnasl`.
 - **Het netwerk van de zaal**, bij een gehoste OpenPairings: de computer met
   Alnasl moet het internet bereiken. Voor de desktopversie is geen internet
   nodig: met Alnasl op dezelfde pc helemaal geen netwerk, en met Alnasl op een

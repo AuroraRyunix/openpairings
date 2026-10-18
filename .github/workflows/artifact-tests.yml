@@ -40,7 +40,7 @@ concurrency:
 jobs:
   artifact-tests:
     name: SWAR fixture tests
-    if: github.repository == 'AuroraRyunix/openpairings'
+    if: github.repository == 'teapot-chess/openpairings'
     runs-on: [self-hosted, windows, openpairings-artifacts]
     permissions:
       contents: read

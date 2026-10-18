@@ -21,7 +21,7 @@ defmodule PairingsEngine.Manual.FamilyTest do
         assert program.summary != ""
 
         assert program.releases_url ==
-                 "https://github.com/AuroraRyunix/#{program.repo}/releases/latest"
+                 "https://github.com/teapot-chess/#{program.repo}/releases/latest"
       end
 
       assert Enum.find(Family.programs(), &(&1.slug == "openresults")).repo == "openresults"
@@ -97,13 +97,13 @@ defmodule PairingsEngine.Manual.FamilyTest do
 
     test "anything else points at GitHub" do
       assert FamilyLinks.rewrite("LICENSE", "README.md", @pages, "Demo") ==
-               "https://github.com/AuroraRyunix/Demo/blob/main/LICENSE"
+               "https://github.com/teapot-chess/Demo/blob/main/LICENSE"
 
       assert FamilyLinks.rewrite("releasing.md", "docs/macos.md", @pages, "Demo") ==
-               "https://github.com/AuroraRyunix/Demo/blob/main/docs/releasing.md"
+               "https://github.com/teapot-chess/Demo/blob/main/docs/releasing.md"
 
       assert FamilyLinks.rewrite("../../../x.md", "docs/macos.md", @pages, "Demo") ==
-               "https://github.com/AuroraRyunix/Demo/blob/main/x.md"
+               "https://github.com/teapot-chess/Demo/blob/main/x.md"
     end
 
     test "absolute URLs, anchors and mail links are left alone" do

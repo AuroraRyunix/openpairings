@@ -323,7 +323,7 @@ every install already out there. One consequence: a download link that
 wants "always point at the newest installer" can no longer use a fixed file
 name, because that name now changes every release. Point it at the
 latest-release page instead
-(`https://github.com/AuroraRyunix/openpairings/releases/latest`), or look
+(`https://github.com/teapot-chess/openpairings/releases/latest`), or look
 the asset up through the GitHub releases API.
 
 **Why both exist.** Velopack's `Setup.exe` is, by its own design, a
@@ -754,7 +754,7 @@ is downloaded or installed on its own.
 (`PairingsEngine.Updates.Checker`, always in the supervision tree and idle
 everywhere but a desktop install - see its moduledoc for why that is safer
 than a conditional child). It asks
-`https://api.github.com/repos/AuroraRyunix/openpairings/releases` (`Req`,
+`https://api.github.com/repos/teapot-chess/openpairings/releases` (`Req`,
 already a dependency) for the newest release that is neither a draft nor a
 prerelease, and compares its tag to this build's own version with
 `Version.compare/2`. GitHub's unauthenticated API is capped at 60

@@ -10,10 +10,10 @@ The bridge dials out to Alnasl. Nothing has to be opened in the hall's network: 
 
 ## Arkab, the bridge program {#arkab}
 
-**Arkab** is the bridge: Alnasl's board reading and nothing else - the board drivers, the serial bus, a queue that keeps every move until the server has it, and the outgoing line to one or more Alnasls. No rounds, no logins, no games of its own. It is a separate program with its own repository, [github.com/AuroraRyunix/Arkab](https://github.com/AuroraRyunix/Arkab), Apache-2.0 like Alnasl, and it shares its board code with Alnasl, so a board reads the same on both.
+**Arkab** is the bridge: Alnasl's board reading and nothing else - the board drivers, the serial bus, a queue that keeps every move until the server has it, and the outgoing line to one or more Alnasls. No rounds, no logins, no games of its own. It is a separate program with its own repository, [github.com/teapot-chess/Arkab](https://github.com/teapot-chess/Arkab), Apache-2.0 like Alnasl, and it shares its board code with Alnasl, so a board reads the same on both.
 
 > [!NOTE] Getting Arkab
-> Download it from [its releases page](https://github.com/AuroraRyunix/Arkab/releases/latest): a Windows installer, Linux archives for a PC and for a Raspberry Pi (with a one-line installer that makes it a service), and a Mac app. Install it on the computer the boards are plugged into, and start it. Its page then answers on port 4050 of that computer. The Setup wizard (Setup, first section) lists these steps for your hall and ticks them off as the bridge joins.
+> Download it from [its releases page](https://github.com/teapot-chess/Arkab/releases/latest): a Windows installer, Linux archives for a PC and for a Raspberry Pi (with a one-line installer that makes it a service), and a Mac app. Install it on the computer the boards are plugged into, and start it. Its page then answers on port 4050 of that computer. The Setup wizard (Setup, first section) lists these steps for your hall and ticks them off as the bridge joins.
 
 ## Joining a bridge {#joining}
 

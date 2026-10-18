@@ -1,7 +1,7 @@
 # Polis
 
 The print station of a chess hall. A small program on a computer with a
-printer: it joins a tournament in [OpenPairings](https://github.com/AuroraRyunix/OpenPairings)
+printer: it joins a tournament in [OpenPairings](https://github.com/teapot-chess/OpenPairings)
 with a join link, keeps a line open to it, and prints the pairings list and
 the place cards of every round the arbiter publishes - once, on its own,
 and again only when somebody asks.
@@ -15,17 +15,17 @@ addresses are the same for every release.
 
 | What | Download |
 |---|---|
-| Windows installer (one click, updates itself) | [Polis-Setup.exe](https://github.com/AuroraRyunix/Polis/releases/latest/download/Polis-Setup.exe) |
-| Windows, no install | [polis-windows-x86_64-portable.zip](https://github.com/AuroraRyunix/Polis/releases/latest/download/polis-windows-x86_64-portable.zip) |
-| Linux, PC | [polis-linux-x86_64.tar.gz](https://github.com/AuroraRyunix/Polis/releases/latest/download/polis-linux-x86_64.tar.gz) |
-| Linux, Raspberry Pi (64-bit) and other arm64 | [polis-linux-aarch64.tar.gz](https://github.com/AuroraRyunix/Polis/releases/latest/download/polis-linux-aarch64.tar.gz) |
-| Mac, Apple Silicon | [polis-macos-aarch64.zip](https://github.com/AuroraRyunix/Polis/releases/latest/download/polis-macos-aarch64.zip) |
-| Checksums | [SHA256SUMS](https://github.com/AuroraRyunix/Polis/releases/latest/download/SHA256SUMS) |
+| Windows installer (one click, updates itself) | [Polis-Setup.exe](https://github.com/teapot-chess/Polis/releases/latest/download/Polis-Setup.exe) |
+| Windows, no install | [polis-windows-x86_64-portable.zip](https://github.com/teapot-chess/Polis/releases/latest/download/polis-windows-x86_64-portable.zip) |
+| Linux, PC | [polis-linux-x86_64.tar.gz](https://github.com/teapot-chess/Polis/releases/latest/download/polis-linux-x86_64.tar.gz) |
+| Linux, Raspberry Pi (64-bit) and other arm64 | [polis-linux-aarch64.tar.gz](https://github.com/teapot-chess/Polis/releases/latest/download/polis-linux-aarch64.tar.gz) |
+| Mac, Apple Silicon | [polis-macos-aarch64.zip](https://github.com/teapot-chess/Polis/releases/latest/download/polis-macos-aarch64.zip) |
+| Checksums | [SHA256SUMS](https://github.com/teapot-chess/Polis/releases/latest/download/SHA256SUMS) |
 
 **Linux**, one line, as a service that starts with the machine:
 
 ```sh
-curl -fsSL https://github.com/AuroraRyunix/Polis/releases/latest/download/install.sh | sudo sh
+curl -fsSL https://github.com/teapot-chess/Polis/releases/latest/download/install.sh | sudo sh
 ```
 
 The program lives in `/opt/polis`, the data in `/var/lib/polis`, and

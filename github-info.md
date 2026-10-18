@@ -24,8 +24,8 @@ Last checked against live GitHub and local git: **2026-09-08**.
 
 ## Repository
 
-- **URL**: https://github.com/AuroraRyunix/openpairings
-- **Owner/repo**: `AuroraRyunix/openpairings`
+- **URL**: https://github.com/teapot-chess/openpairings
+- **Owner/repo**: `teapot-chess/openpairings`
 - **Visibility**: public
 - **Description**: OpenPairings: Elixir/Phoenix chess tournament manager
 - **Primary language**: Elixir
@@ -83,6 +83,6 @@ no open ones and no open issues.
   databases, the JaVaFo jar, and the anonymised-personal-data `.swar`
   fixtures.
 - The sibling pairing engine lives in its own repository,
-  <https://github.com/AuroraRyunix/Ainalrami>, and is consumed here as a
+  <https://github.com/teapot-chess/Ainalrami>, and is consumed here as a
   tagged git dependency rather than vendored - so the version of the engine
   this app pairs with is a line in `mix.exs`, not a copy of its source.

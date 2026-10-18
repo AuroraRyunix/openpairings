@@ -51,7 +51,7 @@ DEFAULT_SSH_HOST = "kbsb-vps"
 # "Python-urllib/3.13", which Cloudflare's bot check answers with a 403 and
 # its own error code 1010 before the app sees anything - so a request that
 # fails for a reason having nothing to do with the token or the address.
-USER_AGENT = "openpairings-notice/1.0 (+https://github.com/AuroraRyunix/openpairings)"
+USER_AGENT = "openpairings-notice/1.0 (+https://github.com/teapot-chess/openpairings)"
 DEFAULT_APP_PORT = "4001"
 REPO_ENV = Path(__file__).resolve().parent.parent / ".env"
 

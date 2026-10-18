@@ -78,7 +78,7 @@ De server laat weg wat alleen een kastje kan, in plaats van het grijs te maken: 
 **Linux en de Raspberry Pi.** Eén regel installeert Alnasl als dienst die met het kastje opstart (64-bit; Debian 12, Ubuntu 22.04, Raspberry Pi OS Bookworm, of nieuwer):
 
 ```
-curl -fsSL https://github.com/AuroraRyunix/Alnasl/releases/latest/download/install.sh | sudo sh
+curl -fsSL https://github.com/teapot-chess/Alnasl/releases/latest/download/install.sh | sudo sh
 ```
 
 **Mac.** Download alnasl-macos-aarch64.zip voor een Mac met een Apple-chip (M1 en later; voor Intel-Macs is er geen build), open het en sleep Alnasl naar Programma's. Apple heeft het nog niet ondertekend, dus de eerste keer weigert macOS het te openen: klik in Systeeminstellingen, Privacy en beveiliging, op "Toch openen" bij de melding over Alnasl. Alnasl afsluiten (Cmd-Q) vraagt eerst bevestiging, want zolang het gestopt is worden de borden niet gelezen.

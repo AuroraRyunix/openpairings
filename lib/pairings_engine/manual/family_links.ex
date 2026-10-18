@@ -10,7 +10,7 @@ defmodule PairingsEngine.Manual.FamilyLinks do
       electronic boards is written the way this manual writes it.
   """
 
-  @github "https://github.com/AuroraRyunix"
+  @github "https://github.com/teapot-chess"
 
   @doc "The GitHub address of a program's repository."
   def github(repo), do: "#{@github}/#{repo}"

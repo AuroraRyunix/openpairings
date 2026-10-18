@@ -78,7 +78,7 @@ The server leaves out what only a box can do, instead of greying it out: adding 
 **Linux and the Raspberry Pi.** One line installs Alnasl as a service that starts with the box (64-bit; Debian 12, Ubuntu 22.04, Raspberry Pi OS Bookworm, or newer):
 
 ```
-curl -fsSL https://github.com/AuroraRyunix/Alnasl/releases/latest/download/install.sh | sudo sh
+curl -fsSL https://github.com/teapot-chess/Alnasl/releases/latest/download/install.sh | sudo sh
 ```
 
 **Mac.** Download alnasl-macos-aarch64.zip for a Mac with an Apple chip (M1 and later; there is no build for Intel Macs), open it, and drag Alnasl into Applications. Apple has not signed it yet, so the first time macOS refuses to open it: in System Settings, Privacy & Security, click "Open Anyway" beside the message about Alnasl. Quitting Alnasl (Cmd-Q) asks first, because while it is stopped the boards are not read.

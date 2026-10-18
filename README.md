@@ -7,7 +7,7 @@ sync, automatic FIDE title-norm judgment (B.01), and no-account mobile result
 entry. Runs locally and deploys unchanged to a server or as a standalone
 binary, with user accounts and per-user tournaments.
 
-Swiss pairing runs on **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)**,
+Swiss pairing runs on **[Ainalrami](https://github.com/teapot-chess/Ainalrami)**,
 a FIDE Dutch-system engine written for this project in Elixir, with no JVM
 and no external binary. It implements C.04.3 **effective 1 February 2026**,
 the current rules rather than the 2017 edition most other engines still
@@ -22,7 +22,7 @@ ship. See [Pairing engine](#pairing-engine).
 - **Bandit** as the HTTP server (not Cowboy).
 - Hand-written CSS (`assets/css/app.css`, no Tailwind components) + esbuild
   for JS - no Node toolchain, no `package.json`.
-- **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** for Swiss
+- **[Ainalrami](https://github.com/teapot-chess/Ainalrami)** for Swiss
   pairing - an in-house Elixir dependency, so it runs in-process with no
   subprocess and no JVM.
 - **Burrito** for standalone single-file binaries (bundles the BEAM runtime
@@ -48,7 +48,7 @@ gotchas), see [`docs/setup-guide.md`](docs/setup-guide.md).
 ## Pairing engine
 
 Every Swiss tournament is paired by
-**[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)**, in-process, by
+**[Ainalrami](https://github.com/teapot-chess/Ainalrami)**, in-process, by
 C.04.3 as it stands from **1 February 2026**. Round robin (Berger) and Keizer
 compute their own pairings and never call it.
 
@@ -69,7 +69,7 @@ every player is unrated. FIDE's FE1 endorsement bar is one difference per
 500 tournaments; this is roughly one per 3 million.
 
 Methodology and per-axis detail:
-[Ainalrami's validation notes](https://github.com/AuroraRyunix/Ainalrami/blob/main/docs/validation.md).
+[Ainalrami's validation notes](https://github.com/teapot-chess/Ainalrami/blob/main/docs/validation.md).
 What this means for a FIDE-rated event, and what the app reports to FIDE
 either way: [`docs/fide-endorsement.md`](docs/fide-endorsement.md).
 
@@ -131,6 +131,6 @@ around its licensing, or strip the notices.
 If you want to do something the licence does not cover, ask - the answer is
 often yes.
 
-The pairing engine, [Ainalrami](https://github.com/AuroraRyunix/Ainalrami),
+The pairing engine, [Ainalrami](https://github.com/teapot-chess/Ainalrami),
 is Apache-2.0 and deliberately stays that way: a conformance engine is worth
 more checked than owned. Third-party components are listed in [NOTICE](NOTICE).

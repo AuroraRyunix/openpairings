@@ -817,7 +817,7 @@ jobs:
           # fail the release either, hence `exit 0` regardless of how the
           # command above went.
           $env:Path = "$env:USERPROFILE\.dotnet\tools;$env:Path"
-          vpk download github --repoUrl https://github.com/AuroraRyunix/openpairings --channel win --outputDir installer_out --token $env:GH_TOKEN
+          vpk download github --repoUrl https://github.com/teapot-chess/openpairings --channel win --outputDir installer_out --token $env:GH_TOKEN
 
           # Discard a download whose version equals the one THIS job is
           # building - found 2026-09-11 re-running a release build for an

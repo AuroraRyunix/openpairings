@@ -831,7 +831,7 @@ was "edit the paragraph."
 Two items, plus part of a third, point at documentation that lives in
 `deps/ainalrami/docs/` - the vendored Ainalrami dependency, gitignored
 (`.gitignore:14`, `/deps/`), pulled from a separate GitHub repository
-(`AuroraRyunix/Ainalrami`, pinned at `v0.14.0` in `mix.lock`). Nothing in
+(`teapot-chess/Ainalrami`, pinned at `v0.14.0` in `mix.lock`). Nothing in
 this repository can fix these; the action, if any, belongs to that project.
 
 - **`docs/validation.md`'s "Not covered" contradictions**

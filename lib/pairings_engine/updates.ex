@@ -67,7 +67,7 @@ defmodule PairingsEngine.Updates do
   # section. Releases only, not tags: a tag with no release attached (there
   # is no such thing here, but the API distinguishes them) would otherwise
   # need a second endpoint.
-  @repo "AuroraRyunix/openpairings"
+  @repo "teapot-chess/openpairings"
   @releases_url "https://api.github.com/repos/#{@repo}/releases"
   @user_agent "OpenPairings-UpdateCheck"
 

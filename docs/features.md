@@ -6,7 +6,7 @@ it is going. Per-feature detail lives in the other [docs pages](README.md).
 ## Pairing
 
 - **Swiss (FIDE Dutch)** on one engine, driven through TRF files built and validated by the app:
-  - **[Ainalrami](https://github.com/AuroraRyunix/Ainalrami)** -
+  - **[Ainalrami](https://github.com/teapot-chess/Ainalrami)** -
     written for this project in Elixir, implementing C.04.3 as it stands
     from **1 February 2026**, in-process, no Java needed. Cross-checked against
     bbpPairings 6.0.0 over 2.5 billion individual pairings with two
