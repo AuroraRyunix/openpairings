@@ -81,10 +81,8 @@ defmodule PairingsEngine.Norms.TitleNorms do
       FIDE flag ("FID") is accepted and is nobody's foreigner (1.4.2): not
       one of the two federations. The exemptions of 1.4.3
       (a)-(c) follow the tournament's `norm_event_type` - see "Event
-      types" below. 1.4.3 (d) (a Swiss with at least 20 foreign rated
-      players from 3+ federations, 10 of them titled, in every round) is not
-      detected; an arbiter reporting such an event should treat a
-      federation-mix failure here as overridable.
+      types" below. 1.4.3 (d), the big open Swiss, needs no setting: it is
+      detected from the field itself - see "The big-Swiss clause" below.
     * **Opponent ratings** (1.4.6 / 1.4.7): an unrated opponent counts as
       1400 (1.4.6.4); at most ONE opponent - the lowest - is raised to the
       norm's adjusted rating floor (2200 GM / 2050 IM / 2000 WGM / 1850
@@ -122,6 +120,36 @@ defmodule PairingsEngine.Norms.TitleNorms do
     * **Zonal / Sub-zonal** (1.4.3 (c)): the federation-mix requirement is
       lifted for everyone.
 
+  ## The big-Swiss clause (1.4.3 (d))
+
+  Exempt from the federation mix, for every player, is a "Swiss System
+  tournament in which participants include in every round at least 20 FIDE
+  rated players, not from the host federation, from at least 3 different
+  federations, at least 10 of whom hold GM, IM, WGM or WIM titles", where a
+  player is "counted only if they miss at most one round (excluding pairing
+  allocated byes)". Nothing about that needs the arbiter: `big_swiss/2`
+  reads it off the field. Read as:
+
+    * an individual Swiss (`pairing_system == "swiss"`, not a team event).
+      A team Swiss is arguably also a Swiss, but nobody counts boards that
+      way, and guessing generously is not this module's job;
+    * the host federation is the tournament's own `federation`. Left blank,
+      the clause is never claimed - "not from the host federation" has
+      nothing to be measured against;
+    * a counted player has a FIDE rating, a federation that is neither the
+      host's nor `FID` (1.4.2: the FIDE flag is nobody's foreigner), and
+      missed at most one of the rounds whose results are all in. Present in
+      a round means a game finished over the board, a pairing-allocated
+      bye, or a win by forfeit (the winner was in the hall). A postponed
+      game not yet played, a requested bye, an absence or a forfeit loss is
+      a missed round;
+    * judged over the completed rounds so far, like everything else here -
+      a judgment before the last round is provisional anyway.
+
+  When it holds, the federation checks pass citing 1.4.3 (d) and the field
+  counts that earned it; when it does not, nothing changes. An event-type
+  exemption, where one applies, is cited in preference.
+
   Reading of "the federation-mix requirement": 1.4.3 itself names only the
   two-foreign-federations rule, but its paragraph (d) falls back to 1.4.4
   when the exemption is not met, and paragraph (e) calls the rule being
@@ -136,7 +164,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
   are only evaluated for players with `sex == "w"`.
 
   This is a *judgment aid* for the arbiter filling IT4 - the title claimed
-  on the report stays a manual field (appeals, 1.4.3 (d), 1.4.1 (c) and
+  on the report stays a manual field (appeals, 1.4.1 (c) and
   1.4.3 (e) stay the arbiter's call); this module
   says what the numbers themselves support and exactly which requirement
   fails otherwise.
@@ -301,6 +329,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
     event_type = Tournament.effective_norm_event_type(tournament)
 
     scoreless = scoreless_unrated(entries, tournament)
+    big_swiss = big_swiss(tournament, entries)
 
     Map.new(entries, fn entry ->
       games =
@@ -311,7 +340,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
       verdicts =
         Enum.map(
           titles_for(entry.player),
-          &evaluate_norm(&1, entry.player, games, tournament, event_type)
+          &evaluate_norm(&1, entry.player, games, tournament, {event_type, big_swiss})
         )
 
       best = Enum.find(verdicts, & &1.achieved?)
@@ -371,11 +400,13 @@ defmodule PairingsEngine.Norms.TitleNorms do
     end
   end
 
-  defp evaluate_norm(title, player, games, tournament, event_type) do
+  defp evaluate_norm(title, player, games, tournament, {event_type, big_swiss}) do
     req = Map.fetch!(@requirements, title)
     n = length(games)
     {min_games, games_note} = minimum_games(event_type, tournament)
-    fed_exemption = federation_exemption(event_type, player, tournament)
+
+    fed_exemption =
+      federation_exemption(event_type, player, tournament) || big_swiss_paragraph(big_swiss)
 
     score =
       games
@@ -453,7 +484,7 @@ defmodule PairingsEngine.Norms.TitleNorms do
           fed_exemption,
           :foreign_federations,
           foreign_feds >= 2,
-          "opponents from #{foreign_feds} federation#{plural(foreign_feds)} other than #{own_fed || "?"} (need 2; national championship/zonal exemptions follow the event type on the FIDE settings page)"
+          "opponents from #{foreign_feds} federation#{plural(foreign_feds)} other than #{own_fed || "?"} (need 2; national championship/zonal exemptions follow the event type under Settings > Officials & norms)"
         ),
         federation_check(
           fed_exemption,
@@ -530,6 +561,79 @@ defmodule PairingsEngine.Norms.TitleNorms do
   end
 
   def federation_exemption(_event_type, _player, _tournament), do: nil
+
+  @big_swiss_titles ~w(GM IM WGM WIM)
+
+  @doc """
+  B.01 1.4.3 (d), read off the field (see "The big-Swiss clause" in the
+  moduledoc): `%{applies?:, players:, federations:, titled:, rounds:,
+  host:}` - the counted players, their distinct federations and how many
+  of them hold GM/IM/WGM/WIM, over `rounds` completed rounds - or nil when
+  the clause cannot be asked at all (not an individual Swiss, no host
+  federation, no completed round). `entries` are `Standings.standings/1`'s.
+  """
+  def big_swiss(tournament), do: big_swiss(tournament, Standings.standings(tournament))
+
+  def big_swiss(tournament, entries) do
+    host = fed_key(Map.get(tournament, :federation))
+    rounds = entries |> Enum.map(&Map.get(&1, :completed_rounds, 0)) |> Enum.max(fn -> 0 end)
+
+    if Map.get(tournament, :pairing_system) == "swiss" and not Tournament.team?(tournament) and
+         host != nil and rounds > 0 do
+      counted =
+        for entry <- entries,
+            fide_rating(entry.player) > 0,
+            fed = fed_key(entry.player.federation),
+            fed not in [nil, host, "FID"],
+            missed_rounds(entry.games, rounds) <= 1,
+            do: {fed, entry.player.title}
+
+      federations = counted |> Enum.map(&elem(&1, 0)) |> Enum.uniq() |> length()
+      titled = Enum.count(counted, fn {_fed, title} -> title in @big_swiss_titles end)
+      players = length(counted)
+
+      %{
+        applies?: players >= 20 and federations >= 3 and titled >= 10,
+        players: players,
+        federations: federations,
+        titled: titled,
+        rounds: rounds,
+        host: host
+      }
+    end
+  end
+
+  # Rounds 1..`rounds` the player was not in the hall for. Present: a game
+  # finished over the board, a pairing-allocated bye (which 1.4.3 (d) says
+  # is not a missed round), or a win by forfeit. Everything else - no record
+  # at all (not yet entered, or withdrawn), a requested bye, an absence, a
+  # forfeit loss, a postponed game still to be played - is a miss.
+  defp missed_rounds(games, rounds) do
+    present =
+      for g <- games,
+          g.round <= rounds,
+          present_in_round?(g),
+          into: MapSet.new(),
+          do: g.round
+
+    rounds - MapSet.size(present)
+  end
+
+  defp present_in_round?(%{bye_type: "pairing-allocated"}), do: true
+  defp present_in_round?(%{bye_type: type}) when type != nil, do: false
+
+  defp present_in_round?(game) do
+    Standings.finished_game?(game) or
+      (not game.played and game.opponent_id != nil and Map.get(game, :outcome) == :win)
+  end
+
+  defp big_swiss_paragraph(%{applies?: true} = b) do
+    "1.4.3 (d) (#{b.players} FIDE-rated players from #{b.federations} federations other " <>
+      "than #{b.host}, #{b.titled} of them GM/IM/WGM/WIM, each missing at most one of " <>
+      "#{b.rounds} rounds)"
+  end
+
+  defp big_swiss_paragraph(_), do: nil
 
   # A federation-mix check, or - under a 1.4.3 exemption - the same check
   # passed, saying which paragraph lifted it and what 1.4.3 (e) still asks.
