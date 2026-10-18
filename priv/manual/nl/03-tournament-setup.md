@@ -133,7 +133,9 @@ op de pagina Paringen ([Een ronde paren](06-pairing.md)). Het vinkje *Toernooi
 duurt langer dan 30 dagen* laat een speler tijdens het toernooi meer dan één
 rating hebben; staat het aan, dan verschijnen eronder de twee instellingen voor
 de tiebreaks op basis van rating ([Rangschikking en
-tiebreaks](08-standings-and-tiebreaks.md)). Een **?** naast het vinkje legt het
+tiebreaks](08-standings-and-tiebreaks.md)), en ook *Rapporteren aan FIDE*:
+maandelijkse rapporten of één rapport op het einde ([Uitgestelde
+partijen](11-fide-report.md#postponed-games) legt beide uit). Een **?** naast het vinkje legt het
 uit. In zo'n toernooi voegt *Ratings vernieuwen* de ratings van een nieuwe lijst
 toe als latere ratings vanaf een ronde, in plaats van de startrating te
 vervangen ([Ratings vernieuwen](04-players-and-ratings.md#refreshing-ratings)),

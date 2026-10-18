@@ -479,6 +479,31 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     end
   end
 
+  # A long event reported once at the end (`Tournament.one_report_at_end?/1`)
+  # sends every round against one FIDE registration of that many rounds, and
+  # the rating server takes a file only when the two counts agree. Fewer
+  # ticked than the tournament has: said, not refused - the registration may
+  # well have shrunk along with the event.
+  defp one_report_short_text(selected, %Tournament{} = tournament) do
+    n = tournament.rounds_count
+
+    if Tournament.one_report_at_end?(tournament) and is_integer(n) and
+         MapSet.size(selected) > 0 and MapSet.size(selected) < n do
+      gettext(
+        "This tournament is reported once at the end: a FIDE registration of %{count} rounds expects a file with %{count} rounds. This one holds %{sent} of them.",
+        count: n,
+        sent: MapSet.size(selected)
+      )
+    end
+  end
+
+  defp trf_send_confirm(selected, rounds, tournament) do
+    case one_report_short_text(selected, tournament) do
+      nil -> trf_send_confirm(selected, rounds)
+      short -> short <> " " <> trf_send_confirm(selected, rounds)
+    end
+  end
+
   defp trf_send_confirm(selected, rounds) do
     send =
       gettext(
@@ -1207,7 +1232,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   id="trf-send"
                   class="pe-btn primary"
                   disabled={not is_nil(blocker)}
-                  data-confirm={is_nil(blocker) && trf_send_confirm(@trf_selected, @trf_rounds)}
+                  data-confirm={
+                    is_nil(blocker) && trf_send_confirm(@trf_selected, @trf_rounds, @tournament)
+                  }
                 >
                   {gettext("Send…")}
                 </button>
@@ -1251,6 +1278,28 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                 {gettext("All rounds (TRF copy, not for rating)")}
               </a>
             </div>
+
+            <% one_report_short = one_report_short_text(@trf_selected, @tournament) %>
+            <p
+              :if={one_report_short}
+              id="trf-send-one-report-warning"
+              class="setting-warning"
+              role="note"
+            >
+              {one_report_short}
+            </p>
+            <%!-- A long event reported monthly: each file goes against a
+                registration of its own, and the counts must agree. --%>
+            <p
+              :if={@tournament.long_event and not Tournament.one_report_at_end?(@tournament)}
+              id="trf-send-monthly-note"
+              class="hint"
+              style="margin: 8px 0 0"
+            >
+              {gettext(
+                "This tournament is reported monthly: each month's file must match a FIDE registration with that many rounds."
+              )}
+            </p>
 
             <%!-- Under the button, always: "Send" sends nothing. It was read as
                 "the app mails my rating officer", which it has never done. --%>
@@ -1311,6 +1360,17 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             class="trf-late-part"
           >
             <h3>{gettext("Postponed games")}</h3>
+            <%!-- Reported once at the end: a postponed game played before that
+                report is a result like any other in it. --%>
+            <p
+              :if={Tournament.one_report_at_end?(@tournament)}
+              id="postponed-one-report-note"
+              class="hint"
+            >
+              {gettext(
+                "This tournament is reported once at the end: a postponed game played before the final report simply goes in it with its result. The postponed-games file below is only for a game played after the final report was sent."
+              )}
+            </p>
 
             <div class="card-table-wrap">
               <table class="pe-table" id="postponed-list">

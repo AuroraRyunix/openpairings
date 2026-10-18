@@ -129,7 +129,9 @@ as Chess960. The arbiter then draws a starting position for each round on the
 Pairings page ([Pairing a round](06-pairing.md)). The tick *Tournament lasts
 more than 30 days* lets a player hold more than one rating during the event;
 once it is on, the two settings for the rating-based tie-breaks appear under
-it ([Standings and tie-breaks](08-standings-and-tiebreaks.md)). A **?** beside
+it ([Standings and tie-breaks](08-standings-and-tiebreaks.md)), and so does
+*Reporting to FIDE*: monthly reports or one report at the end ([Postponed
+games](11-fide-report.md#postponed-games) explains both). A **?** beside
 the tick explains it. In such an event *Refresh ratings* adds a new list's
 ratings as later ratings from a round instead of replacing the starting rating
 ([Refreshing ratings](04-players-and-ratings.md#refreshing-ratings)), and the

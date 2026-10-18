@@ -87,6 +87,119 @@ defmodule PairingsEngineWeb.LongEventAndCorrectionLiveTest do
       assert has_element?(standings, "#tiebreak-rating-basis", "round the game was played")
     end
 
+    test "the reporting choice shows only with the tick, saves, and travels in the JSON", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      assert t.long_event_reporting == "monthly"
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+      refute has_element?(lv, "#long-event-reporting")
+
+      lv
+      |> form("#tournament-settings-form", %{"tournament" => %{"long_event" => "true"}})
+      |> render_submit()
+
+      assert has_element?(lv, "#long-event-reporting")
+      assert has_element?(lv, "#long-event-reporting-explain")
+
+      lv
+      |> form("#tournament-settings-form", %{"tournament" => %{"long_event_reporting" => "end"}})
+      |> render_submit()
+
+      saved = Tournaments.get_tournament!(t.id)
+      assert saved.long_event_reporting == "end"
+      assert PairingsEngine.Tournaments.Tournament.one_report_at_end?(saved)
+
+      envelope = PairingsEngine.TournamentExport.export_tournament(saved)
+      [data] = envelope["tournaments"]
+      assert data["tournament"]["long_event_reporting"] == "end"
+
+      {:ok, [copy]} =
+        PairingsEngine.TournamentImport.import(
+          envelope |> Jason.encode!() |> Jason.decode!(),
+          scope
+        )
+
+      assert copy.long_event_reporting == "end"
+    end
+
+    test "Send says so when a report-at-the-end file holds fewer rounds than the event", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope, %{"long_event" => "true", "long_event_reporting" => "end"})
+      {:ok, _} = Engine.pair_next_round(t)
+
+      for p <- Tournaments.get_round(t.id, 1).pairings, p.black_player_id do
+        {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+
+      assert has_element?(lv, "#trf-send-one-report-warning")
+      assert has_element?(lv, ~s(#trf-send[data-confirm*="expects a file with 4 rounds"]))
+      refute has_element?(lv, "#trf-download-copy[data-confirm]")
+      refute has_element?(lv, "#trf-send-monthly-note")
+    end
+
+    test "no such warning when the file holds every round", %{conn: conn, scope: scope} do
+      t =
+        tournament(scope, %{
+          "long_event" => "true",
+          "long_event_reporting" => "end",
+          "rounds_count" => "1",
+          "round_dates" => ["2026-09-01"]
+        })
+
+      {:ok, _} = Engine.pair_next_round(t)
+
+      for p <- Tournaments.get_round(t.id, 1).pairings, p.black_player_id do
+        {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+
+      assert has_element?(lv, "#trf-send[data-confirm]")
+      refute has_element?(lv, "#trf-send-one-report-warning")
+      refute has_element?(lv, ~s(#trf-send[data-confirm*="expects a file"]))
+    end
+
+    test "monthly: a note beside Send, and no warning", %{conn: conn, scope: scope} do
+      t = tournament(scope, %{"long_event" => "true"})
+      {:ok, _} = Engine.pair_next_round(t)
+
+      for p <- Tournaments.get_round(t.id, 1).pairings, p.black_player_id do
+        {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+
+      assert has_element?(lv, "#trf-send-monthly-note")
+      refute has_element?(lv, "#trf-send-one-report-warning")
+      refute has_element?(lv, ~s(#trf-send[data-confirm*="expects a file"]))
+    end
+
+    test "postponed games of a report-at-the-end event go in the final report", %{
+      conn: conn,
+      scope: scope
+    } do
+      t =
+        tournament(scope, %{
+          "long_event" => "true",
+          "long_event_reporting" => "end",
+          "postponed_games" => "true"
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#postponed-one-report-note")
+
+      {:ok, _} = Tournaments.update_tournament(t, %{"long_event_reporting" => "monthly"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      refute has_element?(lv, "#postponed-one-report-note")
+    end
+
     test "advises against rating-based tie-breaks (C.07 Article 10)", %{conn: conn, scope: scope} do
       t = tournament(scope, %{"long_event" => "true"})
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")

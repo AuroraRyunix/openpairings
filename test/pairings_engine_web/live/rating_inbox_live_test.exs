@@ -123,6 +123,37 @@ defmodule PairingsEngineWeb.RatingInboxLiveTest do
     end
   end
 
+  describe "a long event reported once at the end" do
+    setup %{scope: scope} do
+      t = tournament(scope, "Inbox long")
+
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [
+          fide_homologated: true,
+          long_event: true,
+          round_dates: ["2026-09-01", "2026-10-20", "2026-12-15"]
+        ]
+      )
+
+      {:ok, t: t}
+    end
+
+    test "monthly: September's round is overdue by November", %{t: t} do
+      assert {:later, %{basis: :interim}} = level(t, ~D[2026-11-10])
+    end
+
+    test "at the end: counted from the last day, nothing overdue before it", %{t: t} do
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [long_event_reporting: "end"]
+      )
+
+      assert {:normal, %{basis: :final, list: ~D[2027-01-01], closes: ~D[2026-12-31]}} =
+               level(t, ~D[2026-11-10])
+
+      refute Enum.any?(PairingsEngine.RatingInbox.periods(~D[2026-11-10]), & &1.overdue?)
+    end
+  end
+
   describe "which tournaments are listed" do
     test "not marked FIDE-rated and nothing sent: not listed, finished round or not", %{
       conn: conn,

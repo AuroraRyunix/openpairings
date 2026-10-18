@@ -103,6 +103,25 @@ defmodule PairingsEngine.RatingInboxTest do
                RatingInbox.list_status(day, ~D[2026-10-20], basis)
     end
 
+    test "reported once at the end: every month is the final report, from the last day" do
+      t = %{@championship | long_event: true, long_event_reporting: "end"}
+
+      for period <- [~D[2026-10-01], ~D[2026-11-01], ~D[2027-03-01], ~D[2027-04-01]] do
+        assert RatingInbox.report_day(t, period) == {:final, ~D[2027-04-02]}
+      end
+
+      {basis, day} = RatingInbox.report_day(t, ~D[2026-10-01])
+      assert %{level: :normal} = RatingInbox.list_status(day, ~D[2027-03-20], basis)
+    end
+
+    test "the reporting choice means nothing while the 30-day tick is off" do
+      t = %{@championship | long_event: false, long_event_reporting: "end"}
+      assert RatingInbox.report_day(t, ~D[2026-10-01]) == {:interim, ~D[2026-10-16]}
+
+      monthly = %{@championship | long_event: true, long_event_reporting: "monthly"}
+      assert RatingInbox.report_day(monthly, ~D[2026-10-01]) == {:interim, ~D[2026-10-16]}
+    end
+
     test "no date at all: nothing to count from" do
       assert RatingInbox.report_day(%Tournament{round_dates: []}, ~D[2026-10-01]) == nil
     end

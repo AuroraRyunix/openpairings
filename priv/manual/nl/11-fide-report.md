@@ -112,6 +112,29 @@ toernooi**. Dat vraagt het twee keer en haalt het toernooi uit de FIDE-modus;
 de kopieën dragen dan `### Not played @ Round 3: 5-12` voor die partij, en het
 bestand voor de rating schrijft ze als niet gespeeld (`0000 - Z`).
 
+**Lange toernooien.** Een toernooi met het vinkje *Toernooi duurt langer dan
+30 dagen* wordt op een van twee manieren gerapporteerd, te kiezen onder dat
+vinkje (Instellingen, Toernooi). Hoe ook: een rapport bevat evenveel rondes
+als de FIDE-registratie waartegen je het verstuurt. Een registratie van 9
+rondes neemt een bestand van 9 rondes.
+
+- *Maandelijkse rapporten*: de rondes van elke maand worden apart
+  gerapporteerd (B.02 art. 4.1). In de FIDE-modus houdt een uitgestelde partij
+  zonder resultaat alleen het bestand van haar eigen maand tegen; wordt ze
+  later gespeeld, dan gaat ze in het bestand met uitgestelde partijen. De
+  pagina Exporteren herinnert je naast **Versturen…** eraan dat elk
+  maandbestand moet passen bij een registratie met evenveel rondes.
+- *Eén rapport op het einde (zoals geregistreerd bij FIDE)*: het toernooi
+  wordt één keer geregistreerd, in zijn laatste maand, en alle rondes gaan na
+  de laatste dag in één bestand. De ratingserver van FIDE heeft er geen
+  moeite mee dat partijen lang voor de registratie gespeeld zijn. Een
+  uitgestelde partij die vóór dat rapport gespeeld is, is daarin gewoon een
+  resultaat; het bestand met uitgestelde partijen is alleen voor een partij
+  die gespeeld wordt nadat het eindrapport verstuurd is. **Versturen…** met
+  minder rondes aangevinkt dan het toernooi heeft, zegt dat vóór de download,
+  en laat je toch verdergaan: de registratie kan met het toernooi gekrompen
+  zijn.
+
 ## Tijdens het toernooi gewijzigde verboden paringen {#prohibitions-changed-during-the-event}
 
 Een verboden paring of een paringsregel die na het paren van ronde 1 wordt
@@ -179,7 +202,10 @@ maand (B.02 art. 9.1); een bestand met uitgestelde partijen telt vanaf de datum
 van zijn laatste partij. Een toernooi dat langer dan 30 dagen duurt, rapporteert
 elke maand (art. 4.1): zijn rondes van een maand tellen dus vanaf de laatste
 daarvan, niet vanaf het einde van het toernooi. De oktoberrondes van een
-kampioenschap dat tot april loopt, zijn voor de lijst van 1 november. Bij elk
+kampioenschap dat tot april loopt, zijn voor de lijst van 1 november. Een
+toernooi dat één keer op het einde rapporteert, telt vanaf zijn laatste dag
+zoals een kort toernooi, en geen enkele maand ervan is achterstallig (zie
+[Uitgestelde partijen](#postponed-games) voor de twee manieren). Bij elk
 toernooi staat hoe het ervoor staat:
 
 - *Voor de ratinglijst van 1 …: te uploaden tegen …* - op tijd.
