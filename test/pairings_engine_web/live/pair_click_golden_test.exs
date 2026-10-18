@@ -135,6 +135,18 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   them, so no player carries a sex and no row a performance. With those two
   keys taken out the regenerated file is equal, term for term, to the one
   before.
+
+  And for the pairing-flow audit of 2026-10-18. Every JSON export's rounds
+  gain `baku_points` (the Baku virtual points each round was paired with,
+  nil outside Baku); in `:options` that is the only difference. Two
+  scenarios had been leaning on bugs the audit fixed, and were changed:
+  `:categories`' one-player category collected the pairing-allocated bye
+  every round (C.04.3 C2, P4), so its player now sits rounds 1-2 out - the
+  boards of round 3 are the same, and only that player's score, the
+  standings, the public rows and the audit rows that follow from it differ;
+  `:match_format` paired match 2 with every first-leg board of match 1
+  still open (P2b), so match 1 now has both legs played, and match 2 is
+  paired on those scores.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
@@ -199,9 +211,13 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
         )
       )
 
+    # Category C's only player sits rounds 1 and 2 out, so the bye round 3
+    # gives them is their first: a category of one gets the pairing-allocated
+    # bye once and no more (C.04.3 C2, audit 2026-10-18 P4).
     for i <- 1..15 do
       category = if i == 15, do: "C", else: if(rem(i, 2) == 0, do: "A", else: "B")
-      insert_player(t, i, %{category: category, categories: [category]})
+      absent = if i == 15, do: "1,2", else: ""
+      insert_player(t, i, %{category: category, categories: [category], absent_rounds: absent})
     end
 
     click(conn, t)
@@ -230,7 +246,10 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
 
     for i <- 1..11, do: insert_player(t, i)
 
+    # Both legs of match 1: the next match waits for the first leg too
+    # (audit 2026-10-18 P2b), which this scenario used to leave open.
     click(conn, t)
+    finish_round(t, 1)
     finish_latest_round(t)
     pages = click(conn, t)
 

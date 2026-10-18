@@ -2,9 +2,10 @@ defmodule PairingsEngine.PairingAudit1018Test do
   @moduledoc """
   The pairing-flow audit of 2026-10-18 (docs/audits/pairing-flow-2026-10-18.md):
   one test per finding that can make the app pair a round on state that is
-  not the tournament's. Every test here FAILS on main at the time of the
-  audit; each is tagged `:audit` so the suite can exclude them until the
-  finding is fixed (`mix test --only audit` runs them).
+  not the tournament's. Every test here failed on main at the time of the
+  audit (0.91.0) and was tagged `:audit` so the suite could exclude it until
+  its finding was fixed. All of them are fixed now, so the tag is gone and
+  they run with everything else.
   """
 
   use PairingsEngine.DataCase, async: false
@@ -14,8 +15,6 @@ defmodule PairingsEngine.PairingAudit1018Test do
   alias PairingsEngine.{Pairing, Repo, Tournaments, TrfExport, TrfImport}
   alias PairingsEngine.Accounts.{Scope, User}
   alias PairingsEngine.Tournaments.Round
-
-  @moduletag :audit
 
   ## ---------- helpers ----------
 
@@ -122,6 +121,43 @@ defmodule PairingsEngine.PairingAudit1018Test do
     end
   end
 
+  # The same, for a run the fix may refuse before it builds any engine
+  # input: `{result, trf_or_nil}`.
+  defp capture_trf_if_built(fun, round) do
+    test_pid = self()
+    ref = make_ref()
+    id = "audit-1018-#{inspect(ref)}"
+
+    :telemetry.attach(
+      id,
+      [:pairings_engine, :pairing, :trf_built],
+      fn _event, _m, meta, _ -> if meta.round == round, do: send(test_pid, {ref, meta.trf}) end,
+      nil
+    )
+
+    try do
+      result = fun.()
+
+      receive do
+        {^ref, trf} -> {result, trf}
+      after
+        0 -> {result, nil}
+      end
+    after
+      :telemetry.detach(id)
+    end
+  end
+
+  # A player's round-1 virtual points in an engine input. No `XXA` line and
+  # a line starting at 0.0 say the same thing to the engine: no virtual
+  # points in round 1.
+  defp round_one_points(by_name, name) do
+    case Map.get(by_name, name, []) do
+      [] -> 0.0
+      [first | _] -> first / 1
+    end
+  end
+
   defp accelerations_by_name(trf) do
     parsed = Ainalrami.Trf.parse(trf)
     Map.new(parsed.players, &{String.trim(&1.name), &1[:accelerations] || []})
@@ -191,12 +227,17 @@ defmodule PairingsEngine.PairingAudit1018Test do
       cleared = boards(t, 1) |> Enum.filter(& &1.black_player_id) |> Enum.at(1)
       assert {:ok, _} = Tournaments.update_pairing_result(cleared, "", [])
 
-      {result, trf} = capture_trf(fn -> Pairing.pair_next_round(fresh(t)) end, 3)
+      {result, trf} = capture_trf_if_built(fn -> Pairing.pair_next_round(fresh(t)) end, 3)
 
-      # The engine was handed the round-1 game with no result: an unplayed
-      # game, so no colour, no point and no meeting (C.04.2 3.5).
-      parsed = Ainalrami.Trf.parse(trf)
-      sent = Enum.find(parsed.players, &(Enum.at(&1.games, 0).result in [nil, ""]))
+      # Had the engine been handed the round-1 game with no result, it would
+      # read it as an unplayed game, so no colour, no point and no meeting
+      # (C.04.2 3.5). Refused before the engine runs, there is no input.
+      sent =
+        trf &&
+          Enum.find(
+            Ainalrami.Trf.parse(trf).players,
+            &(Enum.at(&1.games, 0).result in [nil, ""])
+          )
 
       pair = MapSet.new([cleared.white_player_id, cleared.black_player_id])
 
@@ -300,7 +341,13 @@ defmodule PairingsEngine.PairingAudit1018Test do
 
       pair!(t)
       play(t, 1)
-      pair!(t)
+
+      # Refusing the round (it has no legal pairing for the Junior) is as
+      # good as pairing the Junior somewhere else; a second bye is not.
+      round2 = Pairing.pair_next_round(fresh(t))
+
+      assert match?({:ok, _}, round2) or match?({:error, {:no_legal_pairing, _}}, round2),
+             "round 2: #{inspect(round2)}"
 
       lone = Enum.find(Tournaments.list_players(t.id), &(&1.name == "P05"))
 
@@ -341,11 +388,17 @@ defmodule PairingsEngine.PairingAudit1018Test do
       round2 = accelerations_by_name(trf)
 
       for name <- ~w(P01 P02 P03 P04 P05 P06 P07 P08) do
-        assert Enum.take(Map.get(round2, name, []), 1) == Map.get(round1, name, []),
+        assert round_one_points(round2, name) == round_one_points(round1, name),
                "#{name}: round 1 was paired with #{inspect(Map.get(round1, name, []))} " <>
                  "virtual points; round 2's engine input says " <>
                  "#{inspect(Map.get(round2, name, []))}"
       end
+
+      # C.04.7 1.3.2: the last GA-participant (P04) stays the last
+      # GA-participant, whatever number they hold now.
+      assert Enum.at(Map.get(round2, "P04", []), 1) == 1.0,
+             "P04, the last Group-A player, has #{inspect(Map.get(round2, "P04", []))} " <>
+               "in round 2's engine input"
     end
 
     test "an exchange of two equal ratings across the line keeps Group A's players",
@@ -361,11 +414,17 @@ defmodule PairingsEngine.PairingAudit1018Test do
       round2 = accelerations_by_name(trf)
 
       for name <- ~w(P04 P05) do
-        assert Enum.take(Map.get(round2, name, []), 1) == Map.get(round1, name, []),
+        assert round_one_points(round2, name) == round_one_points(round1, name),
                "#{name}: round 1 was paired with #{inspect(Map.get(round1, name, []))} " <>
                  "virtual points; round 2's engine input says " <>
                  "#{inspect(Map.get(round2, name, []))}"
       end
+
+      # C.04.7 1.3.2: the last GA-participant (P04) stays the last
+      # GA-participant, whatever number they hold now.
+      assert Enum.at(Map.get(round2, "P04", []), 1) == 1.0,
+             "P04, the last Group-A player, has #{inspect(Map.get(round2, "P04", []))} " <>
+               "in round 2's engine input"
     end
   end
 
