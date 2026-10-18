@@ -125,7 +125,10 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       bye_exclusion_rounds: PairingsEngine.RoundExplanation.bye_exclusion_rounds(t.id),
       bye_preference_rounds: PairingsEngine.RoundExplanation.bye_preference_rounds(t.id),
       # What the file cannot carry of this tournament (`TrfExport.export_notes/1`).
-      trf_export_notes: PairingsEngine.TrfExport.export_notes(t)
+      trf_export_notes: PairingsEngine.TrfExport.export_notes(t),
+      # What the TRF26's `X` says the open games are worth, against what
+      # the boards count them as (`TrfExport.unknown_valuation/1`).
+      unknown_valuation: PairingsEngine.TrfExport.unknown_valuation(t)
     )
     |> assign_postponed()
   end
@@ -1647,13 +1650,12 @@ defmodule PairingsEngineWeb.SettingsExportLive do
             style="margin: 8px 0 0"
           >
             {Postponed.trf_not_final_text(length(@postponed_open))}
-            <span
-              :if={
-                @tournament.postponed_requester_outcome != "draw" or
-                  @tournament.postponed_opponent_outcome != "draw"
-              }
-              id="postponed-trf-counts-draw"
-            >
+            <span :if={@unknown_valuation == :uniform} id="postponed-trf-counts-x">
+              {gettext(
+                "Every such game counts as the same result here, and the TRF26 download says so: it values the ? at that (X in record 162), so the file's points match the standings. The older spelling, read by pairing programs, writes a plain draw."
+              )}
+            </span>
+            <span :if={@unknown_valuation == :mixed} id="postponed-trf-counts-draw">
               {gettext(
                 "The TRF scores it as that draw, as the format says: the standings here count it as set under Settings, Scoring, so the file's points can differ from them until the game is played."
               )}

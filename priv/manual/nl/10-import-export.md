@@ -30,7 +30,13 @@ bedenktijd, arbiters, rondedatums), de spelers met hun FIDE-ID's, ratings, titel
 geboortedata, de rondes, de paringen, de resultaten en de byes. De startrangschikking
 van het bestand wordt het paringsnummer. Het type van het toernooi wordt uit het
 bestand overgenomen (Zwitsers, rondetoernooi, ploegen). Het onbekende resultaat `?`
-komt terug als uitgestelde partij. Een bord dat het bestand paart maar nog zonder
+komt terug als uitgestelde partij, zoveel waard als de `X` van het bestand (record
+162) een onbekend resultaat waard maakt - een remise als het bestand niets zegt. Een
+`X` die in de eigen punten van het bestand een winst of een verlies is, wordt ook hoe
+het toernooi een uitgestelde partij telt (Instellingen, Puntentelling), en dat haalt
+het uit de FIDE-modus; een `X` die geen van de drie is, wordt geweigerd, met de waarde
+erbij. Op de pagina Paringen staat zo'n bord als `* uitgesteld`; kies daar het echte
+resultaat zodra je het kent. Een bord dat het bestand paart maar nog zonder
 resultaat (een bestand dat bewaard werd terwijl de ronde gespeeld werd) komt terug
 als een partij die nog gespeeld wordt: het importverslag noemt de ronde, en de
 volgende ronde wacht op het resultaat. Ploegenbestanden geven de ploegen en hun
@@ -74,8 +80,9 @@ op de keuze van het bestand:
   noemt de speler, de ronde en het symbool. Annuleren importeert niets.
 - *Resultaten aangenomen voor de controle.* De rondes na een partij met een onbekende
   resultaat (`?`, of een symbool dat zo gelezen wordt) worden toch getoetst aan de
-  paringsregels, met die partij geteld als remise voor beide spelers - wat de import
-  ervan maakt, een uitgestelde partij. De controle zegt welke rondes zo getoetst zijn
+  paringsregels, met die partij geteld als gespeeld en de `X` van het bestand waard
+  voor beide spelers (een remise zonder `X`) - wat de import ervan maakt, een
+  uitgestelde partij. De controle zegt welke rondes zo getoetst zijn
   en somt elke aangenomen partij op, met de ronde en de twee spelers.
 - *Spelers die teruggetrokken lijken.* Een TRF-bestand kan niet zeggen dat een speler
   zich heeft teruggetrokken: het toont een speler met niets in de latere rondes, en zo
@@ -227,8 +234,12 @@ bbpPairings lezen, is beschikbaar door `?dialect=engine` toe te voegen aan het a
 de download.
 
 Een uitgestelde partij wordt geschreven als het onbekende resultaat `?`, in het bestand
-een remise waard (de `X` van record 162). Wanneer het toernooi een uitgestelde partij
-intussen als iets anders telt - bijvoorbeeld een overwinning voor de speler die het
+een remise waard (de `X` van record 162). Wanneer elke uitgestelde partij in het
+bestand voor beide spelers als dezelfde winst of hetzelfde verlies telt - een toernooi
+geïmporteerd uit een bestand waarvan de `X` dat zei, bijvoorbeeld - is `X` die waarde,
+zodat de punten van het bestand overeenkomen met de rangschikking en het bestand
+opnieuw importeren hetzelfde toernooi geeft. Wanneer het toernooi uitgestelde partijen
+intussen als verschillende dingen telt - bijvoorbeeld een overwinning voor de speler die het
 uitstel niet vroeg, wat alleen buiten de FIDE-modus kan - verschillen de rangschikking
 en het bestand in punten; de plaatskolom van het bestand wordt dan berekend uit de
 eigen punten en tiebreaks van het bestand, en niet overgenomen van de pagina

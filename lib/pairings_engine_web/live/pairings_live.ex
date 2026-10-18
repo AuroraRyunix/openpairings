@@ -4463,6 +4463,17 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp held_postponed?(result, postponed_games),
     do: result == "*" or (PairingsEngine.Results.postponed?(result) and not postponed_games)
 
+  # The unnamed `*` is also where a TRF's unknown result (`?`) lands on
+  # import, so its select says what it may be and what to do about it. A
+  # `*W`/`*B` was typed here and needs no explaining. Nil: no attribute.
+  defp held_postponed_title("*"),
+    do:
+      gettext(
+        "Postponed, or a result the imported TRF marked as unknown (?). It counts as set under Settings, Scoring until the real result is entered here."
+      )
+
+  defp held_postponed_title(_result), do: nil
+
   @doc false
   # The result select's options for `pairing`, as `{code, label}`. The two
   # postponed codes only when the tournament allows postponed games; the
@@ -8146,6 +8157,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                         phx-mounted={@refocus_result == pairing.id && JS.focus()}
                         data-board-select
                         data-result={pairing.result}
+                        title={held_postponed_title(pairing.result)}
                         data-refused={@write_refused_nonce}
                         disabled={!is_nil(@tournament.archived_at)}
                       >

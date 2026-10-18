@@ -133,7 +133,11 @@ export writes them in FIDE's own spelling:
   * **`?`** - a postponed game still to be played (VCL4THP Q164-165),
     written for both players, with **`X`** in the `162` record at a draw's
     value, and scored at that value in the points column, so the file adds
-    up from itself whatever the tournament counts a postponed game as. A
+    up from itself whatever the tournament counts a postponed game as.
+    The one exception (`TrfExport.unknown_value/2`): when every seat of
+    every `?` game counts as the same win or loss - a tournament imported
+    from a file whose own `X` said so - `X` is that value, so an imported
+    `X` survives the round trip and the points column is the standings'. A
     game sent while still open stays `?` in every later copy; its played
     result goes in the postponed-games TRF (the Postponed games part of
     Settings, Export), never back into the round. **The file sent for
