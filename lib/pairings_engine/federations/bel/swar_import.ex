@@ -854,6 +854,49 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   end
 
   @doc """
+  Imports `prepared` (from `prepare_import/2`, players SWAR has no FIDE id
+  for left without one) into a tournament nobody owns, hands it to `fun`
+  together with the tournament settings the file actually sets - the keys
+  of the import's own attrs, so a setting the file is silent on is never
+  mistaken for one it changes - and rolls the whole thing back.
+
+  What `PairingsEngine.Federations.BEL.SwarMerge` compares an existing
+  tournament with: the file read by exactly the code that would have
+  imported it, rather than by a second reading of the bytes that would
+  sooner or later disagree with the first. Returns `{:ok, fun's result}` or
+  `{:error, reason}`; nothing is ever written.
+  """
+  def stage(%{data: data}, fun) when is_function(fun, 2) do
+    data = %{data | players: Enum.map(data.players, &apply_resolution(&1, %{}))}
+
+    setting_keys =
+      data
+      |> prepare_players()
+      |> tournament_attrs()
+      |> resolve_official_fide_ids()
+      |> Map.keys()
+
+    result =
+      Tournaments.with_broadcast_suppressed(fn ->
+        Repo.transaction(fn ->
+          case do_import(data, nil) do
+            {:ok, tournament, _warnings} ->
+              Repo.rollback({:staged, fun.(tournament, setting_keys)})
+
+            {:error, reason} ->
+              Repo.rollback({:failed, reason})
+          end
+        end)
+      end)
+
+    case result do
+      {:error, {:staged, value}} -> {:ok, value}
+      {:error, {:failed, reason}} -> {:error, reason}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @doc """
   Parses `binary` (a raw `.swar` file's bytes - same shape `parse/1` and
   `import_file/2` take) and builds unpersisted `%Tournament{}`/`%Player{}`
   structs, reusing the exact same header/player field mapping (federation

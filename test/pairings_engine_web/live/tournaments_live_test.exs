@@ -1102,6 +1102,65 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       assert length(Tournaments.list_tournaments(scope)) == 2
     end
 
+    test "'Compare and merge' shows a conflict, keeps the result here by default, and takes the file's when picked",
+         %{conn: conn, scope: scope} do
+      first_id = import_problemski!(conn)
+
+      pairing =
+        PairingsEngine.Repo.one!(
+          from p in PairingsEngine.Tournaments.Pairing,
+            join: r in PairingsEngine.Tournaments.Round,
+            on: r.id == p.round_id,
+            where:
+              r.tournament_id == ^first_id and r.number == 1 and not is_nil(p.black_player_id),
+            order_by: p.board,
+            limit: 1
+        )
+
+      original = pairing.result
+      other = if original == "1-0", do: "0-1", else: "1-0"
+
+      {:ok, _} =
+        Tournaments.update_pairing_result(pairing, other, acknowledged: [:result_correction])
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_problemski(lv)
+      lv |> element("#swar-duplicate-compare") |> render_click()
+
+      row = "#swar-merge-result-#{pairing.id}"
+      assert has_element?(lv, "#swar-merge-form")
+      assert has_element?(lv, row)
+      refute has_element?(lv, "#swar-merge-identical")
+
+      # Nothing is written by looking.
+      assert PairingsEngine.Repo.reload!(pairing).result == other
+
+      {:error, {:live_redirect, %{to: to}}} =
+        lv
+        |> form("#swar-merge-form", %{"merge" => %{"rows" => %{"result-#{pairing.id}" => "file"}}})
+        |> render_submit()
+
+      assert to == ~p"/t/#{first_id}/players"
+      assert PairingsEngine.Repo.reload!(pairing).result == original
+      assert length(Tournaments.list_tournaments(scope)) == 1
+
+      assert [%{trigger: "import.swar_merge"} | _] = PairingsEngine.Snapshots.list(first_id)
+    end
+
+    test "'Compare and merge' on an unchanged tournament says they agree", %{conn: conn} do
+      import_problemski!(conn)
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      upload_problemski(lv)
+      lv |> element("#swar-duplicate-compare") |> render_click()
+
+      assert has_element?(lv, "#swar-merge-identical")
+      refute has_element?(lv, "#swar-merge-apply")
+
+      lv |> element("#swar-merge-cancel") |> render_click()
+      refute has_element?(lv, "#swar-merge-form")
+    end
+
     test "'Cancel' on the duplicate warning creates nothing and returns to the upload form", %{
       conn: conn,
       scope: scope
