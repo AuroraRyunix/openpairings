@@ -535,6 +535,11 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
   defp engine_note(_tournament),
     do: gettext("Keizer keeps the rules; it has no \"if possible\", so wishes are not applied.")
 
+  # Whether this page, as rendered for this tournament right now, has any
+  # `tset-adv` element, so the "Show advanced settings" switch is drawn only
+  # when it has something to show. The wishes card is advanced while there are no wishes; with some, it is the page's point.
+  defp has_advanced?(assigns), do: assigns.wish_count == 0
+
   @impl true
   def render(assigns) do
     assigns =
@@ -564,7 +569,8 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
         advanced={
           advanced(
             @show_advanced,
-            changed_count(@tournament, [@wish_count == 0 and @tournament.soft_position != "strong"])
+            changed_count(@tournament, [@wish_count == 0 and @tournament.soft_position != "strong"]),
+            has_advanced?(assigns)
           )
         }
       >

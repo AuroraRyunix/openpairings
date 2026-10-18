@@ -54,7 +54,7 @@ tournament ID.
 
 The **Settings** menu in the top bar opens the Tournament page. Every
 Settings page has the list of pages beside it (above it on a phone), in three
-groups: **Set-up** (Tournament, Options, Scoring, Dates, Categories, Extra
+groups: **Set-up** (Tournament, Group, Options, Scoring, Dates, Categories, Extra
 points, Forbidden pairings), **Publishing** (OpenResults, Live boards) and
 **Reporting** (FIDE, Export, About).
 
@@ -69,8 +69,9 @@ the page as before.
 
 When an advanced setting on the page is not at its default, the page says
 so beside the switch (*2 advanced settings are not at their defaults - show
-them*); a click shows them. A few cards are advanced only while unused: a
-tournament in a group, with a logo, with wishes among its forbidden pairings,
+them*); a click shows them. A page with nothing advanced in it, as it stands for
+your tournament, shows no switch. A few cards are advanced only while unused: a
+tournament with a logo, with wishes among its forbidden pairings,
 with a per-round FIDE ID range or with its entry form open always shows that
 card.
 
@@ -86,9 +87,9 @@ Two more things keep the pages short:
 
 | Page | Shown | With *Show advanced settings* |
 | --- | --- | --- |
-| Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; officials; tie-breaks; Chess960 and the 30-day tick; sharing | organiser's club number; how an unrated player is counted in the tie-breaks; players still level share a place; group; logo |
+| Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; officials; tie-breaks; Chess960 and the 30-day tick; sharing | organiser's club number; how an unrated player is counted in the tie-breaks; players still level share a place; logo |
 | Options | pairing system, tournament rating, cycles (round robin), Keizer top value (Keizer), line-ups (teams), type and rate of play | engine, initial colour, equal rating and title, late entrants' pairing numbers, round-1 absentees, acceleration, the match formats, team rating and unrated rating (teams), other rate of play |
-| Scoring | points, match points, points for a round sat out and its limits, postponed games | voluntary unplayed rounds, late entrants' absences, asking the bye type; a team's bye, forfeit and withdrawal rules |
+| Scoring | points, match points, postponed games | the whole *Byes and absences* card (points for a round sat out and its limits, voluntary unplayed rounds, late entrants' absences, asking the bye type); a team's bye, forfeit and withdrawal rules |
 | Dates | one date per round | - |
 | Categories | see [Categories and norms](13-categories-and-norms.md) | - |
 | Extra points | bonus or handicap points by rating band | - |
@@ -147,8 +148,8 @@ what makes them separate tournaments rather than
 [categories](13-categories-and-norms.md) of one. A **group** strings them
 together.
 
-On **Settings → Tournament**, the **Group** card (with *Show advanced
-settings*, or always once the tournament is in a group):
+On **Settings → Group** (its own page in the Set-up list; the Tournament page
+links to it once the tournament is in a group):
 
 - **Create group** starts a new group, named as you like, with this tournament
   in it.
@@ -381,7 +382,7 @@ a lost match by default; and, advanced, the match points and game points of a
 pairing-allocated bye; what a match forfeited as a whole pays in game points
 ([Teams](12-teams.md)); and the treatment of a team that withdraws.
 
-**Byes and absences.** *Points for a round sat out* is the value of a round a
+**Byes and absences.** (advanced) *Points for a round sat out* is the value of a round a
 player was absent for (blank: absences score nothing). Two optional limits go
 with it, shown once it has a value: the last round it still applies to, and a
 cap on how many of a player's rounds are paid. The three settings after them

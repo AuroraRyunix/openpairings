@@ -149,7 +149,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   The rail of Settings pages, grouped the way an arbiter meets them:
   setting the tournament up, putting it in front of people, reporting it.
   `active` is one of `:tournament`, `:options`, `:restrictions`, `:scoring`,
-  `:dates`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
+  `:group`, `:dates`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
   `:export`, `:about`.
 
   Rendered by `settings_page/1`; it is public only because the pages that
@@ -185,6 +185,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
       {gettext("Set-up"),
        [
          {:tournament, ~p"/t/#{id}/settings", "hero-trophy-micro", gettext("Tournament")},
+         {:group, ~p"/t/#{id}/settings/group", "hero-squares-2x2-micro", gettext("Group")},
          {:options, ~p"/t/#{id}/settings/options", "hero-adjustments-vertical-micro",
           gettext("Options")},
          {:scoring, ~p"/t/#{id}/settings/scoring", "hero-calculator-micro", gettext("Scoring")},
@@ -216,6 +217,17 @@ defmodule PairingsEngineWeb.SettingsSupport do
   defaults (see `changed_count/2`).
   """
   def advanced(on?, changed), do: %{on?: on?, changed: changed}
+
+  @doc """
+  Like `advanced/2`, for a page that may have nothing advanced in it right
+  now: with `has_advanced?` false the result is nil, and `settings_page/1`
+  draws no switch. Each page answers `has_advanced?` for itself (a
+  `has_advanced?/1` over its assigns), because what it renders can depend on
+  the tournament's type, system or state - a switch that flips nothing is a
+  small lie.
+  """
+  def advanced(_on?, _changed, false), do: nil
+  def advanced(on?, changed, true), do: advanced(on?, changed)
 
   @doc """
   How many of `specs` are not at their defaults on `tournament`. Each spec

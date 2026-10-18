@@ -269,6 +269,11 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # says and mean nothing to this tournament. `round_one_absentees_late` is
   # not counted: it is on for new tournaments and off for older ones, and
   # neither is "changed".
+  # Whether this page, as rendered for this tournament right now, has any
+  # `tset-adv` element, so the "Show advanced settings" switch is drawn only
+  # when it has something to show. The pairing-option fields and the moved-restrictions note are advanced for every type.
+  defp has_advanced?(_assigns), do: true
+
   defp advanced_changed(tournament) do
     by_system =
       case tournament.pairing_system do
@@ -442,7 +447,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
         tournament={@tournament}
         active={:options}
         subtitle={gettext("Settings - Options")}
-        advanced={advanced(@show_advanced, advanced_changed(@tournament))}
+        advanced={advanced(@show_advanced, advanced_changed(@tournament), has_advanced?(assigns))}
       >
         <.stale_banner stale={@stale} />
         <PairingsEngineWeb.LateEntryNotice.notice show={@late_entry_notice} />

@@ -105,4 +105,20 @@ defmodule PairingsEngineWeb.SettingsAdvancedLiveTest do
       assert has_element?(lv, "#settings-nav a.active[aria-current='page']"), path
     end
   end
+
+  test "the Byes and absences card is advanced, and its points count when they are set", %{
+    conn: conn,
+    scope: scope
+  } do
+    tournament = create_tournament(scope)
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+    assert has_element?(lv, "#byes-absences-card.tset-adv")
+    refute has_element?(lv, "#settings-advanced-changed")
+
+    {:ok, _} = Tournaments.update_tournament(tournament, %{"abs_value" => "0.5"})
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/scoring")
+
+    assert has_element?(lv, "#settings-advanced-changed", "1 advanced setting")
+  end
 end

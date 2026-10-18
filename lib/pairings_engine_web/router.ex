@@ -109,6 +109,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/audit/explain", AuditLive, :explain
       live "/t/:id/print", PrintLive
       live "/t/:id/settings", SettingsTournamentLive
+      live "/t/:id/settings/group", SettingsGroupLive
       live "/t/:id/settings/options", SettingsOptionsLive
       live "/t/:id/settings/restrictions", SettingsRestrictionsLive
       live "/t/:id/settings/results", SettingsResultsLive
