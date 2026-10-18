@@ -55,7 +55,11 @@ The owner can invite other arbiters. Settings, **Tournament**, card
 - A collaborator can do everything the owner can except managing collaborators
   and deleting the tournament.
 - Everyone sees changes as they happen: when a colleague pairs a round or
-  enters a result, your pages update by themselves. That includes the audit
+  enters a result, your pages update by themselves. When it was a round that
+  changed (paired, unpaired, paired again, published or withdrawn from
+  publication) on the Pairings or Players page, a short notice says so, for
+  example "Round 4 was just paired elsewhere"; the session that did it
+  hears nothing, and the notice never names a person. That includes the audit
   trail: a row written while you have it open appears within a moment, on the
   page and filter you were looking at, and every collaborator sees the same
   rows as the owner.

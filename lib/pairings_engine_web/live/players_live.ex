@@ -141,6 +141,7 @@ defmodule PairingsEngineWeb.PlayersLive do
      socket
      |> assign(
        tournament: tournament,
+       round_marker: PairingsEngineWeb.RoundChangeNotice.marker(tournament.id),
        rating_sequence: RatingLists.sequence(tournament),
        page_title: "#{tournament.name} · Players",
        adding: false,
@@ -266,9 +267,14 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
+        marker = PairingsEngineWeb.RoundChangeNotice.marker(tournament.id)
+        notice = PairingsEngineWeb.RoundChangeNotice.notice(socket.assigns.round_marker, marker)
+        socket = if(notice, do: put_flash(socket, :info, notice), else: socket)
+
         {:noreply,
          socket
          |> assign(
+           round_marker: marker,
            tournament: tournament,
            rating_sequence: RatingLists.sequence(tournament),
            setup_complete: Tournament.setup_complete?(tournament),

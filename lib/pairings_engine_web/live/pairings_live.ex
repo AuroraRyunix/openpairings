@@ -98,6 +98,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        # entered. Anything else opens the latest round, as before.
        round_number: initial_round(params["round"], tournament, paired),
        error: nil,
+       # The rounds as this page last saw them - see `RoundChangeNotice`.
+       round_marker: PairingsEngineWeb.RoundChangeNotice.marker(tournament.id),
        # What the boards in the hall reported - see `assign_board_reports/1`.
        board_reports: nil,
        # Bumped whenever a result-entry write is REFUSED (e.g. an archived
@@ -239,7 +241,9 @@ defmodule PairingsEngineWeb.PairingsLive do
   # "updated by another arbiter" notice used to fire here too; removed -
   # it sat as a toast that kept surprising people mid-click regardless of
   # how it was positioned, and the round data refreshing live underneath
-  # it is the part that actually matters.
+  # it is the part that actually matters. What is back is narrower: a notice
+  # only when ROUNDS changed (paired, unpaired, re-paired, published) - see
+  # `PairingsEngineWeb.RoundChangeNotice` - never for a result or an edit.
   # A round's engine account arrived (or could not be worked out) - see
   # `PairingsEngine.ExplanationJobs`. Nothing on this page but the "working
   # out the explanation" note depends on it, so this reads the one column
@@ -317,10 +321,19 @@ defmodule PairingsEngineWeb.PairingsLive do
         if already_current?(hint, tournament, socket) do
           {:noreply, socket}
         else
-          {:noreply,
-           PairTiming.span(:refresh, fn ->
-             socket |> assign(tournament: tournament) |> refresh(keep_gesture: true)
-           end)}
+          before = socket.assigns.round_marker
+
+          socket =
+            PairTiming.span(:refresh, fn ->
+              socket |> assign(tournament: tournament) |> refresh(keep_gesture: true)
+            end)
+
+          # Own actions refresh (and move the marker) before their echo
+          # arrives, so a difference here is somebody else's doing.
+          case PairingsEngineWeb.RoundChangeNotice.notice(before, socket.assigns.round_marker) do
+            nil -> {:noreply, socket}
+            msg -> {:noreply, put_flash(socket, :info, msg)}
+          end
         end
     end
   end
@@ -383,6 +396,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     socket =
       assign(socket,
         refreshed_version: version,
+        round_marker: PairingsEngineWeb.RoundChangeNotice.marker(t.id),
         round: round,
         # What the players' bye preferences did in this round, and the
         # stored ones a FIDE-rated tournament is ignoring.

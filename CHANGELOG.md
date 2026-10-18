@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Rounds changed elsewhere now say so.** The Pairings and Players pages already reloaded when a colleague paired, unpaired, re-paired or published a round, which left you wondering why round 4 had appeared out of nowhere. A short notice now names the round and says "elsewhere" (the data keeps no author, and inventing one would be worse). The session that did the pairing hears nothing, and a result entered by someone else stays a quiet reload.
+
 ## [0.94.0] - 2026-10-18
 
 - [Feature] **Rooms.** Settings, Rooms gives a hall of more than one room its names and the boards each holds (`1-20, 35, 40-45`), checked as you type: no name twice, no board in two rooms, and a board in none is its own business. The Pairings page then names the room above its first board, and both printed pairing lists grow a Room column, so the player looking for board 37 learns it is in the annexe before walking the main hall twice. A tournament without rooms looks exactly as it did. Rooms travel in the JSON export and come back on import.
