@@ -22117,3 +22117,13 @@ msgstr "Uitgesteld, of een resultaat dat de geïmporteerde TRF als onbekend (?) 
 #, elixir-autogen, elixir-format
 msgid "This TRF file values an unknown result (?) at %{x} points (X in record 162). A game without a result counts here as a win, a draw or a loss - %{win}, %{draw} or %{loss} points in this file - so that value cannot be kept. Change X to one of those, or enter the missing results, and import the file again."
 msgstr "Dit TRF-bestand waardeert een onbekend resultaat (?) op %{x} punten (X in record 162). Een partij zonder resultaat telt hier als winst, remise of verlies - %{win}, %{draw} of %{loss} punten in dit bestand - dus die waarde kan niet behouden blijven. Verander X in een van die waarden, of vul de ontbrekende resultaten in, en importeer het bestand opnieuw."
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5570
+#, elixir-autogen, elixir-format
+msgid "Hide this board"
+msgstr "Dit bord verbergen"
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5570
+#, elixir-autogen, elixir-format
+msgid "Unhide this board"
+msgstr "Dit bord weer tonen"

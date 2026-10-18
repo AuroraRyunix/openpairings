@@ -426,6 +426,10 @@ name. The program calls it a
 | Award a bye to the remaining player | Gives the bye to the player left alone on a board whose opponent was removed. |
 | Delete this board… | Removes an empty board (a fully-vacated board can be hidden and un-hidden). |
 
+A board with nobody left on it is not a game and does not wait for a result:
+the next round pairs whether you delete it, hide it or leave it. A board with
+one player left does wait, until that player has a bye or an opponent.
+
 - The session **ends** only when you press **Finish hand edits**. The next
   round cannot be paired while a session is open, so the check below cannot
   be skipped by moving on.

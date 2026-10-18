@@ -113,6 +113,37 @@ defmodule PairingsEngine.PairingTest do
     assert {:ok, %{number: 2}} = Pairing.pair_next_round(tournament)
   end
 
+  test "an empty board in an earlier round does not hold the next one; a half-empty one does" do
+    tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 3})
+
+    for {name, rating} <- [{"A", 2000}, {"B", 1900}, {"C", 1800}, {"D", 1700}, {"E", 1600}],
+        do: insert_player(tournament, name, fide_rating: rating)
+
+    assert {:ok, round1} = Pairing.pair_next_round(tournament)
+
+    for p <- Repo.preload(round1, :pairings).pairings,
+        p.result != "bye",
+        do: {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+
+    assert {:ok, round2} = Pairing.pair_next_round(tournament)
+    round2 = Repo.preload(round2, :pairings)
+    game = Enum.find(round2.pairings, &(&1.result != "bye"))
+
+    for p <- round2.pairings -- [game],
+        p.result != "bye",
+        do: {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+
+    # Both players of one board marked absent, one at a time.
+    {:ok, _} = Tournaments.vacate_seat(round2, game.white_player_id)
+    assert {:error, "Round 2 still has missing results"} = Pairing.pair_next_round(tournament)
+
+    round2 = Repo.preload(Repo.reload!(round2), :pairings, force: true)
+    {:ok, _} = Tournaments.vacate_seat(round2, game.black_player_id)
+
+    assert %{white_player_id: nil, black_player_id: nil, result: ""} = Repo.reload!(game)
+    assert {:ok, %{number: 3}} = Pairing.pair_next_round(tournament)
+  end
+
   test "not_yet_started?/2 is a pure check against start_round" do
     tournament = Repo.insert!(%Tournament{name: "T", type: "swiss", rounds_count: 5})
     player = insert_player(tournament, "P", start_round: 3)

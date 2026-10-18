@@ -5567,7 +5567,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               phx-click="toggle_hidden"
               phx-value-pairing-id={@menu.pairing_id}
             >
-              {if @pairing_hidden?, do: "Unhide this board", else: "Hide this board"}
+              {if @pairing_hidden?, do: gettext("Unhide this board"), else: gettext("Hide this board")}
             </button>
 
             <button

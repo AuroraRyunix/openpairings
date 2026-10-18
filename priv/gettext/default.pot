@@ -22125,3 +22125,13 @@ msgstr ""
 #, elixir-autogen, elixir-format
 msgid "This TRF file values an unknown result (?) at %{x} points (X in record 162). A game without a result counts here as a win, a draw or a loss - %{win}, %{draw} or %{loss} points in this file - so that value cannot be kept. Change X to one of those, or enter the missing results, and import the file again."
 msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5570
+#, elixir-autogen, elixir-format
+msgid "Hide this board"
+msgstr ""
+
+#: lib/pairings_engine_web/live/pairings_live.ex:5570
+#, elixir-autogen, elixir-format
+msgid "Unhide this board"
+msgstr ""

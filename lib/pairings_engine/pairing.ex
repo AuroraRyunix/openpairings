@@ -803,6 +803,11 @@ defmodule PairingsEngine.Pairing do
   (C.04.3 C1). The match format's first leg slipped past the same way,
   since "the last round" is the second leg. A postponed game (`"*"`) is not
   a blank and holds nothing up, as before.
+
+  Neither does a board with nobody at it. Two "mark absent" gestures leave
+  one behind, and it waited for a result nobody could ever enter, so the
+  tournament simply stopped. A half-empty board still holds: someone is
+  sitting there with neither a game nor a bye.
   """
   def first_incomplete_round(tournament_id) do
     Repo.one(
@@ -810,7 +815,17 @@ defmodule PairingsEngine.Pairing do
         join: r in Round,
         on: p.round_id == r.id,
         where: r.tournament_id == ^tournament_id and p.result == "",
+        where: ^seated_or_match(),
         select: min(r.number)
+    )
+  end
+
+  # Somebody's board, or a team match's: anything but the empty row two
+  # vacated seats leave behind.
+  defp seated_or_match do
+    dynamic(
+      [p],
+      not is_nil(p.white_player_id) or not is_nil(p.black_player_id) or not is_nil(p.match_id)
     )
   end
 
@@ -821,6 +836,7 @@ defmodule PairingsEngine.Pairing do
       from p in Pairing,
         join: r in Round,
         on: p.round_id == r.id,
+        where: ^seated_or_match(),
         where: r.tournament_id == ^tournament_id and r.number == ^number and p.result == ""
     )
   end

@@ -455,6 +455,11 @@ naam tegen elkaar gespeeld. Het programma noemt dit een
 | Een bye toekennen aan de overblijvende speler | Geeft de bye aan de speler die alleen op een bord is overgebleven, nadat de tegenstander is verwijderd. |
 | Dit bord verwijderen… | Verwijdert een leeg bord (een volledig leeggemaakt bord kan worden verborgen en weer zichtbaar gemaakt). |
 
+Een bord waar niemand meer aan zit, is geen partij en wacht niet op een uitslag:
+de volgende ronde wordt gepaard, of je het nu verwijdert, verbergt of laat staan.
+Een bord met nog één speler wacht wel, tot die speler een bye of een tegenstander
+heeft.
+
 - De sessie **eindigt** pas wanneer je op **Handmatige aanpassingen afronden**
   drukt. De volgende ronde kan niet worden gepaard zolang een sessie open is, zodat
   de controle hieronder niet kan worden overgeslagen door door te gaan.
