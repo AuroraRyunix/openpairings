@@ -205,7 +205,12 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       tournament={@tournament}
       active="settings"
     >
-      <.settings_page tournament={@tournament} active={:dates} subtitle={gettext("Settings - Dates")}>
+      <.settings_page
+        tournament={@tournament}
+        current_scope={@current_scope}
+        active={:dates}
+        subtitle={gettext("Settings - Dates")}
+      >
         <.stale_banner stale={@stale} />
         <form id="round-dates-form" phx-submit="save" phx-change="rd_update">
           <div class="card">

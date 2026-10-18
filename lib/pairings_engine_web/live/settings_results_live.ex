@@ -1142,6 +1142,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
   # page switch ticked the other way, and a hall display somebody has set.
   # The entry form is advanced only while it is closed, so it is never
   # hidden while it is taking entries.
+  # Whether this page, as rendered for this tournament right now, has any
+  # `tset-adv` element, so the "Show advanced settings" switch is drawn only
+  # when it has something to show. The public-page and hall-display cards are advanced in every state.
+  defp has_advanced?(_assigns), do: true
+
   defp advanced_changed(tournament) do
     display = tournament.public_display
 
@@ -1197,9 +1202,10 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:results}
         subtitle={gettext("OpenResults")}
-        advanced={advanced(@show_advanced, advanced_changed(@tournament))}
+        advanced={advanced(@show_advanced, advanced_changed(@tournament), has_advanced?(assigns))}
       >
         <div
           :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)}

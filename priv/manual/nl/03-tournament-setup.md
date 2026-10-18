@@ -57,7 +57,7 @@ het FIDE-toernooi-ID.
 
 Het menu **Instellingen** in de bovenbalk opent de pagina Toernooi. Naast elke
 instellingenpagina staat de lijst van pagina's (op een telefoon erboven), in drie
-groepen: **Opzet** (Toernooi, Opties, Puntentelling, Data, Categorieën, Extra
+groepen: **Opzet** (Toernooi, Groep, Opties, Puntentelling, Data, Categorieën, Extra
 punten, Verboden paringen), **Publiceren** (OpenResults, Live borden) en
 **Rapporteren** (FIDE, Exporteren, Over).
 
@@ -72,8 +72,9 @@ houdt haar waarde en wordt zoals vroeger met de pagina opgeslagen.
 
 Staat een geavanceerde instelling van de pagina niet op haar standaardwaarde,
 dan zegt de pagina dat naast de schakelaar (*2 geavanceerde instellingen staan
-niet op de standaardwaarde - toon ze*); een klik toont ze. Een paar kaarten
-zijn alleen geavanceerd zolang je ze niet gebruikt: een toernooi in een groep,
+niet op de standaardwaarde - toon ze*); een klik toont ze. Een pagina waar, zoals ze nu voor jouw toernooi is, niets geavanceerds op staat,
+toont geen schakelaar. Een paar kaarten
+zijn alleen geavanceerd zolang je ze niet gebruikt: een toernooi
 met een logo, met wensen bij de verboden paringen, met een FIDE-ID-bereik per
 ronde of met een open inschrijvingsformulier toont die kaart altijd.
 
@@ -89,9 +90,9 @@ Nog twee dingen houden de pagina's kort:
 
 | Pagina | Getoond | Met *Geavanceerde instellingen tonen* |
 | --- | --- | --- |
-| Toernooi | naam, speelzaal, stad, federatie, organisator; toernooiformaat; aantal rondes; functionarissen; tiebreaks; Chess960 en het vinkje voor 30 dagen; delen | clubnummer van de organisator; hoe een ongerate speler in de tiebreaks telt; spelers die nog gelijk staan delen een plaats; groep; logo |
+| Toernooi | naam, speelzaal, stad, federatie, organisator; toernooiformaat; aantal rondes; functionarissen; tiebreaks; Chess960 en het vinkje voor 30 dagen; delen | clubnummer van de organisator; hoe een ongerate speler in de tiebreaks telt; spelers die nog gelijk staan delen een plaats; logo |
 | Opties | paringssysteem, toernooirating, cycli (rondetoernooi), Keizer-topwaarde (Keizer), opstellingen (ploegen), type en speeltempo | engine, beginkleur, gelijke rating en titel, paringsnummers van laatkomers, afwezigen in ronde 1, acceleratie, de matchformaten, ploegrating en rating van een ongerate speler (ploegen), ander speeltempo |
-| Puntentelling | punten, matchpunten, punten voor een overgeslagen ronde en de grenzen ervan, uitgestelde partijen | vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen; bye, forfait en terugtrekking van een ploeg |
+| Puntentelling | punten, matchpunten, uitgestelde partijen | de hele kaart *Byes en afwezigheden* (punten voor een overgeslagen ronde en de grenzen ervan, vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen); bye, forfait en terugtrekking van een ploeg |
 | Data | één datum per ronde | - |
 | Categorieën | zie [Categorieën en normen](13-categories-and-norms.md) | - |
 | Extra punten | bonus- of handicappunten per ratingband | - |
@@ -151,8 +152,7 @@ paringen - daarom zijn het afzonderlijke toernooien en geen
 [categorieën](13-categories-and-norms.md) van één toernooi. Een **groep** brengt ze
 samen.
 
-Op **Instellingen → Toernooi**, de kaart **Groep** (met *Geavanceerde
-instellingen tonen*, of altijd zodra het toernooi in een groep zit):
+Op **Instellingen → Groep** (een eigen pagina in de lijst Opzet):
 
 - **Groep aanmaken** start een nieuwe groep, met een naam naar keuze, met dit
   toernooi erin.
@@ -396,7 +396,7 @@ de matchpunten en partijpunten van een door de paring toegekende bye; wat een we
 geheel forfait is aan partijpunten oplevert ([Ploegen](12-teams.md)); en de
 behandeling van een ploeg die zich terugtrekt.
 
-**Byes en afwezigheden.** *Punten voor een overgeslagen ronde* is de waarde van
+**Byes en afwezigheden.** (geavanceerd) *Punten voor een overgeslagen ronde* is de waarde van
 een ronde waarvoor een speler afwezig was (leeg: afwezigheden leveren niets op).
 Daarbij horen twee optionele grenzen, die verschijnen zodra het een waarde heeft:
 de laatste ronde waarvoor het nog geldt, en een maximum voor het aantal rondes van

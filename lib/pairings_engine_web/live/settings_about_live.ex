@@ -61,6 +61,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:about}
         subtitle={gettext("Settings - About")}
         show_status={false}

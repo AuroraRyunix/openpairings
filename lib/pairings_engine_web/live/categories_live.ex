@@ -656,6 +656,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:categories}
         subtitle={gettext("Categories")}
         show_status={false}

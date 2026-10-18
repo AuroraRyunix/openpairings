@@ -128,15 +128,135 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
 
     {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/pairings")
 
-    assert html =~ "Local view &amp; phone QR"
-    refute html =~ "Live view &amp; phone QR"
+    assert html =~ "Local view"
+    refute html =~ "phone QR"
+    refute html =~ "Live view"
 
     # In the More menu since 2026-09-28, same link, same new tab.
     assert has_element?(
              lv,
              "#round-more-menu-2 #local-view-link[role='menuitem'][href='/t/#{tournament.id}/live'][target='_blank']",
-             "Local view & phone QR"
+             "Local view"
            )
+
+    # The QR codes are a dialog over this page, not part of the local view.
+    assert has_element?(lv, "#round-more-menu-2 #phone-qr-link[role='menuitem']", "Phone QR")
+    refute has_element?(lv, "#phone-qr-modal")
+  end
+
+  describe "the Phone QR dialog" do
+    defp local_mode(on?) do
+      previous = Application.get_env(:pairings_engine, :local_mode)
+      Application.put_env(:pairings_engine, :local_mode, on?)
+
+      on_exit(fn ->
+        case previous do
+          nil -> Application.delete_env(:pairings_engine, :local_mode)
+          value -> Application.put_env(:pairings_engine, :local_mode, value)
+        end
+      end)
+    end
+
+    defp open_phone_qr(conn, tournament) do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+      lv |> element("#phone-qr-link") |> render_click()
+      lv
+    end
+
+    test "a local run explains instead of offering a code", %{conn: conn, scope: scope} do
+      local_mode(true)
+      lv = open_phone_qr(conn, fixture(scope))
+
+      refute has_element?(lv, "#phone-qr-enroll-form")
+      assert has_element?(lv, "#phone-qr-enroll-unavailable")
+    end
+
+    test "the form creates an enrolment with the chosen level and board range", %{
+      conn: conn,
+      scope: scope
+    } do
+      local_mode(false)
+      tournament = fixture(scope)
+      lv = open_phone_qr(conn, tournament)
+
+      html =
+        lv
+        |> form("#phone-qr-enroll-form", %{
+          "level" => "helper",
+          "board_from" => "1",
+          "board_to" => "5"
+        })
+        |> render_submit()
+
+      assert html =~ "Boards 1-5"
+      assert [enrollment] = PairingsEngine.Mobile.list_enrollments(tournament.id)
+      assert {enrollment.level, enrollment.board_from, enrollment.board_to} == {"helper", 1, 5}
+    end
+
+    test "no name reads as no name given, and a fresh code is not used yet", %{
+      conn: conn,
+      scope: scope
+    } do
+      local_mode(false)
+      lv = open_phone_qr(conn, fixture(scope))
+
+      html = lv |> form("#phone-qr-enroll-form", %{}) |> render_submit()
+      assert html =~ "No name given"
+      assert html =~ "Not used yet"
+    end
+
+    test "an invalid board range is refused with its own message", %{conn: conn, scope: scope} do
+      local_mode(false)
+      tournament = fixture(scope)
+      lv = open_phone_qr(conn, tournament)
+
+      html =
+        lv
+        |> form("#phone-qr-enroll-form", %{"board_from" => "10", "board_to" => "1"})
+        |> render_submit()
+
+      assert html =~ "Board range is invalid"
+      assert PairingsEngine.Mobile.list_enrollments(tournament.id) == []
+    end
+
+    test "revoking removes the phone from the list", %{conn: conn, scope: scope} do
+      local_mode(false)
+      tournament = fixture(scope)
+      {:ok, enrollment} = PairingsEngine.Mobile.create_enrollment(tournament.id)
+      lv = open_phone_qr(conn, tournament)
+
+      assert has_element?(lv, "#phone-qr-enrollments")
+      render_click(lv, "revoke_enrollment", %{"id" => to_string(enrollment.id)})
+      refute has_element?(lv, "#phone-qr-enrollments")
+    end
+
+    test "opens large over the page, mints a code with its address, and closes three ways", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/pairings")
+
+      lv |> element("#phone-qr-link") |> render_click()
+      assert has_element?(lv, "#phone-qr-modal #phone-qr-dialog[role='dialog']")
+      assert has_element?(lv, "#phone-qr-enroll-form")
+
+      lv |> form("#phone-qr-enroll-form", %{"label" => "Anke"}) |> render_submit()
+      assert has_element?(lv, "#phone-qr-enroll-code svg")
+      assert has_element?(lv, "#phone-qr-enroll-url", "/m/e/")
+      assert has_element?(lv, "#phone-qr-new-enrollment", "Anke")
+
+      lv |> element("#phone-qr-close") |> render_click()
+      refute has_element?(lv, "#phone-qr-modal")
+
+      lv |> element("#phone-qr-link") |> render_click()
+      render_keydown(lv, "phone_qr_close", %{"key" => "Escape"})
+      refute has_element?(lv, "#phone-qr-modal")
+
+      lv |> element("#phone-qr-link") |> render_click()
+      render_click(lv, "phone_qr_close", %{})
+      refute has_element?(lv, "#phone-qr-modal")
+    end
   end
 
   # White right-aligned, Result centred, Black left-aligned - a printed

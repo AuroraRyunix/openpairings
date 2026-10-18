@@ -950,6 +950,11 @@ defmodule PairingsEngineWeb.SettingsExportLive do
 
   defp swar_error_message({:error, message}), do: message
 
+  # Whether this page, as rendered for this tournament right now, has any
+  # `tset-adv` element, so the "Show advanced settings" switch is drawn only
+  # when it has something to show. The CSV column picker and options are advanced in every state.
+  defp has_advanced?(_assigns), do: true
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -965,6 +970,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:export}
         subtitle={gettext("Settings - Export")}
         advanced={
@@ -976,7 +982,8 @@ defmodule PairingsEngineWeb.SettingsExportLive do
               @csv_sort != "seed",
               @csv_skip_absent,
               !@csv_bom
-            ])
+            ]),
+            has_advanced?(assigns)
           )
         }
       >

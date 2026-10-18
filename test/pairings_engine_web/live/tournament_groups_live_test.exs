@@ -41,7 +41,7 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
     {Phoenix.ConnTest.build_conn() |> log_in_user(user), Accounts.Scope.for_user(user)}
   end
 
-  describe "the Group card on Settings" do
+  describe "the Group settings page" do
     test "creates a group, labels it, and the switcher appears once there is a sibling", %{
       conn: conn,
       scope: scope
@@ -49,7 +49,7 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
       open = tournament(scope, "Spring Open")
       u20 = tournament(scope, "Spring U20")
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings/group")
       assert has_element?(lv, "#group-create-form")
       refute has_element?(lv, "#group-switcher")
 
@@ -65,7 +65,7 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
       lv |> form("#group-label-form", member: %{label: "Open"}) |> render_submit()
       assert TournamentGroups.membership(open.id).label == "Open"
 
-      {:ok, lv2, _html} = live(conn, ~p"/t/#{u20.id}/settings")
+      {:ok, lv2, _html} = live(conn, ~p"/t/#{u20.id}/settings/group")
       assert has_element?(lv2, "#group-join-form")
 
       group_id = TournamentGroups.membership(open.id).group_id
@@ -84,7 +84,7 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
       PairingsEngine.Publishing.put_token("s3cret")
       %{open: open, u20: u20, group: group} = grouped(scope)
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings/group")
       assert has_element?(lv, "#group-published")
       refute has_element?(lv, "#group-event-link")
 
@@ -95,7 +95,7 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
       )
 
       slug = Repo.get!(TournamentGroups.Group, group.id).public_slug
-      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings/group")
 
       assert has_element?(
                lv,
@@ -105,7 +105,7 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
 
     test "reorders, renames and leaves", %{conn: conn, scope: scope} do
       %{open: open, u20: u20, group: group} = grouped(scope)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings/group")
 
       lv |> element("#group-up-#{u20.id}") |> render_click()
 
@@ -126,7 +126,7 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
 
     test "a refused change says why instead of failing silently", %{conn: conn, scope: scope} do
       open = tournament(scope, "Spring Open")
-      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{open.id}/settings/group")
 
       lv |> form("#group-create-form", group: %{name: " "}) |> render_submit()
       assert has_element?(lv, "#group-error")

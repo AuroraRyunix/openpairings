@@ -105,9 +105,9 @@ het nummer dat op het paringsblad staat. Geaccepteerde resultaatwoorden: `1-0`,
 
 ## Resultaten via telefoons {#results-from-phones}
 
-De pagina **Live** van een toernooi (pagina Paringen, **Meer**, *Lokale weergave &
-telefoon-QR*) toont de ronde voor projectie en heeft een kaart **Een telefoon
-inschrijven om resultaten in te voeren**. Die maakt een QR-code en een code van
+Op de pagina Paringen opent **Meer**, **Telefoon-QR** een groot venster (sluit
+het met de knop, Escape of een klik erbuiten). Het deel **Resultaten invoeren
+op een telefoon** maakt een QR-code en een code van
 8 cijfers. Een helper scant de QR-code of typt de code op zijn eigen telefoon, en
 kan daarna resultaten voor dat toernooi invoeren, zonder account.
 

@@ -11,7 +11,7 @@ defmodule PairingsEngine.Plugins do
 
   A plugin that raises inside a hook is a plugin bug, and it is not allowed
   to take the page with it: the hooks a page calls while rendering
-  (`tournament_menu_entries/2`, `check_lineups/1`) are rescued, logged, and read as
+  (`tournament_menu_entries/2`, `tournament_settings_entries/2`, `check_lineups/1`) are rescued, logged, and read as
   "nothing".
   """
 
@@ -114,6 +114,43 @@ defmodule PairingsEngine.Plugins do
   # Plug-ins are for administrators only, their tournament entries included.
   def tournament_menu_entries(scope, tournament) do
     if admin?(scope), do: plugin_menu_entries(scope, tournament), else: []
+  end
+
+  @doc """
+  The Settings-rail pages every active plugin offers `scope` inside
+  `tournament` (`tournament_settings_entries/2`), each normalised to
+  `%{id, label, path, icon, group}`: `group` is `:reporting` unless the
+  plugin says `:setup` or `:publishing`, `icon` a puzzle piece unless it
+  names one. Administrators only, like `tournament_menu_entries/2`.
+  """
+  def tournament_settings_entries(_scope, nil), do: []
+
+  def tournament_settings_entries(scope, tournament) do
+    if admin?(scope), do: plugin_settings_entries(scope, tournament), else: []
+  end
+
+  @settings_groups [:setup, :publishing, :reporting]
+
+  defp plugin_settings_entries(scope, tournament) do
+    Enum.flat_map(all(), fn plugin ->
+      if exports?(plugin, :tournament_settings_entries, 2) do
+        plugin
+        |> safely(
+          :tournament_settings_entries,
+          fn -> plugin.tournament_settings_entries(scope, tournament) end,
+          []
+        )
+        |> Enum.map(fn entry ->
+          group = Map.get(entry, :group)
+
+          entry
+          |> Map.put(:group, if(group in @settings_groups, do: group, else: :reporting))
+          |> Map.put_new(:icon, "hero-puzzle-piece-micro")
+        end)
+      else
+        []
+      end
+    end)
   end
 
   @doc "Whether `scope`'s user may see and use plug-ins: administrators only."

@@ -4547,12 +4547,19 @@ a.pending-chip:hover {
 /* The players page's header line: the count, the manual (?) and the grid's
    own instructions behind a button. A <details>, so it needs no script. */
 .players-subtitle { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
-.pe-help { position: relative; display: inline-block; }
+.pe-help { position: relative; display: inline-flex; align-items: center; vertical-align: middle; line-height: 0; }
+/* The (?) and the (i) sit side by side: one size, one box model, one centre
+   line. The manual link carries a left margin for the places it follows a
+   heading; here the flex gap does the spacing. */
+.players-subtitle .manual-help-link { margin-left: 0; vertical-align: middle; }
+.manual-help-link, .pe-help-toggle { box-sizing: border-box; flex: none; line-height: 0; }
+.manual-help-link .icon, .pe-help-toggle .icon { display: block; }
 .pe-help > summary { list-style: none; }
 .pe-help > summary::-webkit-details-marker { display: none; }
 .pe-help-toggle {
   display: inline-flex; align-items: center; justify-content: center;
   width: 26px; height: 26px; border-radius: 999px; cursor: pointer;
+  vertical-align: middle;
   color: var(--text-soft);
   transition: color 0.15s ease, background-color 0.15s ease;
 }
@@ -8088,27 +8095,8 @@ dialog.pe-confirm::backdrop { background: var(--scrim); }
   .lineup-finding-tag { grid-row: auto; justify-self: start; }
 }
 
-/* ---- the home screen's "Plug-ins" menu (Layouts.app) ----
-   Only rendered in a build with a plugin. Each entry is two lines: the
-   plugin's name with its version in small print, then its description. */
-.plugin-menu-item {
-  display: grid;
-  gap: 2px;
-  max-width: 340px;
-  white-space: normal;
-}
-.plugin-menu-name { font-weight: 600; }
-.plugin-menu-version {
-  font-weight: 400;
-  font-size: 12px;
-  color: var(--text-soft);
-  margin-left: 4px;
-}
-.plugin-menu-description {
-  font-size: 12.5px;
-  color: var(--text-soft);
-  line-height: 1.35;
-}
+/* The home screen's "Plug-ins" menu (Layouts.app) is one line per plugin: the
+   name. The description is the entry's tooltip, the version is on /plugins. */
 .plugin-cards {
   display: grid;
   gap: 16px;
@@ -8508,3 +8496,15 @@ select:not([multiple]):not([size]):disabled { cursor: not-allowed; opacity: 0.6;
 .acct-board-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .acct-board-name { font-weight: 600; }
 .acct-board-meta { font-size: 12.5px; opacity: 0.75; }
+
+/* The Phone QR dialog: the codes are meant to be scanned from across a table,
+   so they are far bigger than the old card's 180px. The QR stays black on
+   white; only the frame takes the accent. */
+.phone-qr-block { margin: 0 0 22px; }
+.phone-qr-block:last-child { margin-bottom: 0; }
+.phone-qr-block h3 { margin: 0 0 8px; font-size: 16px; }
+.phone-qr-big svg { width: min(320px, 70vw); height: min(320px, 70vw); }
+.phone-qr-url { font-size: 15px; font-weight: 600; word-break: break-all; margin: 8px 0 4px; }
+.phone-qr-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0; }
+.phone-qr-form label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.phone-qr-new { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; margin-top: 16px; }

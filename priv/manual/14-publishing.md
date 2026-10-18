@@ -123,7 +123,7 @@ characters) shown on the screen. Saving sends it at once.
 
 ### The address
 
-*Share link* is the public address (a QR code to it appears on the Live page).
+*Share link* is the public address (a QR code to it is in the **Phone QR** dialog on the Pairings page).
 **Move to a new address** takes the old copy down, makes a new address and
 publishes again (use it if a link has leaked). **Remove from the results site**
 takes the tournament off the site. When a tournament file or a backup
@@ -149,12 +149,11 @@ accept them as players or discard them
 
 ## The Live page (projector view)
 
-**Pairings** page, **More**, **Local view & phone QR** (the page
+**Pairings** page, **More**, **Local view** (the page
 `/t/:id/live` of this program): the current round full-screen for a projector,
 cycling through pairings, results and standings, with a pause button, a leave
-button and a high-contrast option. It shows a QR code for the public address
-if the tournament is published. It also holds the card **Enrol a phone to
-enter results** ([Results](07-results.md)). The page updates itself whenever
+button and a high-contrast option. It carries no QR codes; those are in **More**, **Phone QR**
+([Results](07-results.md)). The page updates itself whenever
 a result changes. It is served by this program, so the screen must be on the
 same computer or a computer that can reach it; the public page (above) is for
 everybody else.

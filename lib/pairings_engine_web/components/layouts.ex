@@ -357,12 +357,10 @@ defmodule PairingsEngineWeb.Layouts do
               :for={plugin <- @installed_plugins}
               id={"plugin-menu-#{plugin.id}"}
               href={plugin.path}
-              class="topbar-menu-item plugin-menu-item"
+              class="topbar-menu-item"
+              title={plugin.description}
             >
-              <span class="plugin-menu-name">
-                {plugin.name} <span class="plugin-menu-version">{plugin.version}</span>
-              </span>
-              <span class="plugin-menu-description">{plugin.description}</span>
+              {plugin.name}
             </.link>
 
             <.link id="plugin-menu-installed" href="/plugins" class="topbar-menu-item">

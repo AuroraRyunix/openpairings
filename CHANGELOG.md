@@ -17,6 +17,14 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The local view is now only the boards.** The QR codes it used to carry were one more thing on a screen meant for a projector. The Pairings page's **More** menu has **Local view** (the page, minus the codes) and a new **Phone QR**, which opens a large dialog over the Pairings page: the results-page code when the tournament is public, and the phone result-entry codes, each with its address in words. It closes on the button, Escape or a click outside it.
+- [Fix] **The players page's (?) and (i) now stand level.** Same size, same centre line, which is the least a pair of icons can do.
+- [Change] **The Plug-ins menu is one line per plug-in.** The name only; the description moved to the tooltip, and the version stays on the Installed plug-ins page.
+- [Change] **Group is its own Settings page**, in the Set-up list right after Tournament. It was a card at the bottom of the Tournament page that most tournaments scrolled past; the Tournament page keeps no trace of it. The rail already lists every page, so the Options page's card that only said *Forbidden pairings has its own page* is gone too.
+- [Change] **On the Scoring page the whole *Byes and absences* card is advanced.** Its points and limits count in the *N advanced settings are not at their defaults* link too, so a changed value no longer hides without a word.
+- [Fix] **A Settings page with nothing advanced on it no longer offers the *Show advanced settings* switch.** Each page now says whether it has advanced content for this tournament as it stands, and a test walks every page for Swiss, round robin and team tournaments to keep the switch honest.
+- [Feature] **A plug-in can put a page in a tournament's Settings** (hosted edition only), in the rail beside the core's own: under Reporting unless it asks for Set-up or Publishing, administrators only, like every plug-in entry. Things configured once per tournament belong there, not in the top bar every day.
+
 ## [0.91.0] - 2026-10-18
 
 - [Feature] **A plug-in can do work when the program starts** (hosted edition only), once the database and the rest are up, instead of waiting for somebody to open a page. One that fails is logged and the program starts regardless, because a plug-in is a guest.

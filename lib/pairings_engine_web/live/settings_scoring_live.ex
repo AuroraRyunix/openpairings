@@ -54,9 +54,15 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
      |> assign_abs_scoring_lock()}
   end
 
-  # The advanced half of this page that is not at its defaults: the
+  # The advanced half of this page that is not at its defaults: the points
+  # for a round sat out and its two limits, the
   # tie-break and late-entry treatment of absences, the bye-type question,
   # and a team event's bye, forfeit and withdrawal rules.
+  # Whether this page, as rendered for this tournament right now, has any
+  # `tset-adv` element, so the "Show advanced settings" switch is drawn only
+  # when it has something to show. The Byes and absences card is advanced whole, whatever the type.
+  defp has_advanced?(_assigns), do: true
+
   defp advanced_changed(tournament) do
     teams =
       if Tournament.team?(tournament),
@@ -68,7 +74,14 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
         ],
         else: []
 
-    changed_count(tournament, [:absent_counts_as_vur, :late_entry_absences, :ask_bye_type | teams])
+    changed_count(tournament, [
+      :abs_value,
+      :abs_jusque,
+      :abs_nbfois,
+      :absent_counts_as_vur,
+      :late_entry_absences,
+      :ask_bye_type | teams
+    ])
   end
 
   defp abs_points_on?(value) when is_number(value), do: value > 0
@@ -272,10 +285,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:scoring}
         subtitle={gettext("Settings - Scoring")}
         show_status={false}
-        advanced={advanced(@show_advanced, advanced_changed(@tournament))}
+        advanced={advanced(@show_advanced, advanced_changed(@tournament), has_advanced?(assigns))}
       >
         <.compliance_notice tournament={@tournament} /> <.stale_banner stale={@stale} />
         <.fide_exit_dialog
@@ -503,7 +517,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
             </div>
           </div>
 
-          <div class="card">
+          <div class="card tset-adv" id="byes-absences-card">
             <h2>{gettext("Byes and absences")}</h2>
 
             <p class="hint">

@@ -70,6 +70,7 @@ defmodule PairingsEngineWeb.PluginSeamTest do
       refute Plugins.plugin_board_order?(t)
       assert Plugins.team_schedule(t) == nil
       assert Plugins.tournament_menu_entries(scope, t) == []
+      assert Plugins.tournament_settings_entries(scope, t) == []
     end
 
     test "no page gets an overlay", %{conn: conn} do
@@ -114,8 +115,11 @@ defmodule PairingsEngineWeb.PluginSeamTest do
 
       assert has_element?(lv, "#topbar-plugins #topbar-plugins-toggle", "Plug-ins")
       assert has_element?(lv, "#plugin-menu-fake[href='/p/fake']", "Fake League")
-      assert has_element?(lv, "#plugin-menu-fake", "9.9.9")
-      assert has_element?(lv, "#plugin-menu-fake", "only in the test suite")
+      # One line per entry: the name, with the description as a tooltip only.
+      refute has_element?(lv, "#plugin-menu-fake", "9.9.9")
+      refute has_element?(lv, "#plugin-menu-fake", "only in the test suite")
+      assert has_element?(lv, "#plugin-menu-fake[title*='only in the test suite']")
+      refute has_element?(lv, ".plugin-menu-description")
       assert has_element?(lv, "#plugin-menu-installed[href='/plugins']")
     end
 
@@ -134,6 +138,66 @@ defmodule PairingsEngineWeb.PluginSeamTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
       refute has_element?(lv, "#plugin-menu-fake")
+    end
+
+    test "its settings entries go in the Settings rail, in the group they ask for", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, _} =
+        team_round_robin([{"A", [2000]}, {"B", [1900]}],
+          name: "Fake series",
+          user_id: scope.user.id
+        )
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+
+      # Reporting unless it says otherwise (an unknown group is not a group).
+      assert has_element?(
+               lv,
+               "#settings-nav a#settings-nav-plugin-fake[href='/p/fake/series/#{t.id}']",
+               "Fake settings"
+             )
+
+      assert has_element?(lv, "#settings-nav a#settings-nav-plugin-fakeodd", "Fake odd")
+
+      html = lv |> element("#settings-nav") |> render()
+      {reporting, _} = :binary.match(html, "Reporting")
+      {fake, _} = :binary.match(html, "Fake settings")
+      {about, _} = :binary.match(html, "About")
+      assert reporting < fake and about < fake
+
+      # Set-up, before the Publishing heading.
+      {setup, _} = :binary.match(html, "Fake set-up")
+      {publishing, _} = :binary.match(html, "Publishing")
+      assert setup < publishing
+
+      # Not on a tournament the plugin has no say over, and not in the top bar.
+      {other, _} = team_round_robin([{"A", [2000]}, {"B", [1900]}], user_id: scope.user.id)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{other.id}/settings")
+      refute has_element?(lv, "#settings-nav-plugin-fake")
+    end
+
+    test "settings entries are for administrators only, and a failing plugin costs only its entry",
+         %{conn: conn, user: user, scope: scope} do
+      {t, _} =
+        team_round_robin([{"A", [2000]}, {"B", [1900]}],
+          name: "Fake series",
+          user_id: scope.user.id
+        )
+
+      admin_scope = %{scope | user: PairingsEngine.Repo.reload!(user)}
+      assert [_ | _] = Plugins.tournament_settings_entries(admin_scope, t)
+
+      FakePlugin.register(raise: true)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+      assert has_element?(lv, "#settings-nav")
+      refute has_element?(lv, "#settings-nav-plugin-fake")
+
+      FakePlugin.register()
+      {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "owner")
+      scope = %{scope | user: PairingsEngine.Repo.reload!(user)}
+      assert Plugins.tournament_settings_entries(scope, t) == []
     end
 
     test "its routes are mounted under /p/<id>, with the plug-ins page" do

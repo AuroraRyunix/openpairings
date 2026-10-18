@@ -365,6 +365,11 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     """
   end
 
+  # Whether this page, as rendered for this tournament right now, has any
+  # `tset-adv` element, so the "Show advanced settings" switch is drawn only
+  # when it has something to show. The explanatory hints and the consistency checks are advanced in every state.
+  defp has_advanced?(_assigns), do: true
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -380,12 +385,14 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:fide}
         subtitle={gettext("Settings - FIDE")}
         advanced={
           advanced(
             @show_advanced,
-            changed_count(@tournament, [:norm_event_type, :rating_checks_enabled])
+            changed_count(@tournament, [:norm_event_type, :rating_checks_enabled]),
+            has_advanced?(assigns)
           )
         }
       >

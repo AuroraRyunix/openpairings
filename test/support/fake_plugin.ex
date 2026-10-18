@@ -62,6 +62,25 @@ defmodule PairingsEngine.FakePlugin do
   end
 
   @impl true
+  def tournament_settings_entries(_scope, %Tournament{} = t) do
+    maybe_raise()
+
+    if ours?(t),
+      do: [
+        %{id: "fake", label: "Fake settings", path: "/p/fake/series/#{t.id}"},
+        %{
+          id: "fakeset",
+          label: "Fake set-up",
+          path: "/p/fake/setup/#{t.id}",
+          icon: "hero-trophy-micro",
+          group: :setup
+        },
+        %{id: "fakeodd", label: "Fake odd", path: "/p/fake/odd", group: :nonsense}
+      ],
+      else: []
+  end
+
+  @impl true
   def features do
     [
       %{

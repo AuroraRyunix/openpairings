@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Mobile, Publishing, Repo, Tournaments}
+  alias PairingsEngine.{Publishing, Repo, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Player, Round, Pairing}
 
@@ -518,170 +518,16 @@ defmodule PairingsEngineWeb.LiveRoundLiveTest do
     assert_redirect(lv, ~p"/")
   end
 
-  describe "enrolling a phone, and where it cannot work" do
-    # The QR encodes this endpoint's host, which local mode sets to
-    # "localhost" - a phone scanning that resolves its OWN localhost. And
-    # the listener is pinned to 127.0.0.1, so even the laptop's real LAN
-    # address would be refused.
-    #
-    # That pin is what makes a no-login build safe: the mode prints login
-    # links to a terminal and auto-signs-in whoever reaches it. Binding
-    # wider to make the QR work would hand sign-in-as-the-owner to everyone
-    # on the venue wifi. So the page says why rather than offering a control
-    # that cannot work.
-    defp local_mode(on?) do
-      previous = Application.get_env(:pairings_engine, :local_mode)
-      Application.put_env(:pairings_engine, :local_mode, on?)
-
-      on_exit(fn ->
-        case previous do
-          nil -> Application.delete_env(:pairings_engine, :local_mode)
-          value -> Application.put_env(:pairings_engine, :local_mode, value)
-        end
-      end)
-    end
-
-    defp paired_tournament(scope) do
+  describe "the local view carries no phone QR" do
+    test "no enrolment card, form or QR, hosted or local", %{conn: conn, scope: scope} do
       {:ok, tournament} =
-        Tournaments.create_tournament(scope, %{
-          "name" => "Phone",
-          "type" => "swiss",
-          "rounds_count" => "3"
-        })
-
-      for {name, n} <- [{"A", 1}, {"B", 2}] do
-        Repo.insert!(%Player{tournament_id: tournament.id, name: name, pairing_number: n})
-      end
-
-      {:ok, _} = Engine.pair_next_round(tournament)
-      publish_paired_rounds(tournament)
-      tournament
-    end
-
-    test "a hosted run offers the code", %{conn: conn, scope: scope} do
-      local_mode(false)
-      tournament = paired_tournament(scope)
+        Tournaments.create_tournament(scope, %{"name" => "Phone", "type" => "swiss"})
 
       {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
 
-      assert html =~ "Generate a code"
-    end
-
-    test "a local run explains instead of offering it", %{conn: conn, scope: scope} do
-      local_mode(true)
-      tournament = paired_tournament(scope)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
-
-      # No control that cannot work...
       refute html =~ "Generate a code"
-      # ...and a reason, so an arbiter who has heard of the feature is not
-      # left hunting for a panel that silently vanished.
-      assert html =~ "Not available when OpenPairings runs on your own computer"
-    end
-
-    test "the mint form creates an enrolment with the chosen level and board range", %{
-      conn: conn,
-      scope: scope
-    } do
-      local_mode(false)
-      tournament = paired_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
-
-      html =
-        lv
-        |> form("form[phx-submit=generate_enrollment]", %{
-          "level" => "helper",
-          "board_from" => "1",
-          "board_to" => "5"
-        })
-        |> render_submit()
-
-      # The just-minted panel, and the device list below it, both say what
-      # the code may do - not just that a code exists.
-      assert html =~ "Boards 1-5"
-      assert html =~ "Helper"
-
-      assert [enrollment] = Mobile.list_enrollments(tournament.id)
-      assert enrollment.level == "helper"
-      assert enrollment.board_from == 1
-      assert enrollment.board_to == 5
-    end
-
-    test "a name typed into the mint form shows on the just-minted panel and the device list", %{
-      conn: conn,
-      scope: scope
-    } do
-      local_mode(false)
-      tournament = paired_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
-
-      html =
-        lv
-        |> form("form[phx-submit=generate_enrollment]", %{"label" => "Anke"})
-        |> render_submit()
-
-      assert html =~ "Anke"
-      assert [enrollment] = Mobile.list_enrollments(tournament.id)
-      assert enrollment.label == "Anke"
-    end
-
-    test "minting with no name is still allowed, and reads as no name given rather than blank", %{
-      conn: conn,
-      scope: scope
-    } do
-      local_mode(false)
-      tournament = paired_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
-
-      html =
-        lv
-        |> form("form[phx-submit=generate_enrollment]", %{})
-        |> render_submit()
-
-      assert html =~ "No name given"
-      assert [enrollment] = Mobile.list_enrollments(tournament.id)
-      assert enrollment.label == ""
-    end
-
-    test "the device list says a fresh code has not been used yet, then says when it was claimed",
-         %{conn: conn, scope: scope} do
-      local_mode(false)
-      tournament = paired_tournament(scope)
-      {:ok, enrollment} = Mobile.create_enrollment(tournament.id)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
-      assert html =~ "Not used yet"
-
-      assert {:ok, _claimed} = Mobile.claim(enrollment)
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/live")
-      refute html =~ "Not used yet"
-      assert html =~ "Claimed"
-    end
-
-    test "an invalid board range is refused with its own message, not the generic retry one", %{
-      conn: conn,
-      scope: scope
-    } do
-      local_mode(false)
-      tournament = paired_tournament(scope)
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/live")
-
-      html =
-        lv
-        |> form("form[phx-submit=generate_enrollment]", %{
-          "board_from" => "10",
-          "board_to" => "1"
-        })
-        |> render_submit()
-
-      assert html =~ "Board range is invalid"
-      assert Mobile.list_enrollments(tournament.id) == []
+      refute html =~ "Enrol a phone"
+      refute html =~ "enroll-qr"
     end
   end
 
