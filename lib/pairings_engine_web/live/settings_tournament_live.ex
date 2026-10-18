@@ -516,43 +516,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             </.setting_group>
           </div>
 
-          <%!-- Officials are edited on the Norms page, not here. Nothing is
-              broken about that, but an arbiter looking for "chief arbiter"
-              looks under Settings and there was nothing on Settings pointing
-              anywhere else - reported by someone who could not find the field
-              while holding a direct link to it. So this card says where it
-              lives and shows the current value, rather than making Settings
-              silent about a field it plainly looks like it should own. --%>
-          <div class="card">
-            <h2>{gettext("Officials")}</h2>
-
-            <p class="hint" style="margin-top: 0">
-              <.rich_text text={
-                gettext(
-                  "The chief arbiter, the deputy arbiters and the organizer's and chief arbiter's e-mail addresses are edited on the %[norms] page, because that is what they are for - the IT3, FA1 and IA1 forms are built from them. (The organizer's %[name] is above, under General.)"
-                )
-              }>
-                <:part name="norms">
-                  <.link navigate={~p"/t/#{@tournament.id}/norms"}>{gettext("Norms")}</.link>
-                </:part>
-
-                <:part name="name"><em>{gettext("name")}</em></:part>
-              </.rich_text>
-            </p>
-
-            <%!-- `.set-row`, not `<.setting_field>`: that renders a <label>,
-                and a label wrapping no control is wrong here. --%>
-            <div class="set-rows">
-              <div class="set-row">
-                <span class="set-row-label">{gettext("Chief arbiter")}</span>
-                <span :if={@tournament.chief_arbiter not in [nil, ""]}>{@tournament.chief_arbiter}</span>
-                <span :if={@tournament.chief_arbiter in [nil, ""]} class="hint">
-                  {gettext("Not set. Recommended for FIDE reporting; it does not block pairing.")}
-                </span>
-              </div>
-            </div>
-          </div>
-
           <div class="card">
             <h2>{gettext("Tiebreaks")}</h2>
 

@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.Components.GroupSwitcher do
                registrations live norms categories settings settings/options
                settings/restrictions settings/results settings/scoring settings/dates
                settings/rooms
-               settings/extra-points settings/fide settings/about settings/export
+               settings/extra-points settings/fide settings/norms settings/about settings/export
                settings/changelog)
 
   attr :switcher, :any, required: true, doc: "from `TournamentGroups.switcher/2`, or nil"

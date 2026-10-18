@@ -120,6 +120,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/settings/rooms", SettingsRoomsLive
       live "/t/:id/settings/extra-points", ExtraPointsLive
       live "/t/:id/settings/fide", SettingsFideLive
+      live "/t/:id/settings/norms", SettingsNormsLive
       live "/t/:id/settings/about", SettingsAboutLive
       live "/t/:id/settings/export", SettingsExportLive
       live "/t/:id/settings/changelog", SettingsChangelogLive

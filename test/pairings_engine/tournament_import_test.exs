@@ -629,6 +629,34 @@ defmodule PairingsEngine.TournamentImportTest do
   end
 
   describe "fields that used to be silently dropped now survive the round trip" do
+    test "the title-norm event type (B.01 1.4.1 b / 1.4.3 a-c) survives, and a file without it is ordinary" do
+      owner = user_scope()
+      importer = user_scope()
+
+      original =
+        Repo.insert!(%Tournament{
+          name: "Zonal Round Trip",
+          type: "swiss",
+          rounds_count: 9,
+          user_id: owner.user.id,
+          norm_event_type: "zonal"
+        })
+
+      envelope = TournamentExport.export_tournament(original)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, importer)
+      assert Repo.reload!(imported).norm_event_type == "zonal"
+
+      older =
+        update_in(
+          envelope,
+          ["tournaments", Access.all(), "tournament"],
+          &Map.delete(&1, "norm_event_type")
+        )
+
+      assert {:ok, [imported]} = TournamentImport.import(older, importer)
+      assert Repo.reload!(imported).norm_event_type == "ordinary"
+    end
+
     test "the pairing shape (system, cycles, match format, categories) comes back intact" do
       owner = user_scope()
       importer = user_scope()

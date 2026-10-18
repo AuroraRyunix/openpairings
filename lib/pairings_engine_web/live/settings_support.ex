@@ -150,7 +150,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   setting the tournament up, putting it in front of people, reporting it.
   `active` is one of `:tournament`, `:options`, `:restrictions`, `:scoring`,
   `:group`, `:dates`, `:rooms`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
-  `:export`, `:about`. A plugin's page is `"plugin:" <> id`
+  `:norms`, `:export`, `:about`. A plugin's page is `"plugin:" <> id`
   (`PairingsEngine.Plugin`'s `tournament_settings_entries/2`).
 
   Rendered by `settings_page/1`; it is public only because the pages that
@@ -245,6 +245,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
       {gettext("Reporting"),
        [
          {:fide, ~p"/t/#{id}/settings/fide", "hero-flag-micro", "FIDE"},
+         {:norms, ~p"/t/#{id}/settings/norms", "hero-identification-micro",
+          gettext("Officials & norms")},
          {:export, ~p"/t/#{id}/settings/export", "hero-arrow-down-tray-micro", gettext("Export")},
          {:about, ~p"/t/#{id}/settings/about", "hero-information-circle-micro", gettext("About")}
        ]}
@@ -1743,7 +1745,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
     do: ~p"/t/#{tournament.id}/settings/dates"
 
   def setup_field_path(tournament, field) when field in [:chief_arbiter],
-    do: ~p"/t/#{tournament.id}/norms"
+    do: ~p"/t/#{tournament.id}/settings/norms"
 
   def setup_field_path(tournament, field) when field in [:rate_of_play],
     do: ~p"/t/#{tournament.id}/settings/options"

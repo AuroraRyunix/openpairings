@@ -205,7 +205,8 @@ defmodule PairingsEngine.Norms.TitleNormsBigSwissTest do
 
     test "a pairing-allocated bye is not a missed round" do
       field =
-        field(20, ~w(FRA NED GER), 10) |> List.update_at(19, &Map.merge(&1, %{pab: [2], skip: [5]}))
+        field(20, ~w(FRA NED GER), 10)
+        |> List.update_at(19, &Map.merge(&1, %{pab: [2], skip: [5]}))
 
       assert %{applies?: true, players: 20} = big_swiss(fixture(field))
     end
@@ -226,7 +227,12 @@ defmodule PairingsEngine.Norms.TitleNormsBigSwissTest do
 
     test "no completed round: nothing to count" do
       tournament =
-        Repo.insert!(%Tournament{name: "Empty", type: "swiss", rounds_count: 9, federation: "BEL"})
+        Repo.insert!(%Tournament{
+          name: "Empty",
+          type: "swiss",
+          rounds_count: 9,
+          federation: "BEL"
+        })
 
       assert TitleNorms.big_swiss(tournament) == nil
     end

@@ -107,7 +107,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Organizer Combo LV", "type" => "swiss"})
 
-    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     refute html =~ "Organizer FIDE ID"
     assert has_element?(lv, "input[name='tournament[organizer]']")
@@ -144,7 +144,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Officials Bug LV", "type" => "swiss"})
 
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     # Pick deputy 1 for real, via search-then-pick - exactly how the arbiter
     # combo commits a value (see ArbiterCombo's moduledoc).

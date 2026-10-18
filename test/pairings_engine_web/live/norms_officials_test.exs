@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.NormsOfficialsTest do
-  # The Officials & FIDE report data card moved from SettingsLive to the Norms
-  # tab. These tests cover that relocated card (arbiter FIDE-autocomplete,
-  # officials fields, saving).
+  # The officials: edited on Settings, Officials & norms (arbiter
+  # FIDE-autocomplete, officials fields, saving), read by the Norms page's
+  # report forms (FA1 candidate picker, report blockers, IT3 counts).
   #
   # async: false: sequential SQLite writes plus self-broadcast/render draining.
   use PairingsEngineWeb.ConnCase, async: false
@@ -27,7 +27,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
   test "the Officials card offers only 2 ranked deputy slots - FIDE never ranks a 3rd/4th - and no standalone FIDE-id / pairing-mode inputs",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
-    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     refute html =~ "Chief arbiter FIDE ID"
     refute html =~ ~s(name="tournament[officials][pairing_mode]")
@@ -50,39 +50,19 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
              ~s(type="hidden" id="arbiter-combo-deputy1-id-hidden" name="tournament[officials][deputy1_fide_id]")
   end
 
-  test "the officials form is debounced and typing in it does not re-sort the roster",
-       %{conn: conn, scope: scope} do
+  test "the officials form is debounced, and lives on its Settings page only", %{
+    conn: conn,
+    scope: scope
+  } do
     tournament = create_tournament(scope)
-    {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
-    {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
 
-    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
-
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
     # `phx-debounce` on the form covers every input inside it.
     assert html =~ ~r/<form[^>]*id="officials-form"[^>]*phx-debounce="300"/s
 
-    # The IT4 table's sort used to run from the template; it is now computed
-    # once per roster load and kept in an assign. Traced in the LiveView's own
-    # process - `:local` because `players_by_norm_relevance/2` is private.
-    :erlang.trace(lv.pid, true, [:call])
-    mfa = {PairingsEngineWeb.NormsLive, :players_by_norm_relevance, 2}
-    assert :erlang.trace_pattern(mfa, true, [:local]) == 1
-    on_exit(fn -> :erlang.trace_pattern(mfa, false, [:local]) end)
-
-    # Positive control first (a roster reload really does sort), so the refute
-    # below is known not to be vacuous. It has to come first: an
-    # `officials_change` marks the page dirty, and a dirty page answers a
-    # tournament broadcast with a staleness check instead of a reload.
-    send(lv.pid, {:tournament_changed, tournament.id, nil})
-    render(lv)
-    assert_receive {:trace, _, :call, {PairingsEngineWeb.NormsLive, _, _}}
-    refute_receive {:trace, _, :call, {PairingsEngineWeb.NormsLive, _, _}}, 50
-
-    render_change(lv, "officials_change", %{
-      "tournament" => %{"officials" => %{"chief_arbiter_email" => "a@example.com"}}
-    })
-
-    refute_receive {:trace, _, :call, {PairingsEngineWeb.NormsLive, _, _}}, 50
+    {:ok, norms, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    refute has_element?(norms, "#officials-form")
+    assert has_element?(norms, "a[href='/t/#{tournament.id}/settings/norms']")
   end
 
   # Closes the "re-serialises the whole session on every keystroke" audit
@@ -90,7 +70,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
   # that any O(players) work per keystroke would show up plainly in VM
   # reductions (Erlang's own CPU-work counter - immune to wall-clock jitter).
   # `officials_change` touches no DB row, appends nothing to the audit log,
-  # and broadcasts nothing - only the always-open in-scope Norms page is
+  # and broadcasts nothing - only the signed-in officials settings page is
   # covered here; the genuinely public, no-login `/tools/norms` page has its
   # own, still-open version of this same shape and is out of scope for this
   # test (see the audit doc).
@@ -102,7 +82,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       {:ok, _} = Tournaments.create_player(tournament.id, %{"name" => "Player #{i}"})
     end
 
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
 
@@ -140,7 +120,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
   test "arbiters 1 and 2 (beyond the 2 ranked deputies) save and reach the officials map",
        %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     render_submit(lv, "save_officials", %{
       "tournament" => %{
@@ -220,7 +200,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       federation: "BEL"
     })
 
-    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
     refute html =~ "Arbiter 1"
 
     html = lv |> element(~s(button[phx-click="add_arbiter"])) |> render_click()
@@ -273,7 +253,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
         title: "GM"
       })
 
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     # Typing in the NAME box searches - a real browser routes the change
     # event to the input's OWN phx-change, not the surrounding form's, so
@@ -326,7 +306,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       title: "GM"
     })
 
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     # Typing digits into the ID search box (a field OUTSIDE the
     # tournament[...] namespace - see ArbiterCombo.id_search_name/1) finds the
@@ -352,12 +332,12 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     assert html =~ ~s(name="tournament[officials][chief_arbiter_fide_id]" value="1503014")
   end
 
-  test "the FIDE identifiers moved to the FIDE settings page, not the Norms Officials card", %{
+  test "the FIDE identifiers are on the FIDE settings page, not with the officials", %{
     conn: conn,
     scope: scope
   } do
     tournament = create_tournament(scope)
-    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     refute html =~ ~s(name="tournament[fide_tournament_id]")
     refute html =~ ~s(name="tournament[event_code]")
@@ -594,7 +574,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
         "officials" => %{"deputy1_name" => "Marc Van Dyck"}
       })
 
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     # Retyping the name already stored (exactly the case the SWAR import
     # leaves behind) re-triggers the same search, no separate button needed.
@@ -718,7 +698,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
     ])
 
     tournament = create_tournament(scope)
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
     lv
     |> form("#officials-form", %{
@@ -739,7 +719,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
       scope: scope
     } do
       tournament = create_tournament(scope)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
       html =
         lv
@@ -758,7 +738,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
     test "a chief arbiter with no id is refused", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
       html =
         lv
@@ -780,7 +760,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
           "officials" => %{"chief_arbiter_fide_id" => "205494"}
         })
 
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
       html =
         lv
@@ -797,7 +777,7 @@ defmodule PairingsEngineWeb.NormsOfficialsTest do
 
     test "leaving an official entirely blank is still allowed", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
 
       html =
         lv
