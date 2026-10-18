@@ -114,9 +114,32 @@ defmodule PairingsEngine.Pairing do
         fide_departure_guard: opts[:fide_departure_guard] == true
     }
 
+    with :ok <- writable_for_pairing(tournament),
+         :ok <- no_hand_edits_open(tournament) do
+      pair_with_postponed_games(tournament, Keyword.get(opts, :acknowledged, []))
+    end
+  end
+
+  defp writable_for_pairing(tournament) do
     case Tournaments.ensure_writable(tournament) do
-      :ok -> pair_with_postponed_games(tournament, Keyword.get(opts, :acknowledged, []))
+      :ok -> :ok
       {:error, reason} -> {:error, Tournaments.refusal_message(reason, "pairing")}
+    end
+  end
+
+  # A round's hand edits are checked when they finish (VCL4THP Q68), so the
+  # next round waits for that. The Pairings page always said so; the context
+  # did not, which left every other caller free to pair round 3 over a round
+  # 2 that was still empty and being filled in by hand. Same gate-in-one-place
+  # lesson as the read-only one above, learned a second time.
+  defp no_hand_edits_open(tournament) do
+    case PairingsEngine.ManualPairing.open_round(tournament.id) do
+      nil ->
+        :ok
+
+      open ->
+        {:error,
+         "Finish the hand edits to round #{open} first: their pairings are checked when you finish them."}
     end
   end
 
@@ -420,9 +443,10 @@ defmodule PairingsEngine.Pairing do
   legal pairing (fewer players than rounds, say), the tournament must still
   be finishable. Every player the engine would have paired is left in the
   round's pool; the absentees get their bye rows exactly as a paired round
-  gives them. The caller opens the round's manual pairing alteration
-  (`PairingsEngine.ManualPairing.start/2`), whose end checks it and records
-  the MPA PIBE.
+  gives them. The round's manual pairing alteration
+  (`PairingsEngine.ManualPairing.start/2`) is opened in the same
+  transaction, so no pairing run can see the round without it; its end
+  checks the round and records the MPA PIBE.
 
   Refused for anything but an individual Swiss paired as one round at a
   time (`{:error, :not_by_hand}`), when every round is paired, and while the
@@ -464,14 +488,25 @@ defmodule PairingsEngine.Pairing do
           |> ensure_pairing_numbers(late_entry_numbering_pool(tournament, active, next_number))
           |> freeze_baku_group_a(next_number)
 
+        # The empty round and its open hand-edit session are one write. Two
+        # used to be two, and between them sat a round with no boards and no
+        # session: complete by every check there is, so pairable over.
         with {:ok, round} <-
-               create_round(
-                 [],
-                 tournament,
-                 next_number,
-                 round_absentees(tournament, next_number, round_specific),
-                 nil
-               ) do
+               Repo.transaction(fn ->
+                 with {:ok, round} <-
+                        create_round(
+                          [],
+                          tournament,
+                          next_number,
+                          round_absentees(tournament, next_number, round_specific),
+                          nil
+                        ),
+                      {:ok, _opened} <- PairingsEngine.ManualPairing.start(round, []) do
+                   round
+                 else
+                   {:error, reason} -> Repo.rollback(reason)
+                 end
+               end) do
           Tournaments.broadcast_tournament_change(tournament.id, :rounds)
           Tournaments.refresh_status!(tournament.id)
           {:ok, Tournaments.get_round(tournament.id, round.number)}
@@ -1069,30 +1104,70 @@ defmodule PairingsEngine.Pairing do
   `PairingsEngine.RoundRobin` freeze pairing numbers the same way.
   """
   def ensure_pairing_numbers(tournament, players) do
-    {numbers, group_a_last} = new_pairing_numbers(tournament, players)
+    # The numbers are worked out from the rows as they are NOW, inside one
+    # write transaction, not from the list the caller read before the run.
+    # Two Pair clicks at once each held the late entrant unnumbered; the
+    # first numbered them and shifted the field, the second did it all over
+    # again from its stale list and left a gap. `:immediate` takes SQLite's
+    # write lock before the read, so the second run waits for the first and
+    # then finds nobody left to number.
+    {:ok, tournament} =
+      Repo.transaction(
+        fn ->
+          tournament = with_current_group_a_last(tournament)
+          players = current_pairing_numbers(players)
+          {numbers, group_a_last} = new_pairing_numbers(tournament, players)
 
-    Repo.transaction(fn ->
-      Enum.each(numbers, fn
-        # A player who already holds a number is only ever moved down by a
-        # late entrant above them. Written past `update_player/2`, whose
-        # round-4 freeze (C.04.2 2.3) is about correcting the ranking data,
-        # not about 2.4's late entries.
-        {%Player{pairing_number: old} = player, number} when is_integer(old) ->
-          Repo.update_all(from(p in Player, where: p.id == ^player.id),
-            set: [pairing_number: number]
-          )
+          Enum.each(numbers, fn
+            # A player who already holds a number is only ever moved down by
+            # a late entrant above them. Written past `update_player/2`, whose
+            # round-4 freeze (C.04.2 2.3) is about correcting the ranking
+            # data, not about 2.4's late entries.
+            {%Player{pairing_number: old} = player, number} when is_integer(old) ->
+              Repo.update_all(from(p in Player, where: p.id == ^player.id),
+                set: [pairing_number: number]
+              )
 
-        {player, number} ->
-          {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
-      end)
-    end)
+            {player, number} ->
+              {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
+          end)
 
-    if group_a_last != Map.get(tournament, :baku_group_a_last) do
-      tournament |> Ecto.Changeset.change(baku_group_a_last: group_a_last) |> Repo.update!()
-    else
-      tournament
-    end
+          if group_a_last != Map.get(tournament, :baku_group_a_last) do
+            tournament
+            |> Ecto.Changeset.change(baku_group_a_last: group_a_last)
+            |> Repo.update!()
+          else
+            tournament
+          end
+        end,
+        mode: :immediate
+      )
+
+    tournament
   end
+
+  # `players` with the pairing number each holds on disk now. A player read
+  # before another run numbered them is no longer a newcomer.
+  defp current_pairing_numbers([]), do: []
+
+  defp current_pairing_numbers(players) do
+    ids = Enum.map(players, & &1.id)
+
+    numbers =
+      Repo.all(from p in Player, where: p.id in ^ids, select: {p.id, p.pairing_number})
+      |> Map.new()
+
+    Enum.map(players, &%{&1 | pairing_number: Map.get(numbers, &1.id, &1.pairing_number)})
+  end
+
+  defp with_current_group_a_last(%Tournament{id: id} = tournament) when not is_nil(id) do
+    current =
+      Repo.one(from t in Tournament, where: t.id == ^id, select: t.baku_group_a_last)
+
+    %{tournament | baku_group_a_last: current}
+  end
+
+  defp with_current_group_a_last(tournament), do: tournament
 
   # Numbers issued before round 1 - by a TPN exchange (`PairingsEngine.Tpn`),
   # or left from a round 1 that was unpaired - and a player entered since:
