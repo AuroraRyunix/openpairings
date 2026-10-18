@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **Stopping no longer ends in a red stack trace.** On the way out the launcher-details process tidied up its secret by asking the application controller, which at that point is busy dying and answers everyone with an exit. The secret goes with the VM anyway, so now it lets the question go unanswered and leaves quietly.
+
 ## [0.97.1] - 2026-10-18
 
 - [Fix] **Old public links work again.** When the public pages moved to the results site on 29 August, their old addresses here (`/p/<code>/standings`, `/pairings`, `/register`) were simply deleted, so every link already on a wall chart, in a club newsletter or in someone's bookmarks answered "not found" for seven weeks while the tournament sat one domain over under the same code. They now forward permanently to that page on the results site. Removing the pages was the right call; making the links die with them was not.
@@ -6634,7 +6636,6 @@ tournament, in the order it came.
   during your own tournament must not lock you out of it.
 
 
-
 - [Security] **The KBSB rating import was the one control on Connections
   with no role check.** Every sibling handler on that page checks; this one
   did not, and the page became readable by `support` the same day. It pulls
@@ -8008,7 +8009,6 @@ is why it opens a new minor line rather than continuing 0.14.x.
   Deceased members are now stored and handled explicitly: an exact
   National-id or FIDE-id lookup still resolves one, but a *name* match
   never will, so a living player cannot inherit a dead namesake's club.
-
 
 - [Feature] **The Paid column is editable straight from the players table** - click
   or right-click a player's Paid cell for "Paid" / "Not paid" / "Gratis",

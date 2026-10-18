@@ -156,11 +156,20 @@ defmodule PairingsEngine.LauncherDetails do
   def terminate(_reason, %{local?: true} = state) do
     :telemetry.detach(state.handler)
     if state.token_file, do: File.rm(state.token_file)
-    Application.delete_env(:pairings_engine, :launcher_token)
+    forget_token()
     :ok
   end
 
   def terminate(_reason, _state), do: :ok
+
+  # On a whole-VM stop the application controller is busy dying and answers
+  # every question with an exit; the secret dies with the VM regardless, so
+  # there is nothing to forget and no reason to crash on the way out.
+  defp forget_token do
+    Application.delete_env(:pairings_engine, :launcher_token)
+  catch
+    :exit, _stopping -> :ok
+  end
 
   @doc false
   # Runs in the process that made the query, on every query: one comparison,
