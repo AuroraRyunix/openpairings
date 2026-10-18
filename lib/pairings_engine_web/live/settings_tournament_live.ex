@@ -70,8 +70,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        error: nil,
        dirty: false,
        stale: false,
-       in_group?:
-         PairingsEngine.TournamentGroups.switcher(socket.assigns.current_scope, tournament) != nil,
        collaborator_error: nil,
        collaborator_note: nil,
        # Set instead of consuming when "Upload logo" was pressed while the
@@ -464,12 +462,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         advanced={advanced(@show_advanced, advanced_changed(assigns), has_advanced?(assigns))}
       >
         <.stale_banner stale={@stale} />
-        <p :if={@in_group?} id="group-link" class="hint" style="margin-top: 0">
-          <.link navigate={~p"/t/#{@tournament.id}/settings/group"}>
-            {gettext("This tournament is part of a group - manage the group")}
-          </.link>
-        </p>
-
         <form id="tournament-settings-form" phx-submit="save">
           <div class="card">
             <h2>{gettext("General")}</h2>

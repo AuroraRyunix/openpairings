@@ -148,8 +148,7 @@ what makes them separate tournaments rather than
 [categories](13-categories-and-norms.md) of one. A **group** strings them
 together.
 
-On **Settings → Group** (its own page in the Set-up list; the Tournament page
-links to it once the tournament is in a group):
+On **Settings → Group** (its own page in the Set-up list):
 
 - **Create group** starts a new group, named as you like, with this tournament
   in it.

@@ -73,5 +73,10 @@ defmodule PairingsEngineWeb.SettingsAdvancedSwitchTest do
     assert has_element?(lv, "#settings-nav a[href='/t/#{tournament.id}/settings/group']")
     refute has_element?(lv, "#group-card")
     refute has_element?(lv, "#group-link")
+
+    # Not even when the tournament is in a group: the rail is the signpost.
+    {:ok, _} = PairingsEngine.TournamentGroups.create_group(scope, tournament, "Festival")
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
+    refute has_element?(lv, "#group-link")
   end
 end

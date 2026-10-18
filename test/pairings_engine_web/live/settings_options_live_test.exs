@@ -110,18 +110,15 @@ defmodule PairingsEngineWeb.SettingsOptionsLiveTest do
   end
 
   describe "Forbidden pairings" do
-    test "have moved to their own page, which the Options page points to", %{
+    test "are on their own page, and the Options page carries no card pointing there", %{
       conn: conn,
       scope: scope
     } do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/options")
 
-      assert has_element?(
-               lv,
-               "#restrictions-moved a[href='/t/#{tournament.id}/settings/restrictions']"
-             )
-
+      refute has_element?(lv, "#restrictions-moved")
+      assert has_element?(lv, "#settings-nav a[href='/t/#{tournament.id}/settings/restrictions']")
       refute has_element?(lv, "#add-forbidden-pairing-form")
     end
   end

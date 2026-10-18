@@ -4,16 +4,9 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   *how* the tournament is paired: the pairing system and its variants (RR
   cycles, RR/Swiss match format - each locked once round 1 has been
   paired), the Swiss engine that does the actual pairing, the rating used
-  for pairing, acceleration and the rate of play. Forbidden pairings and
-  pairing rules have their own page since 0.79.0
-  (`PairingsEngineWeb.SettingsRestrictionsLive`). The public-pairings publish delay moved
-  to `PairingsEngineWeb.SettingsResultsLive` on 2026-08-29, with the rest of
-  this tournament's public existence.
-  Scoring (points per win/draw/loss, byes, SWAR's "Pt ABSENT"
-  genuine-absence rule) has its own page - see
-  `PairingsEngineWeb.SettingsScoringLive`. Pair-by-category lives on
-  `PairingsEngineWeb.CategoriesLive`, next to the categories-enabled switch
-  it depends on.
+  for pairing, acceleration and the rate of play. Forbidden pairings, scoring,
+  the public-pairings delay and pair-by-category are on their own pages;
+  the rail lists them, and this page does not repeat the list.
   """
   use PairingsEngineWeb, :live_view
 
@@ -965,17 +958,6 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
           </div>
           <.section_actions section="play" note={@note} error={@error} saved={@saved_section} />
         </form>
-
-        <div class="card tset-adv" id="restrictions-moved">
-          <h2>{gettext("Forbidden pairings")}</h2>
-
-          <p class="hint" style="margin: 0">
-            {gettext("Forbidden pairs, club and federation rules and the wishes have their own page:")}
-            <.link navigate={~p"/t/#{@tournament.id}/settings/restrictions"}>
-              {gettext("Forbidden pairings")}
-            </.link>
-          </p>
-        </div>
       </.settings_page>
     </Layouts.app>
     """

@@ -152,8 +152,7 @@ paringen - daarom zijn het afzonderlijke toernooien en geen
 [categorieën](13-categories-and-norms.md) van één toernooi. Een **groep** brengt ze
 samen.
 
-Op **Instellingen → Groep** (een eigen pagina in de lijst Opzet; de pagina Toernooi
-verwijst ernaar zodra het toernooi in een groep zit):
+Op **Instellingen → Groep** (een eigen pagina in de lijst Opzet):
 
 - **Groep aanmaken** start een nieuwe groep, met een naam naar keuze, met dit
   toernooi erin.
