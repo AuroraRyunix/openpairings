@@ -140,6 +140,12 @@ defmodule PairingsEngineWeb.AccessibilityTest do
       "/help/:chapter" ->
         ["/help/pairing", "/help/standings-and-tiebreaks"]
 
+      "/help/other/:program" ->
+        ["/help/other/alnasl", "/help/other/arkab"]
+
+      "/help/other/:program/:page" ->
+        ["/help/other/polis/openpairings-integration"]
+
       "/rating-lists" ->
         ["/rating-lists"]
 
