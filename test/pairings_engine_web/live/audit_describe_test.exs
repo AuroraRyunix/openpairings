@@ -536,6 +536,10 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "tournament.deleted" => [%{"name" => "Paasopen Brugge"}],
     "tournament.restored" => [%{"name" => "Paasopen Brugge"}],
     "import.swar" => [%{"name" => "Paasopen Brugge"}],
+    "import.swar_merged" => [
+      %{"name" => "Paasopen Brugge", "results" => 3, "players" => 1, "new_players" => 2},
+      %{"name" => "Paasopen Brugge"}
+    ],
     "import.trf" => [%{"name" => "Paasopen Brugge"}],
     "pibe.import" => [
       %{"round" => 2, "findings" => "Import @ Round 2: 1-2 (rematch of round 1)"}

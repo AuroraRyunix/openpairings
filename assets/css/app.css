@@ -1022,6 +1022,14 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 .trf-review-level3 { border-left: 4px solid var(--warn); background: var(--warn-soft); }
 .trf-review-level3 h2 { color: var(--warn); display: flex; align-items: center; gap: 8px; }
 
+/* TournamentsLive - a re-uploaded SWAR file compared with the tournament */
+.swar-merge section { margin-top: 18px; }
+.swar-merge h3 { font-size: 15px; font-weight: 650; margin: 0 0 6px; }
+.swar-merge .pe-table td, .swar-merge .pe-table th { vertical-align: top; }
+.swar-merge-choice { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: 8px 0 0; }
+.swar-merge-conflict { border-left: 3px solid var(--warn); }
+.swar-merge-scroll { overflow-x: auto; }
+
 /* SettingsChangelogLive - rendered CHANGELOG.md */
 .changelog-body h1 { font-size: 20px; margin: 0 0 6px; }
 .changelog-body h2 {

@@ -147,7 +147,8 @@ defmodule PairingsEngineWeb.AuditLive do
         standings.extra_points_applied standings.extra_points_reduced
         standings.published standings.unpublished
         standings.starting_rank_toggled)},
-    {"imports", ~w(import.swar import.trf pibe.import import.json trf.finalised trf.postponed_sent
+    {"imports",
+     ~w(import.swar import.swar_merged import.trf pibe.import import.json trf.finalised trf.postponed_sent
         trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
         collaborator.removed)},
@@ -1274,6 +1275,17 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("import.swar", d),
     do: gettext("Imported tournament %{name} from a SWAR file.", name: name(d, "name"))
+
+  def describe("import.swar_merged", d),
+    do:
+      gettext(
+        "Merged a SWAR file into tournament %{name}: %{results} results or byes, %{players} players changed, %{new_players} added, %{rounds} rounds added.",
+        name: name(d, "name"),
+        results: d["results"] || 0,
+        players: d["players"] || 0,
+        new_players: d["new_players"] || 0,
+        rounds: d["rounds"] || 0
+      )
 
   def describe("import.trf", d),
     do: gettext("Imported tournament %{name} from a TRF file.", name: name(d, "name"))

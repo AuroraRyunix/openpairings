@@ -17,7 +17,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   alias PairingsEngine.Accounts
   alias PairingsEngine.Accounts.TournamentDefaults
   alias PairingsEngine.Features
-  alias PairingsEngine.Federations.BEL.SwarImport
+  alias PairingsEngine.Federations.BEL.{SwarImport, SwarMerge}
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.SettingsSupport
@@ -78,6 +78,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_from_defaults?: false,
        swar_pending: nil,
        swar_duplicate: nil,
+       # A re-uploaded file compared with the tournament it is a copy of
+       # (`SwarMerge.review/2`), for the arbiter to pick what to take.
+       swar_merge: nil,
        swar_team: nil,
        # A TRF file read but not yet imported: its content and its import
        # report (`TrfImport.review/2`), shown for Confirm / Cancel.
@@ -527,6 +530,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
        new_params: @new_tournament_defaults,
        swar_pending: nil,
        swar_duplicate: nil,
+       swar_merge: nil,
        swar_team: nil,
        trf_review: nil,
        # Closing the dialog also cancels any "finish this import once the
@@ -674,6 +678,72 @@ defmodule PairingsEngineWeb.TournamentsLive do
     prepared = socket.assigns.swar_duplicate.prepared
     {:noreply, socket} = continue_swar_prepared(socket, prepared)
     {:noreply, assign(socket, swar_duplicate: nil)}
+  end
+
+  ## ---------- SWAR re-upload: compare and merge ----------
+  #
+  # The third answer to "this looks like a tournament you already have":
+  # compare the file with it (`SwarMerge.review/2`, nothing written) and let
+  # the arbiter take what they want from it, in one transaction after a
+  # restore point (`SwarMerge.apply/3`).
+
+  def handle_event("swar_merge_review", _params, %{assigns: %{bel_swar_import?: false}} = socket),
+    do: {:noreply, socket |> assign(swar_duplicate: nil) |> put_flash(:error, swar_import_off())}
+
+  def handle_event("swar_merge_review", _params, %{assigns: %{swar_duplicate: nil}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("swar_merge_review", _params, socket) do
+    %{prepared: prepared, existing: existing} = socket.assigns.swar_duplicate
+    existing = Tournaments.get_tournament(existing.id) || existing
+
+    case crash_safe(fn -> SwarMerge.review(existing, prepared) end) do
+      {:ok, review} ->
+        {:noreply, assign(socket, swar_duplicate: nil, swar_merge: review, error: nil)}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: SwarMerge.error_message(reason))}
+    end
+  end
+
+  def handle_event("apply_swar_merge", _params, %{assigns: %{bel_swar_import?: false}} = socket),
+    do: {:noreply, socket |> assign(swar_merge: nil) |> put_flash(:error, swar_import_off())}
+
+  def handle_event("apply_swar_merge", _params, %{assigns: %{swar_merge: nil}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("apply_swar_merge", params, socket) do
+    review = socket.assigns.swar_merge
+    scope = socket.assigns.current_scope
+
+    case SwarMerge.apply(review, swar_merge_choices(review, params), scope) do
+      {:ok, _summary} ->
+        {:noreply,
+         socket
+         |> assign(swar_merge: nil)
+         |> put_flash(
+           :info,
+           gettext(
+             "Merged. The tournament as it was before is kept as a restore point on its History page."
+           )
+         )
+         |> push_navigate(to: ~p"/t/#{review.tournament_id}/players")}
+
+      {:error, :changed_since_review} ->
+        {:noreply,
+         assign(socket,
+           swar_merge: nil,
+           importing: true,
+           error: SwarMerge.error_message(:changed_since_review)
+         )}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: SwarMerge.error_message(reason))}
+    end
+  end
+
+  def handle_event("cancel_swar_merge", _params, socket) do
+    {:noreply, assign(socket, swar_merge: nil, importing: true, error: nil)}
   end
 
   ## ---------- TRF import, TRF06, TRF16 or TRF26 ----------
@@ -1869,6 +1939,385 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp trf_system_phrase(_),
     do: gettext("a Swiss paired by the Dutch system in force since July 2025")
 
+  # A re-uploaded SWAR file compared with the tournament it is a copy of
+  # (`SwarMerge.review/2`). One choice per section, one per row for results
+  # and byes; what exists here is kept unless the arbiter picks otherwise.
+  attr :review, :map, required: true
+  attr :error, :string, default: nil
+
+  defp swar_merge_review(assigns) do
+    review = assigns.review
+
+    assigns =
+      assign(assigns,
+        identical?: SwarMerge.identical?(review),
+        takeable_settings?: Enum.any?(review.settings, &(!&1.locked?)),
+        name: review.tournament_name
+      )
+
+    ~H"""
+    <form
+      id="swar-merge-form"
+      class="card swar-merge"
+      phx-submit="apply_swar_merge"
+      aria-labelledby="swar-merge-title"
+    >
+      <h2 id="swar-merge-title">{gettext("Compare the file with %{name}", name: @name)}</h2>
+
+      <p class="hint" style="margin-top: 0">
+        {gettext(
+          "Below is everything that differs between the file and the tournament here. Choose what to take from the file; anything you do not pick stays as it is here. Nothing changes until you press Merge, and the tournament as it is now is saved as a restore point first."
+        )}
+      </p>
+
+      <p :if={@identical?} id="swar-merge-identical">
+        <strong>{gettext("The file and the tournament agree on everything compared.")}</strong>
+      </p>
+
+      <section :if={@review.settings != []} id="swar-merge-settings">
+        <h3>{gettext("Tournament settings")}</h3>
+
+        <div class="swar-merge-scroll">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Setting")}</th>
+
+                <th>{gettext("Here")}</th>
+
+                <th>{gettext("In the file")}</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr :for={row <- @review.settings}>
+                <td>
+                  {SwarMerge.field_label(row.field)}
+                  <span :if={row.locked?} class="hint">
+                    <br />{gettext(
+                      "Stays as it is: it decides how rounds are paired, and rounds are already paired."
+                    )}
+                  </span>
+                </td>
+
+                <td>{SwarMerge.format_value(row.field, row.here)}</td>
+
+                <td>{SwarMerge.format_value(row.field, row.file)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div :if={@takeable_settings?} class="swar-merge-choice">
+          <label class="opt-row">
+            <input type="radio" name="merge[settings]" value="keep" checked /> {gettext(
+              "Keep the settings here"
+            )}
+          </label>
+
+          <label class="opt-row">
+            <input type="radio" name="merge[settings]" value="file" /> {gettext(
+              "Take the file's settings"
+            )}
+          </label>
+        </div>
+      </section>
+
+      <section :if={@review.player_changes != []} id="swar-merge-players">
+        <h3>{gettext("Player details")}</h3>
+
+        <div class="swar-merge-scroll">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Player")}</th>
+
+                <th>{gettext("Detail")}</th>
+
+                <th>{gettext("Here")}</th>
+
+                <th>{gettext("In the file")}</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <%= for player <- @review.player_changes, {change, i} <- Enum.with_index(player.changes) do %>
+                <tr>
+                  <td>{if i == 0, do: player.name}</td>
+
+                  <td>{SwarMerge.field_label(change.field)}</td>
+
+                  <td>{SwarMerge.format_value(change.field, change.here)}</td>
+
+                  <td>{SwarMerge.format_value(change.field, change.file)}</td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="swar-merge-choice">
+          <label class="opt-row">
+            <input type="radio" name="merge[players]" value="keep" checked /> {gettext(
+              "Keep the player details here"
+            )}
+          </label>
+
+          <label class="opt-row">
+            <input type="radio" name="merge[players]" value="file" /> {gettext(
+              "Take the file's player details"
+            )}
+          </label>
+        </div>
+      </section>
+
+      <section :if={@review.new_players != []} id="swar-merge-new-players">
+        <h3>{gettext("Players only in the file")}</h3>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Added with the next free pairing numbers, joining after the last round here. Nobody already here is renumbered."
+          )}
+        </p>
+
+        <ul class="trf-review-list">
+          <li :for={p <- @review.new_players}>{p.name}</li>
+        </ul>
+
+        <div class="swar-merge-choice">
+          <label class="opt-row">
+            <input type="radio" name="merge[new_players]" value="add" checked /> {gettext("Add them")}
+          </label>
+
+          <label class="opt-row">
+            <input type="radio" name="merge[new_players]" value="skip" /> {gettext("Do not add them")}
+          </label>
+        </div>
+      </section>
+
+      <section :if={@review.only_here_players != []} id="swar-merge-only-here-players">
+        <h3>{gettext("Players only here")}</h3>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext("The file does not have them. They stay in the tournament.")}
+        </p>
+
+        <ul class="trf-review-list">
+          <li :for={p <- @review.only_here_players}>{p.name}</li>
+        </ul>
+      </section>
+
+      <section :if={@review.results != []} id="swar-merge-results">
+        <h3>{gettext("Results and byes")}</h3>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "A result the file has where there is none here is taken unless you say otherwise. A result that differs from one entered here is a conflict: it is kept as it is here unless you pick the file's."
+          )}
+        </p>
+
+        <div class="swar-merge-scroll">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Round")}</th>
+
+                <th>{gettext("Game")}</th>
+
+                <th>{gettext("Here")}</th>
+
+                <th>{gettext("In the file")}</th>
+
+                <th>{gettext("Use")}</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr
+                :for={row <- @review.results}
+                id={"swar-merge-#{row.id}"}
+                class={[!row.added? && "swar-merge-conflict"]}
+              >
+                <td>{row.round}</td>
+
+                <%= if row.kind == :result do %>
+                  <td>{swar_merge_board_text(row)}</td>
+
+                  <td>{SwarMerge.format_result(row.here)}</td>
+
+                  <td>{SwarMerge.format_result(row.file)}</td>
+                <% else %>
+                  <td>{row.player}</td>
+
+                  <td>{SwarMerge.format_bye(row.here)}</td>
+
+                  <td>{SwarMerge.format_bye(row.file)}</td>
+                <% end %>
+
+                <td>
+                  <label class="opt-row">
+                    <input
+                      type="radio"
+                      name={"merge[rows][#{row.id}]"}
+                      value="keep"
+                      checked={SwarMerge.default_row_choice(row) == :keep}
+                    /> {gettext("Here")}
+                  </label>
+
+                  <label class="opt-row">
+                    <input
+                      type="radio"
+                      name={"merge[rows][#{row.id}]"}
+                      value="file"
+                      checked={SwarMerge.default_row_choice(row) == :file}
+                    /> {gettext("File")}
+                  </label>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section :if={@review.pairing_differences != []} id="swar-merge-pairings">
+        <h3>{gettext("Pairings that differ")}</h3>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "These rounds are paired differently in the file. A round paired here is never re-paired from a file, so the pairings here stay. To use the file's, delete the round here and merge again."
+          )}
+        </p>
+
+        <div class="swar-merge-scroll">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Round")}</th>
+
+                <th>{gettext("Here")}</th>
+
+                <th>{gettext("In the file")}</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              <tr :for={diff <- @review.pairing_differences}>
+                <td>{diff.round}</td>
+
+                <td>
+                  <div :for={b <- diff.here}>{swar_merge_board_text(b)}</div>
+                </td>
+
+                <td>
+                  <div :for={b <- diff.file}>{swar_merge_board_text(b)}</div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section :if={@review.new_rounds != []} id="swar-merge-new-rounds">
+        <h3>{gettext("Rounds only in the file")}</h3>
+
+        <ul class="trf-review-list">
+          <li :for={r <- @review.new_rounds}>
+            {ngettext(
+              "Round %{round}: %{count} board, %{results} with a result",
+              "Round %{round}: %{count} boards, %{results} with a result",
+              r.boards,
+              round: r.number,
+              results: r.results
+            )}
+          </li>
+        </ul>
+
+        <div class="swar-merge-choice">
+          <label class="opt-row">
+            <input type="radio" name="merge[rounds]" value="add" checked /> {gettext(
+              "Add these rounds"
+            )}
+          </label>
+
+          <label class="opt-row">
+            <input type="radio" name="merge[rounds]" value="skip" /> {gettext("Do not add them")}
+          </label>
+        </div>
+      </section>
+
+      <section :if={@review.skipped_rounds != []} id="swar-merge-skipped-rounds">
+        <h3>{gettext("Rounds that cannot be added")}</h3>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext(
+            "Rounds %{rounds} of the file come after a round neither has, so they are left out.",
+            rounds: Enum.join(@review.skipped_rounds, ", ")
+          )}
+        </p>
+      </section>
+
+      <section :if={@review.only_here_rounds != []} id="swar-merge-only-here-rounds">
+        <h3>{gettext("Rounds only here")}</h3>
+
+        <p class="hint" style="margin-top: 0">
+          {gettext("Rounds %{rounds} are not in the file. They stay as they are.",
+            rounds: Enum.join(@review.only_here_rounds, ", ")
+          )}
+        </p>
+      </section>
+
+      <p :if={@error} class="error-note">{@error}</p>
+
+      <div class="actions">
+        <button
+          :if={!@identical?}
+          type="submit"
+          id="swar-merge-apply"
+          class="pe-btn primary"
+          phx-disable-with={gettext("Merging…")}
+        >
+          {gettext("Merge into %{name}", name: @name)}
+        </button>
+
+        <button type="button" id="swar-merge-cancel" class="pe-btn" phx-click="cancel_swar_merge">
+          {if @identical?, do: gettext("Close"), else: gettext("Cancel")}
+        </button>
+      </div>
+    </form>
+    """
+  end
+
+  defp swar_merge_board_text(%{board: board, white: white, black: nil}),
+    do: gettext("Board %{board}: %{white} (bye)", board: board, white: white)
+
+  defp swar_merge_board_text(%{board: board, white: white, black: black}),
+    do: gettext("Board %{board}: %{white} - %{black}", board: board, white: white, black: black)
+
+  # The merge form's answers, read against the review rather than trusted:
+  # only the rows the review has, only the values each choice can take.
+  defp swar_merge_choices(review, params) do
+    merge = Map.get(params, "merge", %{})
+    rows = Map.get(merge, "rows", %{})
+
+    %{
+      settings: if(merge["settings"] == "file", do: :file, else: :keep),
+      players: if(merge["players"] == "file", do: :file, else: :keep),
+      new_players: if(merge["new_players"] == "skip", do: :skip, else: :add),
+      rounds: if(merge["rounds"] == "skip", do: :skip, else: :add),
+      rows:
+        Map.new(review.results, fn row ->
+          choice =
+            case Map.get(rows, row.id) do
+              "file" -> :file
+              "keep" -> :keep
+              _ -> SwarMerge.default_row_choice(row)
+            end
+
+          {row.id, choice}
+        end)
+    }
+  end
+
   # The review step of a TRF import. A Level-3 warning (TEC manual: not
   # compliant, explicit confirmation) when a round of the file breaks a
   # pairing rule - an Import PIBE; otherwise the list of what the import
@@ -2759,12 +3208,25 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </.rich_text>
         </p>
 
+        <p class="hint">
+          {gettext(
+            "Compare shows what the file would change - settings, players, results and rounds - and lets you choose what to take from it."
+          )}
+        </p>
+
+        <p :if={@error} class="error-note">{@error}</p>
+
         <div class="actions">
           <button
             type="button"
+            id="swar-duplicate-compare"
             class="pe-btn primary"
-            phx-click="swar_duplicate_open_existing"
+            phx-click="swar_merge_review"
           >
+            {gettext("Compare and merge into %{name}", name: @swar_duplicate.existing.name)}
+          </button>
+
+          <button type="button" class="pe-btn" phx-click="swar_duplicate_open_existing">
             {gettext("Open %{name}", name: @swar_duplicate.existing.name)}
           </button>
 
@@ -2775,7 +3237,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">{gettext("Cancel")}</button>
         </div>
       </div>
-
+      <.swar_merge_review :if={@swar_merge} review={@swar_merge} error={@error} />
       <div
         :if={@swar_team}
         id="swar-team-warning"
@@ -3148,7 +3610,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
       <div
         :if={
           @tournaments == [] && !@creating && !@importing && !@importing_trf && !@importing_backup &&
-            !@receiving_handoff && !@return_target && !@swar_pending && !@swar_duplicate
+            !@receiving_handoff && !@return_target && !@swar_pending && !@swar_duplicate &&
+            !@swar_merge
         }
         class="card empty"
       >
