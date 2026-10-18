@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.91.0] - 2026-10-18
+
 - [Feature] **A plug-in can do work when the program starts** (hosted edition only), once the database and the rest are up, instead of waiting for somebody to open a page. One that fails is logged and the program starts regardless, because a plug-in is a guest.
 - [Feature] **A plug-in can ask for other programs to be started with the core** (hosted edition only). Its manifest may list `applications:`, and they run beside OpenPairings in development, in tests and in the release, which now also packs them. Until now a plug-in's own dependencies were on the shelf and in nobody's startup list, so the plug-in had to start them by hand and hope. A list that is not a list of names stops the build and says which manifest to blame.
 - [Fix] **A round published after a delay now tells the open Pairings page the moment it goes public.** The publish itself always happened on time; the page just kept saying *scheduled* until somebody reloaded it, which is the kind of patience nobody asked for.
