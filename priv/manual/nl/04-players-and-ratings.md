@@ -275,6 +275,17 @@ zonder FIDE-ID wordt niet aangeraakt. Er wordt niets geschreven tot je op
 **Toepassen** drukt; **Annuleren** schrijft niets. Het is alles-of-niets, en het is
 een handmatige handeling: het programma schrijft nooit zelf ratings.
 
+**In een toernooi dat langer dan 30 dagen duurt** (Instellingen, *Toernooi*)
+raakt Vernieuwen de start-FIDE-rating nooit aan. Het vergelijkt de huidige lijst
+en voegt elke gewijzigde rating toe als *latere* rating, getoond als *vanaf ronde
+R*: standaard de eerste ronde met een datum op of na de datum van de lijst,
+anders de eerstvolgende te paren ronde. Pas de ronde één keer voor de hele
+reeks aan in het vak boven de tabel voor je op **Toepassen** drukt. Een rating
+die al vanaf die ronde gegeven is, wordt vervangen, en een rating gelijk aan wat
+de ronde al geeft is geen wijziging. Een titel wordt voorgesteld zoals altijd.
+De paringsnummers veranderen niet door een latere rating, en de automatische
+controle hieronder zwijgt in zo'n toernooi.
+
 **De controle op zichzelf.** Terwijl de pagina Spelers of Paringen open is (en na
 een voltooide update van de lijst), vergelijkt het programma de ratings en titels
 op bestand met de FIDE-lijst die geldig was in de maand waarin het toernooi begon,

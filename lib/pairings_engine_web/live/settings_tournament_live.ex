@@ -16,6 +16,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   use PairingsEngineWeb, :live_view
 
   import PairingsEngineWeb.SettingsSupport
+  import PairingsEngineWeb.Components.Explain, only: [explain: 1]
 
   alias PairingsEngine.{Audit, PeriodRatings, Tournaments, Tiebreaks}
   alias PairingsEngine.Authz
@@ -744,23 +745,23 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   in which a player may hold more than one rating. --%>
               <.setting_feature id="long-event-feature">
                 <:switch>
-                  <.setting_field
-                    label={gettext("Tournament lasts more than 30 days")}
-                    hint={
-                      gettext(
-                        "It spans more than one rating period, so a player may hold more than one rating during it. On, each player's later ratings can be entered on the Players page with the round each applies from; expected scores use the rating of each game's round, and a TRF of chosen rounds carries the ratings valid in its first round, so each rating period can be reported with its own ratings."
-                      )
-                    }
-                  >
-                    <input type="hidden" name="tournament[long_event]" value="false" />
-                    <input
-                      id="long-event"
-                      type="checkbox"
-                      name="tournament[long_event]"
-                      value="true"
-                      checked={@tournament.long_event}
-                    />
-                  </.setting_field>
+                  <div class="explain-row">
+                    <.setting_field label={gettext("Tournament lasts more than 30 days")}>
+                      <input type="hidden" name="tournament[long_event]" value="false" />
+                      <input
+                        id="long-event"
+                        type="checkbox"
+                        name="tournament[long_event]"
+                        value="true"
+                        checked={@tournament.long_event}
+                      />
+                    </.setting_field>
+                    <.explain id="long-event-explain">
+                      {gettext(
+                        "For a tournament that runs over more than one FIDE rating list. A player can then have a later rating from a given round: Refresh ratings adds the new list that way instead of replacing the starting rating. The pairing never changes: pairing numbers stay as they were at the start. Each month's rounds are reported to FIDE on their own (B.02 4.1). Tie-breaks that use ratings count the first rating unless you choose otherwise below."
+                      )}
+                    </.explain>
+                  </div>
                 </:switch>
 
                 <p

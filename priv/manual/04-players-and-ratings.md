@@ -261,6 +261,16 @@ not touched. Nothing is written until you press **Apply**; **Cancel** writes
 nothing. It is an all-or-nothing action, and it is a manual action: the
 program never writes ratings on its own.
 
+**In a tournament lasting more than 30 days** (Settings, *Tournament*) Refresh
+never touches the starting FIDE rating. It compares the current list instead and
+adds each changed rating as a *later* rating, shown as *from round R*: by
+default the first round dated on or after the list's date, otherwise the next
+round to be paired. Change the round once for the whole batch in the box above
+the table before you press **Apply**. A rating already given from that round is
+replaced, and one equal to what the round already gives is not a change. A title
+is proposed as always. The pairing numbers do not change because of a later
+rating, and the automatic check below stays quiet in such a tournament.
+
 **The check by itself.** While the Players or Pairings page is open (and after a
 finished update of the list), the program compares the ratings and titles on
 file with the FIDE list that was valid in the month the tournament started and, when
