@@ -758,11 +758,35 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                     </.setting_field>
                     <.explain id="long-event-explain">
                       {gettext(
-                        "For a tournament that runs over more than one FIDE rating list. A player can then have a later rating from a given round: Refresh ratings adds the new list that way instead of replacing the starting rating. The pairing never changes: pairing numbers stay as they were at the start. Each month's rounds are reported to FIDE on their own (B.02 4.1). Tie-breaks that use ratings count the first rating unless you choose otherwise below."
+                        "For a tournament that runs over more than one FIDE rating list. A player can then have a later rating from a given round: Refresh ratings adds the new list that way instead of replacing the starting rating. The pairing never changes: pairing numbers stay as they were at the start. It is reported to FIDE either month by month (B.02 4.1) or once at the end, as chosen below. Tie-breaks that use ratings count the first rating unless you choose otherwise below."
                       )}
                     </.explain>
                   </div>
                 </:switch>
+
+                <%!-- How it goes to FIDE: monthly (Art. 4.1), or registered
+                    once and reported once at the end, which is what most
+                    club championships actually do. --%>
+                <div :if={@tournament.long_event} class="explain-row">
+                  <.setting_field label={gettext("Reporting to FIDE")}>
+                    <select id="long-event-reporting" name="tournament[long_event_reporting]">
+                      <option
+                        value="monthly"
+                        selected={@tournament.long_event_reporting != "end"}
+                      >
+                        {gettext("Monthly reports")}
+                      </option>
+                      <option value="end" selected={@tournament.long_event_reporting == "end"}>
+                        {gettext("One report at the end (as registered with FIDE)")}
+                      </option>
+                    </select>
+                  </.setting_field>
+                  <.explain id="long-event-reporting-explain">
+                    {gettext(
+                      "Monthly: each month's rounds go to FIDE in a file of their own, due for the next rating list. At the end: the tournament is registered with FIDE once and every round goes in one file after the last day; a report must carry as many rounds as the registration it is sent against."
+                    )}
+                  </.explain>
+                </div>
 
                 <p
                   :if={@tournament.long_event and Enum.any?(@tiebreaks, &Tiebreaks.rating_based?/1)}

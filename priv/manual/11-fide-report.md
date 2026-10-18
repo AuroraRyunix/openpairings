@@ -114,6 +114,26 @@ usual, such as the rating inbox's copy of a round sent earlier. The Export page 
 FIDE mode; the copies then carry `### Not played @ Round 3: 5-12` for it, and
 the file for rating writes it as not played (`0000 - Z`).
 
+**Long events.** A tournament with the tick *Tournament lasts more than 30
+days* is reported one of two ways, chosen under that tick (Settings,
+Tournament). Whichever it is, a report carries as many rounds as the FIDE
+registration it is sent against: a registration of 9 rounds takes a file of
+9 rounds.
+
+- *Monthly reports*: each month's rounds are reported on their own (B.02
+  Art. 4.1). In FIDE mode a postponed game without a result blocks only the
+  file of its own month; played later, it goes in the postponed-games file.
+  The Export page reminds you beside **Send…** that each monthly file must
+  match a registration of that many rounds.
+- *One report at the end (as registered with FIDE)*: the tournament is
+  registered once, in its last month, and every round goes in one file after
+  its last day. FIDE's rating server does not mind games dated long before
+  the registration. A postponed game played before that report is simply a
+  result in it; the postponed-games file is only for a game played after the
+  final report was sent. **Send…** with fewer rounds ticked than the
+  tournament has says so before the download, and lets you go ahead: the
+  registration may have shrunk with the event.
+
 ## Prohibitions changed during the event
 
 A forbidden pairing or a pairing rule added, changed or removed after round
@@ -181,7 +201,9 @@ Art. 9.1); a postponed-games file counts from the date of its last game. A
 tournament that lasts more than 30 days reports every month (Art. 4.1), so
 its rounds of a month count from the last of them, not from the end of the
 tournament: the October rounds of a championship that runs until April are
-for the list of 1 November. Each tournament says where it stands:
+for the list of 1 November. One set to report once at the end is counted
+from its last day like a short tournament, and no month of it is overdue (see
+[Postponed games](#postponed-games) for the two ways). Each tournament says where it stands:
 
 - *For the rating list of 1 …: to be uploaded by …* - in time.
 - In amber, *Missed the rating list of …* (for a monthly report: *Overdue*) -
