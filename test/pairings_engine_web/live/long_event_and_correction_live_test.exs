@@ -87,6 +87,28 @@ defmodule PairingsEngineWeb.LongEventAndCorrectionLiveTest do
       assert has_element?(standings, "#tiebreak-rating-basis", "round the game was played")
     end
 
+    test "ticking the box shows the reporting choice at once, and saves nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+      refute has_element?(lv, "#long-event-reporting")
+
+      lv
+      |> element("#long-event")
+      |> render_change(%{"tournament" => %{"long_event" => "true"}})
+
+      assert has_element?(lv, "#long-event-reporting")
+      refute PairingsEngine.Repo.reload!(t).long_event
+
+      lv
+      |> element("#long-event")
+      |> render_change(%{"tournament" => %{"long_event" => "false"}})
+
+      refute has_element?(lv, "#long-event-reporting")
+    end
+
     test "the reporting choice shows only with the tick, saves, and travels in the JSON", %{
       conn: conn,
       scope: scope

@@ -63,6 +63,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
      |> attach_advanced()
      |> assign(
        tournament: tournament,
+       long_event_preview: nil,
        owner?: owner?,
        page_title: "#{tournament.name} · Settings",
        tiebreaks: tournament.tiebreaks,
@@ -117,6 +118,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
          socket
          |> assign(
            tournament: tournament,
+           long_event_preview: nil,
            tiebreaks: tournament.tiebreaks,
            fide_locked: Tournaments.fide_locked_fields(tournament),
            stale: false
@@ -187,6 +189,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         {:noreply,
          assign(socket,
            tournament: tournament,
+           long_event_preview: nil,
            tiebreaks: tournament.tiebreaks,
            fide_locked: Tournaments.fide_locked_fields(tournament),
            note: "Saved.",
@@ -282,6 +285,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   ## ---------- Print logo (SWAR parity #14-16) ----------
 
   def handle_event("validate_logo", _params, socket), do: {:noreply, socket}
+
+  def handle_event("preview_long_event", params, socket) do
+    ticked? = get_in(params, ["tournament", "long_event"]) == "true"
+    {:noreply, assign(socket, long_event_preview: ticked?)}
+  end
 
   def handle_event("upload_logo", _params, socket) do
     case UploadGuard.status(socket, :logo) do
@@ -444,6 +452,16 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   @impl true
   def render(assigns) do
+    # The tick shows what it opens the moment it is ticked; nobody should have
+    # to save a setting to find out what it would have asked them.
+    long_event? =
+      case Map.get(assigns, :long_event_preview) do
+        nil -> assigns.tournament.long_event
+        ticked? -> ticked?
+      end
+
+    assigns = assign(assigns, :long_event?, long_event?)
+
     ~H"""
     <Layouts.app
       publish_status={assigns[:publish_status]}
@@ -753,7 +771,8 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                         type="checkbox"
                         name="tournament[long_event]"
                         value="true"
-                        checked={@tournament.long_event}
+                        checked={@long_event?}
+                        phx-change="preview_long_event"
                       />
                     </.setting_field>
                     <.explain id="long-event-explain">
@@ -767,7 +786,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 <%!-- How it goes to FIDE: monthly (Art. 4.1), or registered
                     once and reported once at the end, which is what most
                     club championships actually do. --%>
-                <div :if={@tournament.long_event} class="explain-row">
+                <div :if={@long_event?} class="explain-row">
                   <.setting_field label={gettext("Reporting to FIDE")}>
                     <select id="long-event-reporting" name="tournament[long_event_reporting]">
                       <option
@@ -789,7 +808,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 </div>
 
                 <p
-                  :if={@tournament.long_event and Enum.any?(@tiebreaks, &Tiebreaks.rating_based?/1)}
+                  :if={@long_event? and Enum.any?(@tiebreaks, &Tiebreaks.rating_based?/1)}
                   id="long-event-rating-tiebreaks"
                   class="setting-warning"
                   role="note"
@@ -800,7 +819,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 </p>
 
                 <.setting_field
-                  :if={@tournament.long_event}
+                  :if={@long_event?}
                   label={gettext("Rating-based tie-breaks use the rating valid in round")}
                   hint={
                     gettext(
@@ -822,7 +841,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                     at the rating of its round. Not the default - C.07
                     Article 10 makes the first rating the rule. --%>
                 <.setting_field
-                  :if={@tournament.long_event}
+                  :if={@long_event?}
                   label={gettext("Rating-based tie-breaks use each round's rating")}
                   hint={
                     gettext(
@@ -844,7 +863,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               <%!-- Outside the feature: it shows while the box is unticked,
                   and says which box to tick. --%>
               <p
-                :if={!@tournament.long_event and PeriodRatings.spans_over_30_days?(@tournament)}
+                :if={!@long_event? and PeriodRatings.spans_over_30_days?(@tournament)}
                 id="long-event-suggestion"
                 class="setting-warning"
                 role="note"

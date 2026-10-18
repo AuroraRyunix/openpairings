@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.97.2] - 2026-10-18
+
+- [Fix] **Ticking "Tournament lasts more than 30 days" shows what it opens straight away.** *Reporting to FIDE* and the rating options for tie-breaks used to appear only after Save, which is a strange way to ask somebody a question: tick, save, scroll back, discover there was more. Now they appear with the tick and disappear with it; nothing is stored until Save, as before.
 - [Fix] **Stopping no longer ends in a red stack trace.** On the way out the launcher-details process tidied up its secret by asking the application controller, which at that point is busy dying and answers everyone with an exit. The secret goes with the VM anyway, so now it lets the question go unanswered and leaves quietly.
 
 ## [0.97.1] - 2026-10-18
