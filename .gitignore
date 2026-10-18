@@ -95,3 +95,6 @@ graphify-out/
 
 # Drafts waiting to be sent, not for the repo
 /docs/outbox/
+
+# Dialyzer PLTs (mix dialyzer), rebuilt on demand.
+/priv/plts/

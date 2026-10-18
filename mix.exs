@@ -84,6 +84,13 @@ defmodule PairingsEngine.MixProject do
       start_permanent: Mix.env() == :prod,
       aliases: aliases(),
       deps: deps(),
+      test_coverage: [summary: [threshold: 0]],
+      dialyzer: [
+        plt_add_apps: [:mix, :ex_unit],
+        plt_local_path: "priv/plts",
+        plt_core_path: "priv/plts",
+        flags: [:error_handling, :unknown, :extra_return, :missing_return]
+      ],
       releases: releases(),
       # There are two releases now, so a bare `mix release` is ambiguous and
       # fails - which broke CI and would have broken the build instructions
@@ -418,6 +425,7 @@ defmodule PairingsEngine.MixProject do
       # misconfigurations. Wired into `precommit` and CI; not part of a release.
       {:mix_audit, "~> 2.1", only: [:dev, :test], runtime: false},
       {:sobelow, "~> 0.16", only: [:dev, :test], runtime: false},
+      {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       # Pure Elixir, no native deps - renders CHANGELOG.md on the
       # Settings > Changelog page (SettingsChangelogLive).
       {:earmark_parser, "~> 1.4"},
