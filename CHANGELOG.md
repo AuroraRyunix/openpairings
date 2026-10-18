@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.97.1] - 2026-10-18
+
+- [Fix] **Old public links work again.** When the public pages moved to the results site on 29 August, their old addresses here (`/p/<code>/standings`, `/pairings`, `/register`) were simply deleted, so every link already on a wall chart, in a club newsletter or in someone's bookmarks answered "not found" for seven weeks while the tournament sat one domain over under the same code. They now forward permanently to that page on the results site. Removing the pages was the right call; making the links die with them was not.
+
 ## [0.97.0] - 2026-10-18
 
 - [Fix] **The results site's new name no longer leaves your old pages behind.** A desktop copy that publishes to OpenResults without a configured address followed the default from openresults.zerotwo.cloud to openresults.cloud. The installation key and every page address are bound to the server that issued them, and the program took the new name for a new server: it registered again, gave every tournament a new address, and left the old pages up and frozen, looking perfectly current to anyone holding the old link. The two names are now one server. Copies that have not published since the move keep their key and their addresses; copies that already moved keep the new ones, and the frozen old pages are for the site's operator to take down.

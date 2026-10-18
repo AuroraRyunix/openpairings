@@ -31,7 +31,14 @@ defmodule PairingsEngineWeb.PluginSeamTest do
   describe "a build without a plugin" do
     test "has no plugin route and no plug-ins page" do
       paths = PairingsEngineWeb.Router |> Phoenix.Router.routes() |> Enum.map(& &1.path)
-      plugin_paths = Enum.filter(paths, &(&1 == "/plugins" or String.starts_with?(&1, "/p/")))
+      # The pre-split public pages' old addresses still live under /p/, as
+      # forwards to the results site; they are not anybody's plug-in.
+      legacy = ~w(/p/:slug/pairings /p/:slug/standings /p/:slug/register)
+
+      plugin_paths =
+        paths
+        |> Enum.filter(&(&1 == "/plugins" or String.starts_with?(&1, "/p/")))
+        |> Enum.reject(&(&1 in legacy))
 
       if Enum.empty?(Plugins.compiled()) do
         assert plugin_paths == []

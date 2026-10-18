@@ -255,6 +255,14 @@ defmodule PairingsEngineWeb.Router do
     match verb, path, plug, plug_opts
   end
 
+  # The public pages that left for the results site on 2026-08-29. Their old
+  # links forward there instead of dying; after the plug-in routes, so a
+  # plug-in's own `/p/<id>/...` always wins. See `OldPublicPageController`.
+  for page <- ~w(pairings standings register) do
+    get "/p/:slug/#{page}", PairingsEngineWeb.OldPublicPageController, :show,
+      private: %{old_page: page}
+  end
+
   # Other scopes may use custom stacks.
   # scope "/api", PairingsEngineWeb do
   #   pipe_through :api
