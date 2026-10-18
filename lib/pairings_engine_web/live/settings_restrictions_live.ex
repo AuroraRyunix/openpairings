@@ -564,6 +564,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:restrictions}
         subtitle={gettext("Settings - Forbidden pairings")}
         advanced={

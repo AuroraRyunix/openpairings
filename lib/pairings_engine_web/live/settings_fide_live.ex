@@ -385,6 +385,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:fide}
         subtitle={gettext("Settings - FIDE")}
         advanced={

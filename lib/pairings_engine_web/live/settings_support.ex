@@ -77,7 +77,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
   is not drawn there.
   """
   attr :tournament, :map, required: true
-  attr :active, :atom, required: true
+  attr :active, :any, required: true
+  attr :current_scope, :any, default: nil
   attr :subtitle, :string, required: true
   attr :show_status, :boolean, default: true
   attr :advanced, :map, default: nil
@@ -103,7 +104,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
       </div>
 
       <div class="tset-layout">
-        <.settings_subnav tournament={@tournament} active={@active} />
+        <.settings_subnav tournament={@tournament} active={@active} current_scope={@current_scope} />
         <div class={["tset-main", @advanced && @advanced.on? && "show-advanced"]} id="settings-main">
           <div :if={@advanced} class="tset-bar" id="settings-advanced-bar">
             <button
@@ -150,37 +151,75 @@ defmodule PairingsEngineWeb.SettingsSupport do
   setting the tournament up, putting it in front of people, reporting it.
   `active` is one of `:tournament`, `:options`, `:restrictions`, `:scoring`,
   `:group`, `:dates`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
-  `:export`, `:about`.
+  `:export`, `:about`. A plugin's page is `"plugin:" <> id`
+  (`PairingsEngine.Plugin`'s `tournament_settings_entries/2`).
 
   Rendered by `settings_page/1`; it is public only because the pages that
   predate the frame used to call it themselves.
   """
   attr :tournament, :map, required: true
-  attr :active, :atom, required: true
+  attr :active, :any, required: true
+  attr :current_scope, :any, default: nil
 
   def settings_subnav(assigns) do
-    assigns = assign(assigns, :groups, nav_groups(assigns.tournament))
+    assigns = assign(assigns, :groups, nav_groups(assigns.tournament, assigns.current_scope))
 
     ~H"""
     <nav class="tset-nav" id="settings-nav" aria-label={gettext("Settings pages")}>
       <div :for={{heading, links} <- @groups} class="tset-nav-group">
         <span class="tset-nav-heading">{heading}</span>
-        <.link
-          :for={{key, path, icon, label} <- links}
-          navigate={path}
-          class={["tset-nav-link", @active == key && "active"]}
-          aria-current={@active == key && "page"}
-        >
-          <.icon name={icon} class="size-4" /> {label}
-        </.link>
+        <%!-- A plugin's page is in its own live_session, so its link is a
+              plain `href` (a page load either way) and its key a string,
+              `"plugin:" <> id`. --%>
+        <%= for {key, path, icon, label} <- links do %>
+          <.link
+            :if={is_atom(key)}
+            navigate={path}
+            class={["tset-nav-link", @active == key && "active"]}
+            aria-current={@active == key && "page"}
+          >
+            <.icon name={icon} class="size-4" /> {label}
+          </.link>
+          <.link
+            :if={is_binary(key)}
+            href={path}
+            id={"settings-nav-" <> String.replace(key, ":", "-")}
+            class={["tset-nav-link", @active == key && "active"]}
+            aria-current={@active == key && "page"}
+          >
+            <.icon name={icon} class="size-4" /> {label}
+          </.link>
+        <% end %>
       </div>
     </nav>
     """
   end
 
-  defp nav_groups(tournament) do
-    id = tournament.id
+  defp nav_groups(tournament, scope) do
+    tournament.id
+    |> core_groups()
+    |> add_plugin_entries(PairingsEngine.Plugins.tournament_settings_entries(scope, tournament))
+  end
 
+  # What a plugin adds goes at the end of the group it asks for.
+  defp add_plugin_entries(groups, entries) do
+    headings = %{
+      setup: gettext("Set-up"),
+      publishing: gettext("Publishing"),
+      reporting: gettext("Reporting")
+    }
+
+    Enum.map(groups, fn {heading, links} ->
+      extra =
+        for entry <- entries, headings[entry.group] == heading do
+          {"plugin:" <> entry.id, entry.path, entry.icon, entry.label}
+        end
+
+      {heading, links ++ extra}
+    end)
+  end
+
+  defp core_groups(id) do
     [
       {gettext("Set-up"),
        [

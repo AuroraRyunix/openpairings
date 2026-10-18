@@ -212,6 +212,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:extra_points}
         subtitle={gettext("Settings - Extra points")}
         show_status={false}

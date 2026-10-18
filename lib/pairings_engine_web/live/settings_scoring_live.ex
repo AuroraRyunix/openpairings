@@ -285,6 +285,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:scoring}
         subtitle={gettext("Settings - Scoring")}
         show_status={false}

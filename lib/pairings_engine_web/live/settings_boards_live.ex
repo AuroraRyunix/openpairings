@@ -467,6 +467,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:boards}
         subtitle={gettext("Settings - Live boards")}
         show_status={false}

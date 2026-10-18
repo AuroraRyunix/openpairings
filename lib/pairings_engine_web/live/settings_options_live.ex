@@ -445,6 +445,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:options}
         subtitle={gettext("Settings - Options")}
         advanced={advanced(@show_advanced, advanced_changed(@tournament), has_advanced?(assigns))}

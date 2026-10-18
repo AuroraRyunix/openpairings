@@ -970,6 +970,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
     >
       <.settings_page
         tournament={@tournament}
+        current_scope={@current_scope}
         active={:export}
         subtitle={gettext("Settings - Export")}
         advanced={

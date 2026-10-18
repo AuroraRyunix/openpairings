@@ -51,6 +51,17 @@ defmodule PairingsEngine.Plugin do
       plug that forgets to is open to the internet, which is the plugin's
       bug and nobody else's.
     * `tournament_menu_entries/2` - links in a tournament's top bar.
+    * `tournament_settings_entries/2` - pages in a tournament's Settings
+      rail, for whatever is configured per tournament rather than used
+      every day: `%{id, label, path}` plus optionally `icon` (a heroicon
+      name ending in `-micro`, one the core's own source already uses - the
+      stylesheet only builds the icons it finds there) and `group`
+      (`:setup`, `:publishing` or `:reporting`, the default). Administrators
+      only, like every plugin entry. The page itself is a LiveView under
+      `/p/<id>` that may sit in the Settings frame by calling
+      `PairingsEngineWeb.SettingsSupport.settings_page/1` with `active` set
+      to `"plugin:" <> id` and the `current_scope` assign, so the rail stays
+      around it.
     * `features/0` - entries appended to `PairingsEngine.Features`, so a
       plugin's pages are switched on per account like a federation pack.
     * `board_order/1` - `:plugin` when the plugin's regulations, not the
@@ -116,6 +127,15 @@ defmodule PairingsEngine.Plugin do
   @typedoc "One link in the top bar."
   @type menu_entry :: %{id: String.t(), label: String.t(), path: String.t()}
 
+  @typedoc "One page in a tournament's Settings rail."
+  @type settings_entry :: %{
+          required(:id) => String.t(),
+          required(:label) => String.t(),
+          required(:path) => String.t(),
+          optional(:icon) => String.t(),
+          optional(:group) => :setup | :publishing | :reporting
+        }
+
   @typedoc """
   The line-ups being checked: `lineup_a`/`lineup_b` hold one entry per
   board of the match, board 1 first, a `%Player{}` or nil for an empty
@@ -159,6 +179,7 @@ defmodule PairingsEngine.Plugin do
   @callback routes() :: [{String.t(), module(), atom()}]
   @callback http_routes() :: [{atom(), String.t(), module(), term()}]
   @callback tournament_menu_entries(Scope.t() | nil, Tournament.t()) :: [menu_entry()]
+  @callback tournament_settings_entries(Scope.t() | nil, Tournament.t()) :: [settings_entry()]
   @callback features() :: [map()]
   @callback board_order(Tournament.t()) :: :roster | :plugin
   @callback check_lineups(lineup_context()) :: [finding()] | nil
@@ -178,6 +199,7 @@ defmodule PairingsEngine.Plugin do
   @optional_callbacks routes: 0,
                       http_routes: 0,
                       tournament_menu_entries: 2,
+                      tournament_settings_entries: 2,
                       features: 0,
                       board_order: 1,
                       check_lineups: 1,

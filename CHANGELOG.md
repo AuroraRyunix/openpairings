@@ -23,6 +23,7 @@ Each entry is tagged so a version can be skimmed:
 - [Change] **Group is its own Settings page**, in the Set-up list right after Tournament. It was a card at the bottom of the Tournament page that most tournaments scrolled past; that page now keeps only a one-line link, and only when the tournament is in a group.
 - [Change] **On the Scoring page the whole *Byes and absences* card is advanced.** Its points and limits count in the *N advanced settings are not at their defaults* link too, so a changed value no longer hides without a word.
 - [Fix] **A Settings page with nothing advanced on it no longer offers the *Show advanced settings* switch.** Each page now says whether it has advanced content for this tournament as it stands, and a test walks every page for Swiss, round robin and team tournaments to keep the switch honest.
+- [Feature] **A plug-in can put a page in a tournament's Settings** (hosted edition only), in the rail beside the core's own: under Reporting unless it asks for Set-up or Publishing, administrators only, like every plug-in entry. Things configured once per tournament belong there, not in the top bar every day.
 
 ## [0.91.0] - 2026-10-18
 
