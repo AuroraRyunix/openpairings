@@ -772,6 +772,7 @@ defmodule PairingsEngineWeb.PrintController do
       # Each player's score coming INTO this round - shown next to their
       # name, same as the live/public/projector pairing views.
       scores = PairingsEngine.Standings.player_scores_before_round(tournament, number)
+      rooms = PairingsEngine.Rooms.list(tournament)
 
       rows =
         round.pairings
@@ -780,6 +781,7 @@ defmodule PairingsEngineWeb.PrintController do
         |> PairingDisplay.with_display_boards()
         |> Enum.map_join("", fn %{pairing: p, board: board} ->
           "<tr><td class=\"num\">#{board}</td>" <>
+            room_cell(rooms, board) <>
             "<td><strong>#{esc(name_with_score(p.white_player, scores))}</strong></td>" <>
             "<td class=\"num\">#{p.white_player && blank_zero(player_rating(p.white_player, tournament))}</td>" <>
             "<td style=\"text-align:center\">#{esc(display_result(p.result))}</td>" <>
@@ -791,6 +793,7 @@ defmodule PairingsEngineWeb.PrintController do
         tournament_info_html(tournament) <>
           chess960_line(tournament, round) <>
           "<table><thead><tr><th class=\"num\">#{gettext("Board")}</th>" <>
+          room_header(rooms) <>
           "<th>#{gettext("White")}</th><th class=\"num\">#{rating_header(tournament)}</th>" <>
           "<th style=\"text-align:center\">#{gettext("Result")}</th>" <>
           "<th>#{gettext("Black")}</th><th class=\"num\">#{rating_header(tournament)}</th></tr></thead>" <>
@@ -805,6 +808,23 @@ defmodule PairingsEngineWeb.PrintController do
         body
       )
     end
+  end
+
+  # A Room column beside Board, only for a tournament that has rooms: a
+  # one-room hall has no use for a column that says so on every line.
+  defp room_header([]), do: ""
+  defp room_header(_rooms), do: "<th class=\"room\">#{gettext("Room")}</th>"
+
+  defp room_cell([], _board), do: ""
+
+  defp room_cell(rooms, board) do
+    name =
+      case PairingsEngine.Rooms.room_for(rooms, board) do
+        %{name: name} -> name
+        nil -> ""
+      end
+
+    "<td class=\"room\">#{esc(name)}</td>"
   end
 
   # The round's drawn Chess960 starting position, as a line above the table
@@ -874,10 +894,13 @@ defmodule PairingsEngineWeb.PrintController do
         |> Enum.reject(&(&1.name in [nil, ""]))
         |> Enum.sort_by(&String.downcase(&1.name))
 
+      rooms = PairingsEngine.Rooms.list(tournament)
+
       rows =
         Enum.map_join(entries, "", fn e ->
           "<tr><td><strong>#{esc(e.name)}</strong></td>" <>
             "<td class=\"num\">#{e.board}</td>" <>
+            room_cell(rooms, e.board) <>
             "<td style=\"text-align:center\">#{esc(e.colour)}</td>" <>
             "<td>#{esc(e.opp)}</td></tr>"
         end)
@@ -886,6 +909,7 @@ defmodule PairingsEngineWeb.PrintController do
         tournament_info_html(tournament) <>
           "<table><thead><tr><th>#{gettext("Player")}</th>" <>
           "<th class=\"num\">#{gettext("Board")}</th>" <>
+          room_header(rooms) <>
           "<th style=\"text-align:center\">#{gettext("Colour")}</th>" <>
           "<th>#{gettext("Opponent")}</th></tr></thead>" <>
           "<tbody>#{rows}</tbody></table>"

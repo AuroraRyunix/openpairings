@@ -265,6 +265,10 @@ defmodule PairingsEngineWeb.Layouts do
                 {gettext("Dates")}
               </.link>
 
+              <.link navigate={~p"/t/#{@tournament.id}/settings/rooms"} class="topbar-menu-item">
+                {gettext("Rooms")}
+              </.link>
+
               <.link navigate={~p"/t/#{@tournament.id}/categories"} class="topbar-menu-item">
                 {gettext("Categories")}
               </.link>
@@ -1273,11 +1277,11 @@ defmodule PairingsEngineWeb.Layouts do
     ~H"""
     <div :if={@moved_to} id="moved-notice" class="moved-notice" role="note">
       <span>
-        <strong>{gettext("OpenPairings is moving to %{host}.", host: @moved_to)}</strong>
-        {gettext(
+        <strong>{gettext("OpenPairings is moving to %{host}.", host: @moved_to)}</strong> {gettext(
           "This address keeps working, but update your bookmarks. You sign in once more on the new one."
         )}
       </span>
+
       <a href={"https://" <> @moved_to} class="pe-btn">{gettext("Go to %{host}", host: @moved_to)}</a>
     </div>
     """

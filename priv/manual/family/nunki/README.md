@@ -10,8 +10,8 @@ and counts down to the start of the round:
 > clocks.
 
 In English or Dutch, whichever the tournament speaks. What is announced and
-when is decided in OpenPairings (the tournament's *Hall announcer* page:
-add an announcer, start a countdown, read again, stop); Nunki is where it
+when is decided in OpenPairings (the tournament's Settings, *Hall announcer*:
+add an announcer, name it, start a countdown, read again, stop); Nunki is where it
 is said out loud. Its own pages are a control page and a hall screen for a
 projector.
 
@@ -132,14 +132,26 @@ or use a machine without a desktop, where ALSA is the sound server.
 
 ## Joining a tournament
 
-1. In OpenPairings (on pairings.cloud), the tournament's *Hall announcer* page, "Add an
-   announcer". A link appears, good once and for fifteen minutes.
+1. In OpenPairings (on pairings.cloud): the tournament's Settings → *Hall announcer* →
+   "Add an announcer". A link appears, good once and for fifteen minutes.
 2. Paste it into "Join a tournament" on Nunki's control page, press Join.
 3. The tournament is in the list with a green dot. From now on, a round
    published there is read here.
 
 A print station's link is refused before it is used up. One Nunki can join
 several tournaments; each has its own line and its own countdown.
+
+Each tournament also gives this announcer a name and a room. OpenPairings
+keeps them (the truth is on the server); change them there, or in the
+tournament's row on the control page while the line is up. A change made
+here is a request, and the row shows the new value once the server has sent
+it back.
+
+The room is one of the tournament's rooms, chosen from a list the server
+sends (a text field, as before, with an older server). An announcer in a
+room is sent only the boards that room holds; with no room it gets them
+all. A room name the tournament does not have is refused, and the page says
+so.
 
 ## The pages
 

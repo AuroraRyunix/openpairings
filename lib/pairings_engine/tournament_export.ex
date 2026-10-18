@@ -96,7 +96,7 @@ defmodule PairingsEngine.TournamentExport do
     long_event tiebreak_rating_round tiebreak_rating_per_round
     status standard rating_list_sequence rating_checks_enabled rate_of_play organizer_club_number round_dates
     categories category_rules category_prizes categories_enabled
-    categories_ranked_separately event_code
+    categories_ranked_separately event_code rooms
     fide_tournament_id fide_homologated norm_event_type fide_id_ranges officials
     pairing_system rr_cycles rr_match_format rr_reverse_last_two rr_round_map
     swiss_match_format

@@ -23,6 +23,7 @@ defmodule PairingsEngineWeb.SettingsAdvancedSwitchTest do
     "settings/options",
     "settings/scoring",
     "settings/dates",
+    "settings/rooms",
     "categories",
     "settings/extra-points",
     "settings/restrictions",

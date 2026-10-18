@@ -57,8 +57,8 @@ het FIDE-toernooi-ID.
 
 Het menu **Instellingen** in de bovenbalk opent de pagina Toernooi. Naast elke
 instellingenpagina staat de lijst van pagina's (op een telefoon erboven), in drie
-groepen: **Opzet** (Toernooi, Groep, Opties, Puntentelling, Data, Categorieën, Extra
-punten, Verboden paringen), **Publiceren** (OpenResults, Live borden) en
+groepen: **Opzet** (Toernooi, Groep, Opties, Puntentelling, Data, Ruimtes, Categorieën,
+Extra punten, Verboden paringen), **Publiceren** (OpenResults, Live borden) en
 **Rapporteren** (FIDE, Exporteren, Over).
 
 ### Gewone en geavanceerde instellingen {#common-and-advanced-settings}
@@ -94,6 +94,7 @@ Nog twee dingen houden de pagina's kort:
 | Opties | paringssysteem, toernooirating, cycli (rondetoernooi), Keizer-topwaarde (Keizer), opstellingen (ploegen), type en speeltempo | engine, beginkleur, gelijke rating en titel, paringsnummers van laatkomers, afwezigen in ronde 1, acceleratie, de matchformaten, ploegrating en rating van een ongerate speler (ploegen), ander speeltempo |
 | Puntentelling | punten, matchpunten, uitgestelde partijen | de hele kaart *Byes en afwezigheden* (punten voor een overgeslagen ronde en de grenzen ervan, vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen); bye, forfait en terugtrekking van een ploeg |
 | Data | één datum per ronde | - |
+| Ruimtes | de ruimtes van de zaal en hun borden | - |
 | Categorieën | zie [Categorieën en normen](13-categories-and-norms.md) | - |
 | Extra punten | bonus- of handicappunten per ratingband | - |
 | Verboden paringen | het effect op de volgende ronde, de regels, spelers die elkaar niet mogen treffen | hoe zwaar de wensen wegen |
@@ -432,6 +433,40 @@ Eén datum voor elke ronde:
 De data worden gebruikt op de afgedrukte lijsten, het TRF-rapport (record 132),
 de resultaatformulieren van de matches en de uitslagensite. De begin- en einddatum
 van het toernooi worden daaruit afgeleid.
+
+## Pagina Ruimtes {#rooms-page}
+
+Voor een zaal met meer dan een ruimte. Elke ruimte heeft een naam en de
+borden die erin staan, getypt zoals je ze zou zeggen: `1-20, 35, 40-45`
+(komma's, puntkomma's of spaties ertussen; `1 - 20` is één reeks). **Ruimte
+toevoegen** voegt een rij toe, **Verwijderen** haalt er een weg, en
+**Ruimtes opslaan** bewaart het geheel.
+
+Elke rij wordt nagekeken terwijl je typt, en de regel eronder zegt wat er
+gelezen werd (*Borden 1-20, 35: 21 borden.*) of wat er mis is:
+
+- elke ruimte heeft een naam nodig, en twee ruimtes mogen niet dezelfde
+  hebben (hoofdletters maken een naam niet anders);
+- een bord kan maar in één ruimte staan - *Bord 18 zit al in Grote zaal.*;
+- een bord in geen enkele ruimte mag, en een ruimte zonder borden ook.
+
+Het nummer van een bord is het getal waarmee zijn label begint: bord `3.1`
+van een ploegentoernooi staat in de ruimte die 3 heeft, en een vaste tafel
+telt met haar eigen nummer.
+
+Zodra een toernooi ruimtes heeft, zet de pagina Paringen de naam van de
+ruimte boven het eerste bord van elke ruimte, en krijgen de afgedrukte
+paringenlijst en de alfabetische lijst een kolom **Ruimte**. Een toernooi
+zonder ruimtes ziet eruit zoals altijd.
+
+Waar een printstation of een zaalomroeper geïnstalleerd is, kun je die in
+een van deze ruimtes zetten: een printstation drukt dan alleen de borden van
+die ruimte af, een omroeper leest alleen de borden van die ruimte voor. Een
+ruimte hernoemen houdt wat erin stond; een ruimte verwijderen laat die
+toestellen zonder ruimte, en dat is weer de hele zaal.
+
+De ruimtes reizen mee in de JSON-export van het toernooi en komen terug bij
+het importeren.
 
 ## Pagina Extra punten {#extra-points-page}
 

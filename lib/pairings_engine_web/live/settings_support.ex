@@ -95,6 +95,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
           <p class="subtitle" style="margin: 0">{@subtitle} {render_slot(@subtitle_extra)}</p>
         </div>
+
         <span
           :if={@show_status}
           class={["badge", @tournament.status == "setup" && "muted"]}
@@ -130,15 +131,13 @@ defmodule PairingsEngineWeb.SettingsSupport do
               phx-click="settings_advanced"
               phx-value-on="true"
             >
-              <.icon name="hero-adjustments-horizontal-micro" class="size-4" />
-              {ngettext(
+              <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> {ngettext(
                 "1 advanced setting is not at its default - show it",
                 "%{count} advanced settings are not at their defaults - show them",
                 @advanced.changed
               )}
             </button>
           </div>
-
           {render_slot(@inner_block)}
         </div>
       </div>
@@ -150,7 +149,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   The rail of Settings pages, grouped the way an arbiter meets them:
   setting the tournament up, putting it in front of people, reporting it.
   `active` is one of `:tournament`, `:options`, `:restrictions`, `:scoring`,
-  `:group`, `:dates`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
+  `:group`, `:dates`, `:rooms`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
   `:export`, `:about`. A plugin's page is `"plugin:" <> id`
   (`PairingsEngine.Plugin`'s `tournament_settings_entries/2`).
 
@@ -180,6 +179,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           >
             <.icon name={icon} class="size-4" /> {label}
           </.link>
+
           <.link
             :if={is_binary(key)}
             href={path}
@@ -229,6 +229,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           gettext("Options")},
          {:scoring, ~p"/t/#{id}/settings/scoring", "hero-calculator-micro", gettext("Scoring")},
          {:dates, ~p"/t/#{id}/settings/dates", "hero-calendar-days-micro", gettext("Dates")},
+         {:rooms, ~p"/t/#{id}/settings/rooms", "hero-map-micro", gettext("Rooms")},
          {:categories, ~p"/t/#{id}/categories", "hero-tag-micro", gettext("Categories")},
          {:extra_points, ~p"/t/#{id}/settings/extra-points", "hero-plus-circle-micro",
           gettext("Extra points")},
@@ -424,6 +425,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
     ~H"""
     <div class={["tset-feature", @open && "is-open", @class]} id={@id}>
       <div class="tset-feature-switch">{render_slot(@switch)}</div>
+
       <div :if={@inner_block != []} class="tset-feature-body">{render_slot(@inner_block)}</div>
     </div>
     """

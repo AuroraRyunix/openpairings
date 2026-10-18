@@ -416,6 +416,12 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # that as a documented follow-up, not something this field does.
     field :category_prizes, :map, default: %{}
 
+    # The playing hall's rooms: `[%{"id", "name", "boards"}]`, boards as
+    # `PairingsEngine.BoardRanges` writes them. Checked and tidied by
+    # `PairingsEngine.Rooms.normalize/1` on every save (see
+    # `validate_rooms/1`). Empty is one room, or none worth naming.
+    field :rooms, {:array, :map}, default: []
+
     # FIDE "Code of event" (FA1/IA1 B6, IT4 S4 "FIDE Event code")
     field :event_code, :string, default: ""
     # FIDE "ID of Tournament" (IT3 B2) - the report's own numeric ID.
@@ -1340,6 +1346,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :swar_category_axis2,
       :category_rules,
       :category_prizes,
+      :rooms,
       :event_code,
       :fide_tournament_id,
       :fide_homologated,
@@ -1441,9 +1448,34 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> normalize_fide_id_ranges()
     |> normalize_rating_list_sequence()
     |> normalize_category_prizes()
+    |> validate_rooms()
     |> put_public_slug()
     |> pad_round_dates_to_rounds_count()
     |> derive_dates_from_round_dates()
+  end
+
+  # Rooms are tidied (names trimmed, boards rewritten, new rooms given an
+  # id) or refused, with every problem named, through the one checker the
+  # Rooms page also uses for its live feedback.
+  defp validate_rooms(changeset) do
+    case fetch_change(changeset, :rooms) do
+      :error ->
+        changeset
+
+      {:ok, nil} ->
+        put_change(changeset, :rooms, [])
+
+      {:ok, rooms} ->
+        case PairingsEngine.Rooms.normalize(rooms) do
+          {:ok, stored} ->
+            put_change(changeset, :rooms, stored)
+
+          {:error, problems} ->
+            Enum.reduce(problems, changeset, fn {_i, problem}, cs ->
+              add_error(cs, :rooms, PairingsEngine.Rooms.problem_text(problem))
+            end)
+        end
+    end
   end
 
   # `round_dates` is positional: entry i is round i+1's date, `""` when that

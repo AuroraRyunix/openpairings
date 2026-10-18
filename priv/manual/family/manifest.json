@@ -1,7 +1,7 @@
 {
   "programs": [
     {
-      "commit": "581bc864f25c7aebb78a748636eb57f45ccb2065",
+      "commit": "9b297a123993f41ff1e56b168e967289452d19ec",
       "dirty": false,
       "files": [
         {
@@ -45,7 +45,7 @@
       "slug": "alnasl"
     },
     {
-      "commit": "d97d71dd4c59ec0a035e670644f11e94c3ca5644",
+      "commit": "acc73ec9cf5f4481fa3b2004db2bcd5fe9a5b330",
       "dirty": false,
       "files": [
         {
@@ -59,7 +59,7 @@
       "slug": "arkab"
     },
     {
-      "commit": "08a6eac26e6c5216e2007e8ee7bdca2a11800545",
+      "commit": "e0b22bbf1b31d0833b60103606486055b0e8efc3",
       "dirty": false,
       "files": [
         {
@@ -73,7 +73,7 @@
       "slug": "ascella"
     },
     {
-      "commit": "de7e0b6a38e2b6ca2f1d8f5a6ba7947057fcd121",
+      "commit": "4c0f1539467bc274d0e277f70d18a8b64a57f837",
       "dirty": false,
       "files": [
         {
@@ -92,7 +92,7 @@
       "slug": "polis"
     },
     {
-      "commit": "2a47721b936d5676690abf1719b9769b36b67d74",
+      "commit": "d64c845db3a6a00cf936000e78411cb34fd237cb",
       "dirty": false,
       "files": [
         {
@@ -111,7 +111,7 @@
       "slug": "nunki"
     },
     {
-      "commit": "cc07dbfa4d3372f27dbf53e965d661a9d21144a0",
+      "commit": "6e218f47ebd33a6fd5db5918b1158bc776611291",
       "dirty": false,
       "files": [
         {

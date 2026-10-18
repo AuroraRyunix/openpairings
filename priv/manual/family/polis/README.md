@@ -52,9 +52,10 @@ mix deps.get
 mix phx.server
 ```
 
-Open `http://localhost:4061`. In OpenPairings (on pairings.cloud), open the tournament's *Print
-station* page and press *Add a print station*; paste the link it shows into
-the page. Choose the printer and the paper. That is the setup.
+Open `http://localhost:4061`. In OpenPairings (on pairings.cloud): the
+tournament's *Settings* → *Print station* → *Add a print station*; paste the
+link it shows into the page. Choose the printer and the paper. That is the
+setup.
 
 From then on, per tournament:
 
@@ -68,6 +69,17 @@ From then on, per tournament:
   and offers Reprint. A sheet on the wall that changes by itself is worse
   than one that is old.
 - **"Print round N again" in OpenPairings** prints what it names, at once.
+- **A share of the round.** A station can print only some categories and
+  some board numbers (`1-20, 35, 40-45`), and has a name and a room. When the
+  tournament has rooms in OpenPairings, the room is picked from them and a
+  board prints only if it is in that room; a server without rooms gets a
+  free-text label as before. All four are set on the station's page under *This station* or in
+  OpenPairings, and OpenPairings keeps them: a change made in either place
+  shows in the other at the next push. Nothing set is everything. A board
+  prints when it is in the room, its number is in the list and either player
+  is in a ticked category (a bye: its one player). A round with no board for this station
+  prints nothing at all; a sheet that is printed says its room and share in
+  the heading.
 
 The queue keeps the last fifty jobs with what happened to each, a Reprint
 button and the PDF. "Test print" prints a frame along the margins.

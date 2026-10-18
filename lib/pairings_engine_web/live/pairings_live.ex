@@ -4349,6 +4349,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     <span :if={@state == :none} id={"board-report-#{@pairing.id}"} class="board-report none">
       <span aria-hidden="true">-</span>
     </span>
+
     <.link
       :if={@state != :none}
       id={"board-report-#{@pairing.id}"}
@@ -4366,6 +4367,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         <% true -> %>
           {@report.result}
       <% end %>
+
       <span :if={@state == :mismatch} class="board-report-note">
         {gettext("differs")}
       </span>
@@ -4669,6 +4671,26 @@ defmodule PairingsEngineWeb.PairingsLive do
   # because one row is missing from this list.
   defp display_rows(pairings) do
     pairings |> Enum.reject(& &1.hidden) |> PairingDisplay.with_display_boards()
+  end
+
+  # The room's name on the first board of each run of boards in one room,
+  # so a hall of three rooms reads as three blocks and a hall of one reads
+  # as it always did. Rows of a tournament without rooms come back as
+  # they went in.
+  defp with_rooms(tournament, rows) do
+    case PairingsEngine.Rooms.list(tournament) do
+      [] ->
+        rows
+
+      rooms ->
+        rows
+        |> Enum.map_reduce(nil, fn row, previous ->
+          room = PairingsEngine.Rooms.room_for(rooms, row.board)
+          name = room && room.name
+          {Map.put(row, :room, if(name != previous, do: name)), name}
+        end)
+        |> elem(0)
+    end
   end
 
   # Label for a byes-table row's `type` - distinct from the "bye" badge
@@ -5569,7 +5591,6 @@ defmodule PairingsEngineWeb.PairingsLive do
 
         <div class="pe-modal-body">
           <.rr_numbers_chooser numbers={@numbers} />
-
           <div id="rr-numbers-lock-note" class="pe-modal-warn" role="alert">
             <strong>{gettext("The numbers cannot change after round 1.")}</strong>
             <p style="margin: 6px 0 0">
@@ -5722,9 +5743,11 @@ defmodule PairingsEngineWeb.PairingsLive do
         <button type="button" id="rr-numbers-draw" class="pe-btn" phx-click="rr_numbers_draw">
           {if @numbers.seed, do: gettext("Draw again"), else: gettext("Draw lots")}
         </button>
+
         <span :if={@numbers.seed == nil} class="hint">
           {gettext("Nothing is drawn yet.")}
         </span>
+
         <span :if={@numbers.seed} id="rr-numbers-seed" class="hint">
           {gettext("Draw %{seed}: it is written to the audit trail, and repeats the same order.",
             seed: @numbers.seed
@@ -5966,9 +5989,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                 "Each board is checked as you make it: a pair that already met in this cycle, or a third same colour running, needs its own tick. Finishing compares the round with the table's and checks that the rounds left can still pair everyone exactly once per cycle."
               )}
             </p>
-
             <.rr_numbers_chooser :if={@numbers} numbers={@numbers} />
-
             <div class="pe-modal-warn" role="alert">
               <strong>{gettext("A round that differs from the table is a departure from it.")}</strong>
               <p style="margin: 6px 0 0">
@@ -6682,7 +6703,6 @@ defmodule PairingsEngineWeb.PairingsLive do
           >
             {gettext("Record missing results as postponed and pair round %{n}", n: @round_number)}
           </button>
-
           <%!-- The primary button, one per stage. Not paired: pair it. --%>
           <button
             :if={@round == nil && @round_number == @next_pairable && !@tournament.archived_at}
@@ -6865,8 +6885,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               <%!-- The round's own changes. Swap rounds is a round robin's
                     whole schedule, so it is here even on a round not paired. --%>
               <%= if @more_swap? or @more_edits? do %>
-                <hr :if={@round != nil} />
-                <span class="pe-dropdown-label">{gettext("Round")}</span>
+                <hr :if={@round != nil} /> <span class="pe-dropdown-label">{gettext("Round")}</span>
                 <button
                   :if={@more_edits? && !@round.mpa_session}
                   type="button"
@@ -7000,8 +7019,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               <%!-- Unpairing deletes results: last, apart, red, and it still
                     asks. --%>
               <%= if @round != nil && @round_number == @paired_rounds && !@tournament.archived_at do %>
-                <hr />
-                <span class="pe-dropdown-label is-danger">{gettext("Danger zone")}</span>
+                <hr /> <span class="pe-dropdown-label is-danger">{gettext("Danger zone")}</span>
                 <button
                   type="button"
                   role="menuitem"
@@ -7635,8 +7653,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         new_enrollment={@new_enrollment}
         enrollments={@enrollments}
         local_mode?={PairingsEngine.Authz.local_mode?()}
-      />
-      <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
+      /> <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">
           <caption>{gettext("Matches - round %{n}", n: @round_number)}</caption>
@@ -7939,12 +7956,12 @@ defmodule PairingsEngineWeb.PairingsLive do
 
             <tr
               :for={
-                %{pairing: pairing, board: display_board} <-
-                  display_rows((@round && @round.pairings) || [])
+                %{pairing: pairing, board: display_board} = row <-
+                  with_rooms(@tournament, display_rows((@round && @round.pairings) || []))
               }
               id={"pairing-row-#{pairing.id}"}
             >
-              <td class="num" phx-no-format>{display_board}<.no_team :if={no_team?(@unattached_boards, pairing)} /></td>
+              <td class="num" phx-no-format><span :if={row[:room]} class="pairing-room" id={"pairing-room-#{pairing.id}"} title={row[:room]}>{row[:room]}</span>{display_board}<.no_team :if={no_team?(@unattached_boards, pairing)} /></td>
               <td class="pairing-white">
                 <.seat_cell
                   player={pairing.white_player}
