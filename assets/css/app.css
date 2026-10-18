@@ -8555,3 +8555,45 @@ select:not([multiple]):not([size]):disabled { cursor: not-allowed; opacity: 0.6;
 .phone-qr-form { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; margin: 0; }
 .phone-qr-form label { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
 .phone-qr-new { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; margin-top: 16px; }
+
+/* The "?" explainer (`PairingsEngineWeb.Components.Explain`): a small icon
+   button beside a label; hover, focus or a tap opens a popover with the
+   explanation. Theme tokens only. */
+.explain-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.explain { position: relative; display: inline-flex; align-items: center; }
+.explain-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+.explain-btn:hover, .explain[data-open] .explain-btn { color: var(--accent); }
+.explain-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.explain-icon { width: 1.25rem; height: 1.25rem; }
+.explain-pop {
+  display: none;
+  position: absolute;
+  z-index: 60;
+  top: calc(100% + 6px);
+  left: 0;
+  width: min(24rem, calc(100vw - 32px));
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.5;
+  text-align: left;
+}
+.explain[data-open] .explain-pop { display: block; }
+@media (prefers-reduced-motion: no-preference) {
+  .explain[data-open] .explain-pop { animation: tset-in 0.15s ease-out; }
+}
