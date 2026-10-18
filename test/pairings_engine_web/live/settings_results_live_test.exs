@@ -220,6 +220,39 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert has_element?(lv, ~s|#registration-settings-form [type="submit"]|)
     end
 
+    test "the entry fee and the pending-names switch save from the entry form card", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(lv, "#registration-settings-form input[name*=registration_fee_amount]")
+
+      assert has_element?(
+               lv,
+               "#registration-settings-form input[name*=registration_list_pending]"
+             )
+
+      lv
+      |> form("#registration-settings-form", %{
+        "registration_settings" => %{
+          "registration_fee_amount" => "15",
+          "registration_fee_currency" => "eur",
+          "registration_fee_note" => "Free for juniors",
+          "registration_list_public" => "true",
+          "registration_list_pending" => "false"
+        }
+      })
+      |> render_submit()
+
+      saved = Tournaments.get_tournament!(tournament.id)
+      assert saved.registration_fee_amount == "15"
+      assert saved.registration_fee_currency == "EUR"
+      assert saved.registration_fee_note == "Free for juniors"
+      assert saved.registration_list_pending == false
+    end
+
     test "each stop saves its step at once, and is audited", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")

@@ -150,7 +150,9 @@ defmodule PairingsEngine.TournamentExport do
   #     one the exporter was pointing at, and may not be one the exporter
   #     knows exists.
   #   registration_opens_at, registration_closes_at,
-  #   registration_max_players, registration_list_public
+  #   registration_max_players, registration_list_public,
+  #   registration_list_pending, registration_fee_amount,
+  #   registration_fee_currency, registration_fee_note
   #     The entry form's window, cap and entry-list switch (2026-09-30). Inert
   #     on their own - `registration_open` above is what opens the form, and
   #     it stays off on the new row - but they belong with it rather than with
@@ -251,7 +253,8 @@ defmodule PairingsEngine.TournamentExport do
     public_slug_minted_at public_slug_server public_slug_published_at
     registration_open publish_to_openresults deleted_at archived_at
     registration_opens_at registration_closes_at registration_max_players
-    registration_list_public
+    registration_list_public registration_list_pending
+    registration_fee_amount registration_fee_currency registration_fee_note
     swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim openresults_group_sent

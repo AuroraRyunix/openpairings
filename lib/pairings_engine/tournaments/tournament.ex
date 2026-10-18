@@ -538,6 +538,19 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # Whether the form page may list who has entered. Off by default: it puts
     # names on a page the arbiter did not otherwise choose.
     field :registration_list_public, :boolean, default: false
+    # Whether that list also shows the entries still waiting for a decision,
+    # by name and marked unconfirmed (decided 2026-10-18). Only means anything
+    # while `registration_list_public` is on. On by default - the arbiter's
+    # Discard is what takes a name back off, and it does so at the next
+    # publish, which a decision enqueues.
+    field :registration_list_pending, :boolean, default: true
+    # What the form says it costs: an amount ("12.50"), a currency (three
+    # letters) and free text ("free for juniors"). Any may be empty. A
+    # statement on the form and nothing more - nothing here takes payment,
+    # and `Player.paid` is still the arbiter's own tick.
+    field :registration_fee_amount, :string
+    field :registration_fee_currency, :string
+    field :registration_fee_note, :string
 
     # Whether this tournament is published to OpenResults at all. Toggled by
     # Tournaments.set_publish_to_openresults/2, and NOT cast by changeset/2
@@ -1274,7 +1287,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :registration_opens_at,
       :registration_closes_at,
       :registration_max_players,
-      :registration_list_public
+      :registration_list_public,
+      :registration_list_pending,
+      :registration_fee_amount,
+      :registration_fee_currency,
+      :registration_fee_note
     ])
     |> validate_number(:registration_max_players,
       greater_than: 0,
@@ -1282,7 +1299,56 @@ defmodule PairingsEngine.Tournaments.Tournament do
       message: "must be a whole number of players, at least 1"
     )
     |> validate_window()
+    |> validate_fee()
   end
+
+  # An amount is digits with at most two decimals, a comma accepted for a dot
+  # and stored with the dot. A currency is three letters, defaulting to EUR
+  # when an amount comes without one. The note is free text, stripped of
+  # control characters because it is printed on a public page. Whatever is
+  # blank becomes nil.
+  defp validate_fee(changeset) do
+    changeset =
+      changeset
+      |> update_change(:registration_fee_amount, &fee_amount/1)
+      |> update_change(
+        :registration_fee_currency,
+        &blank_to_nil(String.upcase(String.trim(&1 || "")))
+      )
+      |> update_change(:registration_fee_note, &fee_note/1)
+
+    amount = get_field(changeset, :registration_fee_amount)
+
+    changeset =
+      if amount && is_nil(get_field(changeset, :registration_fee_currency)),
+        do: put_change(changeset, :registration_fee_currency, "EUR"),
+        else: changeset
+
+    changeset
+    |> validate_format(:registration_fee_amount, ~r/^\d{1,6}(\.\d{1,2})?$/,
+      message: "must be an amount like 12 or 12.50"
+    )
+    |> validate_format(:registration_fee_currency, ~r/^[A-Z]{3}$/,
+      message: "must be a three-letter currency code, like EUR"
+    )
+    |> validate_length(:registration_fee_note, max: 120)
+  end
+
+  defp fee_amount(value) do
+    value |> to_string() |> String.trim() |> String.replace(",", ".") |> blank_to_nil()
+  end
+
+  defp fee_note(value) do
+    value
+    |> to_string()
+    |> String.replace(~r/[[:cntrl:]]+/u, " ")
+    |> String.replace(~r/\s+/u, " ")
+    |> String.trim()
+    |> blank_to_nil()
+  end
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(value), do: value
 
   defp validate_window(changeset) do
     opens = get_field(changeset, :registration_opens_at)

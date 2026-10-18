@@ -1478,19 +1478,61 @@ defmodule PairingsEngine.Snapshot do
   # Keys only for what the arbiter set, so an unrestricted form sends
   # `%{"taken" => n, "list_public" => false}` and nothing that reads as a
   # restriction. `taken` counts the entry list plus the entries waiting here
-  # for a decision: both are places a newcomer is behind. A count, never a
-  # name - an undecided entry is a stranger's claim, and no part of one
-  # travels in a snapshot.
+  # for a decision: both are places a newcomer is behind.
+  #
+  # `pending` is the one place an undecided entry's NAME travels (decided
+  # 2026-10-18), and it travels only when the arbiter has switched on both the
+  # public entry list and its "pending entries by name" half. Names alone: no
+  # email, rating or anything else a stranger typed. Discarded and accepted
+  # entries are not in it - accepted ones are players by then - so a Discard
+  # takes a name off the public page at the next publish, which the decision
+  # itself enqueues. Capped, because a flood of junk entries should not turn
+  # into a flood of junk on a public page.
   defp registration_row(%Tournament{} = t) do
     %{
       "opens_at" => iso_instant(t.registration_opens_at),
       "closes_at" => iso_instant(t.registration_closes_at),
       "max_players" => t.registration_max_players,
       "taken" => places_taken(t),
-      "list_public" => t.registration_list_public == true
+      "list_public" => t.registration_list_public == true,
+      "fee" => fee_row(t),
+      "pending" => pending_names(t)
     }
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
     |> Map.new()
+  end
+
+  @max_pending_names 200
+
+  defp pending_names(%Tournament{id: id} = t) when is_integer(id) do
+    if t.registration_list_public == true and t.registration_list_pending != false do
+      id
+      |> PairingsEngine.Registrations.pending()
+      |> Enum.map(&PairingsEngine.Registrations.Registration.listable_name/1)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.take(@max_pending_names)
+      |> Enum.map(&%{"name" => &1})
+      |> case do
+        [] -> nil
+        names -> names
+      end
+    end
+  end
+
+  defp pending_names(%Tournament{}), do: nil
+
+  defp fee_row(%Tournament{} = t) do
+    %{
+      "amount" => t.registration_fee_amount,
+      "currency" => if(t.registration_fee_amount, do: t.registration_fee_currency),
+      "note" => t.registration_fee_note
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
+    |> case do
+      empty when map_size(empty) == 0 -> nil
+      fee -> fee
+    end
   end
 
   defp places_taken(%Tournament{id: id}) when is_integer(id),

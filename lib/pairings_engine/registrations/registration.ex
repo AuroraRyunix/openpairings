@@ -92,4 +92,31 @@ defmodule PairingsEngine.Registrations.Registration do
         nil
     end
   end
+
+  @doc """
+  The entrant's name as it may appear on a public page, or nil.
+
+  A stranger typed it into a public form, so it is cleaned before it goes
+  anywhere: control characters become spaces, runs of whitespace collapse,
+  and it is cut at 100 characters. A nameless entry yields nil and is simply
+  not listed. Escaping is the page's job and HEEx does it.
+  """
+  @spec listable_name(t()) :: String.t() | nil
+  def listable_name(%__MODULE__{} = registration) do
+    case registration |> player_data() |> Map.get("name") do
+      name when is_binary(name) ->
+        name
+        |> String.replace(~r/[[:cntrl:]]+/u, " ")
+        |> String.replace(~r/\s+/u, " ")
+        |> String.trim()
+        |> String.slice(0, 100)
+        |> case do
+          "" -> nil
+          clean -> clean
+        end
+
+      _not_a_string ->
+        nil
+    end
+  end
 end

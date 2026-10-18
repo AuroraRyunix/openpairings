@@ -276,13 +276,94 @@ defmodule PairingsEngine.RegistrationWorkflowTest do
                "closes_at" => "2026-10-20T20:00:00Z",
                "max_players" => 60,
                "taken" => 3,
-               "list_public" => true
+               "list_public" => true,
+               "pending" => [%{"name" => "janssens lotte"}, %{"name" => "Peeters, Jan"}]
              }
 
       # A decision frees a place, and the count follows.
       [pending | _] = Registrations.pending(t.id)
       {:ok, _} = Registrations.discard(pending)
       assert Snapshot.build(t)["tournament"]["registration"]["taken"] == 2
+    end
+
+    test "pending names travel only with the public list, and a decision takes them off" do
+      t = tournament()
+      serve([entry(1, lotte()), entry(2, %{"name" => "Peeters, Jan", "email" => @email})])
+      {:ok, _} = Registrations.pull(t)
+
+      # List off: no names, only the count.
+      refute Map.has_key?(Snapshot.build(t)["tournament"]["registration"], "pending")
+
+      {:ok, t} = Tournaments.set_registration_settings(t, %{"registration_list_public" => "true"})
+
+      assert [%{"name" => "janssens lotte"}, _] =
+               Snapshot.build(t)["tournament"]["registration"]["pending"]
+
+      # Discard: gone from the very next snapshot.
+      [first | _] = Registrations.pending(t.id)
+      {:ok, _} = Registrations.discard(first)
+
+      assert [%{"name" => "Peeters, Jan"}] =
+               Snapshot.build(t)["tournament"]["registration"]["pending"]
+
+      # The arbiter's own switch for the names.
+      {:ok, t} =
+        Tournaments.set_registration_settings(t, %{"registration_list_pending" => "false"})
+
+      refute Map.has_key?(Snapshot.build(t)["tournament"]["registration"], "pending")
+      assert Snapshot.build(t)["tournament"]["registration"]["list_public"] == true
+    end
+
+    test "a pending name is cleaned and capped before it travels, and carries nothing else" do
+      t = tournament()
+
+      serve([
+        entry(1, %{"name" => "Evil\u0007\n  Name <b>x</b>", "email" => @email, "rating" => 2900}),
+        entry(2, %{"name" => String.duplicate("x", 300), "email" => @email}),
+        entry(3, %{"name" => "   ", "email" => @email})
+      ])
+
+      {:ok, _} = Registrations.pull(t)
+      {:ok, t} = Tournaments.set_registration_settings(t, %{"registration_list_public" => "true"})
+
+      assert [first, second] = Snapshot.build(t)["tournament"]["registration"]["pending"]
+      assert first == %{"name" => "Evil Name <b>x</b>"}
+      assert String.length(second["name"]) == 100
+    end
+
+    test "the fee is stated, normalised and validated" do
+      t = tournament()
+      refute Map.has_key?(Snapshot.build(t)["tournament"]["registration"], "fee")
+
+      assert {:ok, t} =
+               Tournaments.set_registration_settings(t, %{
+                 "registration_fee_amount" => " 12,5 ",
+                 "registration_fee_currency" => "",
+                 "registration_fee_note" => "Free for\njuniors"
+               })
+
+      assert Snapshot.build(t)["tournament"]["registration"]["fee"] ==
+               %{"amount" => "12.5", "currency" => "EUR", "note" => "Free for juniors"}
+
+      # A note alone is a fee statement too.
+      assert {:ok, t} =
+               Tournaments.set_registration_settings(t, %{
+                 "registration_fee_amount" => "",
+                 "registration_fee_currency" => "usd"
+               })
+
+      assert Snapshot.build(t)["tournament"]["registration"]["fee"] ==
+               %{"note" => "Free for juniors"}
+
+      assert {:error, changeset} =
+               Tournaments.set_registration_settings(t, %{"registration_fee_amount" => "lots"})
+
+      assert %{registration_fee_amount: [_]} = errors_on(changeset)
+
+      assert {:ok, t} =
+               Tournaments.set_registration_settings(t, %{"registration_fee_note" => ""})
+
+      refute Map.has_key?(Snapshot.build(t)["tournament"]["registration"], "fee")
     end
 
     test "saving them enqueues a publish, like opening the form does" do
