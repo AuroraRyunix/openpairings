@@ -30,7 +30,10 @@ bedenktijd, arbiters, rondedatums), de spelers met hun FIDE-ID's, ratings, titel
 geboortedata, de rondes, de paringen, de resultaten en de byes. De startrangschikking
 van het bestand wordt het paringsnummer. Het type van het toernooi wordt uit het
 bestand overgenomen (Zwitsers, rondetoernooi, ploegen). Het onbekende resultaat `?`
-komt terug als uitgestelde partij. Ploegenbestanden geven de ploegen en hun
+komt terug als uitgestelde partij. Een bord dat het bestand paart maar nog zonder
+resultaat (een bestand dat bewaard werd terwijl de ronde gespeeld werd) komt terug
+als een partij die nog gespeeld wordt: het importverslag noemt de ronde, en de
+volgende ronde wacht op het resultaat. Ploegenbestanden geven de ploegen en hun
 bordvolgorden, en de matches van elke ronde die uit de borden kunnen worden afgeleid
 (een ronde waarvan de matches onduidelijk zijn, wordt benoemd, niet geraden).
 

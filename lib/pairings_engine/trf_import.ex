@@ -735,6 +735,7 @@ defmodule PairingsEngine.TrfImport do
       warnings =
         points_warnings(tournament, data, players_by_rank, paired) ++
           unknown_result_warnings(data) ++
+          open_board_warnings(data) ++
           notes ++ acceleration_notes ++ verification_warnings(data, paired)
 
       tournament = Repo.reload!(tournament)
@@ -1336,7 +1337,7 @@ defmodule PairingsEngine.TrfImport do
           for p <- sorted,
               game = Enum.at(p.games, round_number - 1),
               game != nil,
-              game.result not in [nil, ""],
+              game.result not in [nil, ""] or open_game?(game),
               do: {p, game}
 
         {round_number, entries}
@@ -1450,9 +1451,18 @@ defmodule PairingsEngine.TrfImport do
             nil ->
               visited = MapSet.put(visited, p.rank)
 
-              case single_sided(p, g, team?) do
-                {:pairing, item} -> {visited, [item | pairings], byes}
-                {:bye, item} -> {visited, pairings, [item | byes]}
+              cond do
+                # Half a board: one seat says it is open, the other says
+                # something else, or nothing. Dropped, as every blank entry
+                # was before - there is no game to keep and no bye to award.
+                open_game?(g) ->
+                  {visited, pairings, byes}
+
+                true ->
+                  case single_sided(p, g, team?) do
+                    {:pairing, item} -> {visited, [item | pairings], byes}
+                    {:bye, item} -> {visited, pairings, [item | byes]}
+                  end
               end
           end
         end
@@ -1508,7 +1518,31 @@ defmodule PairingsEngine.TrfImport do
     end
   end
 
+  # A board paired and not played yet: an opponent and a colour, and a
+  # blank where the result goes, on both seats. This app's own export writes
+  # exactly that mid-round, and so does every other program. It used to be
+  # dropped here, silently, which left the round looking finished and let
+  # the next one be paired over games nobody had played. It is kept as a
+  # pairing with no result (`""`), so the round is "playing" and the next
+  # one waits for it, as it would have in the program the file came from.
+  defp mutual_opponent(p, %{result: result, opponent_rank: opp_rank}, by_rank)
+       when result in [nil, ""] and not is_nil(opp_rank) do
+    with {opp, opp_g} <- Map.get(by_rank, opp_rank),
+         true <- opp.rank != p.rank,
+         true <- opp_g.opponent_rank == p.rank,
+         true <- opp_g.result in [nil, ""] do
+      {opp, opp_g}
+    else
+      _ -> nil
+    end
+  end
+
   defp mutual_opponent(_p, _g, _by_rank), do: nil
+
+  defp open_game?(%{result: result, opponent_rank: opp_rank}),
+    do: result in [nil, ""] and not is_nil(opp_rank)
+
+  defp open_game?(_game), do: false
 
   defp pair_game(p, g, opp, opp_g) do
     {white_p, white_code, black_p, black_code} =
@@ -2269,6 +2303,25 @@ defmodule PairingsEngine.TrfImport do
     case Enum.sort(Enum.uniq(rounds)) do
       [] -> []
       rounds -> [%{kind: :postponed_imported, rounds: rounds}]
+    end
+  rescue
+    _ -> []
+  end
+
+  # The rounds the file has paired and not finished: a board with both
+  # players and no result. They came in as boards still being played, so
+  # the arbiter is told which rounds wait for results before the next one
+  # can be paired.
+  defp open_board_warnings(data) do
+    rounds =
+      for player <- data.players,
+          {game, index} <- Enum.with_index(player[:games] || [], 1),
+          open_game?(game),
+          do: index
+
+    case Enum.sort(Enum.uniq(rounds)) do
+      [] -> []
+      rounds -> [%{kind: :open_boards_imported, rounds: rounds}]
     end
   rescue
     _ -> []

@@ -30,7 +30,10 @@ dates, time control, arbiters, round dates), the players with their FIDE IDs,
 ratings, titles and birth dates, the rounds, the pairings, the results and the
 byes. The starting rank of the file becomes the pairing number. The type of the
 tournament is taken from the file (Swiss, round robin, team). The unknown result `?`
-comes back as a postponed game. Team files give the teams and their board
+comes back as a postponed game. A board the file pairs without a result yet (a
+file saved while the round was being played) comes back as a game still being
+played: the import report names its round, and the next round waits for its
+result. Team files give the teams and their board
 orders, and the matches of each round that can be worked out from the boards
 (a round whose matches are unclear is named, not guessed).
 
