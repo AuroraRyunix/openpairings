@@ -118,8 +118,8 @@ defmodule PairingsEngine.TeamSwiss do
       next > tournament.rounds_count ->
         {:error, {:all_rounds_paired, tournament.rounds_count}}
 
-      not Engine.round_complete?(tournament.id, paired) ->
-        {:error, "Round #{paired} still has missing results"}
+      open = Engine.first_incomplete_round(tournament.id) ->
+        {:error, "Round #{open} still has missing results"}
 
       true ->
         # Round 1 of an event whose teams were not ordered by hand: seeded

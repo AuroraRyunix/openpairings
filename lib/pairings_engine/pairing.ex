@@ -202,8 +202,8 @@ defmodule PairingsEngine.Pairing do
         length(eligible) < 2 ->
           {:error, "At least two active players are needed"}
 
-        not round_complete?(tournament.id, paired) ->
-          {:error, "Round #{paired} still has missing results"}
+        open = first_incomplete_round(tournament.id) ->
+          {:error, "Round #{open} still has missing results"}
 
         true ->
           active =
@@ -444,8 +444,8 @@ defmodule PairingsEngine.Pairing do
       next_number > max_pairable_round(tournament) ->
         {:error, {:all_rounds_paired, tournament.rounds_count}}
 
-      not round_complete?(tournament.id, paired) ->
-        {:error, "Round #{paired} still has missing results"}
+      open = first_incomplete_round(tournament.id) ->
+        {:error, "Round #{open} still has missing results"}
 
       true ->
         # Numbered as the engine's round 1 numbers them: a newcomer among
@@ -755,6 +755,28 @@ defmodule PairingsEngine.Pairing do
 
   def paired_rounds_count(tournament_id) do
     Repo.aggregate(from(r in Round, where: r.tournament_id == ^tournament_id), :count)
+  end
+
+  @doc """
+  The oldest paired round of `tournament_id` with a board still waiting for
+  its result (`result == ""`), or `nil` when there is none.
+
+  This, not `round_complete?/2` on the last round, is what holds the next
+  round up. Checking only the last round looked sufficient right up until
+  someone cleared a round-1 result after round 2 was in: the engine then
+  reads that game as never played and cheerfully pairs the same two again
+  (C.04.3 C1). The match format's first leg slipped past the same way,
+  since "the last round" is the second leg. A postponed game (`"*"`) is not
+  a blank and holds nothing up, as before.
+  """
+  def first_incomplete_round(tournament_id) do
+    Repo.one(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id and p.result == "",
+        select: min(r.number)
+    )
   end
 
   def round_complete?(_tournament_id, 0), do: true

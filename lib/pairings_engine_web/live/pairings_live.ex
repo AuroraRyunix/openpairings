@@ -426,7 +426,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         # the table does not wait for them after a round paired by hand.
         can_pair:
           setup_complete and paired < t.rounds_count and
-            (t.pairing_system == "round_robin" or Engine.round_complete?(t.id, paired)),
+            (t.pairing_system == "round_robin" or is_nil(Engine.first_incomplete_round(t.id))),
         # VCL4THP Q100: a round robin's next round can be paired by hand.
         rr_by_hand: RoundRobin.by_hand?(t),
         # The round whose manual pairing alteration is still open, if any:

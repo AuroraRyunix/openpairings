@@ -116,8 +116,8 @@ defmodule PairingsEngine.Keizer do
       length(eligible) < 2 ->
         {:error, "At least two active players are needed"}
 
-      not Engine.round_complete?(tournament.id, paired) ->
-        {:error, "Round #{paired} still has missing results"}
+      open = Engine.first_incomplete_round(tournament.id) ->
+        {:error, "Round #{open} still has missing results"}
 
       true ->
         do_pair(tournament, next_number, eligible, paired)
