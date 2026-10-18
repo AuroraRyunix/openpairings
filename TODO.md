@@ -455,10 +455,10 @@ what stays parked here is the acceptance cycle and the dropped items.
   ~~**0.51.0 deployed 2026-09-08**, carrying everything from 0.44.0 up:
   the soft pairing rules, TRF26 both directions, the rationale page, the
   audit's three worst groups, the anonymous-tools rate limit and the
-  players-grid fixes. OpenResults went with it.~~ **0.95.0 deployed
-  2026-10-18, with OpenResults 0.26.0** (the 0.51.0 deploy of 2026-09-08 is
-  history). Anything released after 0.95.0 is not on the box until the next
-  deploy.
+  players-grid fixes. OpenResults went with it.~~ **0.97.2 deployed
+  2026-10-18**, with OpenResults main of the same evening (installation
+  names, tie-break explanations) and the website rebuilt to 0.97.2.
+  Anything released after 0.97.2 is not on the box until the next deploy.
 - ~~**Rotate the secrets** that reached a session scrollback on 2026-08-29.~~
   Done by the maintainer, confirmed 2026-09-11.
 - ~~**FIDE search does not work for a laptop arbiter behind NAT**~~ - gone
