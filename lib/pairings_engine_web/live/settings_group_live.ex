@@ -174,15 +174,15 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
             for the switcher's reason. --%>
         <div class="card" id="group-card">
           <h2>{gettext("Group")}</h2>
-          
+
           <p class="hint" style="margin-top: 0">
             {gettext(
               "Several tournaments of one event - the Open, a youth section, a rapid on the side - can be put in a group. Each keeps its own players, rounds and pairings; the group adds a switcher at the top of every page that opens the same page of another one."
             )}
           </p>
-          
+
           <p :if={@group_error} id="group-error" class="error-note" role="alert">{@group_error}</p>
-          
+
           <%= if @group_switcher do %>
             <.form
               for={@group_rename_form}
@@ -198,7 +198,7 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
                 required
               /> <button type="submit" class="pe-btn">{gettext("Rename")}</button>
             </.form>
-            
+
             <.form
               for={@group_label_form}
               id="group-label-form"
@@ -213,11 +213,11 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
                 maxlength={Member.max_label()}
               /> <button type="submit" class="pe-btn">{gettext("Save label")}</button>
             </.form>
-            
+
             <p class="hint" style="margin-top: 0">
               {gettext("Leave the label empty to show the tournament's own name.")}
             </p>
-            
+
             <%!-- What the group means off this machine. The link exists only
                 when this tournament's published page really is shown as part
                 of the event - see `TournamentGroups.published_block/1`. --%>
@@ -235,7 +235,7 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
                 {gettext("Open the event page")}
               </a>
             </p>
-            
+
             <ol class="tb-list" id="group-order">
               <li
                 :for={{m, i} <- Enum.with_index(@group_switcher.members)}
@@ -247,10 +247,10 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
                     {m.label}
                     <span :if={m.current?} class="badge muted">{gettext("this tournament")}</span>
                   </div>
-                  
+
                   <div :if={m.label != m.name} class="tb-desc">{m.name}</div>
                 </div>
-                
+
                 <div class="tb-buttons">
                   <button
                     type="button"
@@ -265,7 +265,7 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
                   >
                     ↑
                   </button>
-                  
+
                   <button
                     type="button"
                     class="pe-btn"
@@ -282,7 +282,7 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
                 </div>
               </li>
             </ol>
-            
+
             <div class="actions">
               <button
                 type="button"
@@ -315,7 +315,7 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
                 required
               /> <button type="submit" class="pe-btn primary">{gettext("Create group")}</button>
             </.form>
-            
+
             <.form
               :if={@joinable_groups != []}
               for={@group_join_form}
