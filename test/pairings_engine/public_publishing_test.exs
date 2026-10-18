@@ -898,6 +898,33 @@ defmodule PairingsEngine.PublicPublishingTest do
       Publishing.put_endpoint(nil)
       assert Installation.key() == Server.key()
     end
+
+    # The domain move: a copy registered under the old name followed the
+    # default to the new one, re-registered, and re-minted every slug, which
+    # left the old pages on the site frozen. The old name is the same server.
+    test "the site's old name and new name are one server: key, consent and slugs survive" do
+      Publishing.put_endpoint("https://openresults.zerotwo.cloud")
+      register!()
+      key = Installation.key()
+      assert is_binary(key)
+
+      t = tournament()
+      Server.install(self())
+      Publishing.enqueue(t)
+      assert {1, 0} = Publishing.drain()
+      published = Tournaments.get_tournament!(t.id)
+      assert published.public_slug_server == "https://openresults.zerotwo.cloud"
+
+      Publishing.put_endpoint(nil)
+      assert Publishing.endpoint() == "https://openresults.cloud"
+      assert Installation.key() == key
+      assert Installation.consented?()
+      assert Publishing.public_slug_state(published) == :published
+
+      assert Publishing.same_server?("https://openresults.cloud/", "https://openresults.cloud")
+      refute Publishing.same_server?("https://openresults.cloud", "https://results.example")
+      refute Publishing.same_server?(nil, "https://openresults.cloud")
+    end
   end
 
   describe "an operator token entered later" do

@@ -112,7 +112,7 @@ defmodule PairingsEngine.Publishing.Installation do
   @spec key() :: String.t() | nil
   def key do
     with key when is_binary(key) and key != "" <- Meta.get(@key),
-         true <- Meta.get(@server) == server() do
+         true <- Publishing.same_server?(Meta.get(@server), server()) do
       key
     else
       _ -> nil
@@ -136,7 +136,7 @@ defmodule PairingsEngine.Publishing.Installation do
   def consent do
     with raw when is_binary(raw) <- Meta.get(@consent),
          {:ok, %{"server" => server} = map} <- Jason.decode(raw),
-         true <- server == server() do
+         true <- Publishing.same_server?(server, server()) do
       %{
         operator: map["operator"],
         terms_url: map["terms_url"],

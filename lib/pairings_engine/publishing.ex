@@ -177,9 +177,35 @@ defmodule PairingsEngine.Publishing do
   # Overridable with OPENRESULTS_PUBLIC_URL (`config :pairings_engine,
   # :openresults_public_url`). This compiled value is what a desktop copy
   # uses, since it has no environment to set it from. Moved to
-  # openresults.cloud in 0.90.0; the old name still answers, so copies that
-  # predate the move keep publishing where they always did.
+  # openresults.cloud in 0.90.0. The old name still answers - but a copy
+  # that never stored an address simply followed the default to the new
+  # name, and an installation key and every slug are bound to the address
+  # they were issued on. So the first publish after the upgrade registered a
+  # brand-new installation and minted brand-new slugs, and the old pages sat
+  # on the site, frozen, looking current. Two names, one server: see
+  # `same_server?/2`.
   @public_server "https://openresults.cloud"
+
+  # Addresses that are the same results site under another name. Keys are
+  # the old name, values the name it is now; a slug or key bound to either
+  # is good for both.
+  @server_aliases %{"https://openresults.zerotwo.cloud" => "https://openresults.cloud"}
+
+  @doc """
+  Whether two results-site addresses are the same server: equal once a
+  trailing slash and a known old name (`@server_aliases`) are set aside.
+  What an installation key, its consent and a minted slug are bound to is
+  the server, not the spelling of its address.
+  """
+  def same_server?(a, b) when is_binary(a) and is_binary(b),
+    do: canonical_server(a) == canonical_server(b)
+
+  def same_server?(_a, _b), do: false
+
+  defp canonical_server(url) do
+    url = url |> String.trim() |> String.trim_trailing("/")
+    Map.get(@server_aliases, url, url)
+  end
 
   @doc """
   The results site this build publishes to when nothing else is configured -
@@ -1072,9 +1098,15 @@ defmodule PairingsEngine.Publishing do
 
   def public_slug_state(%Tournament{} = tournament) do
     cond do
-      tournament.public_slug_server not in [nil, endpoint()] -> :elsewhere
-      is_nil(tournament.public_slug_published_at) -> :minted
-      true -> :published
+      not (is_nil(tournament.public_slug_server) or
+               same_server?(tournament.public_slug_server, endpoint())) ->
+        :elsewhere
+
+      is_nil(tournament.public_slug_published_at) ->
+        :minted
+
+      true ->
+        :published
     end
   end
 

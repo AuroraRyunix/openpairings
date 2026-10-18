@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.97.0] - 2026-10-18
+
+- [Fix] **The results site's new name no longer leaves your old pages behind.** A desktop copy that publishes to OpenResults without a configured address followed the default from openresults.zerotwo.cloud to openresults.cloud. The installation key and every page address are bound to the server that issued them, and the program took the new name for a new server: it registered again, gave every tournament a new address, and left the old pages up and frozen, looking perfectly current to anyone holding the old link. The two names are now one server. Copies that have not published since the move keep their key and their addresses; copies that already moved keep the new ones, and the frozen old pages are for the site's operator to take down.
 - [Feature] **A long event can be reported once, at the end.** Under "Tournament lasts more than 30 days" a new choice, *Reporting to FIDE*: monthly reports (what it did before, and still the default) or one report at the end, as most club championships are actually registered. In the second mode the rating inbox counts every round from the last day like any short tournament, so October stops being "overdue" in November for a file nobody meant to send until April. Send warns, without refusing, when the file holds fewer rounds than the tournament, because FIDE takes a report only against a registration with the same number of rounds; monthly mode gets a one-line reminder of the same rule. A postponed game played before the final report is just a result in it, and the Export page now says so instead of letting you build a separate file for it.
 
 ## [0.96.0] - 2026-10-18
