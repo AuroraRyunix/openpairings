@@ -6,8 +6,10 @@ See [`docs/features.md`](docs/features.md) for what's already shipped.
 > **A second whole-codebase sweep ran on 2026-09-01** - 33 items, in
 > [docs/sweep-2026-09-01.md](docs/sweep-2026-09-01.md): 3 High, 14 Medium,
 > 9 Low, 3 leads, 4 optimisations. **All fixed on 2026-09-02** except two
-> leads left deliberately - a dead `matches` table, and whether a CI runner
-> image ships a populated keyring. Every claim was checked against the
+> leads left deliberately - ~~a dead `matches` table~~ (**closed: no longer
+> dead** - team tournaments, since 2026-09-13, use `matches` and
+> `pairings.match_id`: `team_rounds.ex`, `board_link/document.ex`,
+> `snapshot.ex`), and whether a CI runner image ships a populated keyring. Every claim was checked against the
 > source before it was filed, and the six whose mechanism was dynamic were
 > reproduced with a test first. The runtime layer (OTP, Phoenix, LiveView,
 > SQLite) was checked against 2026 advisories and is clean; the box runs
@@ -184,7 +186,7 @@ happened three times, the last inside the three days the followup covers.
 - ~~`docs/features.md` said 0.17.1~~ while `mix.exs` said 0.18.0. The
   sweep's own version-drift item, which had recurred three days after being
   filed - the standing argument for the pre-commit version check it
-  suggested, which is still not built.
+  suggested, ~~which is still not built~~ - **built 2026-08-30**.
 - ~~The sweep had two pairs of duplicate entries~~ (Drift #5/#6 and
   #10/#11). Left in place so the numbering every other document cites still
   resolves, with a note at the head of that section saying a count taken
@@ -201,9 +203,12 @@ known since 0.17.1.
 Still open, and each needs a decision rather than typing:
 
 - **Norms-vs-Settings** - the pointer card shipped, the page move did not.
-  A product call about where norms live.
+  A product call about where norms live. **Decided 2026-10-18 by the
+  maintainer: officials and norms get their own Settings page. In progress
+  2026-10-18 (being built), not done.**
 - **ITDX `?` unknown-result code** - PARKED 2026-08-30, deliberately, and
-  owed. `docs/tec-feedback-2026-09.md` section C.2 tells TEC "We will
+  owed. **In progress 2026-10-18: being finished** (together with the
+  big-Swiss norm detection); the design below stands. `docs/tec-feedback-2026-09.md` section C.2 tells TEC "We will
   implement `?`", the letter has gone, and nothing implements it.
 
   **No effect on a real tournament, which is why it can wait.** Nothing can
@@ -287,13 +292,17 @@ Still open, and each needs a decision rather than typing:
   node spans lines. The instrument that would settle it is a pseudo-locale;
   not built, and nobody has asked.
 
-### Parked by decision
+### Parked by decision (and entries since built)
+
+The heading used to cover Team Swiss too. That is built now (see its entry);
+what stays parked here is the acceptance cycle and the dropped items.
 
 - **The 2026 Acceptance Cycle** - five hard failures, FIDE Mode being the
   spine. Detailed in the next section. Q208 came off this list on
   2026-08-29 when ARO was fixed, because it was never only an acceptance
   item.
-- **Team Swiss (C.04.6)** - phase 2 of team tournaments, **built 2026-09-13,
+- ~~**Team Swiss (C.04.6)**~~ - **BUILT, no longer parked; only the SPP
+  questions 5-7 remain open.** Phase 2 of team tournaments, **built 2026-09-13,
   released in 0.62.0 (2026-09-14)**: `PairingsEngine.TeamSwiss` pairs team
   against team with Ainalrami's `TeamPairing` (Ainalrami pinned at v0.32.0
   now), Article 16 in the team tie-breaks, the initial-colour draw for
@@ -466,24 +475,32 @@ Still open, and each needs a decision rather than typing:
   reviewed in a queue on the Players page, prefilled from the FIDE and
   KBSB lists, with duplicates flagged. See `docs/public-pages.md`,
   "The workflow, end to end". Open decisions for the maintainer:
-  - **Confirmation e-mails to entrants** (received / accepted / turned
-    down): which sender and provider, and whether at all. Nothing sends
-    today; the decision points are `Registrations.accept/2` and
-    `discard/1`.
-  - **Entry fees**: whether the form should state a fee, and whether
-    payment belongs anywhere near it. `Player.paid` exists and accepting
-    leaves it at its default ("not paid").
-  - **Pending entries on the public list**: shown only as a count now.
-    Listing them by name (as some sites do, marked "unconfirmed") would put
-    unchecked, possibly abusive names on a public page.
+  - ~~**Confirmation e-mails to entrants** (received / accepted / turned
+    down): which sender and provider, and whether at all.~~ **Decided
+    2026-10-18 by the maintainer: no confirmation e-mails at all.** Nothing
+    sends, and nothing will; the decision points were
+    `Registrations.accept/2` and `discard/1`. **In progress 2026-10-18**
+    (being built together with the two items below).
+  - ~~**Entry fees**: whether the form should state a fee.~~ **Decided
+    2026-10-18: the form states the entry fee.** Payment stays out of it:
+    `Player.paid` exists and accepting leaves it at its default ("not paid").
+    **In progress 2026-10-18 (being built), not done.**
+  - ~~**Pending entries on the public list**: shown only as a count.~~
+    **Decided 2026-10-18: pending entries are listed by name, marked
+    unconfirmed.** (The objection stands - unchecked, possibly abusive names
+    on a public page - and the maintainer weighed it and decided anyway.)
+    **In progress 2026-10-18 (being built), not done.**
 
 ### Operational - the maintainer's, not the code's
 
 - **Deploy.** ~~Nothing since 2026-08-29 morning is on the box.~~
-  **0.51.0 deployed 2026-09-08**, carrying everything from 0.44.0 up:
+  ~~**0.51.0 deployed 2026-09-08**, carrying everything from 0.44.0 up:
   the soft pairing rules, TRF26 both directions, the rationale page, the
   audit's three worst groups, the anonymous-tools rate limit and the
-  players-grid fixes. OpenResults went with it.
+  players-grid fixes. OpenResults went with it.~~ **0.94.0 deployed
+  2026-10-18** (the 0.51.0 deploy of 2026-09-08 is history). Anything
+  released after 0.94.0 is not on the box until the maintainer runs the next
+  deploy.
 - **Rotate the secrets** that reached a session scrollback on 2026-08-29.
 - **FIDE search does not work for a laptop arbiter behind NAT** - it needs
   both applications on one host. No design yet.
@@ -501,7 +518,9 @@ rendered in [docs/vcl4thp-tracker.md](docs/vcl4thp-tracker.md); `mix
 pairings.vcl` prints the summary. This section is a short reading of it and
 goes stale the moment the tracker moves - trust the tracker. It is our own
 read, not a verdict: TEC verifies, we do not. Status as of the tracker
-review of 2026-10-09 (0.83.0):
+review of 2026-10-09. This block was written at 0.83.0; the tracker has not
+moved since (`mix pairings.vcl` still prints exactly these numbers at 0.94.0),
+so the figures are current, only the version in the sentence was stale:
 
 ```
 Questions on our path:  185 of 225
@@ -524,7 +543,8 @@ On the path:            184 met, 0 gaps, 1 still to check
   The parse side exists: unknown result symbols import as unknown (0.78.0,
   Q166) and a `?` in a TRF has its later rounds checked (0.79.0). Whether an
   arbiter can also TYPE it was left as parse-only by intent (unverified,
-  check).
+  check). **In progress 2026-10-18: the `?` work is being finished** (with the
+  big-Swiss norm detection); not done until the tracker says so.
 
 ### Off the path: the four gaps
 
@@ -688,7 +708,15 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   the topbar's `.sync-freshness` strip ("FIDE: 3 days ago · KBSB: never
   synced") has been showing this for a while (`Layouts.sync_label/1`,
   `Fide.last_sync/0`/`Kbsb.last_sync/0`). Nothing left to build here.
-- **Live "round paired by someone else" notice** - **not built.** This entry
+- ~~**Live "round paired by someone else" notice**~~ - **built 2026-10-18**
+  (branch `paired-notice-todo`): `PairingsEngineWeb.RoundChangeNotice` compares
+  the rounds' marker (who plays whom, published or not) before and after a
+  broadcast reload on the Pairings and Players pages and says "Round N was
+  just paired / unpaired / paired again / published elsewhere". The session
+  that did it hears nothing, because its own refresh already moved the
+  marker. It says "elsewhere", never a user: the data keeps no author. The
+  history below is why the entry was once wrong in the other direction.
+  ~~**not built.**~~ This entry
   used to claim the opposite, at length: that PairingsLive had carried a
   dismissible `remote_notice` toast "for a while" and that PlayersLive had
   just been given the same. Neither is true. `grep -rn "remote_notice" lib/`
@@ -754,8 +782,12 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   pages (branch `match-forfeit` there).
 - **American (accelerated pairing) system** - explicitly dropped, not planned
   ("no one cares" - maintainer's own call).
-- **SWAR categories: value1 / value2 are merged on import** - the
-  [CATEGORIES] block holds a type integer plus two parallel 17-slot arrays.
+- ~~**SWAR categories: value1 / value2 are merged on import**~~ - **settled
+  2026-09-09 (the source arrived: `value2` is the second axis, both lists
+  hold numeric bounds) and the two-axis import/export closed 2026-09-15**;
+  see "Blocked on something outside the code" above. The "unresolvable from
+  what we have" below is the entry as it stood before that, kept as history.
+  The [CATEGORIES] block holds a type integer plus two parallel 17-slot arrays.
   SwarImport.map_categories/1 flattens both into one name list and ignores
   the type, while SwarExport.reverse_categories/1 writes value2 blank and
   the type always 1. Per-player CatIndex only ever indexes value1, so
@@ -813,8 +845,10 @@ These are real, identified gaps - not yet built, and not accidentally missed:
   was never wrapped. That is the standard technique, it is finite, and it
   would replace this item's guesswork with a number that stays true. Nobody
   has asked for it, so it is written down rather than built.
-- **SWAR presence points on pairing-allocated byes (`SW321_PreBye`)** -
-  modelled now (`tournaments.presence_on_allocated_bye`,
+- ~~**SWAR presence points on pairing-allocated byes (`SW321_PreBye`)**~~ -
+  **settled 2026-09-09** by SWAR's own source: a plain checkbox adding
+  `SW321_Pre` on top of the bye's value, which is what the model below does
+  (see "Blocked on something outside the code" above). Modelled now (`tournaments.presence_on_allocated_bye`,
   `Standings.bye_points/2`); if a real club file ever surfaces where this
   models differently than expected, re-verify against it (only synthetic
   fixtures + the one real file with a coincidental match have exercised it).
@@ -1121,7 +1155,9 @@ gaps identified there, extracted here as actionable items:
   categories" / extra-points apply (both rewrite every player in one
   click), and manual-standings re-seed. Single-field edits are not
   candidates - they're already reconstructable from the audit trail's
-  before/after diff.
+  before/after diff. **Decided 2026-10-18 by the maintainer: yes, automatic
+  restore points for those bulk actions (import, assign categories,
+  re-seed). In progress 2026-10-18 (being built), not done.**
 
   The second half of the same report - something colliding into the
   "Everything" filter button - was a layout bug, not a filter-state one,
@@ -1180,7 +1216,7 @@ gaps identified there, extracted here as actionable items:
   Swar.h) - not a real board number, just like the `TABLE_BYE` sentinel
   already handled. The importer was copying it verbatim into `board`, so a
   handicap-table pairing (confirmed via production tournament 18, round 5,
-  Vandekerckhove Ava - `board: 1001` in the actual DB row) sorted to the
+  a player - `board: 1001` in the actual DB row) sorted to the
   far end of anything ordered by board number, including the rationale
   bracket map, regardless of real score. `SwarImport.finalize_boards/1` now
   renormalizes a handicap-range Table value the same way it already did for
@@ -1203,12 +1239,15 @@ gaps identified there, extracted here as actionable items:
   Both added as their own line items, labeled "Deputy arbiter" and "Round
   date(s)" to stay unambiguous next to the existing "Dates: start - end".
 - ~~**Audit OpenPairings' logic against SWAR's own C++ source, file by
-  file.**~~ **Bought, and nearly finished** - see the entry under "Parked
-  by decision" above for the live state, and
+  file.**~~ **Bought and finished: all three passes are done, tier A is
+  closed** - see the entry under "Parked by decision" above for the state,
+  and
   [docs/swar-source-audit-2026-09-09.md](docs/swar-source-audit-2026-09-09.md)
   plus
   [docs/swar-source-audit-pass2-2026-09-09.md](docs/swar-source-audit-pass2-2026-09-09.md)
-  for the work itself. Roughly half a session is left, all in `Utils.cpp`.
+  for the work itself. ~~Roughly half a session is left, all in
+  `Utils.cpp`.~~ Pass three read that remainder (see the third audit
+  document); nothing is left but the deliberately unread display helpers.
 
   The scoping notes that used to sit here (~14 files / ~15,600 lines /
   ~490 functions, "genuinely multiple days") were **right on line count
@@ -1238,13 +1277,18 @@ gaps identified there, extracted here as actionable items:
     most opponents are Belgian reports `foreign_federations` and
     `own_federation_share` as failing when the norm is valid. Needs a
     tournament-level event-type field, which is a schema change plus a
-    Settings control plus arbiter discipline in filling it in. One clause -
+    Settings control plus arbiter discipline in filling it in. **Decided
+    2026-10-18 by the maintainer: build the event-type field; it unlocks the
+    B.01 norm exemptions and the 7/8-game concessions. In progress
+    2026-10-18 (being built), not done.** One clause -
     1.4.3's big-Swiss case (20+ FIDE-rated players from 3+ federations,
     10+ GM/IM/WGM/WIM title-holders per round) - is auto-detectable from
-    data already held and needs no new input.
+    data already held and needs no new input. **Its detection is being
+    finished 2026-10-18 (in progress).**
   - **7/8-game concessions (1.4.1.1-1.4.1.3).** Still open. World Team/Club
     and Continental Team/Club Championships, the World Cup, and the
-    unplayed-last-round-win case. Same event-type dependency.
+    unplayed-last-round-win case. Same event-type dependency, so covered by
+    the same 2026-10-18 decision (in progress, being built).
   - ~~**Double-round-robin titled-opponent halving.**~~ **Not a gap - this
     entry was wrong**, and acting on it would have introduced a real bug in
     the dangerous direction. The requirement is already satisfied, because
@@ -1274,7 +1318,9 @@ gaps identified there, extracted here as actionable items:
   rounds/results without clobbering OpenPairings-only edits like
   norm_data, manual ranking, extra points, forbidden pairings) - that's
   real additional work beyond the detect-and-ask step and deliberately not
-  scoped yet.
+  scoped yet. **Decided 2026-10-18 by the maintainer: yes, build the full
+  field-level merge on SWAR re-upload. In progress 2026-10-18 (being built),
+  not done.**
 
 ## Process notes for whoever picks this up next
 
