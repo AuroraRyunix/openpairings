@@ -455,13 +455,16 @@ what stays parked here is the acceptance cycle and the dropped items.
   ~~**0.51.0 deployed 2026-09-08**, carrying everything from 0.44.0 up:
   the soft pairing rules, TRF26 both directions, the rationale page, the
   audit's three worst groups, the anonymous-tools rate limit and the
-  players-grid fixes. OpenResults went with it.~~ **0.94.0 deployed
-  2026-10-18** (the 0.51.0 deploy of 2026-09-08 is history). Anything
-  released after 0.94.0 is not on the box until the maintainer runs the next
+  players-grid fixes. OpenResults went with it.~~ **0.95.0 deployed
+  2026-10-18, with OpenResults 0.26.0** (the 0.51.0 deploy of 2026-09-08 is
+  history). Anything released after 0.95.0 is not on the box until the next
   deploy.
-- **Rotate the secrets** that reached a session scrollback on 2026-08-29.
-- **FIDE search does not work for a laptop arbiter behind NAT** - it needs
-  both applications on one host. No design yet.
+- ~~**Rotate the secrets** that reached a session scrollback on 2026-08-29.~~
+  Done by the maintainer, confirmed 2026-09-11.
+- ~~**FIDE search does not work for a laptop arbiter behind NAT**~~ - gone
+  with the proxy: since OpenResults 0.26.0 the results site keeps its own
+  copy of the FIDE list (checked daily, downloaded only when new), so the
+  entry form's search no longer needs OpenPairings on the same host.
 
 ## The 2026 Acceptance Cycle (dominates everything below)
 
