@@ -485,11 +485,35 @@ defmodule PairingsEngine.Tpn do
             set: [pairing_number: number]
           )
         end)
+
+        move_group_a_line(t, held, wanted)
       end)
 
       Tournaments.broadcast_tournament_change(t.id, :players)
       :written
     end
+  end
+
+  # C.04.7 1.3.2: "The last GA-participant shall be the same participant as
+  # in the previous round." Baku's line is stored as a number
+  # (`Tournament.baku_group_a_last`), so when the numbers move, the line
+  # moves with the player who holds it. It used to stay put, which after a
+  # regeneration or an exchange across it quietly swapped somebody out of
+  # Group A and somebody else in, mid-event.
+  defp move_group_a_line(t, held, wanted) do
+    last =
+      Repo.one(from x in Tournament, where: x.id == ^t.id, select: x.baku_group_a_last)
+
+    holder = if is_integer(last), do: Enum.find_value(held, fn {id, n} -> n == last && id end)
+    moved = holder && Enum.find_value(wanted, fn {id, n} -> id == holder && n end)
+
+    if is_integer(moved) and moved != last do
+      Repo.update_all(from(x in Tournament, where: x.id == ^t.id),
+        set: [baku_group_a_last: moved]
+      )
+    end
+
+    :ok
   end
 
   defp guard(t) do

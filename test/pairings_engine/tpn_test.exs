@@ -148,7 +148,10 @@ defmodule PairingsEngine.TpnTest do
     assert names(order) == ~w(Dave Alice Bob Carol Frank)
     assert number(eve) == nil
     assert number(frank) == 5
-    assert Repo.reload!(t).baku_group_a_last == 2
+    # Bob was Group A's last player (number 2) and is number 3 now; C.04.7
+    # 1.3.2 keeps him the last one, so the line moves with him rather than
+    # dropping him into Group B (audit 2026-10-18 P5).
+    assert Repo.reload!(t).baku_group_a_last == 3
   end
 
   test "a regeneration with nothing to change changes nothing", %{t: t} do

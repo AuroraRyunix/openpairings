@@ -893,8 +893,8 @@ defmodule PairingsEngine.TournamentImport do
   # naming no player in the file dropped. Nil (a payload written before the
   # field existed, or a round that recorded none) stays nil, which the
   # pairing reads as "use the player's current extra points".
-  defp remap_virtual_points(r, player_map) do
-    case Map.get(r, "virtual_points") do
+  defp remap_virtual_points(r, player_map, key \\ "virtual_points") do
+    case Map.get(r, key) do
       %{} = virtual ->
         for {old_id, points} <- virtual,
             new_id = Map.get(player_map, old_id) || Map.get(player_map, coerce_int(old_id)),
@@ -924,6 +924,8 @@ defmodule PairingsEngine.TournamentImport do
         |> Ecto.Changeset.change(publish_cap: coerce_int(Map.get(r, "publish_cap")))
         |> Ecto.Changeset.change(chess960_position: coerce_int(Map.get(r, "chess960_position")))
         |> Ecto.Changeset.change(virtual_points: remap_virtual_points(r, player_map))
+        # Baku's, the same way; nil (an older file) is worked out as before.
+        |> Ecto.Changeset.change(baku_points: remap_virtual_points(r, player_map, "baku_points"))
         |> Ecto.Changeset.change(mpa_pibe: mpa_pibe(r))
         |> insert!("round entry #{n}")
 

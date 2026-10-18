@@ -52,11 +52,15 @@ The button **Pair round N** is available when
 - the tournament's setup is complete: name, number of rounds, a date for
   every round, tie-breaks. If something is missing the page lists it and
   links to the page where it is set;
-- the previous round has a result on every board. A board without a result
-  keeps the button disabled with the note *Previous round still has missing
-  results*. If postponed games are allowed (Scoring page) a separate button,
-  **Record missing results as postponed and pair round N**, records the empty boards
-  as postponed and goes on, after you have read the warning;
+- every round so far has a result on every board, the earlier rounds as well
+  as the last one (and in the Swiss match format both legs of the match). A
+  board without a result keeps the button disabled with the note *Previous
+  round still has missing results*; a result cleared in an earlier round
+  counts too, because the engine would read that game as never played and
+  could pair the same two again. If postponed games are allowed (Scoring
+  page) a separate button, **Record missing results as postponed and pair
+  round N**, records the last round's empty boards as postponed and goes on,
+  after you have read the warning;
 - the presence of the players is right: players marked absent are not
   paired ([Byes and absences](05-byes-and-absences.md));
 - no session of hand edits is open on an earlier round (see *Changing a
@@ -97,7 +101,12 @@ pairing for the remaining players the program says so and writes nothing.
 
 Forbidden pairings, the pairing rules (same club, same federation, groups)
 that hold in the round, and extra points are given to the engine as well ([Tournament set-up](03-tournament-setup.md)).
-With Baku acceleration the virtual points are given for every round.
+With Baku acceleration the virtual points are given for every round. Each
+round's virtual points are recorded when it is paired, and a later round reads
+them back: changing the number of rounds or switching acceleration off changes
+the rounds still to come, never the ones already paired. When the pairing
+numbers are corrected (an exchange or a regeneration), the last player of
+Group A stays the last player of Group A (C.04.7 1.3.2).
 
 The pairing numbers are given in the order of the tournament rating, then
 FIDE title, then the criterion the tournament announced
