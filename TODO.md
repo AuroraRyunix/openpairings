@@ -202,43 +202,16 @@ known since 0.17.1.
 
 Still open, and each needs a decision rather than typing:
 
-- **Norms-vs-Settings** - the pointer card shipped, the page move did not.
-  A product call about where norms live. **Decided 2026-10-18 by the
-  maintainer: officials and norms get their own Settings page. In progress
-  2026-10-18 (being built), not done.**
-- **ITDX `?` unknown-result code** - PARKED 2026-08-30, deliberately, and
-  owed. **In progress 2026-10-18: being finished** (together with the
-  big-Swiss norm detection); the design below stands. `docs/tec-feedback-2026-09.md` section C.2 tells TEC "We will
-  implement `?`", the letter has gone, and nothing implements it.
-
-  **No effect on a real tournament, which is why it can wait.** Nothing can
-  produce a `?` today: TRF-26 is not published (the letter's own C.1 asks
-  whether it exists), so no file in the wild carries one. If one arrives
-  anyway, `Ainalrami.Trf` raises a `ValidationError` on an unknown result
-  symbol - the import is refused, loudly, rather than mangled. That is the
-  safe failure and it is the behaviour the letter argues for; only the
-  symbol itself is missing.
-
-  Split, and worth doing in one sitting in this order - a `?` the engine
-  accepts and this app does not understand is worse than neither:
-
-    1. **Ainalrami** (small): add `?` to `@result_codes` and
-       `@legal_result_pairs`, keep raising on everything else.
-    2. **OpenPairings** (the real work, ~half a day): decide what a stored
-       `?` MEANS. The design to build unless something argues otherwise -
-       scores nothing for both players; not `played`, so it never reaches a
-       tie-break as a real game; **parse-only**, never enterable, because a
-       "don't know" button becomes a placeholder and stops meaning what it
-       says; keeps the round incomplete so it blocks the next pairing and
-       the rating report; labelled on screen as "unknown - from an imported
-       file" so it reads as something to fix. It is a blank that says whose
-       fault it is.
-
-  Checked while scoping it: `TrfImport.result_string/2`'s catch-all turns an
-  unrecognised code into `""`, which is exactly the "silently converts a
-  corrupt file into a plausible one" failure C.2 names - but it is
-  UNREACHABLE, because every one of the twelve pairs Ainalrami permits has
-  an explicit clause above it. Belt to the engine's braces, not a hole.
+- ~~**Norms-vs-Settings**~~ - **built 2026-10-18**: officials and norms have
+  their own Settings page, `/t/:id/settings/norms`.
+- ~~**ITDX `?` unknown-result code**~~ - **built 2026-10-18.** An imported
+  `?` takes the file's `162 X` value (a draw when the file declares none),
+  the export writes X back, and import-export-import loses nothing. Entry
+  stays parse-only on purpose: there is no button for "don't know". State
+  and limits: `docs/trf-import.md`, "The unknown result `?`". The matching
+  Ainalrami change (a `?` with no X is worth a draw and counts as played)
+  sits unmerged on Ainalrami's `unknown-result` branch, waiting for the
+  maintainer, because it reverses the 0.26.1 design.
 
 - **Q140 consistency checks are page-scoped** - they live in
   `pairing_explain_live.ex` and nothing extracts them for a layout-level
@@ -468,28 +441,13 @@ what stays parked here is the acceptance cycle and the dropped items.
 
 ### OpenResults
 
-- ~~**The entry form is unfinished and unlinked**~~ - **rebuilt
-  2026-09-30 on the `registration` branches of both repos** (unmerged):
-  the form is linked again, has a window, a cap, a national ID, a
-  non-silent honeypot and an optional public entry list; entries are
-  reviewed in a queue on the Players page, prefilled from the FIDE and
-  KBSB lists, with duplicates flagged. See `docs/public-pages.md`,
-  "The workflow, end to end". Open decisions for the maintainer:
-  - ~~**Confirmation e-mails to entrants** (received / accepted / turned
-    down): which sender and provider, and whether at all.~~ **Decided
-    2026-10-18 by the maintainer: no confirmation e-mails at all.** Nothing
-    sends, and nothing will; the decision points were
-    `Registrations.accept/2` and `discard/1`. **In progress 2026-10-18**
-    (being built together with the two items below).
-  - ~~**Entry fees**: whether the form should state a fee.~~ **Decided
-    2026-10-18: the form states the entry fee.** Payment stays out of it:
-    `Player.paid` exists and accepting leaves it at its default ("not paid").
-    **In progress 2026-10-18 (being built), not done.**
-  - ~~**Pending entries on the public list**: shown only as a count.~~
-    **Decided 2026-10-18: pending entries are listed by name, marked
-    unconfirmed.** (The objection stands - unchecked, possibly abusive names
-    on a public page - and the maintainer weighed it and decided anyway.)
-    **In progress 2026-10-18 (being built), not done.**
+- ~~**The entry form is unfinished and unlinked**~~ - **rebuilt and merged**
+  (OpenPairings 0.71.0, OpenResults 0.19.0): window, cap, national ID,
+  honeypot, optional public entry list, review queue on the Players page.
+  See `docs/public-pages.md`, "The workflow, end to end". Settled
+  2026-10-18: no confirmation e-mails at all; the form states the entry fee
+  (payment stays out of it, accepting leaves `Player.paid` unset); pending
+  entries are listed by name, marked unconfirmed. All three built.
 
 ### Operational - the maintainer's, not the code's
 
@@ -539,12 +497,10 @@ On the path:            184 met, 0 gaps, 1 still to check
   TieBreakServer findings A-D, nor the tie-break reading differences (the
   letter predates them). **Letter drafted, not sent.** The draft lives outside
   the repository, waiting for the maintainer.
-- **Unknown result `?` (the one commitment in the feedback letter, C.2).**
-  The parse side exists: unknown result symbols import as unknown (0.78.0,
-  Q166) and a `?` in a TRF has its later rounds checked (0.79.0). Whether an
-  arbiter can also TYPE it was left as parse-only by intent (unverified,
-  check). **In progress 2026-10-18: the `?` work is being finished** (with the
-  big-Swiss norm detection); not done until the tracker says so.
+- ~~**Unknown result `?` (the one commitment in the feedback letter, C.2).**~~
+  **Built 2026-10-18**: an imported `?` keeps the file's X on import and
+  export; arbiter entry stays parse-only by design (now confirmed). See
+  `docs/trf-import.md`.
 
 ### Off the path: the four gaps
 
@@ -1155,9 +1111,9 @@ gaps identified there, extracted here as actionable items:
   categories" / extra-points apply (both rewrite every player in one
   click), and manual-standings re-seed. Single-field edits are not
   candidates - they're already reconstructable from the audit trail's
-  before/after diff. **Decided 2026-10-18 by the maintainer: yes, automatic
-  restore points for those bulk actions (import, assign categories,
-  re-seed). In progress 2026-10-18 (being built), not done.**
+  before/after diff. **Built 2026-10-18**: automatic
+  restore points for those bulk actions; manual restore points are never
+  pruned, automatic ones are capped at 50.
 
   The second half of the same report - something colliding into the
   "Everything" filter button - was a layout bug, not a filter-state one,
@@ -1190,9 +1146,8 @@ gaps identified there, extracted here as actionable items:
   current chief arbiter (or says it is unset and that this does not block
   pairing -- it is a *recommended* field, not a required one). It edits
   nothing; the point is that Settings is no longer silent about a field it
-  plainly looks like it should own. The fuller fix below -- moving Officials
-  back to Settings -- is untouched and still open, deliberately: it needs a
-  decision about what Norms is then for.
+  plainly looks like it should own. The fuller fix -- moving Officials
+  back to Settings -- was **built 2026-10-18**: Settings > Officials & norms.
 
   Original report, kept for that decision: they live on `/t/:id/norms`,
   moved there from SettingsLive at some point (see `norms_live.ex`'s
@@ -1271,24 +1226,12 @@ gaps identified there, extracted here as actionable items:
   event types. What is actually left, after checking each against the
   handbook text rather than against this list:
 
-  - **Federation-mix exemptions (1.4.3 a-d).** Still open, and the one that
-    bites in practice: a national championship or zonal is exempt from the
-    "two other federations" rule, so a Belgian national championship where
-    most opponents are Belgian reports `foreign_federations` and
-    `own_federation_share` as failing when the norm is valid. Needs a
-    tournament-level event-type field, which is a schema change plus a
-    Settings control plus arbiter discipline in filling it in. **Decided
-    2026-10-18 by the maintainer: build the event-type field; it unlocks the
-    B.01 norm exemptions and the 7/8-game concessions. In progress
-    2026-10-18 (being built), not done.** One clause -
-    1.4.3's big-Swiss case (20+ FIDE-rated players from 3+ federations,
-    10+ GM/IM/WGM/WIM title-holders per round) - is auto-detectable from
-    data already held and needs no new input. **Its detection is being
-    finished 2026-10-18 (in progress).**
-  - **7/8-game concessions (1.4.1.1-1.4.1.3).** Still open. World Team/Club
-    and Continental Team/Club Championships, the World Cup, and the
-    unplayed-last-round-win case. Same event-type dependency, so covered by
-    the same 2026-10-18 decision (in progress, being built).
+  - ~~**Federation-mix exemptions (1.4.3 a-d) and the 7/8-game concession
+    (1.4.1(b)).**~~ **Built.** The event-type field, its exemptions and the
+    concession already existed (bf9b26b6); the old "1.4.1.1-1.4.1.3"
+    numbering here was wrong, it is 1.4.1(b). The big-Swiss clause of 1.4.3
+    (20+ FIDE-rated players from 3+ federations, 10+ GM/IM/WGM/WIM
+    title-holders per round) is now detected from the data, 2026-10-18.
   - ~~**Double-round-robin titled-opponent halving.**~~ **Not a gap - this
     entry was wrong**, and acting on it would have introduced a real bug in
     the dangerous direction. The requirement is already satisfied, because
@@ -1314,13 +1257,11 @@ gaps identified there, extracted here as actionable items:
   uploader can already reach shows a warning ("This looks like a
   tournament you already have") with the choice to open the existing one,
   import as a new tournament anyway, or cancel - instead of silently
-  creating a duplicate. Still open: a full field-level *merge* (rebuild
-  rounds/results without clobbering OpenPairings-only edits like
-  norm_data, manual ranking, extra points, forbidden pairings) - that's
-  real additional work beyond the detect-and-ask step and deliberately not
-  scoped yet. **Decided 2026-10-18 by the maintainer: yes, build the full
-  field-level merge on SWAR re-upload. In progress 2026-10-18 (being built),
-  not done.**
+  creating a duplicate. **The full field-level merge was built
+  2026-10-18**: "Compare and merge into ..." opens a review of settings,
+  players, results and new rounds, and writes the chosen changes behind a
+  pinned restore point. Pairings are reported, never changed. See
+  `docs/swar-import.md`.
 
 ## Process notes for whoever picks this up next
 
