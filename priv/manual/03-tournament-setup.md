@@ -87,7 +87,7 @@ Two more things keep the pages short:
 
 | Page | Shown | With *Show advanced settings* |
 | --- | --- | --- |
-| Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; officials; tie-breaks; Chess960 and the 30-day tick; sharing | organiser's club number; how an unrated player is counted in the tie-breaks; players still level share a place; logo |
+| Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; tie-breaks; Chess960 and the 30-day tick; sharing | organiser's club number; how an unrated player is counted in the tie-breaks; players still level share a place; logo |
 | Options | pairing system, tournament rating, cycles (round robin), Keizer top value (Keizer), line-ups (teams), type and rate of play | engine, initial colour, equal rating and title, late entrants' pairing numbers, round-1 absentees, acceleration, the match formats, team rating and unrated rating (teams), other rate of play |
 | Scoring | points, match points, postponed games | the whole *Byes and absences* card (points for a round sat out and its limits, voluntary unplayed rounds, late entrants' absences, asking the bye type); a team's bye, forfeit and withdrawal rules |
 | Dates | one date per round | - |
@@ -97,7 +97,8 @@ Two more things keep the pages short:
 | Forbidden pairings | the effect on the next round, the rules, players who must not meet | how hard to try the wishes |
 | OpenResults | publishing to the results site and each round ([Publishing](14-publishing.md)) | what the public page shows, the hall display, the entry form |
 | Live boards | the boxes and the games they reported ([Live boards](17-live-boards.md)) | - |
-| FIDE | FIDE mode, the homologated tick, the report identifiers, the rating-list sequence ([FIDE mode](02-fide-mode.md), [Players and rating lists](04-players-and-ratings.md)) | event type for title norms, per-round FIDE-ID ranges, consistency checks of the ratings |
+| FIDE | FIDE mode, the homologated tick, the report identifiers, the rating-list sequence ([FIDE mode](02-fide-mode.md), [Players and rating lists](04-players-and-ratings.md)) | per-round FIDE-ID ranges, consistency checks of the ratings |
+| Officials & norms | the officials and arbiters the FIDE forms name; the event type for title norms; whether the big open Swiss clause applies | - |
 | Export | TRF, backups, the players' CSV download ([Import and export](10-import-export.md)) | the CSV's columns, separator, order and options |
 | About | version and the pairing engine this tournament uses | - |
 
@@ -117,10 +118,6 @@ it, for the rest.
 (individual), Round robin (individual), Swiss (teams), Round robin (teams).
 **Number of rounds** can be changed until the first round is paired (in a
 round robin the number follows from the players and cycles).
-
-**Officials.** The chief arbiter (name, and FIDE ID when known), deputy
-arbiters, and the data that the FIDE reports use. The same officials can be
-edited on the Norms page.
 
 **Tie-breaks.** Described in [Standings and tie-breaks](08-standings-and-tiebreaks.md).
 With *Show advanced settings* this card also holds *How an unrated player is
@@ -469,6 +466,46 @@ points in the final standings*. In the TRF report they appear in record 299.
 > [!FIDE] Departure from FIDE mode
 > Extra points are not part of the FIDE rules; a round that the pairing used
 > them for is recorded as a departure.
+
+## Officials and norms page
+
+**Officials.** The chief arbiter, the organiser, the person responsible for
+the pairings, two ranked deputy arbiters and as many further arbiters as the
+event had (*+ Add arbiter*), the chief arbiter's and organiser's e-mail
+addresses, the IT4 event type and the link to the pairings web page, and four
+special remarks for the IT3. Type a name or a FIDE ID and pick the matching
+player: every official needs a FIDE ID, and a save with a named official
+without one is refused, because FIDE bounces such a report. The IT3, FA1, IA1
+and IT4 forms on the Norms page are filled in from these
+([Categories and norms](13-categories-and-norms.md)).
+
+**Title norms.** *Event type for title norms* tells the norm judgment what
+kind of event the FIDE Title Regulations (B.01) see this one as. Only the
+kinds that fit the tournament (team or individual) are offered:
+
+| Event type | What changes |
+| --- | --- |
+| Ordinary event (the default) | nothing: 9 games and the normal federation mix |
+| World or Continental Team / Club Championship | 7 games are enough when the event has 7, 8 or 9 rounds (1.4.1 b) |
+| World Cup or Women's World Cup | 8 games are enough (1.4.1 b) |
+| Final stage of a national championship | no federation mix for players of the tournament's own federation (1.4.3 a) |
+| National team championship | the same, for a team event (1.4.3 b) |
+| Zonal or Sub-zonal tournament | no federation mix for anyone (1.4.3 c) |
+
+Beside it the page says whether the **big open Swiss** clause (1.4.3 d)
+applies. There is nothing to set: the program counts it from the players. An
+individual Swiss qualifies when at least 20 FIDE-rated players from outside the
+host federation (the tournament's own federation, under Tournament), from at
+least 3 federations, at least 10 of them GM, IM, WGM or WIM, each missed at
+most one of the completed rounds. A pairing-allocated bye is not a missed
+round; a requested bye, an absence or a lost forfeit is. Players under the
+FIDE flag are not counted. When it applies, nobody's norm needs the federation
+mix.
+
+> [!FIDE] One norm with the normal mix
+> Every exemption is one norm's. A title application still needs at least one
+> norm that meets the normal federation requirement (B.01 1.4.3 e); the norm
+> judgment says so beside each exempted check.
 
 ## Locks
 

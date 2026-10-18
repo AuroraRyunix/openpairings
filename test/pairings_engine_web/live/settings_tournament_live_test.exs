@@ -32,39 +32,22 @@ defmodule PairingsEngineWeb.SettingsTournamentLiveTest do
 
       refute html =~ ~s(name="tournament[deputy_arbiter]")
       refute html =~ ~s(name="tournament[time_control]")
-      # Chief arbiter is no longer a Settings field at all - it moved to the
-      # Officials card on the Norms tab.
+      # Chief arbiter is not a field of this page: it is on Officials & norms.
       refute html =~ ~s(name="tournament[chief_arbiter]")
     end
 
-    test "Settings points at where the chief arbiter actually lives", %{conn: conn, scope: scope} do
-      # The field moving to Norms left Settings silent about it, and an
-      # arbiter looking for "chief arbiter" looks under Settings - reported
-      # by someone who could not find it while holding a direct link. Nothing
-      # here should ever edit the value; the point is that the page says
-      # where it is and shows whether it is set.
-      tournament = create_tournament(scope)
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
-
-      assert html =~ "Officials"
-      assert html =~ "Chief arbiter"
-      assert html =~ ~s(href="/t/#{tournament.id}/norms")
-      refute html =~ ~s(name="tournament[chief_arbiter]")
-    end
-
-    test "the Officials pointer shows the chief arbiter once it is set", %{
+    test "officials have their own Settings page and no pointer card here", %{
       conn: conn,
       scope: scope
     } do
+      # The rail names the page; a card on this one saying so would be a
+      # signpost, and those stay behind long after anyone reads them.
       tournament = create_tournament(scope)
+      {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
-      {:ok, tournament} =
-        Tournaments.update_tournament(tournament, %{"chief_arbiter" => "Nona G"})
-
-      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
-
-      assert html =~ "Nona G"
-      refute html =~ "Not set."
+      assert has_element?(lv, "#settings-nav a[href='/t/#{tournament.id}/settings/norms']")
+      refute has_element?(lv, "#settings-main a[href='/t/#{tournament.id}/norms']")
+      refute html =~ "Not set. Recommended for FIDE reporting"
     end
 
     test "the mandatory labels render bold with a red asterisk", %{conn: conn, scope: scope} do

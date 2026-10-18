@@ -18,9 +18,9 @@ Settings, **FIDE**:
   round, ID);
 - **FIDE event code**.
 
-Settings, **Tournament** (and **Advanced**, **Norms**): the chief arbiter and
-the deputies with their FIDE IDs, the federation, the venue, the rate of play
-and the dates. The program reminds you of the recommended fields on the Players
+Settings, **Tournament**, **Options** and **Dates**: the federation, the venue,
+the rate of play and the dates. Settings, **Officials & norms**: the chief
+arbiter and the deputies with their FIDE IDs. The program reminds you of the recommended fields on the Players
 and Pairings pages; none of them blocks pairing.
 
 > [!FIDE] Bye exclusion and bye preference

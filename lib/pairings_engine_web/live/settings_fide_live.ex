@@ -6,15 +6,13 @@ defmodule PairingsEngineWeb.SettingsFideLive do
   per-round FIDE-ID-range editor (SWAR's "this FIDE tournament ID applies to
   rounds X-Y" model - see `PairingsEngine.Tournaments.Tournament`'s
   `fide_id_ranges` schema doc and `PairingsEngine.TrfExport.applicable_fide_id/2`,
-  the consumer at export time). The officials and arbiter details that feed
-  those same report forms live on the Norms tab.
+  the consumer at export time).
   """
   use PairingsEngineWeb, :live_view
 
   import PairingsEngineWeb.SettingsSupport
 
   alias PairingsEngine.{Audit, Authz, Compliance, RatingLists, Tournaments}
-  alias PairingsEngine.Tournaments.Tournament
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -236,7 +234,6 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         "fide_tournament_id",
         "event_code",
         "fide_homologated",
-        "norm_event_type",
         "fide_id_ranges"
       ])
       |> Map.update("fide_id_ranges", [], &parse_rows_param/1)
@@ -391,7 +388,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
         advanced={
           advanced(
             @show_advanced,
-            changed_count(@tournament, [:norm_event_type, :rating_checks_enabled]),
+            changed_count(@tournament, [:rating_checks_enabled]),
             has_advanced?(assigns)
           )
         }
@@ -418,7 +415,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
             <p class="hint" style="margin-top: 0">
               <.rich_text text={
                 gettext(
-                  "The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the %[norms] tab. The officials, arbiters and pairing-system details for those reports live on the Norms tab too."
+                  "The tournament's own FIDE identifiers, used to fill the IT3 / FA1 / IA1 / IT4 report forms on the %[norms] tab."
                 )
               }>
                 <:part name="norms">
@@ -464,26 +461,6 @@ defmodule PairingsEngineWeb.SettingsFideLive do
 
                 <.setting_field label={gettext("FIDE event code")}>
                   <input name="tournament[event_code]" value={@tournament.event_code} />
-                </.setting_field>
-
-                <.setting_field
-                  class="tset-adv"
-                  label={gettext("Event type for title norms")}
-                  hint={
-                    gettext(
-                      "Only matters for a FIDE-rated event. The Norms tab judges each player's games with the fewer games or the federation-mix exemption this kind of event is granted in the FIDE Title Regulations; an ordinary event keeps the full requirements. Only the kinds that fit this tournament's type (team or individual) are offered."
-                    )
-                  }
-                >
-                  <select id="norm-event-type" name="tournament[norm_event_type]">
-                    <option
-                      :for={type <- Tournament.norm_event_types_for(@tournament)}
-                      value={type}
-                      selected={Tournament.effective_norm_event_type(@tournament) == type}
-                    >
-                      {norm_event_type_label(type)}
-                    </option>
-                  </select>
                 </.setting_field>
 
                 <p class="hint tset-adv" style="margin-bottom: 0">

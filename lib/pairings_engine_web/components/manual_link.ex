@@ -20,6 +20,7 @@ defmodule PairingsEngineWeb.Components.ManualLink do
     players: {"players-and-ratings", "the-players-page"},
     standings: {"standings-and-tiebreaks", "the-standings-page"},
     fide_settings: {"fide-mode", "the-fide-page-of-the-settings"},
+    norms_settings: {"tournament-setup", "officials-and-norms-page"},
     trf_import: {"import-export", "trf-file"},
     trf_export: {"fide-report", "the-export-page"},
     teams: {"teams", "setting-up"},

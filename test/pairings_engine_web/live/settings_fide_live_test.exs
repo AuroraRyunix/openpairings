@@ -120,36 +120,10 @@ defmodule PairingsEngineWeb.SettingsFideLiveTest do
     assert html =~ "222"
   end
 
-  # B.01 1.4.1 (b) / 1.4.3: the norm event type is offered by tournament kind.
-  test "offers the team norm event types on a team tournament and saves one", %{
-    conn: conn,
-    scope: scope
-  } do
-    tournament = create_tournament(scope, %{"type" => "team-swiss", "rounds_count" => "9"})
-
-    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/fide")
-
-    assert has_element?(lv, "#norm-event-type option[value=team_championship]")
-    refute has_element?(lv, "#norm-event-type option[value=zonal]")
-
-    lv
-    |> form("#fide-settings-form", %{"tournament" => %{"norm_event_type" => "team_championship"}})
-    |> render_submit()
-
-    saved = Tournaments.get_authorized_tournament!(scope, tournament.id)
-    assert saved.norm_event_type == "team_championship"
-  end
-
-  test "offers only the individual norm event types on an individual tournament", %{
-    conn: conn,
-    scope: scope
-  } do
+  test "the norm event type is not on this page", %{conn: conn, scope: scope} do
     tournament = create_tournament(scope)
-
     {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/fide")
-
-    assert has_element?(lv, "#norm-event-type option[value=zonal]")
-    refute has_element?(lv, "#norm-event-type option[value=team_championship]")
+    refute has_element?(lv, "#norm-event-type")
   end
 
   describe "the Save button and the Rating lists card do not share anything" do

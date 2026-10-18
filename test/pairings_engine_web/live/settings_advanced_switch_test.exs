@@ -30,6 +30,7 @@ defmodule PairingsEngineWeb.SettingsAdvancedSwitchTest do
     "settings/results",
     "settings/boards",
     "settings/fide",
+    "settings/norms",
     "settings/export",
     "settings/about"
   ]

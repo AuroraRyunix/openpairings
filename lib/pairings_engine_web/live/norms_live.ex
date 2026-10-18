@@ -2,7 +2,10 @@ defmodule PairingsEngineWeb.NormsLive do
   @moduledoc """
   The "Norms" tab: lets the tournament's owner download the official FIDE
   report/norm `.xlsx` forms (IT3, FA1, IA1, IT4), generated on demand from
-  the tournament's data by `PairingsEngine.Norms.Forms`.
+  the tournament's data by `PairingsEngine.Norms.Forms`, and shows each
+  player's automatic title-norm judgment. The officials those forms name and
+  the event type the judgment uses are settings
+  (`PairingsEngineWeb.SettingsNormsLive`); this page only reads them.
 
   The actual `.xlsx` bytes are produced by `PairingsEngineWeb.NormsController`
   (plain `GET` downloads, not LiveView) - this page is just the picker UI:
@@ -29,7 +32,6 @@ defmodule PairingsEngineWeb.NormsLive do
   use PairingsEngineWeb, :live_view
 
   import PairingsEngineWeb.SettingsSupport
-  import PairingsEngineWeb.Components.ArbiterCombo
   import PairingsEngineWeb.Components.It3CountsExplain
 
   alias PairingsEngineWeb.Components.It3CountsExplain
@@ -37,31 +39,12 @@ defmodule PairingsEngineWeb.NormsLive do
   alias PairingsEngine.{Fide, Tournaments}
   alias PairingsEngine.Norms.Forms
   alias PairingsEngine.Tournaments.Player
-  alias PairingsEngineWeb.Live.ArbiterCombo
 
   @norm_titles ~w(GM IM FM CM WGM WIM WFM WCM)
 
-  # Officials & FIDE report fields not on the Tournament schema directly -
-  # nested under tournament[officials][KEY] and stored in the :officials map
-  # (see PairingsEngine.Tournaments.Tournament for the recognised keys).
-  # Relocated here from the old SettingsLive Officials card.
-  @officials_fields [
-    {"organizer_email", "Organizer e-mail", "text"},
-    {"chief_arbiter_email", "Chief arbiter e-mail", "text"}
-  ]
-
-  # FIDE's own printed Certificaat only ranks 2 deputies by name ("1st/2nd
-  # Deputy Chief Arbiter"); anyone after that prints as a plain, unranked
-  # "Arbiter" row no matter how many there are, so this UI only offers 2
-  # ranked slots too - everyone past that goes through "+ Add arbiter"
-  # (arbiter_range/1 below), which reuses the template's own 2 spare rows
-  # before it ever has to grow the sheet (see
-  # `PairingsEngine.Norms.ItThreeExpand`). An earlier version of this page
-  # offered 4 "deputy" boxes because the raw data sheet happens to have 4
-  # numbered ID/Name row-pairs - but FIDE itself never distinguishes past
-  # the 2nd, so that just meant "deputy 3/4" printed as an unlabelled
-  # "Arbiter" row, no different from - and confusingly separate from -
-  # "+ Add arbiter".
+  # The two ranked deputy slots the officials settings offer (see
+  # `PairingsEngineWeb.SettingsNormsLive`); read here for the report
+  # blockers and the FA1 candidate picker.
   @deputy_fields [
     {1, "1st deputy arbiter"},
     {2, "2nd deputy arbiter"}
@@ -87,15 +70,6 @@ defmodule PairingsEngineWeb.NormsLive do
        other_tournaments: other_tournaments(socket.assigns.current_scope, tournament.id),
        combine_selected: MapSet.new(),
        combine_master: to_string(tournament.id),
-       # Officials editing (relocated from SettingsLive). `dirty` guards the
-       # always-open officials form against a PubSub reload clobbering
-       # in-progress typing - same last-write-wins tracking the old Settings
-       # page used. `arbiter_search` drives the FIDE-autocomplete dropdown.
-       officials_note: nil,
-       officials_error: nil,
-       dirty: false,
-       stale: false,
-       arbiter_search: nil,
        # FA1/IA1 candidate fields, prefilled by the "Pick an arbiter" select
        # below. Kept in assigns (rather than left as uncontrolled inputs) so
        # picking someone can populate all four at once; still editable by hand,
@@ -117,18 +91,7 @@ defmodule PairingsEngineWeb.NormsLive do
     |> Enum.reject(fn {t, _player_count, _owner?} -> t.id == tournament_id end)
   end
 
-  # While the officials form is dirty (the user is mid-edit), don't reload
-  # `@tournament` - that would reset text being typed. Only flag `stale` when
-  # a freshly-loaded row actually differs (see SettingsSupport). This mirrors
-  # the old SettingsLive behaviour that guarded the Officials form.
   @impl true
-  def handle_info(
-        {:tournament_changed, _tournament_id, _hint},
-        %{assigns: %{dirty: true}} = socket
-      ) do
-    handle_stale_check(socket)
-  end
-
   def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
     case Tournaments.get_authorized_tournament(
            socket.assigns.current_scope,
@@ -141,7 +104,7 @@ defmodule PairingsEngineWeb.NormsLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, socket |> assign(tournament: tournament, stale: false) |> assign_players()}
+        {:noreply, socket |> assign(tournament: tournament) |> assign_players()}
     end
   end
 
@@ -154,7 +117,7 @@ defmodule PairingsEngineWeb.NormsLive do
     |> assign(:players, players)
     |> assign(:norm_judgments, judgments)
     # Both of these walk the whole roster; memoised here rather than in the
-    # template, which re-runs on every keystroke in the officials form.
+    # template, which re-runs on every keystroke in the FA1 candidate form.
     |> assign(
       :it3_counts,
       It3CountsExplain.precompute(players, socket.assigns.tournament.federation)
@@ -214,13 +177,6 @@ defmodule PairingsEngineWeb.NormsLive do
     {:noreply, assign(socket, :combine_master, id)}
   end
 
-  ## ---------- Officials & FIDE report data (relocated from SettingsLive) ----------
-  #
-  # The officials/arbiter details feeding the IT3/FA1/IA1/IT4 report forms.
-  # An always-open form, saved on its own submit; `officials_change` marks the
-  # page dirty so a concurrent broadcast doesn't clobber mid-edit typing (the
-  # arbiter-autocomplete fields mark dirty via `arbiter_search` instead).
-
   # Typing in the FA1/IA1 fields writes straight back into the assign that
   # renders them. Without this the inputs are controlled by `@fa1_candidate`
   # but nothing updates it, so any re-render (a PubSub tournament change, a
@@ -254,89 +210,6 @@ defmodule PairingsEngineWeb.NormsLive do
 
   def handle_event("pick_fa1_candidate", _params, socket), do: {:noreply, socket}
 
-  def handle_event("officials_change", _params, socket) do
-    {:noreply, assign(socket, dirty: true)}
-  end
-
-  def handle_event("save_officials", %{"tournament" => params}, socket) do
-    params =
-      params
-      |> Map.take(["chief_arbiter", "organizer", "officials"])
-      |> clamp_officials_extra_arbiters()
-
-    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
-
-    case missing_official_ids(params) do
-      [] ->
-        save_officials(socket, base, params)
-
-      missing ->
-        {:noreply,
-         assign(socket, officials_error: id_required_message(missing), officials_note: nil)}
-    end
-  end
-
-  # Arbiters beyond chief + the 2 ranked deputies - an unbounded list,
-  # tracked as a plain count (`officials["extra_arbiters_count"]`) plus flat
-  # `arbiterN_name`/`arbiterN_fide_id` officials keys, exactly like
-  # deputy1/deputy2 (see ArbiterCombo.parse_field/1 and apply_arbiter_pick/3
-  # below). "Arbiter 1"/"Arbiter 2" land on the template's own spare rows;
-  # "Arbiter 3" onward need `PairingsEngine.Norms.ItThreeExpand` to grow the
-  # sheet at download time - invisible here, `Forms.it3_result/3` handles
-  # it. Adding/removing here only touches in-memory `@tournament`, same as a
-  # pick - "Save officials" persists it, and the count travels through that
-  # save via a hidden input (see the template) since it isn't itself an
-  # arbiter_combo field.
-  def handle_event("add_arbiter", _params, socket) do
-    {:noreply, assign(socket, tournament: bump_extra_arbiters(socket.assigns.tournament, 1))}
-  end
-
-  def handle_event("remove_last_arbiter", _params, socket) do
-    {:noreply, assign(socket, tournament: bump_extra_arbiters(socket.assigns.tournament, -1))}
-  end
-
-  ## ---------- Officials arbiter FIDE-autocomplete (chief/pairings/deputies) ----------
-  #
-  # Mirrors PlayersLive's "search"/"pick" flow, generalised over a `role`. A
-  # pick only updates the in-memory `@tournament` (name + FIDE id under
-  # `officials`); it's persisted once "Save officials" is submitted.
-
-  # Both boxes of any official's combobox (name, FIDE ID) route through here -
-  # see `PairingsEngineWeb.Live.ArbiterCombo` for why one shared parser/search
-  # covers both, on this page and the public tools page alike. Ignoring an
-  # unrecognised field (rather than crashing) matters: LiveView drops
-  # `phx-value-*` on a form-serialised change event, so this can only ever
-  # learn which field changed from `_target` - a shape this page has gotten
-  # wrong before, and getting it wrong took the whole LiveView down with it
-  # ("something went wrong, attempting to reconnect").
-  def handle_event("arbiter_search", params, socket) do
-    case ArbiterCombo.target_role_and_field(params) do
-      nil ->
-        {:noreply, socket}
-
-      {role, field} ->
-        query = ArbiterCombo.target_value(params)
-
-        {:noreply,
-         assign(socket, arbiter_search: ArbiterCombo.search(role, field, query), dirty: true)}
-    end
-  end
-
-  def handle_event("arbiter_pick", %{"role" => role, "fide-id" => fide_id}, socket) do
-    case ArbiterCombo.picked_player(fide_id) do
-      nil ->
-        {:noreply, socket}
-
-      fp ->
-        {:noreply,
-         assign(socket,
-           tournament: apply_arbiter_pick(socket.assigns.tournament, role, fp),
-           arbiter_search: nil,
-           dirty: true
-         )}
-    end
-  end
-
   defp norm_form(%Player{norm_data: data}) do
     d = data || %{}
 
@@ -352,8 +225,6 @@ defmodule PairingsEngineWeb.NormsLive do
       }
     }
   end
-
-  ## ---------- Officials render/pick helpers ----------
 
   ## ---------- FA1/IA1 arbiter norm candidate ----------
 
@@ -437,39 +308,7 @@ defmodule PairingsEngineWeb.NormsLive do
     end
   end
 
-  defp officials_fields, do: @officials_fields
-  defp deputy_fields, do: @deputy_fields
-
   defp o_get(tournament, key), do: Map.get(tournament.officials || %{}, key, "")
-
-  # Every arbiter FIDE reports on is registered with FIDE and therefore has an
-  # id - there is no such thing as an official without one. Saving a bare name
-  # only produces a report FIDE will bounce, and the half-filled record is what
-  # the SWAR import leaves behind when a name is ambiguous, so refuse the save
-  # and point at the lookup instead of storing something unusable.
-  defp missing_official_ids(params) do
-    officials = Map.get(params, "officials", %{})
-
-    chief =
-      if not blank?(Map.get(params, "chief_arbiter")) and
-           blank?(Map.get(officials, "chief_arbiter_fide_id")),
-         do: ["Chief arbiter"],
-         else: []
-
-    deputies =
-      for {n, label} <- @deputy_fields,
-          not blank?(Map.get(officials, "deputy#{n}_name")),
-          blank?(Map.get(officials, "deputy#{n}_fide_id")),
-          do: label
-
-    extras =
-      for n <- extra_arbiter_range(Map.get(officials, "extra_arbiters_count")),
-          not blank?(Map.get(officials, "arbiter#{n}_name")),
-          blank?(Map.get(officials, "arbiter#{n}_fide_id")),
-          do: "Arbiter #{n}"
-
-    chief ++ deputies ++ extras
-  end
 
   # 1..count is a *descending* range (iterating count..1) when count is 0 -
   # an easy footgun elsewhere in this codebase - so 0 (the common case: no
@@ -478,30 +317,6 @@ defmodule PairingsEngineWeb.NormsLive do
     case parse_extra_count(count) do
       n when n > 0 -> 1..n
       _ -> 1..0//1
-    end
-  end
-
-  defp id_required_message(missing) do
-    "Every official needs a FIDE ID - type their name or FIDE ID above and pick the matching " <>
-      "result. Missing for: #{Enum.join(missing, ", ")}."
-  end
-
-  defp save_officials(socket, base, params) do
-    case Tournaments.update_tournament(base, params) do
-      {:ok, tournament} ->
-        log_settings_change(socket, base, tournament)
-
-        {:noreply,
-         assign(socket,
-           tournament: tournament,
-           officials_note: "Saved.",
-           officials_error: nil,
-           dirty: false,
-           stale: false
-         )}
-
-      {:error, changeset} ->
-        {:noreply, assign(socket, officials_error: error_text(changeset), officials_note: nil)}
     end
   end
 
@@ -514,7 +329,7 @@ defmodule PairingsEngineWeb.NormsLive do
     ~H"""
     <div :if={@blockers != []} class="report-blocked">
       <strong>{gettext("Not ready to submit to FIDE.")}</strong> {gettext(
-        "FIDE identifies every official by FIDE ID, so a report missing one gets bounced. Fill these in under \"Officials & FIDE report data\" above:"
+        "FIDE identifies every official by FIDE ID, so a report missing one gets bounced. Fill these in under Settings, Officials & norms:"
       )}
       <ul>
         <li :for={blocker <- @blockers}>{blocker}</li>
@@ -577,56 +392,6 @@ defmodule PairingsEngineWeb.NormsLive do
     fide_id ++ chief ++ deputies ++ extras ++ emails
   end
 
-  defp apply_arbiter_pick(tournament, "chief_arbiter", fp) do
-    %{
-      tournament
-      | chief_arbiter: fp.name,
-        officials: put_official(tournament, "chief_arbiter_fide_id", fp.fide_id)
-    }
-  end
-
-  defp apply_arbiter_pick(tournament, "organizer", fp) do
-    %{
-      tournament
-      | organizer: fp.name,
-        officials: put_official(tournament, "organizer_id", fp.fide_id)
-    }
-  end
-
-  defp apply_arbiter_pick(tournament, "person_responsible_pairings", fp) do
-    officials =
-      tournament
-      |> put_official("person_responsible_pairings", fp.name)
-      |> Map.put("person_responsible_pairings_fide_id", fp.fide_id)
-
-    %{tournament | officials: officials}
-  end
-
-  defp apply_arbiter_pick(tournament, "deputy" <> _ = role, fp) do
-    officials =
-      tournament
-      |> put_official("#{role}_name", fp.name)
-      |> Map.put("#{role}_fide_id", fp.fide_id)
-
-    %{tournament | officials: officials}
-  end
-
-  defp apply_arbiter_pick(tournament, "arbiter" <> _ = role, fp) do
-    officials =
-      tournament
-      |> put_official("#{role}_name", fp.name)
-      |> Map.put("#{role}_fide_id", fp.fide_id)
-
-    %{tournament | officials: officials}
-  end
-
-  defp apply_arbiter_pick(tournament, _role, _fp), do: tournament
-
-  defp put_official(tournament, key, value), do: Map.put(tournament.officials || %{}, key, value)
-
-  defp extra_arbiters_count(tournament),
-    do: tournament |> o_get("extra_arbiters_count") |> parse_extra_count()
-
   # Clamped, same as the public tools page - the count drives IT3 template
   # growth at download time (see
   # `PairingsEngine.Norms.Forms.max_extra_arbiters/0`).
@@ -643,42 +408,6 @@ defmodule PairingsEngineWeb.NormsLive do
   defp parse_extra_count(_), do: 0
 
   defp clamp_extra_count(n), do: n |> max(0) |> min(Forms.max_extra_arbiters())
-
-  # The count travels through "Save officials" as a hidden input, so the
-  # submitted params can carry anything; clamp before it reaches the changeset.
-  defp clamp_officials_extra_arbiters(params) do
-    case params do
-      %{"officials" => %{"extra_arbiters_count" => value} = officials} ->
-        Map.put(
-          params,
-          "officials",
-          Map.put(officials, "extra_arbiters_count", parse_extra_count(value))
-        )
-
-      _ ->
-        params
-    end
-  end
-
-  defp bump_extra_arbiters(tournament, delta) do
-    current = extra_arbiters_count(tournament)
-    new_count = clamp_extra_count(current + delta)
-
-    officials =
-      tournament
-      |> put_official("extra_arbiters_count", new_count)
-      |> then(fn officials ->
-        if delta < 0 do
-          officials
-          |> Map.delete("arbiter#{current}_name")
-          |> Map.delete("arbiter#{current}_fide_id")
-        else
-          officials
-        end
-      end)
-
-    %{tournament | officials: officials}
-  end
 
   defp it4_candidates(players) do
     Enum.filter(players, fn p -> not blank?(Map.get(p.norm_data || %{}, "title_claimed")) end)
@@ -810,9 +539,15 @@ defmodule PairingsEngineWeb.NormsLive do
       <p class="hint">
         <.rich_text text={
           gettext(
-            "Every report below is generated from the officials/arbiter details in the card just below, the FIDE identifiers on the %[fide] page, and the player list."
+            "Every report below is generated from the %[officials], the FIDE identifiers on the %[fide] page, and the player list."
           )
         }>
+          <:part name="officials">
+            <.link navigate={~p"/t/#{@tournament.id}/settings/norms"}>
+              {gettext("officials")}
+            </.link>
+          </:part>
+
           <:part name="fide">
             <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>
               {gettext("FIDE settings")}
@@ -820,186 +555,6 @@ defmodule PairingsEngineWeb.NormsLive do
           </:part>
         </.rich_text>
       </p>
-
-      <div class="card">
-        <h2>{gettext("Officials & FIDE report data")}</h2>
-
-        <p class="hint" style="margin-top: 0">
-          <.rich_text text={
-            gettext(
-              "Feeds the IT3 / FA1 / IA1 / IT4 FIDE report forms below. Organizer name is set on the %[tournament] page; the tournament's FIDE ID / event code on the %[fide] page. Pairing mode is always computerized, and the pairing program names whichever engine paired this tournament."
-            )
-          }>
-            <:part name="tournament">
-              <.link navigate={~p"/t/#{@tournament.id}/settings"}>
-                {gettext("Tournament settings")}
-              </.link>
-            </:part>
-
-            <:part name="fide">
-              <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>
-                {gettext("FIDE settings")}
-              </.link>
-            </:part>
-          </.rich_text>
-        </p>
-
-        <p :if={@stale} class="error-note">
-          {gettext(
-            "This tournament was updated elsewhere while you were editing. Saving officials will overwrite that change with what's on this page - reload first if you want to see it instead."
-          )}
-        </p>
-
-        <%!-- `phx-debounce` on the form applies to every input in it (the
-        arbiter comboboxes carry their own, since they run a FIDE search).
-        `officials_change` does nothing but set `dirty`, so there is no reason
-        to round-trip on each character. --%>
-        <form
-          id="officials-form"
-          phx-submit="save_officials"
-          phx-change="officials_change"
-          phx-debounce="300"
-        >
-          <div class="form-grid">
-            <label :for={{key, label, type} <- officials_fields()} class="field">
-              <span>{label}</span>
-              <input
-                type={type}
-                name={"tournament[officials][#{key}]"}
-                value={o_get(@tournament, key)}
-              />
-            </label>
-
-            <.arbiter_combo
-              role="chief_arbiter"
-              label={gettext("Chief arbiter")}
-              required
-              name_field="tournament[chief_arbiter]"
-              name_value={@tournament.chief_arbiter}
-              id_field="tournament[officials][chief_arbiter_fide_id]"
-              id_value={o_get(@tournament, "chief_arbiter_fide_id")}
-              search={@arbiter_search}
-            />
-            <.arbiter_combo
-              role="organizer"
-              label={gettext("Organizer")}
-              name_field="tournament[organizer]"
-              name_value={@tournament.organizer}
-              id_field="tournament[officials][organizer_id]"
-              id_value={o_get(@tournament, "organizer_id")}
-              search={@arbiter_search}
-            />
-            <.arbiter_combo
-              role="person_responsible_pairings"
-              label={gettext("Person responsible for pairings")}
-              name_field="tournament[officials][person_responsible_pairings]"
-              name_value={o_get(@tournament, "person_responsible_pairings")}
-              id_field="tournament[officials][person_responsible_pairings_fide_id]"
-              id_value={o_get(@tournament, "person_responsible_pairings_fide_id")}
-              search={@arbiter_search}
-            />
-            <label class="field">
-              <span>{gettext("IT4 event type")}</span>
-              <input
-                name="tournament[officials][it4_event_type]"
-                value={o_get(@tournament, "it4_event_type")}
-              />
-            </label>
-
-            <label class="field" style="grid-column: 1 / -1">
-              <span>{gettext("Link to pairings web (IT4)")}</span>
-              <input
-                name="tournament[officials][pairings_web_link]"
-                value={o_get(@tournament, "pairings_web_link")}
-              />
-            </label>
-          </div>
-
-          <h3 style="margin: 18px 0 8px; font-size: 14px">{gettext("Deputy arbiters")}</h3>
-
-          <div class="form-grid">
-            <div :for={{n, label} <- deputy_fields()} style="display: contents">
-              <.arbiter_combo
-                role={"deputy#{n}"}
-                label={label}
-                name_field={"tournament[officials][deputy#{n}_name]"}
-                name_value={o_get(@tournament, "deputy#{n}_name")}
-                id_field={"tournament[officials][deputy#{n}_fide_id]"}
-                id_value={o_get(@tournament, "deputy#{n}_fide_id")}
-                search={@arbiter_search}
-              />
-              <label class="field">
-                <span>{gettext("%{role} - e-mail", role: label)}</span>
-                <input
-                  name={"tournament[officials][deputy#{n}_email]"}
-                  value={o_get(@tournament, "deputy#{n}_email")}
-                />
-              </label>
-            </div>
-          </div>
-
-          <h3 style="margin: 18px 0 8px; font-size: 14px">
-            {gettext("Additional arbiters")}
-            <span class="hint" style="font-weight: normal">
-              {gettext(
-                "(beyond chief + 2 deputies - FIDE doesn't rank these, so IT3 prints each as a plain \"Arbiter\" row)"
-              )}
-            </span>
-          </h3>
-
-          <input
-            type="hidden"
-            name="tournament[officials][extra_arbiters_count]"
-            value={extra_arbiters_count(@tournament)}
-          />
-          <div class="form-grid">
-            <div
-              :for={n <- extra_arbiter_range(o_get(@tournament, "extra_arbiters_count"))}
-              style="display: contents"
-            >
-              <.arbiter_combo
-                role={"arbiter#{n}"}
-                label={"Arbiter #{n}"}
-                name_field={"tournament[officials][arbiter#{n}_name]"}
-                name_value={o_get(@tournament, "arbiter#{n}_name")}
-                id_field={"tournament[officials][arbiter#{n}_fide_id]"}
-                id_value={o_get(@tournament, "arbiter#{n}_fide_id")}
-                search={@arbiter_search}
-              />
-            </div>
-          </div>
-
-          <div class="actions" style="margin-top: 8px">
-            <button type="button" class="pe-btn" phx-click="add_arbiter">{gettext("+ Add arbiter")}</button>
-            <button
-              :if={extra_arbiters_count(@tournament) > 0}
-              type="button"
-              class="pe-btn danger-link"
-              phx-click="remove_last_arbiter"
-            >
-              {gettext("Remove last arbiter")}
-            </button>
-          </div>
-
-          <h3 style="margin: 18px 0 8px; font-size: 14px">{gettext("Special remarks (IT3)")}</h3>
-
-          <div class="form-grid">
-            <label :for={n <- 1..4} class="field">
-              <span>{gettext("Remark %{n}", n: n)}</span>
-              <input
-                name={"tournament[officials][remark#{n}]"}
-                value={o_get(@tournament, "remark#{n}")}
-              />
-            </label>
-          </div>
-
-          <div class="actions">
-            <button type="submit" class="pe-btn primary">{gettext("Save officials")}</button>
-            <span :if={@officials_note} class="ok-note" style="align-self: center">{@officials_note}</span>
-            <span :if={@officials_error} class="error-note" style="align-self: center">{@officials_error}</span>
-          </div>
-        </form>
-      </div>
 
       <div class="card">
         <h2>{gettext("IT3 - Tournament Report Form")}</h2>
@@ -1292,15 +847,17 @@ defmodule PairingsEngineWeb.NormsLive do
 
         <p id="norm-event-type-note" class="hint" style="padding: 0 16px">
           <.rich_text text={
-            gettext("Judged as: %{type}. Change it on the %[fide] settings page.",
+            gettext("Judged as: %{type}. Set under %[settings].",
               type:
                 PairingsEngineWeb.SettingsSupport.norm_event_type_label(
                   PairingsEngine.Tournaments.Tournament.effective_norm_event_type(@tournament)
                 )
             )
           }>
-            <:part name="fide">
-              <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>{gettext("FIDE")}</.link>
+            <:part name="settings">
+              <.link navigate={~p"/t/#{@tournament.id}/settings/norms"}>
+                {gettext("Settings, Officials & norms")}
+              </.link>
             </:part>
           </.rich_text>
         </p>

@@ -166,8 +166,8 @@ reeksen rondes), de evenementcode, en het vakje *Dit toernooi is
 FIDE-gehomologeerd (gerate/rapporteerbaar)*. Wanneer dat vakje is aangevinkt,
 worden door de organisator ingestelde byevoorkeuren niet toegepast (het zijn
 geen FIDE-regels), en wordt het toernooi-ID een verplicht veld. De
-functionarissen (hoofdarbiter, hulparbiters) en de normgegevens worden ingevoerd
-op de pagina Toernooi; zie [Een toernooi instellen](03-tournament-setup.md) en
+functionarissen (hoofdarbiter, hulparbiters) en het type evenement voor
+titelnormen worden ingevoerd onder **Functionarissen & normen**; zie [Een toernooi instellen](03-tournament-setup.md) en
 [Versturen naar FIDE](11-fide-report.md).
 
 ![De FIDE-pagina van de instellingen met het toernooi-ID, de evenementcode en het vakje voor homologatie](screenshots/02-settings-fide-page.png "Instellingen, FIDE")
