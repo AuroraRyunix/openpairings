@@ -213,11 +213,13 @@ it is now:
    entry) and the email. Accept creates exactly what is shown, absent;
    Discard creates nothing and the entry stays discarded.
 
-The entry form's FIDE search is the other half of the channel: OpenResults
-proxies it to `GET /internal/fide/search` here with the ingest token. Since
-2026-09-30 it answers from the KBSB list too (member number and club, and
-Belgian club players the FIDE list does not have). It still works only where
-both apps share a host - see TODO.
+The entry form's FIDE search no longer comes here. Since OpenResults 0.26.0
+the results site keeps its own copy of the FIDE list, checked daily and
+downloaded only when FIDE has published a new one, so the search works on any
+host. `GET /internal/fide/search` stays, unused by OpenResults. What went with
+the proxy is the KBSB half of its answer: a Belgian player without a FIDE id
+types their own details, and the arbiter's queue card still prefills from the
+KBSB list on accept.
 
 6. **Decided 2026-10-18: a fee line, and pending names.**
    - The form states an optional entry fee: `registration_fee_amount`,
