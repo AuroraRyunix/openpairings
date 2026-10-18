@@ -54,8 +54,8 @@ tournament ID.
 
 The **Settings** menu in the top bar opens the Tournament page. Every
 Settings page has the list of pages beside it (above it on a phone), in three
-groups: **Set-up** (Tournament, Group, Options, Scoring, Dates, Categories, Extra
-points, Forbidden pairings), **Publishing** (OpenResults, Live boards) and
+groups: **Set-up** (Tournament, Group, Options, Scoring, Dates, Rooms, Categories,
+Extra points, Forbidden pairings), **Publishing** (OpenResults, Live boards) and
 **Reporting** (FIDE, Export, About).
 
 ### Common and advanced settings
@@ -91,6 +91,7 @@ Two more things keep the pages short:
 | Options | pairing system, tournament rating, cycles (round robin), Keizer top value (Keizer), line-ups (teams), type and rate of play | engine, initial colour, equal rating and title, late entrants' pairing numbers, round-1 absentees, acceleration, the match formats, team rating and unrated rating (teams), other rate of play |
 | Scoring | points, match points, postponed games | the whole *Byes and absences* card (points for a round sat out and its limits, voluntary unplayed rounds, late entrants' absences, asking the bye type); a team's bye, forfeit and withdrawal rules |
 | Dates | one date per round | - |
+| Rooms | the rooms of the hall and their boards | - |
 | Categories | see [Categories and norms](13-categories-and-norms.md) | - |
 | Extra points | bonus or handicap points by rating band | - |
 | Forbidden pairings | the effect on the next round, the rules, players who must not meet | how hard to try the wishes |
@@ -416,6 +417,38 @@ One date for each round:
 The dates are used on the printed lists, the TRF report
 (record 132), the match result sheets and the results site. The start and end
 date of the tournament are derived from them.
+
+## Rooms page
+
+For a hall of more than one room. Each room has a name and the boards it
+holds, typed the way you would say them: `1-20, 35, 40-45` (commas,
+semicolons or spaces between them; `1 - 20` is one range). **Add a room**
+adds a row, **Remove** takes one away, and **Save rooms** keeps the lot.
+
+Every row is checked as you type, and the line under it says what it read
+(*Boards 1-20, 35: 21 boards.*) or what is wrong:
+
+- every room needs a name, and no two rooms may share one (capitals do not
+  make a name different);
+- a board can be in one room only - *Board 18 is already in Main hall.*;
+- a board in no room is fine, and so is a room with no boards yet.
+
+A board's number is the number its label starts with: a team tournament's
+board `3.1` is in the room that holds 3, and a fixed table counts by its own
+number.
+
+Once a tournament has rooms, the Pairings page names the room above the
+first board of each room, and the printed pairing list and the alphabetical
+list get a **Room** column. A tournament without rooms looks as it always
+did.
+
+Where a print station or a hall announcer is installed, it can be placed
+in one of these rooms: a print station then prints only that room's boards,
+an announcer reads only that room's boards. Renaming a room keeps what was
+placed in it; removing a room leaves those devices in no room, which means
+the whole hall again.
+
+The rooms travel in the tournament's JSON export and come back on import.
 
 ## Extra points page
 

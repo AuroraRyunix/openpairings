@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Rooms.** Settings, Rooms gives a hall of more than one room its names and the boards each holds (`1-20, 35, 40-45`), checked as you type: no name twice, no board in two rooms, and a board in none is its own business. The Pairings page then names the room above its first board, and both printed pairing lists grow a Room column, so the player looking for board 37 learns it is in the annexe before walking the main hall twice. A tournament without rooms looks exactly as it did. Rooms travel in the JSON export and come back on import.
+
 ## [0.93.0] - 2026-10-18
 
 - [Change] **New address.** The repository moved to github.com/teapot-chess; old links still redirect, out of politeness rather than obligation.

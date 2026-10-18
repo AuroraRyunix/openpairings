@@ -47,6 +47,8 @@ de methoden met de hoogste rating of een met de hand ingetypte rating.
 | **Briefjes voor uitgestelde partijen** | Eén briefje per speler van elke openstaande uitgestelde partij ([Resultaten invoeren](07-results.md)). |
 | **Voorvertoning volgende ronde** | De borden die vast liggen, wat de openstaande resultaten ook zijn, met een lijst op naam voor de naamkaartjes ([Een ronde paren](06-pairing.md)). Op het tabblad Afdrukken zodra je ze op de pagina Paringen hebt berekend; tot dan is er niets af te drukken. |
 
+Een toernooi met ruimtes (Instellingen, Ruimtes) krijgt een kolom **Ruimte** op beide paringenlijsten, naast het bordnummer. Zonder ruimtes is er geen zulke kolom.
+
 ### Welke ronde {#which-round}
 
 De paringenlijst, de resultaatkaartjes en de notatiebriefjes nemen een ronde: de

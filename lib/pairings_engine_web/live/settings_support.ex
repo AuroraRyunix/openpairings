@@ -92,9 +92,10 @@ defmodule PairingsEngineWeb.SettingsSupport do
       <div class="page-header tset-header">
         <div>
           <h1>{@tournament.name}</h1>
-
+          
           <p class="subtitle" style="margin: 0">{@subtitle} {render_slot(@subtitle_extra)}</p>
         </div>
+        
         <span
           :if={@show_status}
           class={["badge", @tournament.status == "setup" && "muted"]}
@@ -102,7 +103,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           {@tournament.status}
         </span>
       </div>
-
+      
       <div class="tset-layout">
         <.settings_subnav tournament={@tournament} active={@active} current_scope={@current_scope} />
         <div class={["tset-main", @advanced && @advanced.on? && "show-advanced"]} id="settings-main">
@@ -119,9 +120,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
               <span class="tset-switch-track" aria-hidden="true">
                 <span class="tset-switch-thumb"></span>
               </span>
-              {gettext("Show advanced settings")}
+               {gettext("Show advanced settings")}
             </button>
-
+            
             <button
               :if={!@advanced.on? and @advanced.changed > 0}
               type="button"
@@ -130,16 +131,14 @@ defmodule PairingsEngineWeb.SettingsSupport do
               phx-click="settings_advanced"
               phx-value-on="true"
             >
-              <.icon name="hero-adjustments-horizontal-micro" class="size-4" />
-              {ngettext(
+              <.icon name="hero-adjustments-horizontal-micro" class="size-4" /> {ngettext(
                 "1 advanced setting is not at its default - show it",
                 "%{count} advanced settings are not at their defaults - show them",
                 @advanced.changed
               )}
             </button>
           </div>
-
-          {render_slot(@inner_block)}
+           {render_slot(@inner_block)}
         </div>
       </div>
     </div>
@@ -150,7 +149,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
   The rail of Settings pages, grouped the way an arbiter meets them:
   setting the tournament up, putting it in front of people, reporting it.
   `active` is one of `:tournament`, `:options`, `:restrictions`, `:scoring`,
-  `:group`, `:dates`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
+  `:group`, `:dates`, `:rooms`, `:categories`, `:extra_points`, `:results`, `:boards`, `:fide`,
   `:export`, `:about`. A plugin's page is `"plugin:" <> id`
   (`PairingsEngine.Plugin`'s `tournament_settings_entries/2`).
 
@@ -180,6 +179,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           >
             <.icon name={icon} class="size-4" /> {label}
           </.link>
+          
           <.link
             :if={is_binary(key)}
             href={path}
@@ -229,6 +229,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           gettext("Options")},
          {:scoring, ~p"/t/#{id}/settings/scoring", "hero-calculator-micro", gettext("Scoring")},
          {:dates, ~p"/t/#{id}/settings/dates", "hero-calendar-days-micro", gettext("Dates")},
+         {:rooms, ~p"/t/#{id}/settings/rooms", "hero-map-micro", gettext("Rooms")},
          {:categories, ~p"/t/#{id}/categories", "hero-tag-micro", gettext("Categories")},
          {:extra_points, ~p"/t/#{id}/settings/extra-points", "hero-plus-circle-micro",
           gettext("Extra points")},
@@ -352,7 +353,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
     <span :if={@note} class="ok-note tset-saved" id={@id} role="status">
       <.icon name="hero-check-micro" class="size-4" /> {@note}
     </span>
-    <span :if={@error} class="error-note tset-error" role="alert">{@error}</span>
+     <span :if={@error} class="error-note tset-error" role="alert">{@error}</span>
     """
   end
 
@@ -424,6 +425,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
     ~H"""
     <div class={["tset-feature", @open && "is-open", @class]} id={@id}>
       <div class="tset-feature-switch">{render_slot(@switch)}</div>
+      
       <div :if={@inner_block != []} class="tset-feature-body">{render_slot(@inner_block)}</div>
     </div>
     """
@@ -450,7 +452,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
       <span class={["set-label", @required && "req"]}>
         {@label}<span :if={@required} class="set-req"> *</span>
       </span>
-      {render_slot(@inner_block)} <span :if={@hint} class="hint">{@hint}</span>
+       {render_slot(@inner_block)} <span :if={@hint} class="hint">{@hint}</span>
     </label>
     """
   end
@@ -484,7 +486,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
         <input type="checkbox" name={@name} value="true" checked={@checked} disabled={@disabled} />
         <.locked_overlay :if={@field} field={@field} locked?={@locked?} />
       </span>
-
+      
       <span class="set-toggle-text">
         {@label} <span :if={@hint} class="hint">{@hint}</span>
         <.locked_hint_message
@@ -550,7 +552,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
         </p>
       <% else %>
         <p style="margin: 0 0 8px">{@warning}</p>
-
+        
         <button
           type="button"
           class="pe-btn tonal"
@@ -659,33 +661,33 @@ defmodule PairingsEngineWeb.SettingsSupport do
       class="force-unlock"
     >
       <summary>{gettext("The copy this was handed to is gone")}</summary>
-
+      
       <p class="hint">
         {gettext(
           "Taking this tournament back needs the token the other copy is holding. If that copy is lost for good - stolen, wiped, reinstalled - this opens the lock here instead."
         )}
       </p>
-
+      
       <p class="error-note">
         {gettext(
           "The copy handed to %{place} still exists. This does not close it and does not merge anything back: whoever has it must never open it again, and anything entered there is lost.",
           place: handoff_destination(@tournament.handed_off_to)
         )}
       </p>
-
+      
       <p class="hint">
         {gettext("Forcing the lock is recorded in this tournament's audit trail.")}
       </p>
-
+      
       <form id="force-unlock-form" phx-change="force_unlock_input">
         <label class="field">
           <span>{gettext("Type %{word} to confirm", word: force_unlock_word())}</span>
           <input name="confirm" value={@confirm_text} autocomplete="off" />
         </label>
       </form>
-
+      
       <p :if={@error} class="error-note">{@error}</p>
-
+      
       <div class="actions">
         <button
           type="button"
@@ -759,7 +761,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           - {compliance_message(departure.code)}
         </li>
       </ul>
-
+      
       <p :if={@tournament.fide_compliance_lost_round} class="hint" style="margin: 8px 0 0">
         {compliance_lost_line(@tournament.fide_compliance_lost_round)}
       </p>
@@ -1099,29 +1101,29 @@ defmodule PairingsEngineWeb.SettingsSupport do
         data-dialog
       >
         <h2 id={"#{@id}-title"}>{gettext("Leave FIDE mode?")}</h2>
-
+        
         <div :if={@step == :warn} id={"#{@id}-warn"}>
           <p style="margin: 0 0 8px">
             <strong>{gettext("This is not compliant with the FIDE regulations.")}</strong> {gettext(
               "A tournament outside FIDE mode can be changed in ways the FIDE pairing rules do not allow. Do you want to continue?"
             )}
           </p>
-
+          
           <div :if={@reasons != []} id={"#{@id}-reasons"}>
             <p style="margin: 0 0 6px">
               <strong>{gettext("This is what takes it out of FIDE mode:")}</strong>
             </p>
-
+            
             <ul style="margin: 0 0 10px; padding-left: 20px">
               <li :for={{label, sentence} <- @reasons}><strong>{label}</strong> - {sentence}</li>
             </ul>
           </div>
-
+          
           <div class="actions">
             <button id={"#{@id}-continue"} type="button" class="pe-btn" phx-click={@continue_event}>
               {gettext("Yes, continue")}
             </button>
-
+            
             <button
               id={"#{@id}-cancel"}
               type="button"
@@ -1132,35 +1134,35 @@ defmodule PairingsEngineWeb.SettingsSupport do
             </button>
           </div>
         </div>
-
+        
         <div :if={@step == :consequences} id={"#{@id}-consequences"}>
           <p style="margin: 0 0 6px"><strong>{gettext("What leaving FIDE mode does:")}</strong></p>
-
+          
           <ul style="margin: 0 0 8px; padding-left: 20px">
             <li>{gettext("It is for good: this tournament can never return to FIDE mode.")}</li>
-
+            
             <li>
               {gettext(
                 "The FIDE report (TRF) says from which round the tournament was no longer in FIDE mode, so whoever checks it knows where to look harder."
               )}
             </li>
-
+            
             <li>
               {gettext(
                 "The locked settings and every earlier round can then be changed, and the program no longer stops a change the FIDE rules forbid."
               )}
             </li>
-
+            
             <li>{gettext("Every page of this tournament will say it is not in FIDE mode.")}</li>
           </ul>
-
+          
           <p style="margin: 0 0 8px"><strong>{gettext("Stay in FIDE mode?")}</strong></p>
-
+          
           <div class="actions">
             <button id={"#{@id}-stay"} type="button" class="pe-btn primary" phx-click={@cancel_event}>
               {gettext("Yes, stay in FIDE mode")}
             </button>
-
+            
             <button
               id={"#{@id}-confirm"}
               type="button"

@@ -23,6 +23,7 @@ defmodule PairingsEngineWeb.Components.GroupSwitcher do
   @portable ~w(players pairings standings print history audit audit/explain postponed
                registrations live norms categories settings settings/options
                settings/restrictions settings/results settings/scoring settings/dates
+               settings/rooms
                settings/extra-points settings/fide settings/about settings/export
                settings/changelog)
 
@@ -41,7 +42,6 @@ defmodule PairingsEngineWeb.Components.GroupSwitcher do
       aria-label={gettext("Tournaments in %{event}", event: @switcher.group.name)}
     >
       <span class="group-switcher-name">{@switcher.group.name}</span>
-
       <ul class="group-switcher-segments">
         <li :for={m <- @members}>
           <.link
@@ -55,12 +55,13 @@ defmodule PairingsEngineWeb.Components.GroupSwitcher do
           </.link>
         </li>
       </ul>
-
+      
       <details class="group-switcher-menu" id="group-switcher-menu">
         <summary>
           <span class="group-switcher-menu-current">{current_label(@members)}</span>
           <.icon name="hero-chevron-down" class="size-4" />
         </summary>
+        
         <div class="group-switcher-menu-panel">
           <.link
             :for={m <- @members}

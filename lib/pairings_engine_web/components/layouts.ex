@@ -143,7 +143,7 @@ defmodule PairingsEngineWeb.Layouts do
       <.link navigate={if(@current_scope, do: ~p"/", else: ~p"/users/log-in")} class="brand">
         <.brand_mark /> <span class="brand-name">Open<strong>Pairings</strong></span>
       </.link>
-
+      
       <%!-- Two navs in one banner, so each is named - a screen reader's
             landmark list otherwise offers "navigation" twice and nothing to
             choose between them. The current page's tab says `aria-current`,
@@ -156,7 +156,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {if @tournament, do: "Home", else: "Tournaments"}
         </.link>
-
+        
         <%= if @tournament do %>
           <.link
             navigate={~p"/t/#{@tournament.id}/players"}
@@ -165,7 +165,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Players")}
           </.link>
-
+          
           <.link
             :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)}
             navigate={~p"/t/#{@tournament.id}/teams"}
@@ -174,7 +174,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Teams")}
           </.link>
-
+          
           <.link
             navigate={~p"/t/#{@tournament.id}/pairings"}
             class={tab_class(@active == "pairings")}
@@ -182,7 +182,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Pairings")}
           </.link>
-
+          
           <.link
             navigate={~p"/t/#{@tournament.id}/standings"}
             class={tab_class(@active == "standings")}
@@ -190,7 +190,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Standings")}
           </.link>
-
+          
           <.link
             navigate={~p"/t/#{@tournament.id}/print"}
             class={tab_class(@active == "print")}
@@ -198,7 +198,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Print")}
           </.link>
-
+          
           <details class="topbar-menu" name="topbar-popover">
             <summary
               id="topbar-advanced-toggle"
@@ -207,24 +207,24 @@ defmodule PairingsEngineWeb.Layouts do
             >
               {gettext("Advanced")}
             </summary>
-
+            
             <div class="topbar-menu-panel">
               <.link navigate={~p"/t/#{@tournament.id}/norms"} class="topbar-menu-item">
                 {gettext("Norms")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/history"} class="topbar-menu-item">
                 {gettext("History")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/audit"} class="topbar-menu-item">
                 {gettext("Audit trail")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/audit/explain"} class="topbar-menu-item">
                 {gettext("Pairing rationale")}
               </.link>
-
+              
               <%!-- A plain link, not a live one: /t/:id/badges is a controller
                     that answers with the user's badge event for this
                     tournament, or the form for a new one, so the menu does not
@@ -234,7 +234,7 @@ defmodule PairingsEngineWeb.Layouts do
               </.link>
             </div>
           </details>
-
+          
           <details class="topbar-menu" name="topbar-popover">
             <summary
               id="topbar-settings-toggle"
@@ -243,43 +243,47 @@ defmodule PairingsEngineWeb.Layouts do
             >
               {gettext("Settings")}
             </summary>
-
+            
             <div class="topbar-menu-panel">
               <.link navigate={~p"/t/#{@tournament.id}/settings"} class="topbar-menu-item">
                 {gettext("Tournament")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/settings/options"} class="topbar-menu-item">
                 {gettext("Options")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/settings/results"} class="topbar-menu-item">
                 {gettext("OpenResults")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/settings/scoring"} class="topbar-menu-item">
                 {gettext("Scoring")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/settings/dates"} class="topbar-menu-item">
                 {gettext("Dates")}
               </.link>
-
+              
+              <.link navigate={~p"/t/#{@tournament.id}/settings/rooms"} class="topbar-menu-item">
+                {gettext("Rooms")}
+              </.link>
+              
               <.link navigate={~p"/t/#{@tournament.id}/categories"} class="topbar-menu-item">
                 {gettext("Categories")}
               </.link>
-
+              
               <.link
                 navigate={~p"/t/#{@tournament.id}/settings/extra-points"}
                 class="topbar-menu-item"
               >
                 {gettext("Extra points")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/settings/fide"} class="topbar-menu-item">
                 FIDE
               </.link>
-
+              
               <%!-- These three were in the Settings sub-nav but not in this
                     menu, so the only way to reach Export was to open some
                     OTHER settings page first and then find it in the row of
@@ -290,14 +294,14 @@ defmodule PairingsEngineWeb.Layouts do
               <.link navigate={~p"/t/#{@tournament.id}/settings/export"} class="topbar-menu-item">
                 {gettext("Export")}
               </.link>
-
+              
               <.link navigate={~p"/t/#{@tournament.id}/settings/about"} class="topbar-menu-item">
                 {gettext("About")}
               </.link>
             </div>
           </details>
         <% end %>
-
+        
         <%!-- Hidden, not merely disabled. Gating the buttons on Connections
               left the page readable by any account, and what it shows - the
               publishing address, the backup filenames, the sync state - is
@@ -312,7 +316,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {gettext("Connections")}
         </.link>
-
+        
         <.link
           :if={!@tournament && @current_scope && Authz.may_administer?(@current_scope.user)}
           navigate={~p"/admin"}
@@ -321,7 +325,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {gettext("Admin")}
         </.link>
-
+        
         <.link
           :if={!@tournament}
           navigate={~p"/tools/norms"}
@@ -330,7 +334,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {gettext("Tools")}
         </.link>
-
+        
         <%!-- Plugins (`PairingsEngine.Plugin`). On the home screen, one
               "Plug-ins" menu listing every installed plugin and the
               overview page - and in a build without a plugin, nothing at
@@ -351,7 +355,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Plug-ins")}
           </summary>
-
+          
           <div class="topbar-menu-panel">
             <.link
               :for={plugin <- @installed_plugins}
@@ -362,13 +366,13 @@ defmodule PairingsEngineWeb.Layouts do
             >
               {plugin.name}
             </.link>
-
+            
             <.link id="plugin-menu-installed" href="/plugins" class="topbar-menu-item">
               {gettext("Installed plug-ins")}
             </.link>
           </div>
         </details>
-
+        
         <.link
           :for={entry <- PairingsEngine.Plugins.tournament_menu_entries(@current_scope, @tournament)}
           id={"plugin-menu-#{entry.id}"}
@@ -378,7 +382,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {entry.label}
         </.link>
-
+        
         <.link
           :if={!@tournament && @current_scope}
           navigate={~p"/changelog"}
@@ -387,7 +391,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {gettext("Changelog")}
         </.link>
-
+        
         <%!-- On every page, signed in or not: the manual needs no account
               (`PairingsEngineWeb.HelpLive`). Inside a tournament it opens at
               the chapter for the tab the arbiter is on (`help_path/1`), in a
@@ -403,7 +407,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           {gettext("Help")}
         </.link>
-
+        
         <.link
           :if={@active != "help"}
           id="topbar-help"
@@ -416,7 +420,7 @@ defmodule PairingsEngineWeb.Layouts do
           {gettext("Help")}
         </.link>
       </nav>
-
+      
       <nav class="topbar-auth" aria-label={gettext("Account and display")}>
         <.accent_picker />
         <.language_picker locale={assigns[:locale]} path={assigns[:current_path] || "/"} />
@@ -443,12 +447,12 @@ defmodule PairingsEngineWeb.Layouts do
               <span class="user-email">
                 {PairingsEngine.Accounts.User.display_label(@current_scope.user)}
               </span>
-              <span class="account-menu-short" aria-hidden="true">{gettext("Account")}</span>
+               <span class="account-menu-short" aria-hidden="true">{gettext("Account")}</span>
               <%!-- Takes the word's place where the bar is at its tightest,
                     just above the phone layout (see app.css). --%>
               <.icon name="hero-user-circle" class="account-menu-icon size-5" />
             </summary>
-
+            
             <div class="topbar-menu-panel">
               <span class="account-menu-who">{@current_scope.user.email}</span>
               <%!-- Hidden on a local install for the same reason the log-out
@@ -465,7 +469,7 @@ defmodule PairingsEngineWeb.Layouts do
               >
                 {gettext("Settings")}
               </.link>
-
+              
               <%!-- Shown on a local install too, unlike the account settings
                     link above. The national-federation switches are the one
                     account preference an arbiter running the binary on their
@@ -479,7 +483,7 @@ defmodule PairingsEngineWeb.Layouts do
               >
                 {gettext("Features")}
               </.link>
-
+              
               <%!-- The rating inbox is the rating officer's page, not a
                     tournament's, and its only obvious door used to be a
                     button on a tournament's Export page. Here it is reachable
@@ -493,7 +497,7 @@ defmodule PairingsEngineWeb.Layouts do
               >
                 {gettext("Rating inbox")}
               </.link>
-
+              
               <%!-- The phone layout's copy of the version: there the bar has
                     no room for `version_link/1`, which is hidden, so it is
                     here. Hidden in this menu from 769px up, where the bar
@@ -505,7 +509,7 @@ defmodule PairingsEngineWeb.Layouts do
               >
                 v{Build.id()}
               </.link>
-
+              
               <%!-- No log out on a local install. There is no second account to
                     log in as, and the next request would sign the same owner
                     straight back in - a control that visibly does nothing is
@@ -524,7 +528,7 @@ defmodule PairingsEngineWeb.Layouts do
         <% else %>
           <.link navigate={~p"/users/log-in"} class="topbar-signin">{gettext("Log in")}</.link>
         <% end %>
-        <.version_link />
+         <.version_link />
       </nav>
     </header>
 
@@ -546,17 +550,17 @@ defmodule PairingsEngineWeb.Layouts do
         <span class="update-notice-text">
           {gettext("OpenPairings v%{version} is out.", version: @update_notice.version)}
         </span>
-
+        
         <span :if={@update_notice[:installing]} class="update-notice-hint">
           {gettext("Installing the update - OpenPairings will restart in a moment…")}
         </span>
-
+        
         <%= unless @update_notice[:installing] do %>
           <span class="update-notice-hint">{update_notice_hint(@update_notice)}</span>
           <span :if={@update_notice.running != []} class="update-notice-warn">
             {update_notice_running_warning(@update_notice.running)}
           </span>
-
+          
           <.link
             :if={update_notice_can_install?(@update_notice)}
             phx-click="install_and_restart"
@@ -565,7 +569,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("Install and restart")}
           </.link>
-
+          
           <.link
             :if={!update_notice_can_install?(@update_notice)}
             href={@update_notice.url}
@@ -575,7 +579,7 @@ defmodule PairingsEngineWeb.Layouts do
           >
             {gettext("View the release")}
           </.link>
-
+          
           <button
             type="button"
             class="pe-btn update-notice-dismiss"
@@ -586,7 +590,7 @@ defmodule PairingsEngineWeb.Layouts do
           </button>
         <% end %>
       </div>
-
+      
       <%!-- The question before the 41 MB: desktop only, administrators only,
             and the buttons are caught by `PairingsEngineWeb.FideDownloadNotice`
             like the update notice's. Nothing downloads until one is pressed. --%>
@@ -605,13 +609,13 @@ defmodule PairingsEngineWeb.Layouts do
             do: gettext("No list downloaded yet. The download is about 41 MB."),
             else: gettext("A newer list is available. The download is about 41 MB.")}
         </span>
-
+        
         <%= if @fide_notice.busy? do %>
           <div id="fide-download-progress" class="progress-block fide-notice-progress">
             <div class="progress-track">
               <div class="progress-fill indeterminate"></div>
             </div>
-
+            
             <span class="update-notice-hint">
               {if @fide_notice.status.progress != "",
                 do: @fide_notice.status.progress,
@@ -622,7 +626,7 @@ defmodule PairingsEngineWeb.Layouts do
           <span :if={@fide_notice.status.status == :error} class="update-notice-warn">
             {gettext("Update failed:")} {@fide_notice.status.error}
           </span>
-
+          
           <span class="fide-notice-actions">
             <button
               id="fide-download-now"
@@ -632,7 +636,7 @@ defmodule PairingsEngineWeb.Layouts do
             >
               {gettext("Download now")}
             </button>
-
+            
             <button
               id="fide-download-later"
               type="button"
@@ -641,7 +645,7 @@ defmodule PairingsEngineWeb.Layouts do
             >
               {gettext("Later")}
             </button>
-
+            
             <button
               id="fide-download-never"
               type="button"
@@ -658,7 +662,7 @@ defmodule PairingsEngineWeb.Layouts do
           </span>
         <% end %>
       </div>
-
+      
       <%!-- Rendered in the layout rather than per-page so it cannot be
             forgotten on one: every authenticated tournament page goes through
             here, so archiving is visible on all of them at once. --%>
@@ -668,9 +672,9 @@ defmodule PairingsEngineWeb.Layouts do
             "It's read-only - every change is refused until you unarchive it. Everything else (viewing, printing, exporting, its public link) still works normally."
           )}
         </span>
-        <.link navigate={~p"/"} class="pe-btn">{gettext("Unarchive from Tournaments")}</.link>
+         <.link navigate={~p"/"} class="pe-btn">{gettext("Unarchive from Tournaments")}</.link>
       </div>
-
+      
       <%!-- The sibling of the archive banner, for the other reason a
             tournament is read-only: it has been handed off, and is live on
             some other machine right now. Same markup and the same
@@ -694,17 +698,17 @@ defmodule PairingsEngineWeb.Layouts do
               place: handoff_destination(@tournament.handed_off_to)
             )}
           </strong>
-          {gettext(
+           {gettext(
             "It left this copy on %{at}, and is live there now. It's read-only here - every change is refused until it's handed back, and the returning file brings everything played over there with it. Everything else (viewing, printing, exporting) still works normally.",
             at: handoff_time(@tournament.handed_off_at)
           )}
         </span>
-
+        
         <.link navigate={~p"/?return=#{@tournament.id}"} class="pe-btn primary">
           {gettext("Bring it back")}
         </.link>
       </div>
-
+      
       <%!-- VCL4THP Q46: while a tournament is not in FIDE mode, every one
             of its pages says so - not only the settings that took it out.
             One quiet line rather than a banner: a Keizer club evening is
@@ -713,9 +717,9 @@ defmodule PairingsEngineWeb.Layouts do
         {gettext("Not in FIDE mode.")}
         <.link navigate={~p"/t/#{@tournament.id}/settings/fide"}>{gettext("What that means")}</.link>
       </p>
-      {render_slot(@inner_block)}
+       {render_slot(@inner_block)}
     </main>
-    <.flash_group flash={@flash} />
+     <.flash_group flash={@flash} />
     <%= for overlay <- PairingsEngine.Plugins.page_overlays(%{current_scope: @current_scope}) do %>
       {overlay}
     <% end %>
@@ -739,14 +743,14 @@ defmodule PairingsEngineWeb.Layouts do
           <stop offset="0%" stop-color="#c084fc" /> <stop offset="42%" stop-color="#818cf8" />
           <stop offset="100%" stop-color="#0284c7" />
         </linearGradient>
-
+        
         <radialGradient id="bm-aurora-specular" cx="35%" cy="25%" r="65%">
           <stop offset="0%" stop-color="#ffffff" stop-opacity="0.55" />
           <stop offset="50%" stop-color="#c084fc" stop-opacity="0.1" />
           <stop offset="100%" stop-color="#000000" stop-opacity="0" />
         </radialGradient>
       </defs>
-
+      
       <path
         d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
         fill="#f8fafc"
@@ -781,7 +785,7 @@ defmodule PairingsEngineWeb.Layouts do
           <stop offset="0%" stop-color="#3d7458" /> <stop offset="100%" stop-color="#24503a" />
         </linearGradient>
       </defs>
-
+      
       <path
         d="M22,18 Q10,10 1,14 Q8,22 10,30 Q16,32 22,30 Q26,26 22,18 Z"
         fill="#f7f3e8"
@@ -999,7 +1003,7 @@ defmodule PairingsEngineWeb.Layouts do
         {gettext("Attempting to reconnect")}
         <.icon name="hero-arrow-path" class="ml-1 size-3 motion-safe:animate-spin" />
       </.flash>
-
+      
       <.flash
         id="server-error"
         kind={:error}
@@ -1065,7 +1069,7 @@ defmodule PairingsEngineWeb.Layouts do
       >
         <span class="accent-picker-current"></span>
       </summary>
-
+      
       <div class="accent-picker-panel">
         <button
           :for={{key, color} <- @accents}
@@ -1152,7 +1156,7 @@ defmodule PairingsEngineWeb.Layouts do
       >
         <.icon name="hero-language-micro" class="size-4" />
       </summary>
-
+      
       <div class="theme-picker-panel" role="group" aria-label={gettext("Language")}>
         <a
           :for={{code, name} <- @locales}
@@ -1208,7 +1212,7 @@ defmodule PairingsEngineWeb.Layouts do
       >
         <.icon name="hero-swatch-micro" class="size-4" />
       </summary>
-
+      
       <div class="theme-picker-panel" role="group" aria-label={gettext("Colour theme")}>
         <button
           type="button"
@@ -1219,7 +1223,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           <.icon name="hero-computer-desktop-micro" class="size-4" /> {gettext("System")}
         </button>
-
+        
         <button
           :for={{key, icon} <- @themes}
           type="button"
@@ -1230,7 +1234,7 @@ defmodule PairingsEngineWeb.Layouts do
         >
           <.icon name={icon} class="size-4" /> {theme_label(key)}
         </button>
-
+        
         <button
           :for={{pack, label} <- @packs}
           type="button"
@@ -1244,9 +1248,9 @@ defmodule PairingsEngineWeb.Layouts do
           <span class="theme-pack-swatch" aria-hidden="true">
             <i :for={colour <- pack.swatch} style={"background: #{colour}"}></i>
           </span>
-          {label}
+           {label}
         </button>
-
+        
         <p
           :for={{id, reason} <- @refused}
           class="theme-picker-refused"
@@ -1273,11 +1277,11 @@ defmodule PairingsEngineWeb.Layouts do
     ~H"""
     <div :if={@moved_to} id="moved-notice" class="moved-notice" role="note">
       <span>
-        <strong>{gettext("OpenPairings is moving to %{host}.", host: @moved_to)}</strong>
-        {gettext(
+        <strong>{gettext("OpenPairings is moving to %{host}.", host: @moved_to)}</strong> {gettext(
           "This address keeps working, but update your bookmarks. You sign in once more on the new one."
         )}
       </span>
+      
       <a href={"https://" <> @moved_to} class="pe-btn">{gettext("Go to %{host}", host: @moved_to)}</a>
     </div>
     """

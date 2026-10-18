@@ -47,6 +47,8 @@ for the highest-of or typed-by-hand methods.
 | **Postponed-game notices** | One slip per player of every open postponed game ([Entering results](07-results.md)). |
 | **Next-round preview** | The boards that are fixed whatever the open results are, with a list by name for name cards ([Pairing a round](06-pairing.md)). On the Print tab once you have worked it out on the Pairings page; until then there is nothing to print. |
 
+A tournament with rooms (Settings, Rooms) gets a **Room** column on both pairing lists, beside the board number. Without rooms there is no such column.
+
 ### Which round
 
 The pairing list, result cards and score sheets take a round: the Print page
