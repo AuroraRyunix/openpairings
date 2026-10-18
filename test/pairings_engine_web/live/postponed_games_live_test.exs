@@ -752,6 +752,25 @@ defmodule PairingsEngineWeb.PostponedGamesLiveTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
       assert has_element?(lv, "#postponed-trf-outside-checkers")
+      refute has_element?(lv, "#postponed-trf-counts-x")
+    end
+
+    test "says the TRF26 carries the value when every such game counts the same",
+         %{conn: conn, scope: scope} do
+      t = tournament(scope)
+
+      {:ok, t} =
+        Tournaments.update_tournament(t, %{
+          "postponed_requester_outcome" => "loss",
+          "postponed_opponent_outcome" => "loss"
+        })
+
+      [board | _] = boards(t, 1)
+      set!(board, "*W")
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/export")
+      assert has_element?(lv, "#postponed-trf-counts-x")
+      refute has_element?(lv, "#postponed-trf-outside-checkers")
     end
 
     test "with postponed games off, no postponed result is offered", %{conn: conn, scope: scope} do

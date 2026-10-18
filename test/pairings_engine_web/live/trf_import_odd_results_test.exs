@@ -185,4 +185,41 @@ defmodule PairingsEngineWeb.TrfImportOddResultsTest do
     html = render(lv)
     refute html =~ "which is not a result code"
   end
+
+  # A `?` from a TRF is never typed here (there is no option for it), but
+  # it has to read as something on the Pairings page and take the real
+  # result when that turns up.
+  describe "an imported ? on the Pairings page" do
+    test "shows as postponed, says where it may have come from, and takes a result", %{
+      conn: conn,
+      scope: scope
+    } do
+      text = "Lost Sheet" |> base_file() |> patch(1, 3, "?") |> patch(4, 3, "?")
+      {:ok, t, _warnings} = TrfImport.import_text(text, scope)
+
+      board =
+        Repo.one!(
+          from(p in Pairing,
+            join: r in Round,
+            on: r.id == p.round_id,
+            where: r.tournament_id == ^t.id and r.number == 3 and p.result == "*"
+          )
+        )
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings?round=3")
+
+      assert has_element?(lv, "#result-select-#{board.id} option[value='*'][selected]")
+      assert has_element?(lv, "#result-select-#{board.id}[title*='(?)']")
+      # Never offered as a choice of its own: the arbiter types results, not
+      # the absence of one.
+      refute has_element?(lv, "#result-select-#{board.id} option[value='?']")
+
+      lv
+      |> element("#result-form-#{board.id}")
+      |> render_change(%{"pairing-id" => board.id, "result" => "1/2-1/2"})
+
+      assert Repo.reload!(board).result == "1/2-1/2"
+      refute has_element?(lv, "#result-select-#{board.id}[title]")
+    end
+  end
 end

@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A TRF's unknown result (`?`) is worth what the file says it is.** TRF26's record 162 can value an unknown result with `X`; the import read the `X` and then counted every `?` as a draw anyway, complained that the file's points did not add up, and judged the later rounds on scores the file never had. A `?` now counts as the file's `X` - a win, draw or loss in the file's own points, a draw when there is no `X` - for both players, and an `X` other than the draw becomes the tournament's postponed-game valuation, which FIDE mode notices. An `X` that is none of the three is refused with the value named, rather than rounded into something the file did not say.
+- [Fix] **The `X` survives the trip back out.** The TRF26 download wrote `X` at a draw whatever the boards counted; when every `?` in the file counts as the same win or loss, `X` is now that value, so the points column matches the standings and importing the file again gives the same tournament. Mixed valuations still get the draw and a file ranked by its own points. The export page's note says which of the two you are looking at.
+- [Change] **An imported `?` explains itself on the Pairings page.** The board still shows `* postponed`, but its result menu now says, on hover, that this may be a TRF's unknown result and that the real one goes right there. You still cannot type `?`: "nobody knows" is not a result, it is an apology.
+
 ## [0.94.0] - 2026-10-18
 
 - [Feature] **Rooms.** Settings, Rooms gives a hall of more than one room its names and the boards each holds (`1-20, 35, 40-45`), checked as you type: no name twice, no board in two rooms, and a board in none is its own business. The Pairings page then names the room above its first board, and both printed pairing lists grow a Room column, so the player looking for board 37 learns it is in the annexe before walking the main hall twice. A tournament without rooms looks exactly as it did. Rooms travel in the JSON export and come back on import.

@@ -30,7 +30,13 @@ dates, time control, arbiters, round dates), the players with their FIDE IDs,
 ratings, titles and birth dates, the rounds, the pairings, the results and the
 byes. The starting rank of the file becomes the pairing number. The type of the
 tournament is taken from the file (Swiss, round robin, team). The unknown result `?`
-comes back as a postponed game. A board the file pairs without a result yet (a
+comes back as a postponed game, worth what the file's `X` (record 162) says an
+unknown result is worth - a draw when the file says nothing. An `X` that is a
+win or a loss in the file's own points also becomes how the tournament counts a
+postponed game (Settings, Scoring), which takes it out of FIDE mode; an `X` that
+is none of the three is refused, with the value named. On the Pairings page such
+a board shows as `* postponed`; pick the real result there once it is known. A
+board the file pairs without a result yet (a
 file saved while the round was being played) comes back as a game still being
 played: the import report names its round, and the next round waits for its
 result. Team files give the teams and their board
@@ -73,8 +79,8 @@ follows the choice of the file:
   round and the symbol. Cancel imports nothing.
 - *Results assumed for the check.* The rounds after a game with an unknown
   result (`?`, or a symbol read as one) are still checked against the pairing
-  rules, counting that game as a draw for both players - what the import makes
-  of it, a postponed game. The review says which rounds were checked that way
+  rules, counting that game as played and worth the file's `X` for both players
+  (a draw without one) - what the import makes of it, a postponed game. The review says which rounds were checked that way
   and lists every game assumed, with its round and its two players.
 - *Players who look withdrawn.* A TRF file cannot say that a player withdrew:
   it shows a player with nothing in the later rounds, which is also what an
@@ -195,12 +201,16 @@ such as bbpPairings read, is available by adding `?dialect=engine` to the
 address of the download.
 
 A postponed game is written as the unknown result `?`, worth a draw in the
-file (the `X` of record 162). When the tournament counts a postponed game as
-something else meanwhile - a win for the player who did not ask, say, which
-is only possible outside FIDE mode - the standings and the file differ in
-points, so the file's rank column is then worked out from the file's own
-points and tie-breaks, not copied from the Standings page. With the default
-valuation (a draw for both) the two are the same.
+file (the `X` of record 162). When every postponed game in the file counts as
+the same win or loss for both players - a tournament imported from a file whose
+`X` said so, say - `X` is that value instead, so the file's points match the
+standings and importing the file again gives the same tournament. When the
+tournament counts postponed games as different things meanwhile - a win for
+the player who did not ask, say, which is only possible outside FIDE mode -
+the standings and the file differ in points, so the file's rank column is then
+worked out from the file's own points and tie-breaks, not copied from the
+Standings page. With the default valuation (a draw for both) the two are the
+same.
 
 ### Backup and copy
 
