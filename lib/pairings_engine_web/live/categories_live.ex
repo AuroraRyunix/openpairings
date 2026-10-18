@@ -461,7 +461,8 @@ defmodule PairingsEngineWeb.CategoriesLive do
       socket.assigns.tournament,
       "category.auto_assigned",
       socket.assigns.current_scope,
-      summary: "Before assigning categories to #{count} #{if count == 1, do: "player", else: "players"}"
+      summary:
+        "Before assigning categories to #{count} #{if count == 1, do: "player", else: "players"}"
     )
 
     case Tournaments.auto_assign_categories(socket.assigns.tournament) do
