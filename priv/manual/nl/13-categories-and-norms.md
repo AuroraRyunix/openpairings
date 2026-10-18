@@ -17,7 +17,7 @@ Instellingen, **Categorieën**:
 Twee schakelaars op de pagina:
 
 - **Elke categorie apart rangschikken**: de pagina Stand krijgt een filter en elke categorie heeft haar eigen rangschikking.
-- **Elke categorie apart paren (bèta)**: elke categorie wordt gepaard met haar eigen engine-run en de resultaten worden samengevoegd tot één ronde met doorlopende bordnummers en één paringsformulier. In een rondetoernooi krijgt elke categorie haar eigen Berger-tabel. Na ronde 1 is het vergrendeld.
+- **Elke categorie apart paren (bèta)**: elke categorie wordt gepaard met haar eigen engine-run en de resultaten worden samengevoegd tot één ronde met doorlopende bordnummers en één paringsformulier. In een rondetoernooi krijgt elke categorie haar eigen Berger-tabel. Na ronde 1 is het vergrendeld. Een categorie met één speler geeft die speler de door de paring toegekende bye; heeft die speler die al gehad (of een winst zonder te spelen), dan heeft de ronde geen wettige paring en wordt ze geweigerd, met het aanbod om ze met de hand te paren.
 
 > [!FIDE] Afwijking van de FIDE-modus
 > Elke categorie apart paren behandelt elke categorie als een

@@ -228,9 +228,12 @@ defmodule PairingsEngine.NextRoundPreviewTest do
           categories: ["A", "B", "C"]
         })
 
+      # Category C's only player sits rounds 1 and 2 out, so the round
+      # previewed (3) is the first that may give them the bye (C.04.3 C2).
       for i <- 1..15 do
         category = if i == 15, do: "C", else: if(rem(i, 2) == 0, do: "A", else: "B")
-        insert_player(t, i, %{category: category, categories: [category]})
+        absent = if i == 15, do: "1,2", else: ""
+        insert_player(t, i, %{category: category, categories: [category], absent_rounds: absent})
       end
 
       pair!(t)

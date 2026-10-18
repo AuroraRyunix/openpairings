@@ -107,8 +107,12 @@ defmodule PairingsEngine.NextRoundPreviewFixture do
   def reload(t), do: Repo.get!(Tournament, t.id)
 
   @doc "The latest round's result on every open board, by board number."
-  def finish_latest_round(t, fun \\ &default_result/1) do
-    round = latest_round(t)
+  def finish_latest_round(t, fun \\ &default_result/1),
+    do: finish_round(t, Pairing.paired_rounds_count(t.id), fun)
+
+  @doc "Gives every open board of round `number` a result."
+  def finish_round(t, number, fun \\ &default_result/1) do
+    round = t.id |> Tournaments.get_round(number) |> Repo.preload(:pairings)
 
     for p <- round.pairings, p.result == "", p.black_player_id != nil do
       {:ok, _} = Tournaments.update_pairing_result(p, fun.(p.board))

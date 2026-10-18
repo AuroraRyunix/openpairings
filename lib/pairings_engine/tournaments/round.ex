@@ -82,6 +82,13 @@ defmodule PairingsEngine.Tournaments.Round do
     # docs/extra-points.md. Not cast.
     field :virtual_points, :map
 
+    # The Baku virtual points (C.04.7 1.4) this round was paired with,
+    # `%{"player id" => points}`, every numbered player (0.0 in Group B) -
+    # recorded for the reason `virtual_points` is: the past is not
+    # recomputed from today's settings. Nil for a round paired before the column existed, or in a
+    # tournament without Baku. Written by `PairingsEngine.Pairing`; not cast.
+    field :baku_points, :map
+
     # A manual pairing alteration in progress on this round (VCL4THP Q65):
     # `%{"before" => [[white, black, bye?], ...]}` - the boards, by player
     # id, as they stood when it began - or nil when none is open. In-flight

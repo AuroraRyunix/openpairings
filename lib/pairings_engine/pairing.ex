@@ -114,9 +114,32 @@ defmodule PairingsEngine.Pairing do
         fide_departure_guard: opts[:fide_departure_guard] == true
     }
 
+    with :ok <- writable_for_pairing(tournament),
+         :ok <- no_hand_edits_open(tournament) do
+      pair_with_postponed_games(tournament, Keyword.get(opts, :acknowledged, []))
+    end
+  end
+
+  defp writable_for_pairing(tournament) do
     case Tournaments.ensure_writable(tournament) do
-      :ok -> pair_with_postponed_games(tournament, Keyword.get(opts, :acknowledged, []))
+      :ok -> :ok
       {:error, reason} -> {:error, Tournaments.refusal_message(reason, "pairing")}
+    end
+  end
+
+  # A round's hand edits are checked when they finish (VCL4THP Q68), so the
+  # next round waits for that. The Pairings page always said so; the context
+  # did not, which left every other caller free to pair round 3 over a round
+  # 2 that was still empty and being filled in by hand. Same gate-in-one-place
+  # lesson as the read-only one above, learned a second time.
+  defp no_hand_edits_open(tournament) do
+    case PairingsEngine.ManualPairing.open_round(tournament.id) do
+      nil ->
+        :ok
+
+      open ->
+        {:error,
+         "Finish the hand edits to round #{open} first: their pairings are checked when you finish them."}
     end
   end
 
@@ -202,8 +225,8 @@ defmodule PairingsEngine.Pairing do
         length(eligible) < 2 ->
           {:error, "At least two active players are needed"}
 
-        not round_complete?(tournament.id, paired) ->
-          {:error, "Round #{paired} still has missing results"}
+        open = first_incomplete_round(tournament.id) ->
+          {:error, "Round #{open} still has missing results"}
 
         true ->
           active =
@@ -420,9 +443,10 @@ defmodule PairingsEngine.Pairing do
   legal pairing (fewer players than rounds, say), the tournament must still
   be finishable. Every player the engine would have paired is left in the
   round's pool; the absentees get their bye rows exactly as a paired round
-  gives them. The caller opens the round's manual pairing alteration
-  (`PairingsEngine.ManualPairing.start/2`), whose end checks it and records
-  the MPA PIBE.
+  gives them. The round's manual pairing alteration
+  (`PairingsEngine.ManualPairing.start/2`) is opened in the same
+  transaction, so no pairing run can see the round without it; its end
+  checks the round and records the MPA PIBE.
 
   Refused for anything but an individual Swiss paired as one round at a
   time (`{:error, :not_by_hand}`), when every round is paired, and while the
@@ -444,8 +468,8 @@ defmodule PairingsEngine.Pairing do
       next_number > max_pairable_round(tournament) ->
         {:error, {:all_rounds_paired, tournament.rounds_count}}
 
-      not round_complete?(tournament.id, paired) ->
-        {:error, "Round #{paired} still has missing results"}
+      open = first_incomplete_round(tournament.id) ->
+        {:error, "Round #{open} still has missing results"}
 
       true ->
         # Numbered as the engine's round 1 numbers them: a newcomer among
@@ -464,14 +488,25 @@ defmodule PairingsEngine.Pairing do
           |> ensure_pairing_numbers(late_entry_numbering_pool(tournament, active, next_number))
           |> freeze_baku_group_a(next_number)
 
+        # The empty round and its open hand-edit session are one write. Two
+        # used to be two, and between them sat a round with no boards and no
+        # session: complete by every check there is, so pairable over.
         with {:ok, round} <-
-               create_round(
-                 [],
-                 tournament,
-                 next_number,
-                 round_absentees(tournament, next_number, round_specific),
-                 nil
-               ) do
+               Repo.transaction(fn ->
+                 with {:ok, round} <-
+                        create_round(
+                          [],
+                          tournament,
+                          next_number,
+                          round_absentees(tournament, next_number, round_specific),
+                          nil
+                        ),
+                      {:ok, _opened} <- PairingsEngine.ManualPairing.start(round, []) do
+                   round
+                 else
+                   {:error, reason} -> Repo.rollback(reason)
+                 end
+               end) do
           Tournaments.broadcast_tournament_change(tournament.id, :rounds)
           Tournaments.refresh_status!(tournament.id)
           {:ok, Tournaments.get_round(tournament.id, round.number)}
@@ -755,6 +790,28 @@ defmodule PairingsEngine.Pairing do
 
   def paired_rounds_count(tournament_id) do
     Repo.aggregate(from(r in Round, where: r.tournament_id == ^tournament_id), :count)
+  end
+
+  @doc """
+  The oldest paired round of `tournament_id` with a board still waiting for
+  its result (`result == ""`), or `nil` when there is none.
+
+  This, not `round_complete?/2` on the last round, is what holds the next
+  round up. Checking only the last round looked sufficient right up until
+  someone cleared a round-1 result after round 2 was in: the engine then
+  reads that game as never played and cheerfully pairs the same two again
+  (C.04.3 C1). The match format's first leg slipped past the same way,
+  since "the last round" is the second leg. A postponed game (`"*"`) is not
+  a blank and holds nothing up, as before.
+  """
+  def first_incomplete_round(tournament_id) do
+    Repo.one(
+      from p in Pairing,
+        join: r in Round,
+        on: p.round_id == r.id,
+        where: r.tournament_id == ^tournament_id and p.result == "",
+        select: min(r.number)
+    )
   end
 
   def round_complete?(_tournament_id, 0), do: true
@@ -1047,30 +1104,70 @@ defmodule PairingsEngine.Pairing do
   `PairingsEngine.RoundRobin` freeze pairing numbers the same way.
   """
   def ensure_pairing_numbers(tournament, players) do
-    {numbers, group_a_last} = new_pairing_numbers(tournament, players)
+    # The numbers are worked out from the rows as they are NOW, inside one
+    # write transaction, not from the list the caller read before the run.
+    # Two Pair clicks at once each held the late entrant unnumbered; the
+    # first numbered them and shifted the field, the second did it all over
+    # again from its stale list and left a gap. `:immediate` takes SQLite's
+    # write lock before the read, so the second run waits for the first and
+    # then finds nobody left to number.
+    {:ok, tournament} =
+      Repo.transaction(
+        fn ->
+          tournament = with_current_group_a_last(tournament)
+          players = current_pairing_numbers(players)
+          {numbers, group_a_last} = new_pairing_numbers(tournament, players)
 
-    Repo.transaction(fn ->
-      Enum.each(numbers, fn
-        # A player who already holds a number is only ever moved down by a
-        # late entrant above them. Written past `update_player/2`, whose
-        # round-4 freeze (C.04.2 2.3) is about correcting the ranking data,
-        # not about 2.4's late entries.
-        {%Player{pairing_number: old} = player, number} when is_integer(old) ->
-          Repo.update_all(from(p in Player, where: p.id == ^player.id),
-            set: [pairing_number: number]
-          )
+          Enum.each(numbers, fn
+            # A player who already holds a number is only ever moved down by
+            # a late entrant above them. Written past `update_player/2`, whose
+            # round-4 freeze (C.04.2 2.3) is about correcting the ranking
+            # data, not about 2.4's late entries.
+            {%Player{pairing_number: old} = player, number} when is_integer(old) ->
+              Repo.update_all(from(p in Player, where: p.id == ^player.id),
+                set: [pairing_number: number]
+              )
 
-        {player, number} ->
-          {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
-      end)
-    end)
+            {player, number} ->
+              {:ok, _} = Tournaments.update_player(player, %{pairing_number: number})
+          end)
 
-    if group_a_last != Map.get(tournament, :baku_group_a_last) do
-      tournament |> Ecto.Changeset.change(baku_group_a_last: group_a_last) |> Repo.update!()
-    else
-      tournament
-    end
+          if group_a_last != Map.get(tournament, :baku_group_a_last) do
+            tournament
+            |> Ecto.Changeset.change(baku_group_a_last: group_a_last)
+            |> Repo.update!()
+          else
+            tournament
+          end
+        end,
+        mode: :immediate
+      )
+
+    tournament
   end
+
+  # `players` with the pairing number each holds on disk now. A player read
+  # before another run numbered them is no longer a newcomer.
+  defp current_pairing_numbers([]), do: []
+
+  defp current_pairing_numbers(players) do
+    ids = Enum.map(players, & &1.id)
+
+    numbers =
+      Repo.all(from p in Player, where: p.id in ^ids, select: {p.id, p.pairing_number})
+      |> Map.new()
+
+    Enum.map(players, &%{&1 | pairing_number: Map.get(numbers, &1.id, &1.pairing_number)})
+  end
+
+  defp with_current_group_a_last(%Tournament{id: id} = tournament) when not is_nil(id) do
+    current =
+      Repo.one(from t in Tournament, where: t.id == ^id, select: t.baku_group_a_last)
+
+    %{tournament | baku_group_a_last: current}
+  end
+
+  defp with_current_group_a_last(tournament), do: tournament
 
   # Numbers issued before round 1 - by a TPN exchange (`PairingsEngine.Tpn`),
   # or left from a round 1 that was unpaired - and a player entered since:
@@ -1698,17 +1795,40 @@ defmodule PairingsEngine.Pairing do
 
   # A 1-player group can't go through the engine at all - it's given a
   # pairing-allocated bye directly once `insert_category_round/3` writes it.
+  # Directly, but not unconditionally: C.04.3 C2 holds for a group of one
+  # as much as for a group of forty. This used to hand the lone Junior the
+  # bye in round 1, round 2 and every round after, with nobody asking. Now
+  # a player C2 (or the organiser's bye exclusion) rules out is a round
+  # with no legal pairing, said as such, with the offer to pair it by hand.
   defp compute_category_group(
-         _tournament,
+         tournament,
          category_name,
          [player],
-         _next_number,
-         _shared_history,
+         next_number,
+         shared_history,
          _full_roster,
          _local_rank_by_player_id,
          _run
        ) do
-    {:ok, {category_name, :bye, player}}
+    games =
+      tournament
+      |> games_per_player(%{player.id => player}, shared_history)
+      |> Map.get(player.id, [])
+
+    excluded? =
+      player.id != tournament.bye_exclusion_override and
+        Player.no_bye_for_round?(player, next_number)
+
+    if excluded? or Enum.any?(games, &bye_disqualifying?(&1, tournament)) do
+      {:error,
+       {:no_legal_pairing,
+        ainalrami_scoped(
+          "#{player.name} is the only player in this category, so the only pairing there is would give them the pairing-allocated bye - which they may not have: they already had it, or a win without playing (C.04.3 C2), or are excluded from it. Move them to another category, or pair the round by hand.",
+          category_name
+        )}}
+    else
+      {:ok, {category_name, :bye, player}}
+    end
   end
 
   defp compute_category_group(
@@ -1765,6 +1885,20 @@ defmodule PairingsEngine.Pairing do
       {:error, _message} = error ->
         bye_exclusion_error(error, player_by_local_rank)
     end
+  end
+
+  # C.04.3 C2, read the way the engine reads it (`Ainalrami.Pairing`'s
+  # `bye_disqualifying?/1`): an unplayed game worth a win, or a round the
+  # player was paired in without an opponent. A game whose result is not
+  # known (`?`) had an opponent, and rules out nothing.
+  defp bye_disqualifying?(%{result: "?"}, _tournament), do: false
+
+  defp bye_disqualifying?(%{result: result} = game, tournament) do
+    system = Tournament.engine_point_system(tournament)
+
+    not Trf.game_was_played?(result) and
+      (Trf.points_for_game(game, system) >= system.win or
+         (is_nil(game[:opponent_rank]) and Trf.participated_in_pairing?(game)))
   end
 
   ## ---------- bye exclusions (an organiser's rule, not FIDE's) ----------
@@ -2033,7 +2167,8 @@ defmodule PairingsEngine.Pairing do
           published_at: published_at,
           publish_due_at: Tournaments.due_publish_at(published_at),
           explanation: explanation,
-          virtual_points: virtual_points_used(tournament, paired_players)
+          virtual_points: virtual_points_used(tournament, paired_players),
+          baku_points: baku_points_used(tournament, next_number)
         })
 
       insert_round_absentee_byes(tournament, next_number, round_absentees)
@@ -4451,7 +4586,8 @@ defmodule PairingsEngine.Pairing do
           published_at: published_at,
           publish_due_at: Tournaments.due_publish_at(published_at),
           explanation: explanation,
-          virtual_points: virtual_points_used(tournament, paired_players)
+          virtual_points: virtual_points_used(tournament, paired_players),
+          baku_points: baku_points_used(tournament, next_number)
         })
 
       insert_boards(round, boards)
@@ -4474,7 +4610,8 @@ defmodule PairingsEngine.Pairing do
           leg1_pairings,
           round_absentees,
           next_number + 1,
-          round.virtual_points
+          round.virtual_points,
+          baku_points_used(tournament, next_number + 1)
         )
       else
         round
@@ -4500,7 +4637,11 @@ defmodule PairingsEngine.Pairing do
   # Leg 2 is leg 1 played again, so it records leg 1's virtual points: the
   # history the next match's `XXA` line carries says both legs were paired
   # on the same scores.
-  defp create_mirrored_leg(tournament, leg1_pairings, round_absentees, leg2_number, virtual) do
+  #
+  # Its Baku points are its own round number's, which is what the next
+  # match's history always said about it; they are recorded now so it keeps
+  # saying so.
+  defp create_mirrored_leg(tournament, leg1_pairings, round_absentees, leg2_number, virtual, baku) do
     leg2_published_at = Tournaments.compute_published_at(tournament, leg2_number)
 
     leg2 =
@@ -4510,7 +4651,8 @@ defmodule PairingsEngine.Pairing do
         status: "playing",
         published_at: leg2_published_at,
         publish_due_at: Tournaments.due_publish_at(leg2_published_at),
-        virtual_points: virtual
+        virtual_points: virtual,
+        baku_points: baku
       })
 
     Enum.each(leg1_pairings, fn p ->
@@ -4865,26 +5007,55 @@ defmodule PairingsEngine.Pairing do
     # grow Group A part-way through - and be handed virtual points for
     # rounds already played.
     group_a_last = baku_group_a_last(tournament, ranked)
+    in_group_a? = &(group_a_last != nil and &1.pairing_number <= group_a_last)
 
-    accelerated_rounds = ceil_div(tournament.rounds_count, 2)
-    first_stage_rounds = ceil_div(accelerated_rounds, 2)
-
-    points =
-      Enum.map(1..current_round, &virtual_points(&1, accelerated_rounds, first_stage_rounds))
+    # A round already paired reads back what it was paired with
+    # (`rounds.baku_points`), for every player who held a number then. Only
+    # what was not recorded is worked out from the settings and the numbers
+    # as they stand: the round being paired, a round paired before the
+    # column existed, and a late entrant's rounds from before they had a
+    # number, which is what all of them always got. Recomputing the rest
+    # meant that shortening the event, switching Baku off, or renumbering
+    # two players quietly rewrote the scores rounds 1-3 had been paired on,
+    # and with them every float judgement since (C.04.7 1.4, 1.5).
+    recorded = recorded_baku_points(tournament.id)
 
     ranked
-    |> Enum.filter(&(group_a_last != nil and &1.pairing_number <= group_a_last))
-    |> Map.new(&{&1.id, points})
+    |> Enum.flat_map(fn p ->
+      member? = in_group_a?.(p)
+      key = to_string(p.id)
+
+      points =
+        Enum.map(1..current_round, fn round ->
+          case Map.fetch(recorded, round) do
+            {:ok, %{^key => value}} -> virtual_value(value)
+            _not_recorded -> if member?, do: baku_points_for(tournament, round), else: 0.0
+          end
+        end)
+
+      if member? or Enum.any?(points, &(&1 != 0.0)), do: [{p.id, points}], else: []
+    end)
+    |> Map.new()
   end
 
   # Extra points as virtual points - acceleration mode always, handicap mode
   # while the points count (`Tournament.extra_points_pairing?/1`). See
-  # `extra_point_accelerations/3`.
+  # `extra_point_accelerations/3`. A tournament that paired rounds with Baku
+  # and has switched it off since still hands the engine those rounds' Baku
+  # points: they are what the rounds were paired on, whatever the setting
+  # says now.
   def accelerations(%Tournament{} = tournament, players, current_round)
       when is_integer(current_round) and current_round > 0 do
-    if Tournament.extra_points_pairing?(tournament),
-      do: extra_point_accelerations(tournament, players, current_round),
-      else: %{}
+    extra =
+      if Tournament.extra_points_pairing?(tournament),
+        do: extra_point_accelerations(tournament, players, current_round),
+        else: %{}
+
+    tournament.id
+    |> recorded_baku_history(players, current_round)
+    |> Map.merge(extra, fn _id, baku, extra ->
+      Enum.zip_with(baku, extra, &(&1 + &2))
+    end)
   end
 
   def accelerations(_tournament, _players, _current_round), do: %{}
@@ -4940,6 +5111,81 @@ defmodule PairingsEngine.Pairing do
   defp virtual_value(nil), do: 0.0
   defp virtual_value(points) when points < 0, do: 0.0
   defp virtual_value(points), do: points / 1
+
+  # Every round's recorded Baku points, `%{number => map | nil}`.
+  defp recorded_baku_points(nil), do: %{}
+
+  defp recorded_baku_points(tournament_id) do
+    Repo.all(
+      from r in Round,
+        where: r.tournament_id == ^tournament_id,
+        select: {r.number, r.baku_points}
+    )
+    |> Map.new()
+  end
+
+  # The recorded Baku history of a tournament that no longer uses Baku: one
+  # value per round 1..`current_round`, 0 where nothing was recorded. Only
+  # players with a point somewhere get a line, so a tournament that never
+  # used Baku hands the engine exactly the file it always did.
+  defp recorded_baku_history(tournament_id, players, current_round) do
+    recorded = recorded_baku_points(tournament_id)
+
+    if Enum.any?(recorded, fn {_n, by_player} -> by_player not in [nil, %{}] end) do
+      players
+      |> Enum.filter(&(&1.pairing_number != nil))
+      |> Enum.flat_map(fn p ->
+        points =
+          Enum.map(1..current_round, fn round ->
+            case Map.get(recorded, round) do
+              %{} = by_player -> virtual_value(Map.get(by_player, to_string(p.id)))
+              _ -> 0.0
+            end
+          end)
+
+        if Enum.any?(points, &(&1 != 0.0)), do: [{p.id, points}], else: []
+      end)
+      |> Map.new()
+    else
+      %{}
+    end
+  end
+
+  @doc """
+  The Baku virtual points (C.04.7 1.4) of round `number`, as
+  `rounds.baku_points` stores them: `%{"player id" => points}` for every
+  player holding a pairing number - the round's value for Group A
+  (`baku_group_a_last/2`, over the full roster), 0.0 for Group B, so a
+  player with no entry is one who had no number yet. Nil when the
+  tournament does not use Baku. Recorded with the round so every later
+  round's `XXA` history carries what this one was actually paired with.
+  """
+  def baku_points_used(
+        %Tournament{acceleration: "baku", pairing_system: "swiss"} = tournament,
+        number
+      ) do
+    value = baku_points_for(tournament, number)
+
+    ranked =
+      tournament.id
+      |> full_roster_players()
+      |> Enum.filter(&(&1.pairing_number != nil))
+
+    last = baku_group_a_last(tournament, ranked)
+
+    for p <- ranked, into: %{} do
+      {to_string(p.id), if(is_integer(last) and p.pairing_number <= last, do: value, else: 0.0)}
+    end
+  end
+
+  def baku_points_used(_tournament, _number), do: nil
+
+  # Round `round`'s Baku value under the tournament's settings as they are.
+  defp baku_points_for(tournament, round) do
+    accelerated_rounds = ceil_div(tournament.rounds_count, 2)
+    first_stage_rounds = ceil_div(accelerated_rounds, 2)
+    virtual_points(round, accelerated_rounds, first_stage_rounds)
+  end
 
   defp recorded_virtual_points(tournament_id) do
     Repo.all(

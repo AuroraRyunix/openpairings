@@ -1611,6 +1611,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
       adjustments:
         Enum.map(report.adjustments, &trf_adjustment_text/1) ++
           trf_postponed_message(Map.get(grouped, :postponed_imported, [])) ++
+          trf_open_boards_message(Map.get(grouped, :open_boards_imported, [])) ++
           trf_points_message(Map.get(grouped, :points, [])) ++
           Enum.map(Map.get(grouped, :note, []), & &1.text)
     }
@@ -2000,6 +2001,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
       ngettext(
         "Round %{rounds} has a result the file records as not known (?). It was imported as a postponed game: it counts as a draw until its result is entered, and the standings are not final until then.",
         "Rounds %{rounds} have results the file records as not known (?). They were imported as postponed games: each counts as a draw until its result is entered, and the standings are not final until then.",
+        length(rounds),
+        rounds: Enum.join(rounds, ", ")
+      )
+    ]
+  end
+
+  defp trf_open_boards_message([]), do: []
+
+  defp trf_open_boards_message(warnings) do
+    rounds = warnings |> Enum.flat_map(& &1.rounds) |> Enum.uniq() |> Enum.sort()
+
+    [
+      ngettext(
+        "Round %{rounds} has boards the file pairs but gives no result for. They were imported as games still being played: enter their results before the next round is paired.",
+        "Rounds %{rounds} have boards the file pairs but gives no result for. They were imported as games still being played: enter their results before the next round is paired.",
         length(rounds),
         rounds: Enum.join(rounds, ", ")
       )

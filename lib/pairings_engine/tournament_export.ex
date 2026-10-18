@@ -347,6 +347,10 @@ defmodule PairingsEngine.TournamentExport do
     # rather than dropping it. It is pairing input, not a diagnostic: the
     # next round's `XXA` history is read from it (docs/extra-points.md).
     :virtual_points,
+    # Same as `virtual_points`, for Baku's (`round_map/1` writes it under
+    # `"baku_points"`, the import remaps its keys): what each round was
+    # paired with, which the next round's `XXA` history reads back.
+    :baku_points,
     # In-flight scheduling state for `PairingsEngine.Publishing.promote_due_rounds/1`,
     # not tournament content - an absolute timestamp only `Tournaments.due_publish_at/1`
     # writes, at the moment a round is paired, alongside `published_at`
@@ -711,7 +715,8 @@ defmodule PairingsEngine.TournamentExport do
       "id" => round.id,
       "pairings" => Enum.map(round.pairings, &pairing_map/1),
       "matches" => Enum.map(round.matches, &match_map/1),
-      "virtual_points" => round.virtual_points
+      "virtual_points" => round.virtual_points,
+      "baku_points" => round.baku_points
     })
     |> then(fn map ->
       if round.mpa_pibe, do: Map.put(map, "mpa_pibe", round.mpa_pibe), else: map

@@ -10,11 +10,29 @@ The method was reading the path end to end, then writing a repro for every
 suspicion. A suspicion without a failing repro is either listed under "checked
 and correct" or under "notes" with the reason it has no test.
 
-Repro tests: `test/pairings_engine/pairing_audit_1018_test.exs`. They are
-tagged `:audit` and excluded by default (`test/test_helper.exs`), so the suite
-stays green. `mix test test/pairings_engine/pairing_audit_1018_test.exs --only audit`
-runs them. All 11 fail on 0.91.0. Each one should pass once its finding is
-fixed, and then lose the tag.
+Repro tests: `test/pairings_engine/pairing_audit_1018_test.exs`. All 11 failed
+on 0.91.0 and were tagged `:audit` and excluded by default. Every finding is
+fixed on branch `audit-fixes-1018`; the tag and its exclusion in
+`test/test_helper.exs` are gone and the 11 run with the suite.
+
+## Status (2026-10-18)
+
+| finding | status | commit |
+|---|---|---|
+| P1 | fixed | bf772f56 |
+| P2, P2b | fixed | 180dc46f |
+| P3 | fixed | 6aa2cbda |
+| P4 | fixed | c7b037ff |
+| P5 | fixed (see the rules note under P5) | 6aa2cbda |
+| R1 | fixed | 9999b931 |
+| R2 | fixed | 9999b931 |
+| N1-N3 | open, not in scope | - |
+
+Test changes that went with the fixes are in fdd33587: three repros were
+adjusted where they assumed one particular fix (P2 asserted on engine input
+that a refusal never builds; P4 called a pairing that now refuses; P5
+compared "no `XXA` line" with "0.0" literally), and the two golden scenarios
+that leaned on P2b and P4 were changed and regenerated.
 
 ## Summary
 
@@ -41,6 +59,7 @@ fixed, and then lose the tag.
   - `P1 ... this app's own TRF, exported mid-round, comes back with the round's open boards` (3 boards become 1, and the copy pairs round 3).
 - **FIDE:** C.04.1 (a pairing is made on the results of the previous rounds). After the copy pairs round 3 over the dropped boards, C.04.3 C1 is no longer protected for that pair.
 - **Fix:** import a board that has an opponent and no result as a pairing with result `""`, so the round is "playing". Report the open boards in the import report.
+- **Status:** fixed in bf772f56. Both seats blank and pointing at each other is kept as a board with result `""` (round status "playing"); half a board (one seat blank, the other not) is still dropped, as before. The import report gets an `:open_boards_imported` line naming the rounds.
 
 ### P2 - a result cleared in an earlier round lets the pair meet again
 
@@ -60,6 +79,7 @@ fixed, and then lose the tag.
 - **Test:** `P2: a result cleared in a round before the last - a pair whose earlier result was cleared is not paired again`.
 - **FIDE:** C.04.3 C1 (two players shall not meet more than once).
 - **Fix:** have `round_complete?` (or a new `all_rounds_complete?`) check every paired round, or refuse to clear a result in a round that is not the last.
+- **Status:** fixed in 180dc46f. `Pairing.first_incomplete_round/1` (the oldest round with a `""` result) replaces the last-round check in Swiss, by-hand, Keizer and team Swiss pairing and in the Pairings page's `can_pair`; the refusal names that round. Postponed games (`*`) still hold nothing up. The "record missing results as postponed" step still covers the last round only.
 
 #### P2b - the Swiss match format checks only the second leg
 
@@ -71,6 +91,7 @@ fixed, and then lose the tag.
 - **Test:** `P2b ... the next match is not paired while a first-leg board has no result`.
 - **FIDE:** C.04.2 (the results of the previous rounds are known), and C.04.3 C1 through the same mechanism as P2.
 - **Fix:** check both legs of the last match. This is covered by the all-rounds check in P2.
+- **Status:** fixed with P2 (180dc46f).
 
 ### P3 - Baku virtual points of past rounds are recomputed from today's settings
 
@@ -90,6 +111,7 @@ fixed, and then lose the tag.
   - `P3 ... switching acceleration off does not erase them`.
 - **FIDE:** C.04.7 (Baku acceleration; the virtual points apply to the rounds in which they were given). C.04.3 1.4 and the float criteria C12-C15 are judged on the pairing score.
 - **Fix:** store the Baku virtual points per round in `rounds.virtual_points` when the round is paired, exactly like extra points, and read them back instead of recomputing them. Alternatively, lock both fields once round 1 is paired.
+- **Status:** fixed in 6aa2cbda, in a new column `rounds.baku_points` rather than `rounds.virtual_points`, whose readers (deviations, rationale, SWAR export) take it to mean extra points. Every numbered player is recorded (0.0 in Group B), so a player with no entry is one who had no number yet: a late entrant's earlier rounds are still worked out as before. Rounds with nothing recorded (older rounds, imports) are worked out as before. After Baku is switched off, the recorded rounds still go to the engine. The JSON backup carries the column.
 
 ### P4 - a one-player category gets the pairing-allocated bye every round
 
@@ -100,6 +122,7 @@ fixed, and then lose the tag.
   2. Junior has a single player. That player gets the PAB in round 1, again in round 2, and in every round after that.
 - **Test:** `P4 ... the lone player is not given the pairing-allocated bye a second time (C.04.3 C2)`.
 - **FIDE:** C.04.3 C2 (no PAB for a player who already had one, or who already scored a win without playing).
+- **Status:** fixed in c7b037ff. The one-player group checks C.04.3 C2 the way the engine does (an unplayed game worth a win, or a round paired without an opponent) and the organiser's bye exclusion; a player ruled out makes the round `{:no_legal_pairing, ...}`, naming the category, so the page offers to pair it by hand.
 - **Fix:** do not pair silently.
   - Refuse with a message naming the category, or pair the player into another group.
   - At the least, flag it so the arbiter decides. A one-player category cannot be paired legally after round 1.
@@ -120,6 +143,8 @@ fixed, and then lose the tag.
   - `P5 ... an exchange of two equal ratings across the line keeps Group A's players`.
 - **FIDE:** C.04.7 1.3.2 (Group A is fixed before round 1 and its membership does not change). C.04.7 1.2 (the virtual points of a round are those given when it was paired).
 - **Fix:** freeze Group A as player ids, or move `baku_group_a_last` together with the renumbered players. Together with the P3 fix, past rounds are then unaffected either way.
+- **Status:** fixed in 6aa2cbda, by the second option: `Tpn` moves `baku_group_a_last` with the player who holds it, so the last GA-participant stays the same participant. Past rounds are covered by P3.
+- **Rules note:** C.04.7 1.3.2 fixes the last GA-participant, not the set: GA is everyone numbered up to that participant (Note 1 and 2 let its number and size change). So a player corrected *above* the line after round 1 (P07 in the regeneration test) joins Group A for the rounds still to come, the way a late entrant does. The audit's "membership does not change" reading would keep them out; the handbook text does not say that for a TPN correction, so this is left at the literal reading. The P5 tests assert the unambiguous part: round-1 history unchanged for all, and the last GA-participant still in Group A in round 2.
 
 ### R1 - two pairing runs at once number a late entrant twice
 
@@ -134,6 +159,7 @@ fixed, and then lose the tag.
   4. The second run's round insert then fails on the unique index (see N1), so no wrong round is stored. The numbers are wrong until the next regeneration, and are frozen once round 3 is paired.
 - **Test:** `R1 ... the second run does not number them again`.
 - **Fix:** number from fresh rows inside the round transaction, or take a per-tournament lock around the whole pairing run.
+- **Status:** fixed in 9999b931. `ensure_pairing_numbers/2` re-reads the players' numbers and `baku_group_a_last` inside an `:immediate` (write-locked) transaction, so a second run finds nobody left to number. N1 (the second run's round insert raising on the unique index) is unchanged.
 
 ### R2 - the open hand-edit guard lives only in the LiveView
 
@@ -144,6 +170,7 @@ fixed, and then lose the tag.
 - **Scenario:** a round is created by hand and its hand-pairing session is still open. Any caller other than that LiveView handler can pair the next round over it: the API, the plugin seam, or a second LiveView that was mounted before the session opened.
 - **Test:** `R2 ... the next round is not paired over it`.
 - **Fix:** check `ManualPairing.open_round/1` inside `Pairing.pair_next_round`, and create the round and start the session in one transaction.
+- **Status:** fixed in 9999b931, both halves, for the Swiss `create_round_by_hand/1`. The round robin's by-hand round still opens its session in a second step; the new guard in `pair_next_round` covers it once the session is open.
 
 ### Notes (no test)
 

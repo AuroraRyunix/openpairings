@@ -14,7 +14,13 @@ defmodule PairingsEngine.PairingUnchangedTest do
   again the same day when the engine's starting ranks became the pairing
   numbers: only `:options` round 4's account changed, its two bye
   exclusions now listed in pairing-number order (the boards are the
-  same). Each
+  same). Regenerated for the pairing-flow audit of 2026-10-18 (P4): the
+  `:categories` scenario's one-player category C used to collect the
+  pairing-allocated bye in every round, which C.04.3 C2 forbids and the
+  pairing now refuses. Its player sits rounds 1-2 out instead, so round 3's
+  bye is their first. Compared with the file before: rounds 1-2 lose that
+  player's bye board and gain their two absence rows; nothing else differs,
+  categories A and B and the whole of round 3 included. Each
   test replays its scenario and compares everything the pairing wrote -
   pairing numbers, boards, frozen board labels, results of byes, bye rows,
   recorded virtual points and the round's account - with ids replaced by
@@ -76,9 +82,13 @@ defmodule PairingsEngine.PairingUnchangedTest do
         categories: ["A", "B", "C"]
       })
 
+    # Category C's only player sits rounds 1 and 2 out, so the bye round 3
+    # gives them is their first: a category of one gets the pairing-allocated
+    # bye once and no more (C.04.3 C2, audit 2026-10-18 P4).
     for i <- 1..15 do
       category = if i == 15, do: "C", else: if(rem(i, 2) == 0, do: "A", else: "B")
-      insert_player(t, i, %{category: category, categories: [category]})
+      absent = if i == 15, do: "1,2", else: ""
+      insert_player(t, i, %{category: category, categories: [category], absent_rounds: absent})
     end
 
     pair!(t)

@@ -53,12 +53,16 @@ De knop **Ronde N paren** is beschikbaar wanneer
 - de toernooi-instellingen compleet zijn: naam, aantal rondes, een datum voor
   elke ronde, tiebreaks. Ontbreekt er iets, dan toont de pagina de lijst en
   verwijst ze naar de pagina waar het wordt ingesteld;
-- de vorige ronde op elk bord een resultaat heeft. Een bord zonder resultaat
-  houdt de knop uitgeschakeld, met de melding *De vorige ronde heeft nog
-  ontbrekende resultaten*. Als uitgestelde partijen zijn toegestaan (pagina
-  Puntentelling), registreert een aparte knop, **Ontbrekende resultaten als
-  uitgesteld vastleggen en ronde N paren**, de lege borden als uitgesteld en
-  gaat verder, nadat je de waarschuwing hebt gelezen;
+- elke ronde tot nu toe op elk bord een resultaat heeft, de eerdere rondes
+  net zo goed als de laatste (en bij het Zwitserse matchformaat beide helften
+  van de match). Een bord zonder resultaat houdt de knop uitgeschakeld, met de
+  melding *De vorige ronde heeft nog ontbrekende resultaten*; een resultaat
+  dat je in een eerdere ronde hebt gewist telt ook, want de engine zou die
+  partij als nooit gespeeld lezen en dezelfde twee opnieuw kunnen paren. Als
+  uitgestelde partijen zijn toegestaan (pagina Puntentelling), registreert een
+  aparte knop, **Ontbrekende resultaten als uitgesteld vastleggen en ronde N
+  paren**, de lege borden van de laatste ronde als uitgesteld en gaat verder,
+  nadat je de waarschuwing hebt gelezen;
 - de aanwezigheid van de spelers klopt: spelers die als afwezig zijn gemarkeerd,
   worden niet gepaard ([Byes en afwezigheden](05-byes-and-absences.md));
 - er geen sessie met handmatige wijzigingen open staat op een eerdere ronde (zie
@@ -102,7 +106,13 @@ dit en schrijft het niets weg.
 
 Verboden paringen, de paringsregels (dezelfde club, dezelfde federatie, groepen)
 die in de ronde gelden, en extra punten worden eveneens aan de engine doorgegeven ([Toernooi-instellingen](03-tournament-setup.md)).
-Bij Baku-versnelling worden de virtuele punten voor elke ronde doorgegeven.
+Bij Baku-versnelling worden de virtuele punten voor elke ronde doorgegeven. De
+virtuele punten van een ronde worden vastgelegd wanneer ze gepaard wordt, en een
+latere ronde leest ze terug: als je het aantal rondes wijzigt of de versnelling
+uitschakelt, verandert dat de rondes die nog komen, nooit de rondes die al
+gepaard zijn. Worden de paringsnummers gecorrigeerd (een ruil of een nieuwe
+nummering), dan blijft de laatste speler van groep A de laatste speler van
+groep A (C.04.7 1.3.2).
 
 De paringsnummers worden toegekend in de volgorde van de toernooirating, daarna
 de FIDE-titel, daarna het criterium dat het toernooi heeft aangekondigd
