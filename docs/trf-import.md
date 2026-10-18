@@ -249,3 +249,50 @@ players is refused rather than dropped), and the `192`/`202`/`212`/`222`
 headers. The player rows are byte-identical between the two versions, so
 there is one importer. Team records (`300` onwards, `310`, `801`, `802`) and
 national-rating records are not read - see `Ainalrami.Trf`.
+
+### The unknown result `?` (state as of 2026-10-18)
+
+`?` in a `001` record is a game whose result is not known, worth what the
+`162` record's `X` says - "like for instance in an adjourned game", a
+draw's points when the file declares none. VCL4THP Q164-166 make it the
+mark of an adjourned game. What happens to it here, end to end
+(`test/pairings_engine/trf_unknown_result_test.exs`):
+
+- **Import.** The board is kept, both players on it, as a postponed game
+  (`"*"`, Q166), and both seats count as the file's `X` read as the win,
+  draw or loss of the file's own `162` (`TrfImport.unknown_outcome/1`); no
+  `X` is the draw. An `X` other than the draw also sets both postponed-game
+  valuations (Settings, Scoring), which is a FIDE departure (Q167) and
+  says so. An `X` that is none of the three is refused with the value
+  named: a postponed game here counts as a win, a draw or a loss, and
+  nothing else could be kept. Any other symbol in a result column beside an
+  opponent is read as `?` too, on the review step (Q166).
+- **The import's round check** judges the rounds after the `?` with it
+  counted as a played game worth `X` - the scores the tournament will pair
+  on - and lists the games assumed (`:unknown_results_assumed`).
+- **Pairing.** `Pairing.trf_game/4` hands a postponed game to the engine
+  as a played `=` with its provisional points, so it counts for colour
+  history, rematches and floats, and its score is `X`. The engine never
+  sees the `?` itself. An open game from an older round is confirmed
+  before pairing, like any postponed game (Q168).
+- **Standings and tie-breaks** count it at the board's provisional value,
+  as a played game (`Standings.provisional_outcome/2`).
+- **The real result** is entered over it on the Pairings page as for any
+  postponed game; the select shows the board as `* postponed`, with a
+  tooltip saying it may be a TRF's `?`. There is no way to TYPE `?`: a code
+  you can type is a placeholder for "not entered yet", which a blank
+  already says. Parse-only, by intent.
+- **Export.** The TRF26 download writes `?` again on both lines, with `X`
+  in `162` (see `docs/import-export.md`): the draw, or the imported value
+  when every such board shares it, so import -> export -> import is
+  lossless. The older (engine) spelling writes the draw. The file for
+  rating never carries `?` (`0000 - Z`). In FIDE mode no TRF is made while
+  the game is open (Q169) - enter the result, or record it as not played
+  in this event.
+
+Ainalrami itself (`deps/ainalrami`, v0.43.2) reads `?` and, without a
+declared `X`, refuses to score it or to say whether it was played; this
+app never hands it one. The engine's `unknown-result` branch (v0.44.0
+when released) answers both as above - played, worth `X` or a draw - so
+the standalone CLI pairs such a file too. OpenPairings needs no pin bump
+for any of the behaviour described here.

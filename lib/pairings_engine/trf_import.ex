@@ -180,6 +180,8 @@ defmodule PairingsEngine.TrfImport do
          :ok <- check_no_stray_results(decoded),
          {readable, odd_results} = rewrite_unrecognised_results(decoded),
          {:ok, data} <- parse_trf(readable),
+         {:ok, unknown_outcome} <- unknown_outcome(data),
+         data = Map.put(data, :unknown_outcome, unknown_outcome),
          data = Map.put(data, :trf_version, detect_version(decoded, data)),
          data = Map.put(data, :odd_results, odd_results),
          {:ok, tournament} <- build_tournament_struct(data),
@@ -688,7 +690,7 @@ defmodule PairingsEngine.TrfImport do
     with {:ok, tournament} <- create_tournament(data, scope) do
       players_by_rank = create_players(tournament, data.players)
       paired = paired_rounds_from_data(data.players)
-      create_rounds(tournament, data.players, players_by_rank, paired)
+      create_rounds(tournament, data, players_by_rank, paired)
 
       # Everything the file says ABOUT the tournament rather than about a
       # game. Each of these was parsed and then dropped on the floor until
@@ -872,11 +874,27 @@ defmodule PairingsEngine.TrfImport do
   # A file carrying `?` came in with postponed games in it, so the tournament
   # allows them - otherwise the boards holding one could not be given their
   # result, nor shown on the Postponed games page.
+  #
+  # A file whose `X` is not the draw has also said what an unknown result is
+  # worth in this event, whoever asked for it - so both postponed-game
+  # settings take that value, and the next game postponed here counts as
+  # the ones the file brought in. Not the draw is a departure from FIDE's
+  # valuation (VCL4THP Q167), and `PairingsEngine.Compliance` says so, as
+  # it would had the arbiter chosen it under Settings, Scoring.
   defp allow_postponed_if_any(tournament, data) do
     if unknown_result_warnings(data) == [] do
       tournament
     else
-      tournament |> Ecto.Changeset.change(postponed_games: true) |> Repo.update!()
+      outcome = unknown_outcome_of(data)
+
+      valuation =
+        if outcome == "draw",
+          do: %{},
+          else: %{postponed_requester_outcome: outcome, postponed_opponent_outcome: outcome}
+
+      tournament
+      |> Ecto.Changeset.change(Map.put(valuation, :postponed_games, true))
+      |> Repo.update!()
     end
   end
 
@@ -1328,8 +1346,8 @@ defmodule PairingsEngine.TrfImport do
 
   ## ---------- rounds, pairings & byes ----------
 
-  defp create_rounds(tournament, trf_players, players_by_rank, max_round) do
-    sorted = Enum.sort_by(trf_players, & &1.rank)
+  defp create_rounds(tournament, data, players_by_rank, max_round) do
+    sorted = Enum.sort_by(data.players, & &1.rank)
 
     all_entries =
       for round_number <- 1..max_round//1, into: %{} do
@@ -1367,25 +1385,65 @@ defmodule PairingsEngine.TrfImport do
         tournament,
         round_number,
         Map.fetch!(all_entries, round_number),
-        players_by_rank
+        players_by_rank,
+        unknown_outcome_of(data)
       )
     end
 
     :ok
   end
 
-  # What an imported `?` counts as until the arbiter enters a result: the
+  # What an imported `?` counts as until the arbiter enters a result: what
+  # the file's own `162` `X` says it is worth - TRF26's value for an unknown
+  # result, "like for instance in an adjourned game" - read as the win, draw
+  # or loss of the file's own point system. No `X` (every TRF16 file, most
+  # TRF26 ones) is the draw: the format's default for `X`, the
   # postponed-games default (`Tournament.postponed_requester_outcome` and
-  # `postponed_opponent_outcome`, both "draw") and C.04.2 3.1's rule for an
-  # adjourned game. The file cannot say who asked for the postponement, so
-  # the requester/opponent split has nobody to apply to; both seats get the
-  # one value the two settings share by default. One attribute, read by the
-  # rows `insert_round/4` writes and by the round check that judges the
-  # rounds after - so the check cannot assume one thing while the
-  # tournament pairs on another.
-  @unknown_outcome "draw"
+  # `postponed_opponent_outcome`) and VCL4THP Q167's value for an adjourned
+  # game all agree. The file cannot say who asked for the postponement, so
+  # both seats get the one value, which is also what `X` means: one value
+  # per unknown result, whoever's it is.
+  #
+  # An `X` that is none of the three cannot be kept - a postponed game here
+  # counts as a win, a draw or a loss - so the file is refused, naming the
+  # value, rather than imported as something it does not say. One value,
+  # stored in `data.unknown_outcome` and read by the rows `insert_round/5`
+  # writes and by the round check that judges the rounds after - so the
+  # check cannot assume one thing while the tournament pairs on another.
+  defp unknown_outcome(data) do
+    system = data.tournament[:point_system] || Trf.default_point_system()
+    x = system[:unknown]
 
-  defp insert_round(tournament, round_number, entries, players_by_rank) do
+    cond do
+      is_nil(x) or not Enum.any?(data.players, &has_unknown_game?/1) -> {:ok, "draw"}
+      x == system.draw -> {:ok, "draw"}
+      x == system.win -> {:ok, "win"}
+      x == system.loss -> {:ok, "loss"}
+      true -> {:error, unrepresentable_x_message(x, system)}
+    end
+  end
+
+  defp has_unknown_game?(player),
+    do: Enum.any?(player.games || [], &Trf.unknown_result?(&1[:result]))
+
+  defp unknown_outcome_of(data), do: Map.get(data, :unknown_outcome, "draw")
+
+  defp unrepresentable_x_message(x, system) do
+    gettext(
+      "This TRF file values an unknown result (?) at %{x} points (X in record 162). A game without a result counts here as a win, a draw or a loss - %{win}, %{draw} or %{loss} points in this file - so that value cannot be kept. Change X to one of those, or enter the missing results, and import the file again.",
+      x: format_points(x),
+      win: format_points(system.win),
+      draw: format_points(system.draw),
+      loss: format_points(system.loss)
+    )
+  end
+
+  defp format_points(value) when is_float(value),
+    do: :erlang.float_to_binary(value, [:compact, decimals: 2])
+
+  defp format_points(value), do: to_string(value)
+
+  defp insert_round(tournament, round_number, entries, players_by_rank, unknown_outcome) do
     {pairings, byes} = build_round(entries, Tournament.team?(tournament))
 
     status = if Enum.any?(pairings, &(&1.result == "")), do: "playing", else: "finished"
@@ -1401,12 +1459,12 @@ defmodule PairingsEngine.TrfImport do
         black_player_id: p.black_rank && Map.fetch!(players_by_rank, p.black_rank).id,
         result: p.result,
         # A `?` came in as a postponed game (see `result_string/2`): it counts
-        # as `@unknown_outcome` for both - and the round check judged the
-        # later rounds on exactly that (`assume_unknown_results/1`).
+        # as the file's `X` for both (`unknown_outcome/1`) - and the round
+        # check judged the later rounds on exactly that
+        # (`assume_unknown_results/1`).
         provisional_white:
-          if(p.result == PairingsEngine.Results.postponed(), do: @unknown_outcome),
-        provisional_black:
-          if(p.result == PairingsEngine.Results.postponed(), do: @unknown_outcome)
+          if(p.result == PairingsEngine.Results.postponed(), do: unknown_outcome),
+        provisional_black: if(p.result == PairingsEngine.Results.postponed(), do: unknown_outcome)
       })
     end)
 
@@ -2409,17 +2467,20 @@ defmodule PairingsEngine.TrfImport do
   # check down with it - crashed, rescued, every round left unchecked.
   #
   # But the import does not leave the game unknown either: it becomes a
-  # postponed game worth `@unknown_outcome` to both players, and that is
-  # what the next round will be paired on. So the check reads it the same
-  # way `Pairing.trf_game/4` hands a postponed game to the engine - a played
-  # draw, colours counting - and judges the rounds on the scores the
-  # tournament itself will have. Only games with an opponent: a `?` against
-  # nobody has no seat to fill in, and is left to fail its own round
-  # (`verify_round/5`) rather than be guessed at.
-  @assumed_result %{"draw" => "="}
+  # postponed game worth the file's `X` to both players (`unknown_outcome/1`),
+  # and that is what the next round will be paired on. So the check reads it
+  # the way `Pairing.trf_game/4` hands a postponed game to the engine - a
+  # played game, colours counting, worth what it is counted as - and judges
+  # the rounds on the scores the tournament itself will have. A win for
+  # both is `1` on both sides: no file could say that, but the check never
+  # validates the pair, only scores each seat and reads its colour. Only
+  # games with an opponent: a `?` against nobody has no seat to fill in,
+  # and is left to fail its own round (`verify_round/5`) rather than be
+  # guessed at.
+  @assumed_result %{"draw" => "=", "win" => "1", "loss" => "0"}
 
   defp assume_unknown_results(data) do
-    assumed = Map.fetch!(@assumed_result, @unknown_outcome)
+    assumed = Map.fetch!(@assumed_result, unknown_outcome_of(data))
 
     players =
       Enum.map(data.players, fn player ->
@@ -2472,8 +2533,8 @@ defmodule PairingsEngine.TrfImport do
         [
           %{
             kind: :unknown_results_assumed,
-            outcome: String.to_existing_atom(@unknown_outcome),
-            points: Map.fetch!(points, String.to_existing_atom(@unknown_outcome)),
+            outcome: String.to_existing_atom(unknown_outcome_of(data)),
+            points: Map.fetch!(points, String.to_existing_atom(unknown_outcome_of(data))),
             rounds: Enum.to_list((first + 1)..paired//1),
             games: games
           }

@@ -551,6 +551,26 @@ defmodule PairingsEngine.TrfExport do
       else: []
   end
 
+  @doc """
+  How the TRF26 download values the games it writes as `?` against what
+  the boards count them as: `:draw` when `X` is the draw and every board
+  agrees (or there is no such game), `:uniform` when every board counts as
+  the same win or loss and `X` says so, `:mixed` when `X` is the draw and
+  some board counts as something else - the case where the file's points
+  can differ from the standings. See `unknown_value/2`.
+  """
+  def unknown_valuation(%Tournament{} = tournament) do
+    rows = Pairing.trf_player_rows(tournament, Tournaments.list_players(tournament.id))
+    system = Tournament.engine_point_system(tournament)
+    value = unknown_value(rows, system)
+
+    cond do
+      not value.draw? -> :uniform
+      valued_otherwise?(rows, Map.put(system, :unknown, value.x)) -> :mixed
+      true -> :draw
+    end
+  end
+
   defp idle_extra_points?(points, _tournament) when points == 0.0, do: false
   defp idle_extra_points?(_points, %Tournament{count_extra_points: true}), do: false
 
@@ -623,10 +643,12 @@ defmodule PairingsEngine.TrfExport do
     history = if dialect == :trf26, do: Pairing.rating_history(tournament)
 
     engine_rows = Pairing.trf_player_rows(tournament, players, history)
+    engine_system = Tournament.engine_point_system(tournament)
+    unknown_value = unknown_value(engine_rows, engine_system)
 
     trf_players =
       engine_rows
-      |> Enum.map(&report_unknown(&1, if(rating?, do: :rating, else: dialect)))
+      |> Enum.map(&report_unknown(&1, if(rating?, do: :rating, else: dialect), unknown_value))
       |> period_ratings(tournament, players, rounds)
       |> Enum.map(&filter_player_games(&1, rounds, tournament))
       # Virtual points - Baku's, or acceleration mode's extra points - for
@@ -650,7 +672,7 @@ defmodule PairingsEngine.TrfExport do
     # None in a file for rating: `report_unknown(_, :rating)` wrote them as
     # not played.
     unknown = if dialect == :trf26, do: postponed_columns(trf_players), else: []
-    point_system = unknown_point_value(Tournament.engine_point_system(tournament), unknown)
+    point_system = unknown_point_value(engine_system, unknown, unknown_value)
 
     text =
       tournament
@@ -837,9 +859,10 @@ defmodule PairingsEngine.TrfExport do
   #
   # A postponed game (`"*"`, VCL4THP Q164-165) is written as TRF26's unknown
   # result, `?`, on both players' `001` lines, and the `162` record declares
-  # what an unknown result is worth with `X` - a draw, because that is what
-  # the game counts as until it is played, so a reader adding up the columns
-  # gets the same points column this file states. A file carrying `?` is by
+  # what an unknown result is worth with `X` - what the game counts as until
+  # it is played: a draw, unless every such board counts as the same other
+  # thing (`unknown_value/2`) - so a reader adding up the columns gets the
+  # same points column this file states. A file carrying `?` is by
   # construction not a final report: no reader can take an unknown result
   # for a known one.
   #
@@ -859,14 +882,19 @@ defmodule PairingsEngine.TrfExport do
   # one that was sent as `?` in a report marked as sent (`finalised_open`),
   # whose real result goes in the postponed-games file and never here - is
   # written as the draw `mark_unknown/2` turns into `?`, and scores what the
-  # file's own `X` says: a draw. So the points column adds up from the file
-  # itself, whatever the club counts a postponed game as in its standings.
-  # A file for sending that disagreed with itself would be wrong data.
-  defp report_unknown(row, :trf26) do
+  # file's own `X` says (`unknown_value/2`). So the points column adds up
+  # from the file itself, whatever the club counts a postponed game as in
+  # its standings. A file for sending that disagreed with itself would be
+  # wrong data.
+  defp report_unknown(row, :trf26, unknown_value) do
     games =
       Enum.map(row.games, fn game ->
-        if Map.get(game, :postponed) == true or Map.get(game, :finalised_open) == true do
-          %{game | result: "="} |> Map.put(:postponed, true) |> Map.put(:provisional_points, nil)
+        if unknown_game?(game) do
+          %{game | result: "="}
+          |> Map.put(:postponed, true)
+          # Nil scores the `=` it is written as - the draw, presence point
+          # and all, exactly as before `X` could be anything else.
+          |> Map.put(:provisional_points, if(unknown_value.draw?, do: nil, else: unknown_value.x))
         else
           game
         end
@@ -874,6 +902,8 @@ defmodule PairingsEngine.TrfExport do
 
     %{row | games: games}
   end
+
+  defp report_unknown(row, dialect, _unknown_value), do: report_unknown(row, dialect)
 
   # The file sent for rating has no `?` either: a postponed game whose result
   # is not known yet - or that went out that way before (`finalised_open`),
@@ -925,18 +955,51 @@ defmodule PairingsEngine.TrfExport do
     %{row | games: games}
   end
 
+  defp unknown_game?(game),
+    do: Map.get(game, :postponed) == true or Map.get(game, :finalised_open) == true
+
+  # What the file's `X` says an unknown result is worth. TRF26 has ONE `X`
+  # for the whole file, and the boards each carry their own valuation,
+  # frozen when they were postponed (or read from an imported file's own
+  # `X`, `TrfImport`). So: when every seat of every `?` game counts as the
+  # same win, draw or loss, `X` is that - the file then says exactly what
+  # the tournament counts, an imported `X` survives the round trip, and an
+  # outside checker pairs on the same scores. Otherwise - a requester's win
+  # against the other side's loss, a presence point, a sent game whose
+  # result has since been entered - `X` is the draw, FIDE's own valuation
+  # (VCL4THP Q167), and `valued_otherwise?/2` re-ranks the file from itself.
+  defp unknown_value(engine_rows, system) do
+    values =
+      for row <- engine_rows,
+          game <- row.games,
+          unknown_game?(game),
+          uniq: true,
+          do: Map.get(game, :provisional_points) || system.draw
+
+    x =
+      case values do
+        [value] ->
+          if value in [system.win, system.draw, system.loss], do: value, else: system.draw
+
+        _ ->
+          system.draw
+      end
+
+    %{x: x, draw?: x == system.draw}
+  end
+
   # Whether a game this file writes as `?` counts, in the tournament, as
-  # anything but the draw the file's `X` says. Read from the boards - the
+  # anything but what the file's `X` says. Read from the boards - the
   # valuation is frozen on each when it is postponed - and not from the
-  # setting, which may have changed since. With draws all round (FIDE's
-  # own valuation, and the default) the standings' places are the file's
-  # and nothing is re-ranked.
+  # setting, which may have changed since. When the boards agree (draws
+  # all round, FIDE's own valuation and the default, or one imported `X`)
+  # the standings' places are the file's and nothing is re-ranked.
   defp valued_otherwise?(engine_rows, point_system) do
     Enum.any?(engine_rows, fn row ->
       Enum.any?(row.games, fn game ->
-        (Map.get(game, :postponed) == true or Map.get(game, :finalised_open) == true) and
+        unknown_game?(game) and
           is_number(Map.get(game, :provisional_points)) and
-          game.provisional_points != point_system.draw
+          game.provisional_points != point_system.unknown
       end)
     end)
   end
@@ -1255,8 +1318,10 @@ defmodule PairingsEngine.TrfExport do
         do: {player.rank, column}
   end
 
-  defp unknown_point_value(system, []), do: system
-  defp unknown_point_value(system, _unknown), do: Map.put(system, :unknown, system.draw)
+  defp unknown_point_value(system, [], _unknown_value), do: system
+
+  defp unknown_point_value(system, _unknown, unknown_value),
+    do: Map.put(system, :unknown, unknown_value.x)
 
   defp mark_unknown(text, []), do: text
 
