@@ -1720,17 +1720,40 @@ defmodule PairingsEngine.Pairing do
 
   # A 1-player group can't go through the engine at all - it's given a
   # pairing-allocated bye directly once `insert_category_round/3` writes it.
+  # Directly, but not unconditionally: C.04.3 C2 holds for a group of one
+  # as much as for a group of forty. This used to hand the lone Junior the
+  # bye in round 1, round 2 and every round after, with nobody asking. Now
+  # a player C2 (or the organiser's bye exclusion) rules out is a round
+  # with no legal pairing, said as such, with the offer to pair it by hand.
   defp compute_category_group(
-         _tournament,
+         tournament,
          category_name,
          [player],
-         _next_number,
-         _shared_history,
+         next_number,
+         shared_history,
          _full_roster,
          _local_rank_by_player_id,
          _run
        ) do
-    {:ok, {category_name, :bye, player}}
+    games =
+      tournament
+      |> games_per_player(%{player.id => player}, shared_history)
+      |> Map.get(player.id, [])
+
+    excluded? =
+      player.id != tournament.bye_exclusion_override and
+        Player.no_bye_for_round?(player, next_number)
+
+    if excluded? or Enum.any?(games, &bye_disqualifying?(&1, tournament)) do
+      {:error,
+       {:no_legal_pairing,
+        ainalrami_scoped(
+          "#{player.name} is the only player in this category, so the only pairing there is would give them the pairing-allocated bye - which they may not have: they already had it, or a win without playing (C.04.3 C2), or are excluded from it. Move them to another category, or pair the round by hand.",
+          category_name
+        )}}
+    else
+      {:ok, {category_name, :bye, player}}
+    end
   end
 
   defp compute_category_group(
@@ -1787,6 +1810,20 @@ defmodule PairingsEngine.Pairing do
       {:error, _message} = error ->
         bye_exclusion_error(error, player_by_local_rank)
     end
+  end
+
+  # C.04.3 C2, read the way the engine reads it (`Ainalrami.Pairing`'s
+  # `bye_disqualifying?/1`): an unplayed game worth a win, or a round the
+  # player was paired in without an opponent. A game whose result is not
+  # known (`?`) had an opponent, and rules out nothing.
+  defp bye_disqualifying?(%{result: "?"}, _tournament), do: false
+
+  defp bye_disqualifying?(%{result: result} = game, tournament) do
+    system = Tournament.engine_point_system(tournament)
+
+    not Trf.game_was_played?(result) and
+      (Trf.points_for_game(game, system) >= system.win or
+         (is_nil(game[:opponent_rank]) and Trf.participated_in_pairing?(game)))
   end
 
   ## ---------- bye exclusions (an organiser's rule, not FIDE's) ----------

@@ -31,7 +31,10 @@ Two switches on the page:
 - **Pair each category independently (beta)**: each category is paired by its
   own engine run and the results are merged into one round with continuous board
   numbers and a single pairing sheet. In a round robin each category gets its own
-  Berger table. It is locked after round 1.
+  Berger table. It is locked after round 1. A category with a single player
+  gives that player the pairing-allocated bye; once they have had it (or a win
+  without playing), the round has no legal pairing and is refused, with the
+  offer to pair it by hand.
 
 > [!FIDE] Departure from FIDE mode
 > Pairing each category independently treats each category as a
