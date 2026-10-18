@@ -151,6 +151,9 @@ defmodule PairingsEngine.Application do
       PairingsEngine.BrowserLauncher.maybe_open()
       # Off unless `PAIR_TIMING` asks for it - see the module.
       PairingsEngine.PairTiming.maybe_attach()
+      # Plugins' own boot work, now that Repo and PubSub are there. Never
+      # fails the boot: see `PairingsEngine.Plugins.boot/0`.
+      PairingsEngine.Plugins.boot()
       ok
     end
   end

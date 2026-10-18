@@ -313,6 +313,20 @@ defmodule PairingsEngine.Plugins do
     end
   end
 
+  ## ---------- boot ----------
+
+  @doc """
+  Calls every plugin's `boot/0`, once, after the core's supervision tree is
+  up. A plugin that raises is logged and the rest - and the core - carry on.
+  """
+  def boot do
+    for plugin <- all(), exports?(plugin, :boot, 0) do
+      safely(plugin, "boot/0", fn -> plugin.boot() end, nil)
+    end
+
+    :ok
+  end
+
   ## ---------- migrations ----------
 
   @doc "The plugins' own migration directories, run after the core's."
