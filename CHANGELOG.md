@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.93.0] - 2026-10-18
+
 - [Change] **New address.** The repository moved to github.com/teapot-chess; old links still redirect, out of politeness rather than obligation.
 - [Fix] **A TRF saved mid-round comes back mid-round.** A board with both players and no result yet used to be dropped on import, quietly, which made the round look finished and let the next one be paired over games nobody had played, this program's own export included. Such boards now come in as games still being played, the import report names their round, and the next round waits for them.
 - [Fix] **Every round's results count, not only the last one's.** Clearing a result in an earlier round and forgetting to re-enter it used to let the next round be paired anyway, and the engine, reading that game as never played, was free to pair the same two again. The Swiss match format had the same blind spot for the first leg of a match. Now any board without a result, in any round, holds the next round up and the refusal names the round.
