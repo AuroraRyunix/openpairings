@@ -14,7 +14,7 @@ Pages (signed in, administrators only: the core's `:plugins` live_session):
 | Path                       | What                                                                 |
 |----------------------------|----------------------------------------------------------------------|
 | `/p/polis`                 | Every print station of every tournament this account can open        |
-| `/p/polis/tournaments/:id` | The tournament's stations; "Add a print station"; Remove; Print again |
+| `/p/polis/tournaments/:id` | The tournament's stations; "Add a print station"; Remove; Print again; each station's name, room and share |
 
 Plain routes (`http_routes/0`: no pipeline, no session, no CSRF, no sign-in;
 the plugin checks the caller itself):
@@ -27,13 +27,18 @@ the plugin checks the caller itself):
 The wire format of both is the hall-link protocol, version 1, in
 `docs/protocol.md`.
 
-The plugin adds the feature `polis_print_station` (no federation, so it
-sits with the general features on the account's Features page). With it on,
-a tournament's menu gets "Print station".
+The plugin adds the feature `polis_print_station`, in the Belgian pack
+(`federation: "BEL"`) of the account's Features page. With it on, a
+tournament's Settings get a "Print station" page
+(`tournament_settings_entries/2`, group `:publishing`, icon
+`hero-printer-micro`), drawn inside the Settings frame so the rail stays
+beside it. It has no tab in the tournament's top bar: a print station is
+set up once and then left alone.
 
 ## What happens
 
-1. On `/p/polis/tournaments/:id` the arbiter presses "Add a print station".
+1. On `/p/polis/tournaments/:id` (the tournament's Settings → Print
+   station) the arbiter presses "Add a print station".
    The page shows a join link `https://<host>/p/polis/join/<code>` (built
    from `PairingsEngineWeb.Endpoint.url()`), a copy button and a QR code.
    The code is 16 base32 characters, good once, for 15 minutes, bound to
@@ -42,7 +47,8 @@ a tournament's menu gets "Print station".
    base64url). Only the key's SHA-256 is stored. Joining the same tournament
    again from the same device replaces the key and undoes a removal.
 3. Polis opens `wss://<host>/p/polis/link`, says `hello` with the key, and
-   gets `welcome` plus the latest published round, if there is one.
+   gets `welcome`, its `settings`, and the latest published round - its
+   share of it - if there is one.
 4. The socket listens to the core's tournament topic
    (`PairingsEngine.Tournaments.tournament_topic/1`). Any change is a nudge:
    300 ms later it recomputes the latest published round's payload and
@@ -54,6 +60,48 @@ a tournament's menu gets "Print station".
    every connected station of the tournament as `print`. Remove marks the
    station revoked: a connected one is told `leave`, and the next `hello`
    from it is answered `refused revoked`.
+
+### Name, room and share
+
+Each station row has a room and two filters,
+`filter_categories` (category names, a JSON list like the core's
+`players.categories`) and `filter_boards` (board numbers as text,
+`1-20, 35`), added by `priv/migrations/20261018000102_add_polis_station_settings.exs`.
+Empty is everything.
+
+The room is one of the tournament's own rooms (OpenPairings' Settings,
+Rooms; `PairingsEngine.Rooms`), kept by id in `room_id`
+(`priv/migrations/20261018000103_add_polis_station_room_id.exs`), with
+`room` holding its name as last seen. A rename in OpenPairings follows the
+station; a room removed leaves it in no room. The page picks a room by id
+(`"room_id"`, `"keep"` for unchanged); the station sends a name (`"room"`,
+matched without regard to case or spaces). A name that is no room of the
+tournament is refused, `{:error, {:room, :unknown}}`, which the socket
+answers with the `settings` frame plus `"error": "room"`. The `settings`
+frame carries `rooms_available`, the rooms' names.
+
+Rooms typed before the core had them are not converted: they were free
+text in tournaments without rooms, so they name none. Such a `room` stays
+as a label (`Stations.legacy_room?/2`), shown and sent as it is, and
+restricts nothing - as before. A station that sends the same text back is
+not refused for it; picking a real room replaces it. `OpenPairingsPolis.Stations.update_settings/2` is the
+only writer, called by the page and by the socket when the station sends
+`settings`; it broadcasts `{:polis_settings_changed, id}`, and the socket
+answers with the `settings` frame and, when the share changed, the round
+again. Last save wins.
+
+The filter is applied here, not in Polis: the round payload a station gets
+holds only its boards (the board is in the station's room, its number is
+in the list, and either player
+carries a ticked category; a bye by its one player), and carries
+`selection` (`room`, `boards`, `categories`) when it is not the whole
+round, so the `rev` is per share. A category the tournament no longer has
+is dropped from the filter rather than left to match nobody.
+
+Board numbers are read by the core's `PairingsEngine.BoardRanges`, the
+same reader the core's rooms use, so "1-20" means one thing to both. A room
+with no boards yet holds none: a station placed in it prints nothing, and
+its page says so.
 
 The page and the sockets meet on the plugin's own PubSub topic,
 `"polis:tournament:<id>"` on `PairingsEngine.PubSub`. The plugin starts no
@@ -92,7 +140,8 @@ directory):
   tournament), `name`, `software`, `key_hash`, `status` (what the station
   last reported: `printer`, `last_printed_round`), `last_seen_at`,
   `connected`, `connection_ref` (so an old socket closing late cannot mark a
-  reconnected station offline), `revoked_at`.
+  reconnected station offline), `revoked_at`; and, from the later
+  migrations, `room`, `room_id`, `filter_categories`, `filter_boards`.
 
 Deleting a tournament for good removes its rows; one in the recycle bin
 answers `refused revoked`.
