@@ -536,14 +536,12 @@ Ainalrami's own endorsement as a pairing engine (FIDE form FE1 plus two
 auto-test reports, at most 1 difference per 500 tournaments). **The
 application is not drafted yet.** The validation data exists:
 
-- Individual Swiss: 2.33 billion pairings against bbpPairings, 11 differing
-  rounds, all where bbpPairings itself errors - 3 confirmed as its known bug,
-  8 still to confirm.
+- Individual Swiss: 2.54 billion pairings against bbpPairings in six
+  corpora, 2 disagreements; 6 recorded differences in all, every one
+  bbpPairings breaking C2, 5 confirmed as its bit-field bug by a fixed build
+  (Ainalrami `docs/bbp-differences-2026-10-18.md`).
 - Team Swiss: 3.55 billion rounds against a brute-force reference, 0
   failures.
-
-(These figures come from the maintainer, not from a file in this repository
-(unverified, check before quoting them to anyone).)
 
 JaVaFo was removed in 0.81.0: Ainalrami is the only Swiss engine, so FE1's
 "internal engine" answer is YES.
