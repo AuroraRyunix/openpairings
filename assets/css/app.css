@@ -2670,7 +2670,7 @@ label.field > span {
 .room-field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .room-field input { width: 100%; }
 .room-remove { transition: color .15s ease, border-color .15s ease; }
-.room-remove:hover { color: var(--danger, #b42318); }
+.room-remove:hover { color: var(--danger); }
 .room-feedback { grid-column: 1 / -1; margin: 0; font-size: 13px; }
 @media (max-width: 640px) {
   .room-row { grid-template-columns: minmax(0, 1fr); }
