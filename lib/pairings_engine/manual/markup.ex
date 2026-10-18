@@ -71,7 +71,9 @@ defmodule PairingsEngine.Manual.Markup do
 
   @doc """
   Renders `markdown`, the chapter numbered `number`. Options:
-  `:screenshot_dir`, the directory a screenshot's file is looked up in.
+  `:screenshot_dir`, the directory a screenshot's file is looked up in, and
+  `:link`, a function from a link's target to the address it opens (the
+  default maps chapter files to `/help/slug`).
 
   Returns `%{title:, html:, toc:, sections:, figures:, summary:}`:
   `toc` is the `##`/`###` headings (`%{id:, text:, level:}`), `sections` the
@@ -90,7 +92,8 @@ defmodule PairingsEngine.Manual.Markup do
       ids: %{},
       toc: [],
       figures: [],
-      screenshot_dir: Keyword.get(opts, :screenshot_dir)
+      screenshot_dir: Keyword.get(opts, :screenshot_dir),
+      link: Keyword.get(opts, :link, &chapter_href/1)
     }
 
     {ast, state} = transform_nodes(ast, state)
@@ -238,7 +241,7 @@ defmodule PairingsEngine.Manual.Markup do
 
     attrs =
       Enum.map(attrs, fn
-        {"href", href} -> {"href", chapter_href(href)}
+        {"href", href} -> {"href", state.link.(href)}
         other -> other
       end)
 

@@ -34,6 +34,7 @@ defmodule PairingsEngineWeb.HelpLive do
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.Manual
+  alias PairingsEngine.Manual.Family
 
   @impl true
   def mount(_params, _session, socket) do
@@ -45,6 +46,8 @@ defmodule PairingsEngineWeb.HelpLive do
      assign(socket,
        manual_locale: locale,
        chapters: Manual.chapters(locale),
+       family: Family.programs(locale),
+       program: nil,
        chapter: nil,
        previous: nil,
        next: nil,
@@ -56,6 +59,32 @@ defmodule PairingsEngineWeb.HelpLive do
   end
 
   @impl true
+  def handle_params(%{"program" => program} = params, _uri, socket) do
+    locale = socket.assigns.manual_locale
+
+    case Family.get(program, params["page"], locale) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("That help chapter does not exist."))
+         |> push_navigate(to: ~p"/help")}
+
+      {program, page} ->
+        {previous, next} = Family.neighbours(page, locale)
+
+        {:noreply,
+         socket
+         |> assign(
+           program: program,
+           chapter: page,
+           previous: previous,
+           next: next,
+           page_title: gettext("Help") <> " - " <> program.name <> ": " <> page.title
+         )
+         |> assign_search("")}
+    end
+  end
+
   def handle_params(%{"chapter" => slug}, _uri, socket) do
     case Manual.get(slug, socket.assigns.manual_locale) do
       nil ->
@@ -70,6 +99,7 @@ defmodule PairingsEngineWeb.HelpLive do
         {:noreply,
          socket
          |> assign(
+           program: nil,
            chapter: chapter,
            previous: previous,
            next: next,
@@ -84,7 +114,7 @@ defmodule PairingsEngineWeb.HelpLive do
 
     {:noreply,
      socket
-     |> assign(chapter: nil, previous: nil, next: nil, page_title: gettext("Help"))
+     |> assign(program: nil, chapter: nil, previous: nil, next: nil, page_title: gettext("Help"))
      |> assign_search(query)}
   end
 
@@ -140,10 +170,32 @@ defmodule PairingsEngineWeb.HelpLive do
     max(1, round(words / 200))
   end
 
-  defp result_path(%{chapter: chapter, section_id: nil}), do: ~p"/help/#{chapter.slug}"
+  defp result_path(%{chapter: chapter, section_id: nil}), do: page_path(chapter)
+  defp result_path(%{chapter: chapter, section_id: id}), do: page_path(chapter) <> "#" <> id
 
-  defp result_path(%{chapter: chapter, section_id: id}),
-    do: ~p"/help/#{chapter.slug}" <> "#" <> id
+  # A chapter of this manual, or a page of another program's.
+  defp page_path(%{family?: true} = page), do: Family.path(page)
+  defp page_path(chapter), do: ~p"/help/#{chapter.slug}"
+
+  defp family?(%{family?: true}), do: true
+  defp family?(_), do: false
+
+  # "6. Pairing" or "Nunki: Overview".
+  defp where_label(%{family?: true} = page),
+    do: page.program_name <> ": " <> page_label(page)
+
+  defp where_label(chapter), do: "#{chapter.number}. #{chapter.title}"
+
+  # The README of a program is its overview; the page title there is just
+  # the program's name.
+  defp page_label(%{family?: true, program_name: name, title: name}), do: gettext("Overview")
+  defp page_label(%{title: title}), do: title
+
+  defp pager_label(%{family?: true} = page), do: page_label(page)
+  defp pager_label(chapter), do: "#{chapter.number}. #{chapter.title}"
+
+  defp not_translated?(socket_locale, chapter),
+    do: socket_locale != "en" and family?(chapter) and not chapter.translated?
 
   attr :parts, :list, required: true
 
@@ -222,9 +274,16 @@ defmodule PairingsEngineWeb.HelpLive do
             >
               <.icon name="hero-bars-3" class="size-5" />
               <span class="manual-nav-toggle-label">
-                {if @chapter,
-                  do: gettext("Chapter %{n}: %{title}", n: @chapter.number, title: @chapter.title),
-                  else: gettext("Chapters")}
+                {cond do
+                  @program ->
+                    @program.name <> ": " <> page_label(@chapter)
+
+                  @chapter ->
+                    gettext("Chapter %{n}: %{title}", n: @chapter.number, title: @chapter.title)
+
+                  true ->
+                    gettext("Chapters")
+                end}
               </span>
               <.icon name="hero-chevron-down" class="manual-nav-toggle-chevron size-4" />
             </button>
@@ -246,6 +305,45 @@ defmodule PairingsEngineWeb.HelpLive do
                     </.link>
                   </li>
                 </ol>
+              </div>
+
+              <div :if={@family != []} class="manual-part" id="part-other">
+                <h2 class="manual-part-title">{gettext("Other programs")}</h2>
+
+                <ul class="manual-toc-list">
+                  <li :for={p <- @family}>
+                    <.link
+                      id={"manual-toc-other-#{p.slug}"}
+                      navigate={~p"/help/other/#{p.slug}"}
+                      aria-current={
+                        @program && @program.slug == p.slug && @chapter.slug == nil && "page"
+                      }
+                      class={[
+                        "manual-toc-link",
+                        @program && @program.slug == p.slug && @chapter.slug == nil && "current"
+                      ]}
+                    >
+                      <span class="manual-toc-text">{p.name}</span>
+                    </.link>
+
+                    <ul
+                      :if={@program && @program.slug == p.slug && length(p.pages) > 1}
+                      id={"manual-toc-other-#{p.slug}-pages"}
+                      class="manual-toc-list manual-toc-sub"
+                    >
+                      <li :for={page <- p.pages}>
+                        <.link
+                          id={"manual-toc-other-#{p.slug}-#{page.slug || "overview"}"}
+                          navigate={Family.path(page)}
+                          aria-current={@chapter.slug == page.slug && "page"}
+                          class={["manual-toc-link", @chapter.slug == page.slug && "current"]}
+                        >
+                          <span class="manual-toc-text">{page_label(page)}</span>
+                        </.link>
+                      </li>
+                    </ul>
+                  </li>
+                </ul>
               </div>
             </nav>
           </div>
@@ -288,7 +386,7 @@ defmodule PairingsEngineWeb.HelpLive do
                   >
                     <span class="manual-result-where">
                       <span class="manual-result-chapter">
-                        {r.chapter.number}. {r.chapter.title}
+                        {where_label(r.chapter)}
                       </span>
                     </span>
                     <span class="manual-result-heading"><.marked parts={r.heading_parts} /></span>
@@ -316,15 +414,27 @@ defmodule PairingsEngineWeb.HelpLive do
                 <ol>
                   <li><.link navigate={~p"/help"}>{gettext("Help")}</.link></li>
 
-                  <li>{part_name(@chapters, @chapter)}</li>
+                  <%= if @program do %>
+                    <li>{gettext("Other programs")}</li>
 
-                  <li aria-current="page">{@chapter.title}</li>
+                    <li :if={@chapter.slug == nil} aria-current="page">{@program.name}</li>
+                    <li :if={@chapter.slug != nil}>
+                      <.link navigate={~p"/help/other/#{@program.slug}"}>{@program.name}</.link>
+                    </li>
+
+                    <li :if={@chapter.slug != nil} aria-current="page">{@chapter.title}</li>
+                  <% else %>
+                    <li>{part_name(@chapters, @chapter)}</li>
+
+                    <li aria-current="page">{@chapter.title}</li>
+                  <% end %>
                 </ol>
               </nav>
 
               <header class="manual-chapter-head">
                 <p class="manual-eyebrow">
-                  <span class="manual-chapter-number">
+                  <span :if={@program} class="manual-chapter-number">{@program.name}</span>
+                  <span :if={!@program} class="manual-chapter-number">
                     {gettext("Chapter %{n}", n: @chapter.number)}
                   </span>
 
@@ -336,6 +446,25 @@ defmodule PairingsEngineWeb.HelpLive do
                 <h1 id="manual-chapter-title" class="manual-title manual-chapter-title" lang="en">
                   {@chapter.title}
                 </h1>
+
+                <p
+                  :if={not_translated?(@manual_locale, @chapter)}
+                  id="manual-english-only"
+                  class="manual-note-line"
+                >
+                  {gettext("This page is only available in English.")}
+                </p>
+
+                <p :if={@program} class="manual-note-line">
+                  <a
+                    id="manual-program-releases"
+                    href={@program.releases_url}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {gettext("Latest %{name} release on GitHub", name: @program.name)}
+                  </a>
+                </p>
               </header>
 
               <nav
@@ -379,27 +508,27 @@ defmodule PairingsEngineWeb.HelpLive do
                 <.link
                   :if={@previous}
                   id="manual-previous"
-                  navigate={~p"/help/#{@previous.slug}"}
+                  navigate={page_path(@previous)}
                   class="manual-pager-link prev"
                   rel="prev"
                 >
                   <span class="manual-pager-dir">
                     <.icon name="hero-arrow-left" class="size-4" /> {gettext("Previous")}
                   </span>
-                  <span class="manual-pager-title">{@previous.number}. {@previous.title}</span>
+                  <span class="manual-pager-title">{pager_label(@previous)}</span>
                 </.link>
 
                 <.link
                   :if={@next}
                   id="manual-next"
-                  navigate={~p"/help/#{@next.slug}"}
+                  navigate={page_path(@next)}
                   class="manual-pager-link next"
                   rel="next"
                 >
                   <span class="manual-pager-dir">
                     {gettext("Next")} <.icon name="hero-arrow-right" class="size-4" />
                   </span>
-                  <span class="manual-pager-title">{@next.number}. {@next.title}</span>
+                  <span class="manual-pager-title">{pager_label(@next)}</span>
                 </.link>
               </nav>
             </article>
@@ -451,6 +580,32 @@ defmodule PairingsEngineWeb.HelpLive do
                       <span class="manual-card-body">
                         <span class="manual-card-title">{c.title}</span>
                         <span class="manual-card-summary">{c.summary}</span>
+                      </span>
+                    </.link>
+                  </li>
+                </ol>
+              </section>
+
+              <section
+                :if={@family != []}
+                id="manual-index-other"
+                class="manual-index-part"
+                aria-labelledby="part-other-index"
+              >
+                <h2 id="part-other-index" class="manual-index-part-title">
+                  {gettext("Other programs")}
+                </h2>
+
+                <ol class="manual-index-list" lang="en">
+                  <li :for={p <- @family}>
+                    <.link
+                      id={"manual-index-other-#{p.slug}"}
+                      navigate={~p"/help/other/#{p.slug}"}
+                      class="manual-card"
+                    >
+                      <span class="manual-card-body">
+                        <span class="manual-card-title">{p.name}</span>
+                        <span class="manual-card-summary">{p.summary}</span>
                       </span>
                     </.link>
                   </li>
