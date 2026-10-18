@@ -176,6 +176,12 @@ defmodule PairingsEngine.RatingInbox do
   the last of them - `:interim` - except in the month it ends, which is the
   final report. Telling an October round of a club championship that it has
   until April was the previous arrangement, and it was wrong.
+
+  Unless the tournament says it is not reported that way: a long event set
+  to one report at the end (`Tournament.one_report_at_end?/1`) is
+  registered with FIDE once, in its last month, and every period of it is
+  `{:final, last}`, as if it had lasted a fortnight. FIDE takes games dated
+  long before the registration, so October's rounds owe nothing until April.
   """
   def report_day(%Tournament{} = t, %Date{} = period) do
     last = tournament_last_day(t)
@@ -184,7 +190,8 @@ defmodule PairingsEngine.RatingInbox do
       is_nil(last) ->
         nil
 
-      not long?(t, last) or Date.beginning_of_month(last) == period ->
+      Tournament.one_report_at_end?(t) or not long?(t, last) or
+          Date.beginning_of_month(last) == period ->
         {:final, last}
 
       true ->

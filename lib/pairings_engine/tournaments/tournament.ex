@@ -86,6 +86,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
   # Where a soft pairing wish sits on Ainalrami's criteria ladder - see
   # PairingsEngine.Pairing.soft_pairs/5 and docs/forbidden-pairings.md.
   @soft_positions ~w(strong weak)
+  @long_event_reportings ~w(monthly end)
   @initial_colours ~w(lot white black)
   # The Tournament Rating methods of TRF26's record 172 (VCL4THP Q145) - see
   # `PairingsEngine.Tournaments.Player.rating/2`.
@@ -286,6 +287,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     field :long_event, :boolean, default: false
     field :tiebreak_rating_round, :integer
     field :tiebreak_rating_per_round, :boolean, default: false
+
+    # How a long event is reported for rating (`one_report_at_end?/1`).
+    # "monthly", the default: each month's rounds on their own (B.02 Art.
+    # 4.1). "end": registered with FIDE once, in its last month, and
+    # reported once with every round, counted from the last day like any
+    # short tournament (Art. 9.1). Means nothing while `long_event` is off.
+    field :long_event_reporting, :string, default: "monthly"
 
     # Whether players still level after the whole tie-break list share a place
     # (C.07 Article 2.1: the regulations say). Off, the default, keeps the
@@ -1398,6 +1406,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
       :long_event,
       :tiebreak_rating_round,
       :tiebreak_rating_per_round,
+      :long_event_reporting,
       :shared_places,
       :acceleration,
       :status,
@@ -1470,6 +1479,7 @@ defmodule PairingsEngine.Tournaments.Tournament do
     |> validate_inclusion(:publish_mode, @publish_modes)
     |> validate_number(:publish_delay_minutes, greater_than_or_equal_to: 0)
     |> validate_inclusion(:soft_position, @soft_positions)
+    |> validate_inclusion(:long_event_reporting, @long_event_reportings)
     |> validate_inclusion(:postponed_requester_outcome, ~w(win draw loss))
     |> validate_inclusion(:postponed_opponent_outcome, ~w(win draw loss))
     |> validate_length(:postponed_report_name, max: 200)
@@ -2417,6 +2427,17 @@ defmodule PairingsEngine.Tournaments.Tournament do
   def postponed_allowed?(%{pairing_system: "round_robin"}), do: true
   def postponed_allowed?(%{postponed_games: true}), do: true
   def postponed_allowed?(_), do: false
+
+  @doc """
+  Whether a tournament is a long event reported once at the end: the 30-day
+  tick on and `long_event_reporting` "end". Its rounds then go in one file
+  against one FIDE registration, and nothing is due monthly.
+  """
+  def one_report_at_end?(%{long_event: true, long_event_reporting: "end"}), do: true
+  def one_report_at_end?(_), do: false
+
+  @doc "The values `long_event_reporting` takes."
+  def long_event_reportings, do: @long_event_reportings
 
   @doc "The values `team_board_colours` takes."
   def team_board_colours, do: @team_board_colours

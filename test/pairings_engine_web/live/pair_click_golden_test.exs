@@ -147,6 +147,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   `:match_format` paired match 2 with every first-leg board of match 1
   still open (P2b), so match 1 now has both legs played, and match 2 is
   paired on those scores.
+
+  And for a long event's reporting choice (long-event-report-mode): every
+  JSON export gains `tournament.long_event_reporting` ("monthly"). With that
+  key taken out the regenerated file is equal, term for term, to the one
+  before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
