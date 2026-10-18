@@ -638,7 +638,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         "registration_opens_at",
         "registration_closes_at",
         "registration_max_players",
-        "registration_list_public"
+        "registration_list_public",
+        "registration_list_pending",
+        "registration_fee_amount",
+        "registration_fee_currency",
+        "registration_fee_note"
       ])
 
     case Tournaments.set_registration_settings(socket.assigns.tournament, attrs) do
@@ -647,7 +651,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           opens_at: iso(tournament.registration_opens_at),
           closes_at: iso(tournament.registration_closes_at),
           max_players: tournament.registration_max_players,
-          list_public: tournament.registration_list_public
+          list_public: tournament.registration_list_public,
+          list_pending: tournament.registration_list_pending,
+          fee_amount: tournament.registration_fee_amount,
+          fee_currency: tournament.registration_fee_currency,
+          fee_note: tournament.registration_fee_note
         })
 
         {:noreply,
@@ -1379,6 +1387,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             <p class="set-label" style="margin: 0">
               {gettext("Before round 1, spectators see the starting ranking")}
             </p>
+
             <p class="hint" style="margin: 6px 0 0">
               {gettext(
                 "Not applicable any more: a round is public, so spectators see its pairings and the standings its level allows."
@@ -1775,9 +1784,54 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             />
             <p class="hint" style="margin: 2px 0 8px">
               {gettext(
-                "Lists the players already on your entry list, with the columns the public page shows. Entries you have not decided on appear only as a count, and email addresses never."
+                "Lists the players already on your entry list, with the columns the public page shows. Email addresses never appear."
               )}
             </p>
+
+            <.input
+              field={@registration_form[:registration_list_pending]}
+              type="checkbox"
+              label={gettext("Also list entries waiting for your decision, marked unconfirmed")}
+            />
+            <p class="hint" style="margin: 2px 0 8px">
+              {gettext(
+                "Only the name is shown, and only once the entry has reached this computer. Discarding an entry takes its name off the public list the moment the results site has the next copy. Names are typed by strangers: switch this off if you would rather not show them."
+              )}
+            </p>
+
+            <span class="set-label" style="margin-top: 10px; display: block">
+              {gettext("Entry fee")}
+            </span>
+
+            <p class="hint" style="margin: 4px 0 8px">
+              {gettext(
+                "Optional. The form states it; nothing is paid through it, and no confirmation e-mails are sent to entrants."
+              )}
+            </p>
+
+            <div class="form-grid">
+              <.input
+                field={@registration_form[:registration_fee_amount]}
+                type="text"
+                inputmode="decimal"
+                label={gettext("Amount")}
+                placeholder="15"
+              />
+              <.input
+                field={@registration_form[:registration_fee_currency]}
+                type="text"
+                maxlength="3"
+                label={gettext("Currency")}
+                placeholder="EUR"
+              />
+              <.input
+                field={@registration_form[:registration_fee_note]}
+                type="text"
+                maxlength="120"
+                label={gettext("Note")}
+                placeholder={gettext("Free for juniors")}
+              />
+            </div>
 
             <div class="actions">
               <button type="submit" id="save-registration-settings" class="pe-btn">

@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **The entry form states its fee.** Settings, Results site, Entry form gains an optional entry fee: an amount, a currency and a free-text note ("free for juniors"), shown on the public form. It is a sentence, not a till: nothing is paid through it, and nothing sends the entrants an e-mail either, which is now the written-down decision rather than an omission.
+- [Feature] **Entries waiting for you can be listed by name, marked unconfirmed.** With the public entry list on, the entries you have not decided on appear on it by name only, under an "unconfirmed" badge, unless you switch that half off. Discarding an entry takes its name off the next copy the results site receives, names are cleaned and capped before they travel, and the page escapes whatever a stranger decided to call themselves.
+
 ## [0.94.0] - 2026-10-18
 
 - [Feature] **Rooms.** Settings, Rooms gives a hall of more than one room its names and the boards each holds (`1-20, 35, 40-45`), checked as you type: no name twice, no board in two rooms, and a board in none is its own business. The Pairings page then names the room above its first board, and both printed pairing lists grow a Room column, so the player looking for board 37 learns it is in the annexe before walking the main hall twice. A tournament without rooms looks exactly as it did. Rooms travel in the JSON export and come back on import.

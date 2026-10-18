@@ -181,15 +181,18 @@ it is now:
    opening and closing time, a maximum number of players, and whether the
    form may list who has entered (`registration_opens_at`, `_closes_at`,
    `_max_players`, `_list_public`, saved together by
-   `Tournaments.set_registration_settings/2`). The times are typed in the
+   `Tournaments.set_registration_settings/2`, together with the fee and the
+   pending-names switch described under 6). The times are typed in the
    browser's own time zone and stored in UTC - the page's `.UtcDateTime`
    hook converts both ways, because the browser is the only party that
    knows the arbiter's zone.
 2. **The settings travel out in the snapshot**, as `tournament.registration`
    beside `registration_open` - see OpenResults'
    `docs/snapshot-schema.md`, "The entry form's own settings". `taken` is the
-   players plus the entries waiting here for a decision; it is a count, and
-   no part of an undecided entry ever travels in a snapshot.
+   players plus the entries waiting here for a decision; it is a count.
+   Undecided entries travel in exactly one form: their names, and only when
+   the entry list is public and the arbiter has left "also list entries
+   waiting for your decision" on (see 6).
 3. **The results site enforces them** by its own clock: the form is shut
    before the window, after it, and once the field is full (counting entries
    that arrived after the last publish, so a closed laptop cannot be
@@ -216,7 +219,24 @@ proxies it to `GET /internal/fide/search` here with the ingest token. Since
 Belgian club players the FIDE list does not have). It still works only where
 both apps share a host - see TODO.
 
-**Not built, on purpose:** confirmation e-mails to entrants, entry fees and
+6. **Decided 2026-10-18: a fee line, and pending names.**
+   - The form states an optional entry fee: `registration_fee_amount`,
+     `_currency` and `_note` (free text, "free for juniors"), published as
+     `tournament.registration.fee`. A statement and nothing more; no payment
+     is handled and `Player.paid` stays the arbiter's own tick.
+   - With the public entry list on, `registration_list_pending` (default on)
+     publishes the names of the entries still waiting as
+     `tournament.registration.pending`, names only, capped at 200, cleaned by
+     `Registration.listable_name/1`. OpenResults renders them escaped under
+     an "unconfirmed" badge. Discarding an entry (or accepting it, when it
+     becomes a player) removes it from the next snapshot, and every decision
+     enqueues a publish, so a name stays up for as long as that takes. Older
+     snapshot versions kept on the results site may still hold a name until
+     they are pruned; only the latest is rendered.
+
+**Not built, on purpose:** confirmation e-mails to entrants - the decision
+is that nothing mails entrants at all, neither from this app nor from the
+results site; the arbiter writes to people from the address in the queue -
 payment, and player self-service (a player's own bye requests from a phone).
 The review queue keeps every entry's server id and the player it became
 (`openresults_registrations.player_id`), which is the handle self-service

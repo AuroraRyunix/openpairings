@@ -143,7 +143,20 @@ Team tournaments are published too, with team standings and matches.
 **Entry form** on the OpenResults settings page (advanced until it is open) lets players register on the
 results site: switch on **Accepting entries**, set when it opens and closes, a
 maximum number of players, and whether the list of entrants is shown on the
-form. **Review entries** opens the page of entries, where you fetch new ones,
+form. **Entry fee** states what taking part costs: an amount and a currency,
+a free-text note ("free for juniors"), or both. It is only a line on the form;
+nothing is paid through it. Nobody who enters receives an e-mail from the
+program or the results site: tell them yourself, using the address you see in
+the review queue.
+
+With the list of entrants on, **Also list entries waiting for your decision**
+(on by default) adds entries you have not decided on, by name only, each
+marked *unconfirmed*. Names are typed by strangers, so the list is yours to
+police: **Discard** an entry and its name leaves the public list as soon as
+the results site gets the next copy of the tournament, a few seconds later.
+Switch the option off to show only accepted players.
+
+**Review entries** opens the page of entries, where you fetch new ones,
 accept them as players or discard them
 ([Players and rating lists](04-players-and-ratings.md)).
 

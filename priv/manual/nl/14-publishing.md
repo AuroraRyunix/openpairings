@@ -86,7 +86,9 @@ Ploegentoernooien worden ook gepubliceerd, met ploegstanden en wedstrijden.
 
 ## Inschrijvingen via de uitslagensite {#entries-through-the-results-site}
 
-**Inschrijvingsformulier** op de instellingenpagina van OpenResults (geavanceerd tot het open is) laat spelers zich inschrijven op de uitslagensite: zet **Inschrijvingen open** aan, stel in wanneer het opent en sluit, een maximum aantal spelers, en of de lijst van inschrijvers op het formulier getoond wordt. **Inschrijvingen nakijken** opent de pagina met inschrijvingen, waar je nieuwe ophaalt, ze als spelers aanvaardt of verwerpt ([Spelers en ratinglijsten](04-players-and-ratings.md)).
+**Inschrijvingsformulier** op de instellingenpagina van OpenResults (geavanceerd tot het open is) laat spelers zich inschrijven op de uitslagensite: zet **Inschrijvingen open** aan, stel in wanneer het opent en sluit, een maximum aantal spelers, en of de lijst van inschrijvers op het formulier getoond wordt. **Inschrijfgeld** vermeldt wat meespelen kost: een bedrag en een munt, een vrije opmerking ("gratis voor jeugd"), of allebei. Het is enkel een regel op het formulier; er wordt niets via betaald. Niemand die inschrijft krijgt een e-mail van het programma of de uitslagensite: laat het zelf weten via het adres in de nakijklijst.
+
+Staat de lijst van inschrijvers aan, dan voegt **Ook inschrijvingen tonen die op je beslissing wachten** (standaard aan) de inschrijvingen toe waarover je nog niet beslist hebt, enkel met naam en elk gemarkeerd als *onbevestigd*. Namen worden door vreemden getypt, dus de lijst is aan jou om te bewaken: **Verwerp** een inschrijving en haar naam verdwijnt van de publieke lijst zodra de uitslagensite de volgende kopie van het toernooi heeft, een paar seconden later. Zet de optie uit om alleen aanvaarde spelers te tonen. **Inschrijvingen nakijken** opent de pagina met inschrijvingen, waar je nieuwe ophaalt, ze als spelers aanvaardt of verwerpt ([Spelers en ratinglijsten](04-players-and-ratings.md)).
 
 ## De pagina Live (beamerweergave) {#the-live-page-projector-view}
 
