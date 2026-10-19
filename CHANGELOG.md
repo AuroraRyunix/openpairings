@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Published tournaments tell OpenResults how long the clocks start at.** The time control already travelled, as prose the results site had to read like tea leaves; the first period's minutes now go along as a plain number, so the live boards can show the starting clock before the first move. A time control nobody can parse sends no number rather than a guess.
+
 ## [0.98.0] - 2026-10-19
 
 - [Fix] **A tournament the results site deleted is no longer asked about forever.** When the site's operator deleted a tournament, every publish came back refused and the queue kept trying, politely and indefinitely, like a door-to-door salesman at a house that has been demolished. Now the first refusal switches publishing off for that tournament, drops it from the queue and says on its OpenResults settings page that the results site removed it. Switching publishing on again clears the notice; whether the site takes it back is up to its operator.

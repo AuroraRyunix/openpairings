@@ -271,6 +271,11 @@ defmodule PairingsEngine.Snapshot do
       # did not survive the move.
       "deputy" => blank_to_nil(t.deputy_arbiter),
       "time_control" => blank_to_nil(t.rate_of_play),
+      # The same, as the one number the live boards need before the first
+      # move: the first period's minutes, for the idle clock. Nil when the
+      # prose does not parse; the results site then shows no clock rather
+      # than a guessed one.
+      "time_control_minutes" => start_minutes(t.rate_of_play),
 
       # Which rating a player should be entered at - "rapid", "blitz", or
       # standard. Not the same field as `time_control`, which is prose an
@@ -1546,6 +1551,13 @@ defmodule PairingsEngine.Snapshot do
     do: at |> DateTime.truncate(:second) |> DateTime.to_iso8601()
 
   defp iso_instant(_unset), do: nil
+
+  defp start_minutes(rate_of_play) do
+    case PairingsEngine.BoardLink.TimeControl.parse(rate_of_play) do
+      %{periods: [%{seconds: seconds} | _]} when seconds >= 60 -> div(seconds, 60)
+      _unreadable -> nil
+    end
+  end
 
   defp blank_to_nil(nil), do: nil
 
