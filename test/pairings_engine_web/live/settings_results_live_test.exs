@@ -1121,6 +1121,12 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       # that refusal is itself the right answer.
       Repo.delete!(source)
 
+      # Hosted, the results site confirms the file's key first (the
+      # 2026-10-19 sweep).
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Req.Test.json(conn, %{"claim" => "tournament_key"})
+      end)
+
       {:ok, lv, _html} = live(conn, ~p"/t/#{imported.id}/settings/results")
       html = lv |> element("button", "Take over publishing it") |> render_click()
 
@@ -1130,6 +1136,27 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert adopted.openresults_key == source.openresults_key
       assert adopted.public_slug == source.public_slug
       refute adopted.openresults_claim
+    end
+
+    test "a tournament the results site removed says so on the page", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = create_tournament(scope, %{"name" => "Removed Elsewhere"})
+      {:ok, t} = Tournaments.set_publish_to_openresults(t, true)
+
+      Req.Test.stub(PairingsEngine.PublishingTest, fn conn ->
+        Plug.Conn.send_resp(conn, 410, ~s({"error":"tournament_deleted"}))
+      end)
+
+      {:error, _} = Publishing.publish(t)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/results")
+      assert has_element?(lv, "#openresults-removed-notice")
+
+      {:ok, _} = Tournaments.set_publish_to_openresults(Tournaments.get_tournament!(t.id), true)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings/results")
+      refute has_element?(lv, "#openresults-removed-notice")
     end
 
     test "a tournament with no claim is offered nothing", %{conn: conn, scope: scope} do

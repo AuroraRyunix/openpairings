@@ -297,6 +297,40 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
     end
   end
 
+  describe "answers added by the 2026-10-19 sweep" do
+    test "a tournament the results site's operator deleted" do
+      stub(fn conn ->
+        Plug.Conn.send_resp(conn, 410, ~s({"error":"tournament_deleted"}))
+      end)
+
+      status = Publishing.status()
+
+      assert {"down", "Removed by the results site", "The operator of the results site" <> _} =
+               card(status, "en")
+
+      assert {"down", "Verwijderd door de uitslagensite",
+              "De beheerder van de uitslagensite" <> _} =
+               card(status, "nl")
+    end
+
+    test "a redirect names where it pointed, and says nothing went there" do
+      stub(fn conn ->
+        conn
+        |> Plug.Conn.put_resp_header("location", "https://elsewhere.example/")
+        |> Plug.Conn.send_resp(301, "")
+      end)
+
+      status = Publishing.status()
+
+      assert {"down", "The results site moved", en} = card(status, "en")
+      assert en =~ "https://elsewhere.example/"
+      assert en =~ "Nothing was sent there"
+
+      assert {"down", "De uitslagensite is verhuisd", nl} = card(status, "nl")
+      assert nl =~ "https://elsewhere.example/"
+    end
+  end
+
   describe "a network that does not answer says how it failed" do
     # Each of these used to be a lowercase English phrase passed through from
     # `Publishing.describe_transport/1`. They want different fixes - a typo

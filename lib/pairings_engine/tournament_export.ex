@@ -243,6 +243,10 @@ defmodule PairingsEngine.TournamentExport do
   #     The installation key that minted it is not a tournament field at all
   #     and is in no export, backup or snapshot - see
   #     `PairingsEngine.Publishing.Installation`.
+  #   openresults_removed_at
+  #     When the results site said its operator had deleted this copy. About
+  #     one copy on one server, so a copy made from the file has not been
+  #     deleted anywhere.
   #   openresults_relay_key
   #     The results site's relay key, held so the hall box can be handed it
   #     (`PairingsEngine.BoardLink`). A credential for one box in one hall:
@@ -258,7 +262,7 @@ defmodule PairingsEngine.TournamentExport do
     swar_uploaded_at swar_published_at
     logo_data logo_content_type head_snapshot_id
     openresults_key openresults_claim openresults_group_sent
-    openresults_relay_key
+    openresults_relay_key openresults_removed_at
     handed_off_at handed_off_to handoff_token handoff_origin
     send_confirmation_needed
     tpn_order_accepted late_entry_notice_dismissed

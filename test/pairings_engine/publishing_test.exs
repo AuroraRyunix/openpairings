@@ -179,6 +179,81 @@ defmodule PairingsEngine.PublishingTest do
     end
   end
 
+  describe "a tournament the results site's operator deleted (2026-10-19 sweep)" do
+    defp deleted_answer(conn),
+      do: Plug.Conn.send_resp(conn, 410, ~s({"error":"tournament_deleted"}))
+
+    test "the queue stops asking: publishing is switched off and the row dropped" do
+      t = tournament()
+      stub(&deleted_answer/1)
+
+      :ok = Publishing.enqueue(t)
+      # The drain records its failure after `publish/1` has dropped the row;
+      # before the fix that `Repo.update!` raised on the missing row.
+      assert {0, 1} = Publishing.drain()
+
+      after_drain = Tournaments.get_tournament!(t.id)
+      refute after_drain.publish_to_openresults
+      assert after_drain.openresults_removed_at
+      refute Publishing.queued(t.id)
+      assert Publishing.pending_count() == 0
+    end
+
+    test "a direct publish reports it, and the stamp clears when switched back on" do
+      t = tournament()
+      stub(&deleted_answer/1)
+
+      assert {:error, failure} = Publishing.publish(t)
+      assert to_string(failure) =~ "deleted"
+
+      removed = Tournaments.get_tournament!(t.id)
+      assert removed.openresults_removed_at
+
+      {:ok, on_again} = Tournaments.set_publish_to_openresults(removed, true)
+      assert on_again.publish_to_openresults
+      refute Tournaments.get_tournament!(t.id).openresults_removed_at
+    end
+  end
+
+  describe "a redirect (2026-10-19 sweep)" do
+    defp redirect_to(location) do
+      test_pid = self()
+
+      stub(fn conn ->
+        send(test_pid, {:hit, conn.method, conn.request_path})
+
+        conn
+        |> Plug.Conn.put_resp_header("location", location)
+        |> Plug.Conn.send_resp(301, "")
+      end)
+    end
+
+    test "a publish is not followed and says the site moved" do
+      t = tournament()
+      redirect_to("https://elsewhere.example/api/snapshot")
+
+      assert {:error, message} = Publishing.publish(t)
+      assert to_string(message) =~ "moved"
+      assert to_string(message) =~ "elsewhere.example"
+
+      # One request: followed, the second would have carried the token and
+      # the tournament key to the other host.
+      assert_receive {:hit, _method, _path}
+      refute_receive {:hit, _method, _path}, 50
+    end
+
+    test "the connection check is not followed either" do
+      redirect_to("https://elsewhere.example/")
+
+      # The check reports data; the indicator words it ("The results site moved").
+      assert {:error, {:refused, {:rejected, 301, "moved", "https://elsewhere.example/"}}} =
+               Publishing.check()
+
+      assert_receive {:hit, "GET", _path}
+      refute_receive {:hit, _method, _path}, 50
+    end
+  end
+
   describe "the connection check" do
     test "sends the `at` the history route requires" do
       test_pid = self()
@@ -1194,10 +1269,80 @@ defmodule PairingsEngine.PublishingTest do
       # `public_slug` refuses.
       Repo.delete!(source)
 
+      claim_answer(source, "tournament_key")
       assert {:ok, adopted} = Publishing.adopt_claim(imported)
       assert adopted.openresults_key == source.openresults_key
       assert adopted.public_slug == source.public_slug
       refute Publishing.claim(adopted)
+    end
+
+    # Hosted, the results site has to confirm the file's key before it is
+    # adopted (the 2026-10-19 sweep).
+    defp claim_answer(source, claim) do
+      test_pid = self()
+      path = "/api/tournaments/#{source.public_slug}/claim"
+
+      stub(fn conn ->
+        send(test_pid, {:claim_check, conn.method, conn.request_path, conn.req_headers})
+
+        case conn.request_path do
+          ^path when claim == :mismatch ->
+            Plug.Conn.send_resp(conn, 403, ~s({"error":"key_mismatch"}))
+
+          ^path when claim == :missing_route ->
+            Plug.Conn.send_resp(conn, 404, "not found")
+
+          ^path ->
+            Req.Test.json(conn, %{"claim" => claim})
+        end
+      end)
+    end
+
+    defp imported_copy_of_deleted_source do
+      source = published_tournament()
+      envelope = TournamentExport.export_tournament(source)
+      assert {:ok, [imported]} = TournamentImport.import(envelope, user_scope())
+      Repo.delete!(source)
+      {source, imported}
+    end
+
+    test "hosted, the key is sent to the results site to be confirmed" do
+      {source, imported} = imported_copy_of_deleted_source()
+      claim_answer(source, "tournament_key")
+
+      assert {:ok, _} = Publishing.adopt_claim(imported)
+      assert_receive {:claim_check, "GET", _path, headers}
+      assert {"x-openresults-key", source.openresults_key} in headers
+    end
+
+    test "hosted, a slug that is not claimed with this key is not adopted" do
+      {source, imported} = imported_copy_of_deleted_source()
+
+      for answer <- ["unclaimed", :mismatch, :missing_route] do
+        claim_answer(source, answer)
+
+        # A backup is a file its owner can edit; one operator token serves
+        # every arbiter on the server, so the key is the only thing that
+        # tells their tournaments apart.
+        assert {:error, _message} = Publishing.adopt_claim(imported)
+        refute Tournaments.get_tournament!(imported.id).openresults_key
+        assert Publishing.claim(Tournaments.get_tournament!(imported.id))
+      end
+    end
+
+    test "a desktop copy does not ask" do
+      {_source, imported} = imported_copy_of_deleted_source()
+      previous = Application.get_env(:pairings_engine, :local_mode)
+      Application.put_env(:pairings_engine, :local_mode, true)
+
+      on_exit(fn ->
+        if is_nil(previous),
+          do: Application.delete_env(:pairings_engine, :local_mode),
+          else: Application.put_env(:pairings_engine, :local_mode, previous)
+      end)
+
+      stub(fn _conn -> flunk("a desktop copy has no business asking") end)
+      assert {:ok, _} = Publishing.adopt_claim(imported)
     end
 
     test "adopting is refused when this copy already published under its own key" do

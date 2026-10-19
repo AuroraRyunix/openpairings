@@ -302,7 +302,8 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   # desktop", the error table): each stops something until a person acts.
   # Everything else a server answers stays amber - it answered.
   @red_codes ~w(installation_suspended installation_revoked tournament_limit
-                snapshot_too_large not_owner tournament_hidden address_blocked)
+                snapshot_too_large not_owner tournament_hidden address_blocked
+                tournament_deleted moved)
 
   # Amber while work is in flight, whatever the connection says: "connected,
   # and eight tournaments are still waiting" is not a green situation.
@@ -382,6 +383,12 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
 
   defp headline(%{reason: {:refused, {:rejected, _status, "tournament_hidden", _detail}}}),
     do: gettext("Tournament hidden")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "tournament_deleted", _detail}}}),
+    do: gettext("Removed by the results site")
+
+  defp headline(%{reason: {:refused, {:rejected, _status, "moved", _detail}}}),
+    do: gettext("The results site moved")
 
   defp headline(%{reason: {:refused, {:rejected, _status, "registration_closed", _detail}}}),
     do: gettext("Registration closed")
@@ -599,6 +606,31 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     do:
       gettext(
         "The operator of the results site has hidden this tournament. Publishing has stopped for this tournament."
+      )
+
+  # The operator deleted it there (the 2026-10-19 sweep). Publishing has
+  # been switched off here, so the queue stops asking.
+  defp reason_sentence({:refused, {:rejected, _status, "tournament_deleted", _detail}}),
+    do:
+      gettext(
+        "The operator of the results site has removed this tournament. Publishing has been switched off for it; switching it on again will not bring it back unless they allow it."
+      )
+
+  # A redirect, not followed: it would have carried the token along. The
+  # address it pointed at is the server's own `Location`, shown so the
+  # arbiter can check it before typing it in.
+  defp reason_sentence({:refused, {:rejected, _status, "moved", location}})
+       when is_binary(location),
+       do:
+         gettext(
+           "The results site has moved to %{location}. Nothing was sent there: check that address and enter it under Connections.",
+           location: location
+         )
+
+  defp reason_sentence({:refused, {:rejected, _status, "moved", _none}}),
+    do:
+      gettext(
+        "The results site answered with a redirect. Nothing was sent: check its address under Connections."
       )
 
   defp reason_sentence({:refused, {:rejected, _status, "registration_closed", _detail}}),

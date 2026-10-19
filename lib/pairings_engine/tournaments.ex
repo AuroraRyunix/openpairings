@@ -1512,8 +1512,15 @@ defmodule PairingsEngine.Tournaments do
       when is_boolean(enabled?) do
     with :ok <- ensure_writable(tournament),
          :ok <- ensure_publishable(tournament, enabled?) do
+      # On again is the arbiter's answer to "the results site removed it";
+      # whether the site agrees is the next publish's business.
+      changes =
+        if enabled?,
+          do: [publish_to_openresults: true, openresults_removed_at: nil],
+          else: [publish_to_openresults: false]
+
       tournament
-      |> Ecto.Changeset.change(publish_to_openresults: enabled?)
+      |> Ecto.Changeset.change(changes)
       |> Repo.update()
       |> tap_ok(fn updated ->
         # Off and back on is an arbiter asking for the page to be sent, not
