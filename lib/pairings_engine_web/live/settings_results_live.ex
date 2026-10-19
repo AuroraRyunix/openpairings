@@ -688,14 +688,16 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
 
         {:noreply, socket |> assign(tournament: tournament) |> put_flash(:info, message)}
 
-      {:error, :archived} ->
-        {:noreply, put_flash(socket, :error, error_text(:archived))}
-
+      # `rotate_address/1` words every refusal itself - an archived or
+      # handed-off tournament, a failed move, a takedown that went through
+      # with the move that did not - so a sentence is all that comes back.
       {:error, message} when is_binary(message) ->
-        {:noreply, put_flash(socket, :error, "Could not move this tournament: " <> message)}
-
-      {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not move this tournament")}
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext("Could not move this tournament: %{reason}", reason: message)
+         )}
     end
   end
 

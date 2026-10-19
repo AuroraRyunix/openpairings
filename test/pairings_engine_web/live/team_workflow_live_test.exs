@@ -143,6 +143,50 @@ defmodule PairingsEngineWeb.TeamWorkflowLiveTest do
 
       refute Repo.reload!(match).double_forfeit
     end
+
+    test "a decided match's boards show the decision's result, not a picker", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, match} = two_team_match(scope)
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      [board | _] =
+        Repo.all(from p in PairingsEngine.Tournaments.Pairing, where: p.match_id == ^match.id)
+
+      assert has_element?(lv, "#result-select-#{board.id}")
+
+      lv |> element("#double-forfeit-#{match.id}") |> render_click()
+
+      refute has_element?(lv, "#result-select-#{board.id}")
+      assert has_element?(lv, "#decided-result-#{board.id}", "0-0FF")
+    end
+
+    test "a double forfeit the pairing wrote says withdrawing it seats the match again", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, _} =
+        team_round_robin([{"A", [2100, 2000]}, {"B", [2050, 1950]}],
+          rounds_count: 1,
+          user_id: scope.user.id
+        )
+
+      for name <- ~w(A B) do
+        team(t, name) |> Ecto.Changeset.change(absent_rounds: [1]) |> Repo.update!()
+      end
+
+      t = pair_all!(t)
+      {match, []} = match_between(t, 1, "A", "B")
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/pairings")
+
+      button = element(lv, "#team-match-#{match.id} button[phx-click='withdraw_match_forfeit']")
+      assert render(button) =~ "seated again"
+
+      # Both teams still out: refused, and the arbiter is told why.
+      assert render_click(button) =~ "neither team can field a player"
+      assert Repo.reload!(match).double_forfeit
+    end
   end
 
   describe "the Teams page (B2, B3, A4)" do

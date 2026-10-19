@@ -1837,7 +1837,12 @@ defmodule PairingsEngine.Standings do
   # publication prints this number as its "OR" column.
 
   defp add_direct_encounter(entries, tournament, code) do
-    forfeits? = code == "DE/P"
+    # A forfeit counts for DE/P, and in a round robin for DE too - as in
+    # the order (`Ainalrami.Tiebreaks.DirectEncounter`, which is told the
+    # pairings were fixed in advance the same way, `AinalramiBridge`): C.07
+    # Art. 15.2 makes a forfeit in such an event a game, and 6.1.1 excludes
+    # only the forfeits 15.2 does not cover.
+    forfeits? = code == "DE/P" or tournament.pairing_system == "round_robin"
 
     entries
     |> Enum.group_by(&ranking_score(&1, tournament))
@@ -1874,8 +1879,9 @@ defmodule PairingsEngine.Standings do
     end)
   end
 
-  # A game that counts towards the DE column: played over the board, or, for
-  # DE/P, a forfeit against a scheduled opponent as well (Article 6.1.1).
+  # A game that counts towards the DE column: played over the board, or,
+  # for DE/P and in a round robin, a forfeit against a scheduled opponent as
+  # well (Articles 6.1.1 and 15.2).
   defp de_game?(game, true), do: game.opponent_id != nil
   defp de_game?(game, false), do: game.played
 end

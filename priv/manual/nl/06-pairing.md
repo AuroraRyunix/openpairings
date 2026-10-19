@@ -205,7 +205,10 @@ twee opnieuw om het ongedaan te maken.
 
 Het wordt geweigerd zolang een van beide rondes een uitslag, een forfait, een
 uitgestelde partij of een speeldatum heeft, of een bye voor een speler die in
-die ronde aan een bord zit - de melding noemt de ronde. Het wordt ook geweigerd
+die ronde aan een bord zit - de melding noemt de ronde. In een rondetoernooi voor
+ploegen wordt het ook geweigerd als een opgestelde speler de ronde waarheen de
+borden zouden gaan niet kan spelen (afwezig, nog niet begonnen, teruggetrokken):
+de opstellingen zijn voor hun eigen ronde gemaakt, en de melding noemt de speler. Het wordt ook geweigerd
 in matchformaat, voordat het schema gepaard is, en als een van de twee gepaard
 is en de andere niet. In de FIDE-modus mag het (FIDE's eigen dubbel
 rondetoernooi wisselt zelf twee rondes), met een opmerking dat het het

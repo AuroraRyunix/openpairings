@@ -56,7 +56,8 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   `@tournoi_layout` below), and it's exactly why arbiter-1/arbiter-2
   don't round-trip (see `reverse_tournoi_tail_strings/2`). If a real
   export's arbiter fields come back wrong in SWAR, that's this
-  ambiguity; flip `@tournoi_layout`.
+  ambiguity; flip `@tournoi_layout` (and give
+  `reverse_tournoi_tail_strings/2` the four strings the other layouts have).
 
   ## Everything the import reads goes back
 
@@ -377,15 +378,13 @@ defmodule PairingsEngine.Federations.BEL.SwarExport do
   # single-element list back as `{"", "", remarks}`. That string is SWAR's
   # "FIDE remarks", written back from the imported file; SWAR's two FIDE
   # arbiter fields have no place in this layout.
+  #
+  # One clause, because `@tournoi_layout` is a compile-time constant and
+  # this is the only layout written. A four-string writer (the two FIDE
+  # arbiters, an empty string, the remarks) sat here for the day the
+  # layout flips, and Dialyzer rightly called it code no call can reach.
+  # Flipping the layout means writing it again, next to the flip.
   defp reverse_tournoi_tail_strings(settings, 1), do: [Map.get(settings, "fide_remarks") || ""]
-
-  defp reverse_tournoi_tail_strings(settings, 4),
-    do: [
-      Map.get(settings, "fide_arb1") || "",
-      Map.get(settings, "fide_arb2") || "",
-      "",
-      Map.get(settings, "fide_remarks") || ""
-    ]
 
   # SWAR's per-round FIDE tournament ids (`FideIdDe`/`FideIdAA`/`FideIdId`,
   # sixteen of them) - `fide_id_ranges` here. The imported block goes back

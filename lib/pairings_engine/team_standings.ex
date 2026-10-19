@@ -48,7 +48,9 @@ defmodule PairingsEngine.TeamStandings do
       reapplication to a subset, 6.3's Swiss rule, 6.1.2's average of two
       meetings. The number shown is the match points each team scored
       against the others of its group when all of them met, 0.0 otherwise;
-      the order is Ainalrami's.
+      the order is Ainalrami's. A match decided without a game counts as a
+      meeting only in a round robin (Art. 6.1.1 and 15.2), there and in the
+      order alike.
     * `BH` - Buchholz (Art. 8.1) on match points. Not used in a round robin
       (Art. 8): dropped, with the reason.
     * `SB` - Sonneborn-Berger (Art. 9.1) on match points: Art. 13.2.1's
@@ -59,7 +61,10 @@ defmodule PairingsEngine.TeamStandings do
       on board k is worth B + 1 - k, so board 1 weighs most. Higher is
       better. The order uses Art. 12.1's Board Count, which ranks the same
       for teams level on game points (the two add up to (B + 1) x GP) and,
-      as 12.1 says, does not apply to teams that are not.
+      as 12.1 says, does not apply to teams that are not. A team Swiss bye
+      counts as a win on every board here, as Art. 12 has it for Board
+      Count, while its game points are a drawn match's (C.04.6 Art. 1.4); for
+      a team that had one the sum is off by the difference, in both.
 
   The tie-breaks count the rounds every match of which is finished; the
   match points the table ranks by first count every finished match.
@@ -215,6 +220,11 @@ defmodule PairingsEngine.TeamStandings do
         do: t |> Tournament.team_pab_value(boards) |> then(fn {mp, gp} -> {mp, round1(gp)} end),
         else: {nil, 0.0}
 
+    # Per board for Article 12 (Board Count, the BB column): a win on each.
+    # A round robin's bye is no round for a tie-break and has none.
+    bye_board_points =
+      if Tournament.team_swiss?(t), do: Map.new(1..boards, &{&1, t.points_win * 1.0})
+
     %{
       round: round.number,
       match_id: m.id,
@@ -224,6 +234,7 @@ defmodule PairingsEngine.TeamStandings do
       bye?: true,
       forfeited_to: nil,
       double_forfeit?: false,
+      decided_by_hand?: false,
       played_before_decision?: false,
       awarded_full: nil,
       match_score: nil,
@@ -234,7 +245,8 @@ defmodule PairingsEngine.TeamStandings do
       gp_b: 0.0,
       mp_a: mp,
       mp_b: nil,
-      boards: []
+      boards: [],
+      bye_board_points: bye_board_points
     }
   end
 
@@ -309,6 +321,9 @@ defmodule PairingsEngine.TeamStandings do
       # for a match neither team plays (`TeamRounds`) - only the first is a
       # result entered by hand (`reached/1`).
       double_forfeit_decided?: m.double_forfeit and is_map(m.forfeit_previous_results),
+      # Whether withdrawing the decision gives the boards back what they
+      # held, or seats the match again (`TeamMatches.withdraw_forfeit/2`).
+      decided_by_hand?: PairingsEngine.TeamMatches.decided_by_hand?(m),
       played_before_decision?: PairingsEngine.TeamMatches.played_before_decision?(m),
       # `:a` or `:b` when the match's game points are the full board count
       # of a whole forfeit rather than the sum of its boards (see
@@ -517,9 +532,9 @@ defmodule PairingsEngine.TeamStandings do
           # games: its match points count them as draws until they are, so
           # its place is provisional. Display only - nothing ranks by it.
           pending_boards: records |> Enum.map(& &1.postponed_boards) |> Enum.sum(),
-          won: Enum.count(done, &(&1.gp > &1.opp_gp and not &1.double_forfeit?)),
-          drawn: Enum.count(done, &(&1.gp == &1.opp_gp and not &1.double_forfeit?)),
-          lost: Enum.count(done, &(&1.gp < &1.opp_gp or &1.double_forfeit?))
+          won: Enum.count(done, &(outcome(&1) == :won)),
+          drawn: Enum.count(done, &(outcome(&1) == :drawn)),
+          lost: Enum.count(done, &(outcome(&1) == :lost))
         }
       end)
 
@@ -560,7 +575,7 @@ defmodule PairingsEngine.TeamStandings do
         Map.merge(e, %{tiebreaks: tiebreaks, working: parts})
       end)
 
-    entries = if "DE" in codes, do: add_direct_encounter(entries, codes), else: entries
+    entries = if "DE" in codes, do: add_direct_encounter(entries, codes, t), else: entries
     places = c07_places(event, codes)
 
     # Match points first - they count every finished match, a round still
@@ -626,10 +641,10 @@ defmodule PairingsEngine.TeamStandings do
   end
 
   defp record(m, side) do
-    {opp, mp, gp, opp_gp, pts} =
+    {opp, mp, opp_mp, gp, opp_gp, pts} =
       case side do
-        :a -> {m.team_b_id, m.mp_a, m.gp_a, m.gp_b, :a_points}
-        :b -> {m.team_a_id, m.mp_b, m.gp_b, m.gp_a, :b_points}
+        :a -> {m.team_b_id, m.mp_a, m.mp_b, m.gp_a, m.gp_b, :a_points}
+        :b -> {m.team_a_id, m.mp_b, m.mp_a, m.gp_b, m.gp_a, :b_points}
       end
 
     %{
@@ -643,6 +658,7 @@ defmodule PairingsEngine.TeamStandings do
       postponed_boards: m.postponed_boards,
       double_forfeit?: m.double_forfeit?,
       mp: mp,
+      opp_mp: opp_mp,
       gp: gp,
       opp_gp: opp_gp,
       board_points: record_board_points(m, side, pts, gp)
@@ -657,10 +673,36 @@ defmodule PairingsEngine.TeamStandings do
        when side in [:a, :b],
        do: Map.new(1..count, &{&1, gp / count})
 
+  # A team Swiss's pairing-allocated bye has no boards, and C.07 Art. 12
+  # counts it as "the same as ... a standard win" on every board - what
+  # `c07_match/3` hands Ainalrami's Board Count, so the BB column says the
+  # same about the bye as the order it ranks by. (Its game points stay a
+  # drawn match's, C.04.6 Art. 1.4: the two rules disagree on purpose.)
+  defp record_board_points(%{bye?: true, bye_board_points: per_board}, _side, _pts, _gp)
+       when is_map(per_board),
+       do: per_board
+
   defp record_board_points(m, _side, pts, _gp),
     do: Map.new(m.boards, &{&1.board, Map.get(&1, pts)})
 
   defp played_records(entry), do: Enum.filter(entry.records, &(&1.scored? and not &1.bye?))
+
+  # A finished match from one team's side, by the MATCH points it paid -
+  # not the game points: a match awarded to a team with nobody seated
+  # (`awarded_unseated?/2`) is 0-0 on the boards and a win in match points,
+  # and it is the match points the table ranks by. A double forfeit pays
+  # both the loss's match points and is lost by both.
+  defp outcome(%{double_forfeit?: true}), do: :lost
+
+  defp outcome(%{mp: mp, opp_mp: opp_mp}) when is_number(mp) and is_number(opp_mp) do
+    cond do
+      mp > opp_mp -> :won
+      mp < opp_mp -> :lost
+      true -> :drawn
+    end
+  end
+
+  defp outcome(_record), do: nil
 
   @doc """
   The matches of the rounds the event has REACHED - what standings and
@@ -814,13 +856,14 @@ defmodule PairingsEngine.TeamStandings do
   # for a tie-break: the pairings were fixed in advance.
   defp c07_match(nil, _t, _boards), do: %Ainalrami.Tiebreaks.Team.Match{kind: :zero_bye}
 
-  defp c07_match(%{bye?: true} = r, t, boards) do
+  defp c07_match(%{bye?: true} = r, t, _boards) do
     if Tournament.team_swiss?(t) do
       %Ainalrami.Tiebreaks.Team.Match{
         kind: :pab,
         mp: (r.mp || 0.0) * 1.0,
         gp: r.gp * 1.0,
-        boards: Map.new(1..boards, &{&1, t.points_win * 1.0})
+        # A win on every board (`score_match/5`'s `bye_board_points`).
+        boards: r.board_points
       }
     else
       %Ainalrami.Tiebreaks.Team.Match{kind: :zero_bye}
@@ -828,10 +871,14 @@ defmodule PairingsEngine.TeamStandings do
   end
 
   defp c07_match(r, _t, _boards) do
+    # Won or lost by the match points it paid (`outcome/1`), as the W/D/L
+    # columns count it: a match awarded to a team that seated nobody is
+    # level on game points and still that team's forfeit WIN - C.07 Art.
+    # 16 counts a forfeit win and a forfeit loss differently.
     kind =
       cond do
         r.played? -> :played
-        r.gp > r.opp_gp -> :forfeit_win
+        outcome(r) == :won -> :forfeit_win
         true -> :forfeit_loss
       end
 
@@ -915,7 +962,7 @@ defmodule PairingsEngine.TeamStandings do
   # of DE - Art. 4.2 applies each tie-break "for each subgroup of participants
   # still tied", so an encounter with a team the earlier breaks already
   # separated does not belong in the sum.
-  defp add_direct_encounter(entries, codes) do
+  defp add_direct_encounter(entries, codes, t) do
     before_de = Enum.take_while(codes, &(&1 != "DE"))
 
     entries
@@ -926,7 +973,7 @@ defmodule PairingsEngine.TeamStandings do
       all_met? =
         length(group) > 1 and
           Enum.all?(group, fn e ->
-            met = e |> played_records() |> MapSet.new(& &1.opponent_id)
+            met = e |> encounters(t) |> MapSet.new(& &1.opponent_id)
             MapSet.subset?(MapSet.delete(ids, e.team.id), met)
           end)
 
@@ -934,7 +981,7 @@ defmodule PairingsEngine.TeamStandings do
         value =
           if all_met? do
             e
-            |> played_records()
+            |> encounters(t)
             |> Enum.filter(&(&1.opponent_id in ids))
             |> Enum.group_by(& &1.opponent_id, & &1.mp)
             # Art. 6.1.2: two meetings with the same team count as their average.
@@ -948,6 +995,18 @@ defmodule PairingsEngine.TeamStandings do
         put_in(e.tiebreaks["DE"], value)
       end)
     end)
+  end
+
+  # The matches C.07 Art. 6 counts between tied teams, read the way
+  # Ainalrami ranks them (`Ainalrami.Tiebreaks.DirectEncounter`): a match
+  # played over the board always; a match decided without a game - won or
+  # lost by forfeit, a double forfeit - only where the pairings were fixed in
+  # advance (a round robin: Art. 15.2 makes those forfeits games, and 6.1.1
+  # excludes only the rest). In a team Swiss a forfeit is no encounter, so
+  # the number shown is the one that ranked the teams.
+  defp encounters(entry, t) do
+    predetermined? = Tournament.team_round_robin?(t)
+    Enum.filter(played_records(entry), &(&1.played? or predetermined?))
   end
 
   ## ---------- individual board statistics ----------

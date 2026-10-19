@@ -39,6 +39,7 @@ Traversal.FileModule: Directory Traversal in `File.open`,lib/pairings_engine/lau
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:442,2DF6CFB
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:464,37ED976
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2208,2E7C41
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2237,38323F6
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:348,C49B3A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tools_norms_live.ex:296,5A91744
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2570,EA212F
@@ -87,6 +88,7 @@ XSS.Raw: XSS,lib/pairings_engine_web/controllers/badge_print_html.ex:65,53E0166
 XSS.Raw: XSS,lib/pairings_engine_web/live/changelog_live.ex:42,6D9B74E
 XSS.Raw: XSS,lib/pairings_engine_web/live/help_live.ex:504,759F10E
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6611,1A1B1F
+XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6640,687C8C4
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:916,111B9F9
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/badge_controller.ex:110,673A2CC
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/export_controller.ex:523,4F253E4

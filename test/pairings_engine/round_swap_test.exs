@@ -277,4 +277,31 @@ defmodule PairingsEngine.RoundSwapTest do
     assert matches.(t, 3) == m1
     assert t.rr_round_map == [3, 2, 1]
   end
+
+  # A team's line-ups are built for the round number they were paired in:
+  # A 1 is absent from round 1, so round 1 seats the reserve A 3 and round
+  # 3 seats A 1. Swapping the two would put A 1 at a board in round 1.
+  test "a team round robin refuses to move a line-up into a round a seated player cannot play" do
+    {t, _} =
+      team_round_robin(
+        [
+          {"A", [2000, 1990, 1980]},
+          {"B", [1900, 1890]},
+          {"C", [1800, 1790]},
+          {"D", [1700, 1690]}
+        ],
+        fide_compliance_lost_round: 0
+      )
+
+    a1 = Enum.find(Tournaments.list_players(t.id), &(&1.name == "A 1"))
+    {:ok, _} = Tournaments.update_player(a1, %{"absent_rounds" => "1"})
+    t = pair_all!(t)
+
+    assert {:error, message} = RoundSwap.swap(t, 1, 3)
+    assert message =~ "A 1"
+    assert Repo.reload!(t).rr_round_map == nil
+
+    # Rounds 2 and 3 both seat A 1, who can play either.
+    assert {:ok, _} = RoundSwap.swap(t, 2, 3)
+  end
 end

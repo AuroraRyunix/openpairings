@@ -92,7 +92,7 @@ onder *Regels die het programma toepast*.
 
 | Code | Naam | Betekenis |
 | --- | --- | --- |
-| DE | Onderlinge ontmoeting | Het resultaat (de resultaten) tussen de spelers die gelijk staan. |
+| DE | Onderlinge ontmoeting | Het resultaat (de resultaten) tussen de spelers die gelijk staan; een forfait telt alleen mee in een rondetoernooi (C.07 art. 15.2). |
 | DE/P | Onderlinge ontmoeting, forfaits meegeteld | Onderlinge ontmoeting waarbij forfaitoverwinningen en -nederlagen als gespeelde partijen tellen. |
 | WIN | Aantal overwinningen | Gewonnen partijen, inclusief forfaits. |
 | WON | Aantal over het bord gewonnen partijen | Zonder forfaits en byes. |

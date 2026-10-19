@@ -1781,15 +1781,18 @@ defmodule PairingsEngine.SnapshotTest do
       refute is_nil(other["match_points"])
 
       # Withheld while the match is incomplete, as its match points are: a
-      # board of the forfeited match loses its result.
+      # board of the forfeited match loses its result. Written straight to
+      # the row - the app refuses a result under a decision
+      # (`:match_decided`), but a backup or an older database can hold one.
       board = Enum.find(Tournaments.get_round(t.id, 1).pairings, &(&1.match_id == match.id))
-      {:ok, _} = Tournaments.update_pairing_result(board, "")
+      assert {:error, :match_decided} = Tournaments.update_pairing_result(board, "")
+      board |> Ecto.Changeset.change(result: "") |> Repo.update!()
 
       [forfeited, _other] =
         Enum.sort_by(matches_of.(t), &(antwerp_no not in [&1["team_a"], &1["team_b"]]))
 
       assert {forfeited["match_points"], forfeited["forfeit_decision"]} == {nil, nil}
-      {:ok, _} = Tournaments.update_pairing_result(Repo.reload!(board), board.result)
+      board |> Repo.reload!() |> Ecto.Changeset.change(result: board.result) |> Repo.update!()
 
       # Withdrawn, it is null again.
       {:ok, _} = PairingsEngine.TeamMatches.withdraw_forfeit(t, Repo.reload!(match))
