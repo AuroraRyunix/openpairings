@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.98.1] - 2026-10-19
+
 - [Change] **Published tournaments tell OpenResults how long the clocks start at.** The time control already travelled, as prose the results site had to read like tea leaves; the first period's minutes now go along as a plain number, so the live boards can show the starting clock before the first move. A time control nobody can parse sends no number rather than a guess.
 
 ## [0.98.0] - 2026-10-19
