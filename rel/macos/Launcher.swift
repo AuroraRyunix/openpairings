@@ -441,9 +441,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         NSWorkspace.shared.notificationCenter.addObserver(
             self, selector: #selector(powerOff(_:)),
             name: NSWorkspace.willPowerOffNotification, object: nil)
+        // Not NSApp.terminate right here: this block runs on the main dispatch
+        // queue, and terminate waits for the server inside it. The main queue
+        // runs one block at a time, so the news that the server had ended
+        // (and the thirty-second kill) queued up behind a block that was
+        // waiting for them, and the app said "Stopping" until somebody
+        // force-quit it. Ascella stops apps with a signal, and so do updates
+        // and logouts; the menu's Quit never was one, which is why it always
+        // worked. The run loop's own block is not the queue's, so it can wait.
         onStopSignals { [weak self] in
             self?.noQuestions = true
-            NSApp.terminate(nil)
+            RunLoop.main.perform(inModes: [.default, .modalPanel]) { NSApp.terminate(nil) }
         }
 
         let files = FileManager.default
@@ -512,7 +520,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         server.standardError = log
         server.terminationHandler = { [weak self] finished in
             let status = finished.terminationStatus
-            DispatchQueue.main.async { self?.serverEnded(status: status) }
+            // The run loop, in every mode, rather than the main queue: this is
+            // what a stop is waiting for, so it must not wait behind it.
+            RunLoop.main.perform(inModes: [.common]) { self?.serverEnded(status: status) }
+            CFRunLoopWakeUp(CFRunLoopGetMain())
         }
         do {
             try server.run()
@@ -661,9 +672,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
         // launcher.sh gives the BEAM twenty seconds before insisting; this
         // gives launcher.sh thirty, and then insists on it.
         kill(server.processIdentifier, SIGTERM)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 30) { [weak self] in
+        let deadline = Timer(timeInterval: 30, repeats: false) { [weak self] _ in
             if let late = self?.child, late.isRunning { kill(late.processIdentifier, SIGKILL) }
         }
+        RunLoop.main.add(deadline, forMode: .common)
+        // And should the main thread find some new way to hang: a stop not
+        // finished in forty seconds ends the app from another thread. The
+        // server had its twenty and launcher.sh its thirty; launcher.sh's
+        // own watch stops it the moment this process is gone.
+        DispatchQueue.global().asyncAfter(deadline: .now() + 40) { exit(0) }
     }
 
     // MARK: The Dock
