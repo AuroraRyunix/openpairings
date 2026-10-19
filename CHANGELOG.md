@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Intel Macs, and macOS back to 10.13, get their own app.** `openpairings_app_macos_x86_64.zip` sits beside the Apple Silicon one on the release page. Intel Macs were dropped on 2026-10-14 because GitHub's Intel runner added thirteen minutes to every push; it now runs only when a release is about to go out (or when someone starts the workflow by hand), so ordinary pushes cost what they cost yesterday. The Intel app is compiled on a real Intel machine for macOS 10.13 and newer; the Apple Silicon one still asks for 11. Not tried on a Mac that old: CI proves that nothing in the bundle asks for more than 10.13 and that the app starts on a current macOS, and a High Sierra owner is invited to prove the rest. A release that cannot build for Intel is not published.
+
 ## [0.98.1] - 2026-10-19
 
 - [Change] **Published tournaments tell OpenResults how long the clocks start at.** The time control already travelled, as prose the results site had to read like tea leaves; the first period's minutes now go along as a plain number, so the live boards can show the starting clock before the first move. A time control nobody can parse sends no number rather than a guess.

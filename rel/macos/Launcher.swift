@@ -156,7 +156,14 @@ final class DetailsWindow: NSObject, NSWindowDelegate {
     var logSeenSize: UInt64 = UInt64.max
 
     let statsFont = NSFont.systemFont(ofSize: 12)
-    let logFont = NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+    // monospacedSystemFont is macOS 10.15; the Intel build reaches back to
+    // 10.13, where Menlo has been the terminal's font all along.
+    let logFont: NSFont = {
+        if #available(macOS 10.15, *) {
+            return NSFont.monospacedSystemFont(ofSize: 11, weight: .regular)
+        }
+        return NSFont(name: "Menlo", size: 11) ?? NSFont.userFixedPitchFont(ofSize: 11) ?? NSFont.systemFont(ofSize: 11)
+    }()
 
     init(session: URLSession, token: String, logPath: String) {
         self.session = session
@@ -172,7 +179,20 @@ final class DetailsWindow: NSObject, NSWindowDelegate {
     // MARK: Window
 
     func makeTextArea(frame: NSRect) -> (NSScrollView, NSTextView) {
-        let scroll = NSTextView.scrollableTextView()
+        let scroll: NSScrollView
+        if #available(macOS 10.14, *) {
+            scroll = NSTextView.scrollableTextView()
+        } else {
+            // What scrollableTextView() does, by hand, for 10.13.
+            scroll = NSScrollView(frame: frame)
+            let inner = NSTextView(frame: NSRect(origin: .zero, size: scroll.contentSize))
+            inner.minSize = NSSize(width: 0, height: scroll.contentSize.height)
+            inner.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
+            inner.isVerticallyResizable = true
+            inner.autoresizingMask = [.width]
+            inner.textContainer?.widthTracksTextView = true
+            scroll.documentView = inner
+        }
         scroll.frame = frame
         scroll.hasVerticalScroller = true
         scroll.borderType = .bezelBorder
@@ -306,12 +326,25 @@ final class DetailsWindow: NSObject, NSWindowDelegate {
     // costs no more than a short one, and the file's size at the time.
     func tailLog(maxLines: Int) -> (text: String, size: UInt64)? {
         guard let handle = FileHandle(forReadingAtPath: logPath) else { return nil }
-        defer { try? handle.close() }
         do {
-            let size = try handle.seekToEnd()
-            let from: UInt64 = size > logReadBytes ? size - logReadBytes : 0
-            try handle.seek(toOffset: from)
-            let data = try handle.readToEnd() ?? Data()
+            let size: UInt64
+            let from: UInt64
+            let data: Data
+            if #available(macOS 10.15.4, *) {
+                defer { try? handle.close() }
+                size = try handle.seekToEnd()
+                from = size > logReadBytes ? size - logReadBytes : 0
+                try handle.seek(toOffset: from)
+                data = try handle.readToEnd() ?? Data()
+            } else {
+                // The Intel build reaches back to 10.13, which has only
+                // the older calls (deprecated since, and they do the same).
+                size = handle.seekToEndOfFile()
+                from = size > logReadBytes ? size - logReadBytes : 0
+                handle.seek(toFileOffset: from)
+                data = handle.readDataToEndOfFile()
+                handle.closeFile()
+            }
             var lines = String(decoding: data, as: UTF8.self).components(separatedBy: "\n")
             // Started in the middle of a line: drop the fragment.
             if from > 0 && !lines.isEmpty { lines.removeFirst() }

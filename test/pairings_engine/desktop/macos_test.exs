@@ -115,7 +115,7 @@ defmodule PairingsEngine.Desktop.MacosTest do
       # The executable is the compiled Swift launcher; the script that
       # starts the server sits beside the release as a resource.
       assert build =~ ~s(-o "$app/Contents/MacOS/#{exe}" "$swift_source")
-      assert build =~ "-target arm64-apple-macos11"
+      assert build =~ ~s(-target "$swift_arch-apple-macos$supported")
       assert build =~ ~s(cp "$here/launcher.sh" "$app/Contents/Resources/launcher.sh")
       # The data folder is not named after anything an installer would own.
       refute plist =~ "OpenPairingsData"
@@ -155,7 +155,46 @@ defmodule PairingsEngine.Desktop.MacosTest do
       assert workflow =~ "openpairings_portable_${{ matrix.target }}.zip"
     end
 
-    test "the runtime is built for macOS 11, and a build that is not fails" do
+    test "the Intel Mac build runs for a release and for a person, never for a plain push" do
+      workflow = read(".github/workflows/binaries.yml")
+
+      assert workflow =~ "include: ${{ fromJSON(needs.plan.outputs.matrix) }}"
+
+      assert workflow =~
+               ~s(if [ "$publish" = true ] || [ "$EVENT" = workflow_dispatch ]; then)
+
+      [before, after_if] =
+        String.split(workflow, ~s(if [ "$publish" = true ] || [ "$EVENT"), parts: 2)
+
+      # Added by the plan job under that one condition, and nowhere before it,
+      # where the permanent targets are listed.
+      assert after_if =~ ~s("runner":"macos-15-intel","target":"macos_x86_64","macos_min":"10.13")
+      refute before =~ "macos-15-intel"
+      assert before =~ ~s("runner":"macos-15","target":"macos_aarch64","macos_min":"11.0")
+
+      # The release waits for the plan and the build, and names both Mac
+      # apps before it publishes.
+      assert workflow =~ "needs: [plan, build]"
+      assert workflow =~ "openpairings_app_macos_aarch64.zip openpairings_app_macos_x86_64.zip"
+    end
+
+    test "the Intel build's Swift runtime is bundled below macOS 10.15" do
+      build = read("rel/macos/build_app.sh")
+      swift = read("rel/macos/Launcher.swift")
+
+      assert build =~ "swift-stdlib-tool --copy"
+      assert build =~ "@executable_path/../Frameworks"
+
+      for guard <- [
+            "#available(macOS 10.15, *)",
+            "#available(macOS 10.14, *)",
+            "#available(macOS 10.15.4, *)"
+          ] do
+        assert swift =~ guard
+      end
+    end
+
+    test "the runtime is built for the target's macOS, and a build that is not fails" do
       workflow = read(".github/workflows/binaries.yml")
       build_otp = read("rel/macos/build_otp.sh")
       build_app = read("rel/macos/build_app.sh")
@@ -163,7 +202,10 @@ defmodule PairingsEngine.Desktop.MacosTest do
       # The ready-made Erlang for macOS said "15.0"; it is not used there.
       assert workflow =~ "if: runner.os != 'macOS'"
       assert workflow =~ ~s(sh rel/macos/build_otp.sh "$HOME/otp-macos")
-      assert workflow =~ ~s(echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV")
+
+      assert workflow =~
+               ~s(echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.macos_min }}" >> "$GITHUB_ENV")
+
       assert workflow =~ "steps.otp-cache.outputs.cache-hit != 'true'"
 
       assert [_, otp_key] = Regex.run(~r/path: ~\/otp-macos\n\s+key: (.+)$/m, workflow)
@@ -193,8 +235,14 @@ defmodule PairingsEngine.Desktop.MacosTest do
       assert read("config/config.exs") =~ "config :exqlite, force_build: true"
       assert Regex.match?(~r/_build\/prod\/lib\n\s+key:.*env\.MACOSX_DEPLOYMENT_TARGET/, workflow)
 
-      # A binary that wants newer than macOS 11 fails the build, by name.
-      assert build_app =~ "supported=11.0"
+      # A binary that wants newer than the target fails the build, by name.
+      assert build_app =~ "supported=${MACOSX_DEPLOYMENT_TARGET:-11.0}"
+      assert build_otp =~ "darwin64-x86_64-cc"
+      assert build_otp =~ "darwin64-arm64-cc"
+
+      # The smoke test prints and checks what the bundle promises.
+      assert workflow =~ "LSMinimumSystemVersion is not ${{ matrix.macos_min }}"
+      assert workflow =~ "vtool -show-build"
       assert build_app =~ ~s(newer "$minos" "$supported")
       assert build_app =~ ~s(sed 's/^/  /' "$too_new")
     end

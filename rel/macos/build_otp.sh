@@ -15,13 +15,13 @@
 # setup-beam installs) is built on the newest runner for that runner's own
 # macOS, and every program in it said "macOS 15 or newer". The app inherited
 # that, and a Mac on 14 refused to open it. Here everything is compiled for
-# MACOSX_DEPLOYMENT_TARGET, which the workflow sets (11.0, the first macOS
+# MACOSX_DEPLOYMENT_TARGET, which the workflow sets per target (11.0, the first macOS
 # for Apple Silicon); clang and ld both read it from the environment.
 #
 # OpenSSL is linked into crypto.so statically (--disable-dynamic-ssl-lib):
 # the runner's Homebrew has an OpenSSL, the arbiter's Mac does not.
 # build_app.sh fails the build on any link outside the system, and on any
-# file that asks for a newer macOS than 11.
+# file that asks for a newer macOS than the target.
 #
 # The versions come from the workflow's env (OTP_VERSION, OPENSSL_VERSION,
 # ELIXIR_VERSION), the checksums from here: a version without a checksum
@@ -33,7 +33,7 @@ prefix=${1:?usage: build_otp.sh <prefix>}
 : "${OTP_VERSION:?set OTP_VERSION}"
 : "${OPENSSL_VERSION:?set OPENSSL_VERSION}"
 : "${ELIXIR_VERSION:?set ELIXIR_VERSION}"
-: "${MACOSX_DEPLOYMENT_TARGET:?set MACOSX_DEPLOYMENT_TARGET (11.0)}"
+: "${MACOSX_DEPLOYMENT_TARGET:?set MACOSX_DEPLOYMENT_TARGET (11.0, or lower for the Intel build)}"
 export MACOSX_DEPLOYMENT_TARGET
 
 # SHA-256 of the exact files, as GitHub lists them on each release page.
@@ -49,6 +49,14 @@ otp_major=${OTP_VERSION%%.*}
 case "$ELIXIR_VERSION-otp-$otp_major" in
   1.20.4-otp-29) elixir_sha256=7863c546cda13fecc949e562e326042451dacf8fd8698a36783cb71eeb223b46 ;;
   *) echo "::error::no checksum for Elixir $ELIXIR_VERSION (elixir-otp-$otp_major.zip) in build_otp.sh" >&2; exit 1 ;;
+esac
+
+# The architecture is the one of the Mac this runs on: the Apple Silicon
+# runner builds arm64, the Intel runner x86_64, and neither cross-compiles.
+case "$(uname -m)" in
+  arm64) openssl_target=darwin64-arm64-cc ;;
+  x86_64) openssl_target=darwin64-x86_64-cc ;;
+  *) echo "::error::build_otp.sh: unknown machine $(uname -m)" >&2; exit 1 ;;
 esac
 
 jobs=$(sysctl -n hw.ncpu)
@@ -76,7 +84,7 @@ fetch "https://github.com/openssl/openssl/releases/download/openssl-$OPENSSL_VER
 tar -xzf "$work/openssl.tar.gz" -C "$work"
 (
   cd "$work/openssl-$OPENSSL_VERSION"
-  ./Configure darwin64-arm64-cc no-shared no-tests no-docs \
+  ./Configure "$openssl_target" no-shared no-tests no-docs \
     "-mmacosx-version-min=$MACOSX_DEPLOYMENT_TARGET" \
     --prefix="$prefix/openssl" --openssldir="$prefix/openssl/ssl" --libdir=lib
   make -j"$jobs" build_libs >/dev/null

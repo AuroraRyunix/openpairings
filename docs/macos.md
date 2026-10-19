@@ -1,16 +1,19 @@
 # OpenPairings on macOS
 
 Since 2026-10-14 every push to `main` builds **`OpenPairings.app`** for Apple
-Silicon Macs, and a release attaches it. Nobody on the project has a Mac:
+Silicon Macs, and a release attaches it, together with a build for **Intel
+Macs** (from macOS 10.13; built only for a release, see
+[Intel Macs](#intel-macs)). Nobody on the project has a Mac:
 everything below was built and started on GitHub's macOS runners, and the
 [test list](#testing-a-build-on-a-real-mac) at the end is what a person with
 a Mac still has to confirm.
 
 | | |
 |---|---|
-| Apple Silicon only (M1 and later) | `openpairings_app_macos_aarch64.zip`, built on `macos-15` |
+| Apple Silicon (M1 and later) | `openpairings_app_macos_aarch64.zip`, built on `macos-15` |
+| Intel | `openpairings_app_macos_x86_64.zip`, built on `macos-15-intel`, only for a release or a hand-started run |
 | Runtime | Erlang/OTP 29.0.5 compiled on the runner by `rel/macos/build_otp.sh`, for macOS 11, with OpenSSL 3.5 compiled the same way and linked into `crypto` statically; Elixir 1.20 from its own precompiled zip. Cached, so only the first run with a given set of versions pays. Linux and Windows use `erlef/setup-beam`; on macOS that would be `erlef/otp_builds`, which is built for macOS 15 and made the app refuse to open on 14 (see [Why the runtime is built here](#why-the-runtime-is-built-here)) |
-| Oldest macOS | 11 (Big Sur). Everything compiled on the runner is built for it (`MACOSX_DEPLOYMENT_TARGET=11.0`, the SQLite NIF from source with `EXQLITE_FORCE_BUILD`), and `build_app.sh` fails the build, naming the files, if any binary asks for newer; what they accept goes into `Info.plist` |
+| Oldest macOS | Apple Silicon: 11 (Big Sur); Intel: 10.13 (High Sierra), see [Intel Macs](#intel-macs). Everything compiled on the runner is built for it (`MACOSX_DEPLOYMENT_TARGET` from the target's `macos_min` in the workflow, the SQLite NIF from source with `EXQLITE_FORCE_BUILD`), and `build_app.sh` fails the build, naming the files, if any binary asks for newer; what they accept goes into `Info.plist` |
 | Signed | ad-hoc only, for now - see [Unsigned, for now](#unsigned-for-now) |
 
 The portable zip (`openpairings_portable_macos_aarch64.zip`, started with
@@ -19,12 +22,45 @@ The app is for everybody else. There is no single-file Mac binary since
 2026-10-17: Burrito's precompiled Erlang needs macOS 15, and nobody should
 have to find that out by double-clicking.
 
+## Intel Macs
+
+macOS 10 exists only on Intel Macs, so the Intel build is also the one that
+reaches back. It is `openpairings_app_macos_x86_64.zip`, compiled on GitHub's
+Intel runner (`macos-15-intel`; a real Intel machine, nothing is
+cross-compiled) with `MACOSX_DEPLOYMENT_TARGET=10.13`, which `build_otp.sh`
+and `build_app.sh` read. The workflow's `plan` job adds it to the build matrix
+only when a release is about to be published or someone started the workflow
+by hand (Actions > Build binaries > Run workflow, on a branch publishes
+nothing): the Intel runner is slow, and on every push it cost about thirteen
+minutes, which is why Intel was dropped on 2026-10-14. A release that cannot
+build for Intel is not published, and the release job refuses to attach a set
+without both Mac zips.
+
+How far back, and why it stops at 10.13:
+
+- **The runtime** (OpenSSL, Erlang/OTP, the SQLite NIF) is compiled for
+  10.13 as it is for 11 on Apple Silicon. `build_app.sh` fails the build,
+  naming the files, if anything in the bundle asks for newer.
+- **The launcher** is Swift, and macOS before 10.14.4 has no Swift runtime.
+  Below 10.15 `build_app.sh` copies the Swift libraries it uses into
+  `Contents/Frameworks` (`swift-stdlib-tool`) and links with an `@rpath` to
+  them. A few AppKit and Foundation calls in `Launcher.swift` are newer than
+  10.13 (`scrollableTextView()`, `monospacedSystemFont`, `seekToEnd` and
+  `readToEnd`); it asks `#available` and uses the older call on 10.13.
+- **Not tested on a real Mac running 10.13.** The runner is macOS 15. CI
+  proves that nothing in the bundle asks for more than 10.13 and that the app
+  starts and answers on a current macOS; whether 10.13 runs it is for a
+  High Sierra owner to say.
+
+There is no self-updater: the in-app notice links to the release page, so
+the Intel Mac downloads `openpairings_app_macos_x86_64.zip` there.
+
 ## What the app is
 
 ```
 OpenPairings.app/Contents/
   Info.plist                 rel/macos/Info.plist, version filled in from the release
-  MacOS/OpenPairings         rel/macos/Launcher.swift, compiled (arm64, macOS 11+)
+  MacOS/OpenPairings         rel/macos/Launcher.swift, compiled (arm64, macOS 11+; x86_64, macOS 10.13+)
   Resources/launcher.sh      rel/macos/launcher.sh
   Resources/app/             the portable release (pairings_engine_portable), whole
   Resources/OpenPairings.icns
@@ -202,8 +238,9 @@ checks of the portable release:
    the files); the oldest macOS all of them accept goes into `Info.plist`;
    the ad-hoc signature verifies.
 2. The zip is unpacked as an arbiter would and the bundle made read-only.
-   `Info.plist` must have no `LSUIElement`, and `CFBundleExecutable` must be
-   a Mach-O arm64 executable. The bundle's own executable is started with
+   `Info.plist` must have no `LSUIElement`, `LSMinimumSystemVersion` must
+   be the target's `macos_min`, and `CFBundleExecutable` must be a Mach-O
+   executable of the target's architecture. The bundle's own executable is started with
    `--headless` (no window, no browser; it runs `launcher.sh` and passes
    signals on) with a scratch data folder on port 4003. It must serve a
    signed-in page, with nothing listening but `127.0.0.1:4003` and no

@@ -18,10 +18,15 @@
 #   OpenPairings.app/Contents/Resources/OpenPairings.icns  rel/macos/OpenPairings-icon.png
 #
 # The executable is a small AppKit program (the Dock icon and the window)
-# compiled here with swiftc for arm64 and macOS 11; launcher.sh beside the
-# release is the part that starts and stops the server. A Swift program on
-# macOS 11 and newer links to /usr/lib/swift and the system frameworks
-# only, which the check below allows like any other system library.
+# compiled here with swiftc for the architecture of this Mac and for
+# MACOSX_DEPLOYMENT_TARGET (11.0 if unset: the Apple Silicon build);
+# launcher.sh beside the release is the part that starts and stops the
+# server. A Swift program on macOS 10.15 and newer links to /usr/lib/swift
+# and the system frameworks only, which the check below allows like any
+# other system library. Before 10.14.4 the system has no Swift runtime at
+# all, so a target below 10.15 gets the Swift libraries it uses copied into
+# Contents/Frameworks (swift-stdlib-tool; swiftc no longer links them in
+# statically for Apple platforms), found through an @rpath.
 #
 # Two things are checked here because nothing after this would notice them
 # until somebody's Mac refused to start the program:
@@ -32,7 +37,7 @@
 #   * the oldest macOS every Mach-O file accepts (its `minos`). The newest of
 #     those is what the bundle can honestly claim, so it goes into
 #     LSMinimumSystemVersion and the job log, instead of a number typed once
-#     and never checked. Any file that wants newer than 11.0 fails the
+#     and never checked. Any file that wants newer than the target fails the
 #     build, by name: the claim is checked, and the promise too.
 
 set -eu
@@ -40,6 +45,22 @@ set -eu
 payload=${1:?usage: build_app.sh <portable release dir> <output dir>}
 out=${2:?usage: build_app.sh <portable release dir> <output dir>}
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
+supported=${MACOSX_DEPLOYMENT_TARGET:-11.0}
+case "$(uname -m)" in
+  arm64) swift_arch=arm64 ;;
+  x86_64) swift_arch=x86_64 ;;
+  *) echo "::error::build_app.sh: unknown machine $(uname -m)" >&2; exit 1 ;;
+esac
+case "$supported" in
+  10.1[0-4] | 10.1[0-4].*)
+    bundle_swift=1
+    swift_extra="-Xlinker -rpath -Xlinker @executable_path/../Frameworks"
+    ;;
+  *)
+    bundle_swift=0
+    swift_extra=""
+    ;;
+esac
 
 [ -x "$payload/bin/pairings_engine_portable" ] || {
   echo "::error::$payload is not a portable release (no bin/pairings_engine_portable)" >&2
@@ -67,7 +88,8 @@ chmod 755 "$app/Contents/Resources/launcher.sh"
 # the first compile of this file happens here, on a Mac nobody sits at.
 swift_source="${here#"$PWD"/}/Launcher.swift"
 swift_log=$(mktemp)
-if ! xcrun swiftc -O -swift-version 5 -target arm64-apple-macos11 -framework AppKit \
+# shellcheck disable=SC2086 # swift_extra is empty or three words
+if ! xcrun swiftc -O -swift-version 5 -target "$swift_arch-apple-macos$supported" $swift_extra -framework AppKit \
   -o "$app/Contents/MacOS/OpenPairings" "$swift_source" >"$swift_log" 2>&1; then
   sed -n 's/^\(.*\.swift\):\([0-9][0-9]*\):\([0-9][0-9]*\): error: \(.*\)$/::error file=\1,line=\2,col=\3::\4/p' "$swift_log"
   echo "swiftc failed on $swift_source; everything it said:"
@@ -79,6 +101,14 @@ cat "$swift_log"
 rm -f "$swift_log"
 echo "Launcher compiled: $(file "$app/Contents/MacOS/OpenPairings" | cut -d: -f2-)"
 otool -L "$app/Contents/MacOS/OpenPairings"
+
+if [ "$bundle_swift" = 1 ]; then
+  mkdir -p "$app/Contents/Frameworks"
+  xcrun swift-stdlib-tool --copy --platform macosx --scan-executable "$app/Contents/MacOS/OpenPairings" \
+    --destination "$app/Contents/Frameworks"
+  echo "Swift libraries copied into the app:"
+  ls "$app/Contents/Frameworks"
+fi
 
 # The Dock icon, drawn by rel/build_taskbar_icon.py. Cosmetic: a failure
 # leaves Finder's generic icon and a warning, not a failed build.
@@ -108,14 +138,14 @@ newer() {
     [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)" = "$1" ]
 }
 
-# Links and minimum system, per Mach-O file. `supported` is the promise:
-# the launcher is compiled for it above, and the runtime and the NIFs are
-# built for it in the workflow. A file that asks for more is a build that
+# Links and minimum system, per Mach-O file. `supported` is the promise
+# (MACOSX_DEPLOYMENT_TARGET, above): the launcher is compiled for it, and
+# the runtime and the NIFs are built for it in the workflow. A file that
+# asks for more is a build that
 # fails here, by name - not an app that tells a Mac on 14 "You can't use
 # this version of the application", which is how the 15.0 of the
 # ready-made Erlang got out the first time, unnoticed by anyone with a
 # Mac new enough not to care.
-supported=11.0
 bad=0
 minimum=$supported
 too_new=$(mktemp)

@@ -35,33 +35,90 @@ permissions:
   contents: read
 
 jobs:
+  # Which targets this run builds. The Intel Mac build is in the matrix only
+  # when a release is about to be published (the same two conditions as the
+  # `release` job below: a tag, or a push to main whose mix.exs version has no
+  # release yet) or when somebody started the workflow by hand. GitHub's
+  # Intel runner is slow: built on every push it cost some thirteen minutes
+  # each time, which is why Intel Macs were dropped on 2026-10-14. Ordinary
+  # pushes and pull requests do not wait for it. A release that cannot build
+  # for Intel is not published: `release` needs `build`.
+  plan:
+    name: Plan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Choose the targets
+        id: matrix
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+
+          # Would the release job publish? Its own question, asked early; it
+          # also waits for Elixir CI, which this does not, so a red commit
+          # may build Intel for nothing. That is the cheap way to be wrong.
+          publish=false
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            tag="${GITHUB_REF_NAME}"
+            publish=true
+          elif [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            version=$(grep -m1 "version:" mix.exs | cut -d'"' -f2)
+            if [ -z "$version" ]; then
+              echo "Could not read a version out of mix.exs" >&2
+              exit 1
+            fi
+            tag="v${version}"
+            publish=true
+          fi
+          if [ "$publish" = true ] && gh release view "${tag}" >/dev/null 2>&1; then
+            echo "Release ${tag} already exists - nothing to publish."
+            publish=false
+          fi
+
+          # `macos_min` is the oldest macOS the build promises (docs/macos.md,
+          # "Intel Macs"). Apple Silicon starts at 11, the first macOS that has it.
+          base='[
+            {"runner":"macos-15","target":"macos_aarch64","macos_min":"11.0"},
+            {"runner":"ubuntu-24.04","target":"linux_x86_64"},
+            {"runner":"ubuntu-24.04-arm","target":"linux_aarch64"},
+            {"runner":"windows-latest","target":"windows_x86_64"}
+          ]'
+          if [ "$publish" = true ] || [ "$EVENT" = workflow_dispatch ]; then
+            matrix=$(echo "$base" | jq -c '. + [{"runner":"macos-15-intel","target":"macos_x86_64","macos_min":"10.13"}]')
+          else
+            matrix=$(echo "$base" | jq -c .)
+          fi
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          echo "$matrix" | jq .
+
   build:
     name: ${{ matrix.target }}
+    needs: plan
     runs-on: ${{ matrix.runner }}
     permissions:
       contents: read
     strategy:
       fail-fast: false
       matrix:
-        include:
-          # macOS is back (2026-10-14), as OpenPairings.app in a zip - see
-          # docs/macos.md. It was off from 2026-09-14 because nobody used it
-          # and the Intel runner alone took 13 minutes a push; now somebody
-          # does. Apple Silicon only: Intel Macs were dropped the same day
-          # (owner's call; 13 minutes a push for machines Apple stopped
-          # selling in 2023).
-          - { runner: macos-15, target: macos_aarch64 }
-          # linux_x86_64 named ubuntu-24.04 explicitly (was `ubuntu-latest`
-          # until 2026-09-27) for the same reason as the arm target below is
-          # already pinned: `ubuntu-latest` is due to move to a still-preview
-          # Ubuntu 26.04 in November 2026, and that should be a deliberate
-          # bump here, not whatever push happens to land after the switch.
-          - { runner: ubuntu-24.04, target: linux_x86_64 }
-          - { runner: ubuntu-24.04-arm, target: linux_aarch64 }
-          - { runner: windows-latest, target: windows_x86_64 }
-          # No windows_aarch64: Erlang/OTP publishes no Windows/ARM build, so
-          # setup-beam cannot provision the ARM runner. Windows on ARM runs the
-          # x86_64 binary under its built-in emulation.
+        include: ${{ fromJSON(needs.plan.outputs.matrix) }}
+        # The rows are in the `plan` job above. Notes that used to sit
+        # beside them:
+        #   * macOS (2026-10-14): OpenPairings.app in a zip, docs/macos.md.
+        #     Apple Silicon always; Intel only when a release goes out.
+        #   * linux_x86_64 is ubuntu-24.04 explicitly (was `ubuntu-latest`
+        #     until 2026-09-27), as the arm runner is: `ubuntu-latest` is due
+        #     to move to a still-preview Ubuntu 26.04 in November 2026, and
+        #     that should be a deliberate bump, not whatever push lands after.
+        #   * No windows_aarch64: Erlang/OTP publishes no Windows/ARM build,
+        #     so setup-beam cannot provision the ARM runner. Windows on ARM
+        #     runs the x86_64 binary under its built-in emulation.
 
     env:
       MIX_ENV: prod
@@ -96,21 +153,22 @@ jobs:
           elixir-version: "1.20"
 
       # Everything compiled on the Mac - the runtime, the SQLite NIF - for
-      # macOS 11, the first version with Apple Silicon, rather than clang's
-      # default of the system it runs on. EXQLITE_FORCE_BUILD
-      # (config/config.exs): the precompiled SQLite NIF wants macOS 14.
-      - name: Build for macOS 11 and newer (macOS)
+      # the target's oldest macOS (11, the first version with Apple Silicon,
+      # or the Intel build's 10.13), rather than clang's default of the system
+      # it runs on. EXQLITE_FORCE_BUILD (config/config.exs): the precompiled
+      # SQLite NIF wants macOS 14.
+      - name: Build for macOS ${{ matrix.macos_min }} and newer (macOS)
         if: runner.os == 'macOS'
         run: |
-          echo "MACOSX_DEPLOYMENT_TARGET=11.0" >> "$GITHUB_ENV"
+          echo "MACOSX_DEPLOYMENT_TARGET=${{ matrix.macos_min }}" >> "$GITHUB_ENV"
           echo "EXQLITE_FORCE_BUILD=true" >> "$GITHUB_ENV"
 
       # Erlang/OTP with a static OpenSSL, both from source: the release
       # carries no Homebrew library (rel/macos/build_app.sh checks every
-      # binary for that, and for anything newer than macOS 11). Only the
+      # binary for that, and for anything newer than the target). Only the
       # first run with a given set of versions pays; the script is in the
       # key, so a change to how it builds is a new build too.
-      - name: Cache Erlang/OTP for macOS 11 (macOS)
+      - name: Cache Erlang/OTP for macOS ${{ matrix.macos_min }} (macOS)
         if: runner.os == 'macOS'
         id: otp-cache
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
@@ -639,7 +697,8 @@ jobs:
       # On top of what the portable checks prove, this one checks what only
       # the app does:
       #   * the bundle is a Dock citizen: no LSUIElement in Info.plist, and its
-      #     executable is the compiled arm64 launcher, not a script;
+      #     executable is the compiled launcher of the target's architecture,
+      #     not a script;
       #   * it starts from a READ-ONLY bundle, as a download Gatekeeper has
       #     translocated is - a start that writes into its own app fails here;
       #   * a second start leaves at once instead of starting a second server;
@@ -667,7 +726,7 @@ jobs:
           fail() { echo "::error::$1"; status=1; }
 
           # A Dock icon needs no LSUIElement, and an executable that is a
-          # real program: the compiled launcher, for Apple Silicon.
+          # real program: the compiled launcher, of the target's architecture.
           plist="$app/Contents/Info.plist"
           if /usr/libexec/PlistBuddy -c 'Print :LSUIElement' "$plist" >/dev/null 2>&1; then
             fail "Info.plist has LSUIElement: the app would have no Dock icon"
@@ -677,10 +736,23 @@ jobs:
             fail "CFBundleExecutable is '$exe', not the launcher this test starts"
           kind=$(file -b "$launcher")
           echo "Contents/MacOS/$exe: $kind"
-          case "$kind" in
-            "Mach-O 64-bit executable arm64"*) ;;
-            *) fail "Contents/MacOS/$exe is not a Mach-O arm64 executable: $kind" ;;
+          case "${{ matrix.target }}" in
+            macos_x86_64) arch=x86_64 ;;
+            *) arch=arm64 ;;
           esac
+          case "$kind" in
+            "Mach-O 64-bit executable $arch"*) ;;
+            *) fail "Contents/MacOS/$exe is not a Mach-O $arch executable: $kind" ;;
+          esac
+          # What the bundle promises, and what its programs ask for: both
+          # printed (build_app.sh also checks the second). The proof that the
+          # oldest macOS is real.
+          echo "LSMinimumSystemVersion: $(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$plist")"
+          [ "$(/usr/libexec/PlistBuddy -c 'Print :LSMinimumSystemVersion' "$plist")" = "${{ matrix.macos_min }}" ] ||
+            fail "LSMinimumSystemVersion is not ${{ matrix.macos_min }}"
+          find "$app" -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 | while IFS= read -r f; do
+            echo "$(vtool -show-build "$f" 2>/dev/null | awk '$1 == "minos" || $1 == "version" {print "minos " $2; exit}') $f"
+          done | sort | uniq -c | sort -rn | head -40
 
           # --headless: no window and no browser on a runner nobody looks at,
           # see Launcher.swift's header. Everything else is the real thing,
@@ -902,7 +974,7 @@ jobs:
   # smoke-tested first, and the test gate below adds: and the tests passed.
   release:
     name: Attach binaries to the release
-    needs: build
+    needs: [plan, build]
     # A tag always publishes. A push to main publishes too, but only when
     # mix.exs names a version that has no release yet - so cutting a release
     # is the same act as bumping the version, and the commits that follow a
@@ -1038,6 +1110,15 @@ jobs:
           fi
 
           ls -lhR release_assets
+
+          # Both Mac apps, by name: the Intel one is only built for a release
+          # (the `plan` job), and a release without it must not go out
+          # looking complete.
+          if [ "${{ steps.ver.outputs.publish }}" = true ]; then
+            for f in openpairings_app_macos_aarch64.zip openpairings_app_macos_x86_64.zip; do
+              [ -f "release_assets/_build/prod/rel/$f" ] || { echo "::error::$f is missing from the release assets"; exit 1; }
+            done
+          fi
 
       # One file of checksums for everything attached below, under the names
       # the release page shows (no directories). New with macOS

@@ -65,7 +65,8 @@ opens and your browser follows; closing that small window stops the program.
 program opens your browser.
 
 **macOS.** Download `openpairings_app_macos_aarch64.zip` for a Mac with an
-Apple chip (M1 and later; there is no build for older Intel Macs), open it, and drag *OpenPairings* into *Applications*. The app is not yet
+Apple chip (M1 and later; macOS 11 or newer), or `openpairings_app_macos_x86_64.zip`
+for a Mac with an Intel processor (macOS 10.13 or newer), open it, and drag *OpenPairings* into *Applications*. The app is not yet
 signed by Apple, so the first time macOS refuses to open it: open *System
 Settings*, *Privacy & Security*, scroll down and click *Open Anyway* beside the
 message about OpenPairings (on macOS 14 or older: right-click the app and
