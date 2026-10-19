@@ -9,7 +9,7 @@ Targets built:
 
 | OS      | x86_64            | aarch64 (ARM)      |
 | ------- | ----------------- | ------------------ |
-| macOS   | (none)            | (none, see below)  |
+| macOS   | `macos_x86_64` (app only, releases) | `macos_aarch64` (app only) |
 | Linux   | `linux_x86_64`    | `linux_aarch64`    |
 | Windows | `windows_x86_64`  | (see below)        |
 
@@ -18,8 +18,12 @@ nobody used it). The macOS runner wraps the portable release in
 **`OpenPairings.app`** and ships it zipped as
 `openpairings_app_macos_aarch64.zip`, next to the portable zip. There is **no
 single-file macOS binary** (dropped 2026-10-17: Burrito's precompiled Erlang
-needs macOS 15, and the app runs on 11 and newer). The Mac build is for
-Apple Silicon (M1 and later) only. Unsigned for now (ad-hoc), with
+needs macOS 15, and the app runs on 11 and newer). Apple Silicon (M1 and
+later) gets that one on every push; **Intel Macs** get
+`openpairings_app_macos_x86_64.zip`, built for macOS 10.13 and newer, but only
+when a release is about to be published or the workflow is started by hand
+(the Intel runner is slow; the `plan` job in `binaries.yml` decides).
+Unsigned for now (ad-hoc), with
 Developer ID signing and notarisation written and waiting for the Apple
 account's secrets. Everything macOS - the bundle, its launcher, the data
 folder, updates, signing, and the test list for a real Mac - is in
