@@ -293,8 +293,16 @@ defmodule PairingsEngine.Plugins do
   `Tournaments.create_player/2` takes them) in roster order. Anyone already
   in the tournament under the same national or FIDE ID is left out, and so
   is a plugin left with nobody to offer.
+
+  Administrators only, like every other thing a plugin offers (the menu
+  and Settings entries above): a collaborator on a tournament sees the
+  Teams page too, and a plugin's player list is not theirs to pour into it.
   """
   def roster_candidates(scope, %Tournament{} = t, %Team{} = team) do
+    if admin?(scope), do: offered_candidates(scope, t, team), else: []
+  end
+
+  defp offered_candidates(scope, t, team) do
     offering =
       for plugin <- all(),
           exports?(plugin, :roster_candidates, 3),

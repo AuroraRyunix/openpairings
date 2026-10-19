@@ -361,6 +361,27 @@ defmodule PairingsEngineWeb.PluginSeamTest do
     end
   end
 
+  describe "a plugin's roster candidates" do
+    test "are offered to an administrator and to nobody else", %{scope: scope, user: user} do
+      {t, [a | _]} =
+        team_round_robin([{"A", [2000]}, {"B", [1900]}, {"C", [1800]}],
+          name: "Fake series",
+          user_id: scope.user.id
+        )
+
+      FakePlugin.register(candidates: [%{"name" => "Zed", "national_id" => "9"}])
+
+      # A collaborator or an owner who is no administrator: nothing.
+      assert Plugins.roster_candidates(scope, t, a) == []
+
+      {:ok, _} = PairingsEngine.Accounts.set_role(user.email, "admin")
+      admin = PairingsEngine.Accounts.Scope.for_user(PairingsEngine.Accounts.get_user!(user.id))
+
+      assert [{FakePlugin, "the fake list", [%{"name" => "Zed"}]}] =
+               Plugins.roster_candidates(admin, t, a)
+    end
+  end
+
   describe "a plugin's team schedule" do
     defp three_fake_teams(scope) do
       team_round_robin([{"A", [2000]}, {"B", [1900]}, {"C", [1800]}],

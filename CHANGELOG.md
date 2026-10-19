@@ -17,6 +17,12 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Security] **A plug-in's player list is for administrators.** The Teams page
+  offers "fill from the list" from whatever a plug-in has (`roster_candidates`),
+  and unlike the plug-in's menu and Settings entries that hook was not held to
+  administrators, so a collaborator on a tournament could pour a federation's
+  player list into it. It is held to them now.
+
 ## [0.97.2] - 2026-10-18
 
 - [Fix] **Ticking "Tournament lasts more than 30 days" shows what it opens straight away.** *Reporting to FIDE* and the rating options for tie-breaks used to appear only after Save, which is a strange way to ask somebody a question: tick, save, scroll back, discover there was more. Now they appear with the tick and disappear with it; nothing is stored until Save, as before.
