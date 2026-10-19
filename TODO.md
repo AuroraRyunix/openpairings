@@ -274,14 +274,15 @@ what stays parked here is the acceptance cycle and the dropped items.
   spine. Detailed in the next section. Q208 came off this list on
   2026-08-29 when ARO was fixed, because it was never only an acceptance
   item.
-- ~~**Team Swiss (C.04.6)**~~ - **BUILT, no longer parked; only the SPP
-  questions 5-7 remain open.** Phase 2 of team tournaments, **built 2026-09-13,
+- ~~**Team Swiss (C.04.6)**~~ - **BUILT, and closed: the SPP never answered
+  questions 5-7, so the 2026-09-13 research readings are final (maintainer's
+  call, 2026-10-19).** Phase 2 of team tournaments, **built 2026-09-13,
   released in 0.62.0 (2026-09-14)**: `PairingsEngine.TeamSwiss` pairs team
   against team with Ainalrami's `TeamPairing` (Ainalrami pinned at v0.32.0
   now), Article 16 in the team tie-breaks, the initial-colour draw for
   individual and team Swiss; `snapshot.ex` gates team fields on
-  `Tournament.paired_as_teams?/1`. Still open: the three readings (questions
-  5-7) are research, not SPP rulings. **The large-field validation is done**:
+  `Tournament.paired_as_teams?/1`. The three readings (questions 5-7) are
+  research, not SPP rulings, and stay that way. **The large-field validation is done**:
   Ainalrami's exhaustive 80-team proof against a brute-force reference
   (merged in Ainalrami 0.31.0, `docs/team-proof-large-fields.md`) and a
   billion-round C.04.6 fuzz run on this maintainer's own machine
@@ -431,9 +432,9 @@ what stays parked here is the acceptance cycle and the dropped items.
   from the text (Ainalrami's `team_pairing_validation_test.exs`), now
   extended to an exhaustive 80-team proof (0.31.0,
   `docs/team-proof-large-fields.md`) and a billion-round fuzz run
-  (1,032,949,115 rounds, 0 failures, 2026-09-26). Questions 5-7 still worth
-  sending to the SPP; the research answers are recorded in Ainalrami's
-  `docs/conformance-c0406-teams.md`.
+  (1,032,949,115 rounds, 0 failures, 2026-09-26). Questions 5-7: no SPP
+  answer is coming, so the research answers recorded in Ainalrami's
+  `docs/conformance-c0406-teams.md` are the readings, final.
 - ~~**Team pages on OpenResults**~~ - **built 2026-09-14, released in
   0.62.0**: team tournaments publish like any other event (teams, matches,
   team standings, the same withholding rules). See
