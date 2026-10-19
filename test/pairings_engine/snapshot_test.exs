@@ -733,6 +733,30 @@ defmodule PairingsEngine.SnapshotTest do
     end
   end
 
+  describe "build/1 - the starting clock" do
+    test "the first period's minutes travel as a number beside the prose" do
+      {tournament, _} = swiss_fixture()
+
+      tournament =
+        tournament
+        |> Ecto.Changeset.change(rate_of_play: "90min/40moves+30min/end+30sec/move from move 1")
+        |> PairingsEngine.Repo.update!()
+
+      assert Snapshot.build(tournament)["tournament"]["time_control_minutes"] == 90
+    end
+
+    test "prose that does not parse sends no number, not a guess" do
+      {tournament, _} = swiss_fixture()
+
+      tournament =
+        tournament
+        |> Ecto.Changeset.change(rate_of_play: "whatever the arbiter feels like")
+        |> PairingsEngine.Repo.update!()
+
+      assert Snapshot.build(tournament)["tournament"]["time_control_minutes"] == nil
+    end
+  end
+
   describe "build/1 - the document" do
     test "the envelope and tournament section follow the contract" do
       {tournament, _} = swiss_fixture()
@@ -757,6 +781,7 @@ defmodule PairingsEngine.SnapshotTest do
                "arbiter" => "Jorian Burssens",
                "deputy" => nil,
                "time_control" => nil,
+               "time_control_minutes" => nil,
                "tempo" => "standard",
                "match_format" => false,
                "fide_rated" => true,

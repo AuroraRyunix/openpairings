@@ -152,6 +152,11 @@ defmodule PairingsEngineWeb.PairClickGoldenTest do
   JSON export gains `tournament.long_event_reporting` ("monthly"). With that
   key taken out the regenerated file is equal, term for term, to the one
   before.
+
+  And for the live boards' starting clock (publish-start-minutes): every
+  public snapshot gains `tournament.time_control_minutes` (nil in every
+  scenario). With that key taken out the regenerated file is equal, term for
+  term, to the one before.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
