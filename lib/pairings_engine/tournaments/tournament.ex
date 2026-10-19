@@ -684,6 +684,13 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # date - see `PairingsEngine.TournamentGroups`, "On the results site".
     field :openresults_group_sent, :string
 
+    # When the results site answered `tournament_deleted`: its operator
+    # deleted this tournament there, and `Publishing` switched publishing off
+    # so the queue stopped asking. The Settings page says so while it is set;
+    # switching publishing on again clears it. Never cast, never exported -
+    # it describes one results site's opinion of one copy.
+    field :openresults_removed_at, :utc_datetime
+
     # The three facts about a slug the results site created, all nil for a
     # slug it did not. Only consulted in public mode (a desktop copy with no
     # operator token, see `PairingsEngine.Publishing.public_mode?/0`). There

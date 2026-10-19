@@ -75,7 +75,9 @@ Een schermvullende pagina voor een televisie of beamer in de speelzaal, op een a
 
 ### Het adres {#the-address}
 
-*Deellink* is het openbare adres (een QR-code ernaartoe staat in het venster **Telefoon-QR** op de pagina Paringen). **Naar een nieuw adres verplaatsen** haalt de oude kopie neer, maakt een nieuw adres en publiceert opnieuw (gebruik het als een link is uitgelekt). **Van de uitslagensite verwijderen** haalt het toernooi van de site. Wanneer een toernooibestand of een back-up een publicatiesleutel bevat, word je gevraagd of je *De publicatie overnemen* of *Opnieuw beginnen* kiest.
+*Deellink* is het openbare adres (een QR-code ernaartoe staat in het venster **Telefoon-QR** op de pagina Paringen). **Naar een nieuw adres verplaatsen** haalt de oude kopie neer, maakt een nieuw adres en publiceert opnieuw (gebruik het als een link is uitgelekt). **Van de uitslagensite verwijderen** haalt het toernooi van de site. Wanneer een toernooibestand of een back-up een publicatiesleutel bevat, word je gevraagd of je *De publicatie overnemen* of *Opnieuw beginnen* kiest. Op een gehoste server vraagt overnemen eerst aan de uitslagensite of dat adres echt bij die sleutel hoort; is dat niet zo, dan wordt er niets overgenomen en is *Opnieuw beginnen* de weg verder.
+
+Als de beheerder van de uitslagensite het toernooi daar verwijdert, stopt het programma met proberen: publiceren wordt ervoor uitgeschakeld en de pagina meldt dat de uitslagensite het verwijderd heeft. Opnieuw inschakelen helpt pas als die beheerder het toestaat. Antwoordt de uitslagensite dat ze *verhuisd* is, dan wordt er niets vanzelf naar het nieuwe adres gestuurd: controleer het en vul het in onder **Verbindingen**.
 
 ### Ploegen {#teams}
 

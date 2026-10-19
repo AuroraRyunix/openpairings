@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **A tournament the results site deleted is no longer asked about forever.** When the site's operator deleted a tournament, every publish came back refused and the queue kept trying, politely and indefinitely, like a door-to-door salesman at a house that has been demolished. Now the first refusal switches publishing off for that tournament, drops it from the queue and says on its OpenResults settings page that the results site removed it. Switching publishing on again clears the notice; whether the site takes it back is up to its operator.
+- [Security] **Redirects from the results site are no longer followed.** A publish or a connection check that was answered with a redirect went along with it, taking the token and the tournament key to whatever address the answer named. Now nothing is sent anywhere it was not configured to go: the connection card says the results site moved, shows where it claims to have gone, and leaves changing the address to you.
+- [Security] **Taking over a tournament from a backup is checked with the results site first, on a hosted server.** One token serves every arbiter on a hosted server, so the tournament key in the file was the only thing telling one arbiter's tournament from another's, and a backup is a file anyone holding it can edit. Taking over now asks the results site whether that address really is claimed with that key, and refuses if it is not - or if the site is too old to answer. Desktop installs are unchanged: their own key is checked on every publish anyway.
+
 ## [0.97.2] - 2026-10-18
 
 - [Fix] **Ticking "Tournament lasts more than 30 days" shows what it opens straight away.** *Reporting to FIDE* and the rating options for tie-breaks used to appear only after Save, which is a strange way to ask somebody a question: tick, save, scroll back, discover there was more. Now they appear with the tick and disappear with it; nothing is stored until Save, as before.

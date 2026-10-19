@@ -46,7 +46,10 @@ defmodule PairingsEngine.Publishing.Failure do
 
   # The contract's desktop table, "Queue" column.
   @stop_installation ~w(installation_revoked unauthorized address_blocked)
-  @stop_tournament ~w(tournament_limit snapshot_too_large not_owner tournament_hidden)
+  # `tournament_deleted` (the 2026-10-19 sweep) does more than stop:
+  # `Publishing.publish/1` switches publishing off for the tournament.
+  @stop_tournament ~w(tournament_limit snapshot_too_large not_owner tournament_hidden
+                      tournament_deleted)
 
   # Codes that describe this installation or the whole server rather than
   # one tournament. Remembered installation-wide so the top bar can say them

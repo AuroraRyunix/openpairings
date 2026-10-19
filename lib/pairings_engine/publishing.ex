@@ -87,6 +87,32 @@ defmodule PairingsEngine.Publishing do
   matters: an imported copy that is never adopted publishes to a new slug
   under a new key, i.e. it is a different tournament.
 
+  Hosted, the file's word is not enough (the 2026-10-19 sweep). One operator
+  token serves every arbiter on the server, so the tournament key is all that
+  tells one arbiter's tournament from another's - and a backup is a file its
+  owner can edit. `adopt_claim/1` therefore asks the results site first
+  (`GET /api/tournaments/:slug/claim`) and adopts only when the server says
+  the slug is claimed with exactly that key. A desktop copy publishes under
+  its own installation key, which the server checks ownership against, so it
+  does not need to ask.
+
+  ## Removed by the results site
+
+  When the site's operator deletes a tournament, every publish to it is
+  answered `tournament_deleted` from then on, the operator token's included.
+  The queue does not retry that: `publish/1` switches publishing off for the
+  tournament, drops its queue row, stamps `openresults_removed_at` so the
+  Settings page can say what happened, and forgets what the site had
+  accepted. Switching publishing on again clears the stamp; the site will
+  refuse again unless its operator has lifted the deletion.
+
+  ## Redirects are not followed
+
+  Neither a publish nor the connection check follows a redirect: a followed
+  one sends the token and the tournament key to wherever `Location` points.
+  A 3xx is reported as `{:rejected, status, "moved", location}` - "the
+  results site moved" - and the arbiter changes the address.
+
   ## Public mode: a desktop copy with no token
 
   OpenResults' `docs/public-publishing.md` ("OpenPairings desktop") is the
@@ -865,11 +891,48 @@ defmodule PairingsEngine.Publishing do
 
       # Any failure, including a refusal before anything left: the next
       # queued publish is sent whatever it holds.
-      {:error, _reason} ->
+      {:error, reason} ->
         Accepted.failed(tournament.id)
+        if site_deleted?(reason), do: removed_by_site(tournament)
     end
 
     result
+  end
+
+  defp site_deleted?(%Failure{reason: {:refused, rejection}}),
+    do: Failure.effective_code(rejection) == "tournament_deleted"
+
+  defp site_deleted?(_reason), do: false
+
+  # See "Removed by the results site". Written straight to the row rather
+  # than through `Tournaments.set_publish_to_openresults/2`, which enqueues
+  # and broadcasts a settings change that would enqueue again - the very
+  # loop this exists to end. The drain records its failure on a row that is
+  # gone by then, which `record_failure/2` allows for.
+  defp removed_by_site(%Tournament{id: id}) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.update_all(from(t in Tournament, where: t.id == ^id),
+      set: [publish_to_openresults: false, openresults_removed_at: now]
+    )
+
+    Repo.delete_all(from q in QueueEntry, where: q.tournament_id == ^id)
+    Accepted.forget(id)
+
+    Logger.warning(
+      "OpenResults: the results site's operator deleted tournament #{id}; " <>
+        "publishing it has been switched off"
+    )
+
+    broadcast_queue(id)
+
+    Phoenix.PubSub.broadcast(
+      PairingsEngine.PubSub,
+      Tournaments.tournament_topic(id),
+      {:tournament_changed, id, :settings}
+    )
+
+    :ok
   end
 
   @doc false
@@ -1407,7 +1470,10 @@ defmodule PairingsEngine.Publishing do
         params: [at: DateTime.to_iso8601(DateTime.utc_now())],
         auth: {:bearer, token()},
         receive_timeout: 15_000,
-        retry: false
+        retry: false,
+        # A followed redirect carries the token to wherever it points. See
+        # "Redirects are not followed".
+        redirect: false
       )
 
     case Req.get(maybe_put_test_plug(request)) do
@@ -1425,6 +1491,16 @@ defmodule PairingsEngine.Publishing do
   # Every non-success answer from OpenResults, as a `t:rejection/0`. The one
   # place a response body is read for its code, so the three calls here
   # cannot come to disagree about where the code lives.
+  defp rejection(%Req.Response{status: status} = response) when status in 300..399 do
+    location =
+      case Req.Response.get_header(response, "location") do
+        [location | _] -> String.slice(location, 0, 300)
+        [] -> nil
+      end
+
+    {:rejected, status, "moved", location}
+  end
+
   defp rejection(%Req.Response{status: status, body: body}) do
     body = decode_error_body(body)
     {:rejected, status, error_code(body), error_detail(body)}
@@ -1588,6 +1664,15 @@ defmodule PairingsEngine.Publishing do
 
   defp failure_words({:rejected, 401, nil, _detail}), do: "the server rejected the token (401)"
 
+  defp failure_words({:rejected, _status, "moved", nil}),
+    do: "the results site answered with a redirect - check its address in the settings"
+
+  defp failure_words({:rejected, _status, "moved", location}),
+    do: "the results site moved to #{location} - change its address in the settings"
+
+  defp failure_words({:rejected, _status, "tournament_deleted", _detail}),
+    do: "the results site's operator deleted this tournament there"
+
   # Also where a code this version has no words for yet ends up - by its
   # code, which is the part somebody can look up.
   defp failure_words({:rejected, status, code, detail}) do
@@ -1633,7 +1718,11 @@ defmodule PairingsEngine.Publishing do
       # backoff and a visible error, and a pull is a button the arbiter can
       # press again. Two retry mechanisms stacked would multiply the delay
       # they see without telling them why.
-      retry: false
+      retry: false,
+      # Never followed: it would carry the token, and a publish's tournament
+      # key, to wherever `Location` points. A 3xx is reported as "moved" -
+      # see "Redirects are not followed".
+      redirect: false
     )
     |> Req.merge(opts)
     |> maybe_put_test_plug()
@@ -1687,7 +1776,15 @@ defmodule PairingsEngine.Publishing do
       # server's code rather than by the status - see `publish_words/2`.
       {:ok, %Req.Response{} = response} ->
         rejection = rejection(response)
-        {:error, restored_words(rejection, tournament, :publish) || publish_words(rejection, url)}
+
+        # The one refusal the queue must act on rather than retry, so it
+        # stays data - `publish/1` reads it. A `Failure` still reads as a
+        # sentence wherever it is interpolated.
+        if Failure.effective_code(rejection) == "tournament_deleted",
+          do: {:error, Failure.from_rejection(rejection)},
+          else:
+            {:error,
+             restored_words(rejection, tournament, :publish) || publish_words(rejection, url)}
 
       {:error, error} ->
         {:error, publish_words({:unreachable, transport_reason(error)}, url)}
@@ -2415,7 +2512,8 @@ defmodule PairingsEngine.Publishing do
   def adopt_claim(%Tournament{} = tournament) do
     with :ok <- writable(tournament),
          :ok <- no_key_of_its_own(tournament),
-         %{key: key, slug: slug} <- claim(tournament) do
+         %{key: key, slug: slug} <- claim(tournament),
+         :ok <- claim_confirmed(key, slug) do
       tournament
       |> Ecto.Changeset.change(
         openresults_key: key,
@@ -2450,6 +2548,56 @@ defmodule PairingsEngine.Publishing do
     else
       {:error, message} when is_binary(message) -> {:error, message}
       nil -> {:error, "this tournament is not carrying a publishing key from a backup"}
+    end
+  end
+
+  # Hosted, the server is asked whether the slug really is claimed with the
+  # file's key - see "Import carries the key". A desktop copy is not asked:
+  # its installation key is checked for ownership on every publish, and an
+  # older results site without the route would only make its arbiters'
+  # takeovers fail for nothing.
+  defp claim_confirmed(key, slug) do
+    if Authz.local_mode?(), do: :ok, else: confirm_claim(key, slug)
+  end
+
+  defp confirm_claim(key, slug) do
+    request =
+      request("/api/tournaments/#{URI.encode_www_form(slug)}/claim",
+        headers: [{@key_header, key}]
+      )
+
+    case Req.get(request) do
+      {:ok, %Req.Response{status: 200, body: %{"claim" => "tournament_key"}}} ->
+        :ok
+
+      {:ok, %Req.Response{status: 200}} ->
+        {:error,
+         "the results site has no tournament at that address claimed with this key, " <>
+           "so the file's key proves nothing there - start fresh instead"}
+
+      {:ok, %Req.Response{} = response} ->
+        case rejection(response) do
+          {:rejected, _status, code, _detail} when code in ["key_mismatch", "key_required"] ->
+            {:error,
+             "the tournament at that address is claimed with a different key - " <>
+               "this file cannot take it over"}
+
+          {:rejected, _status, "tournament_deleted", _detail} ->
+            {:error, "the results site's operator deleted the tournament at that address"}
+
+          {:rejected, 404, nil, _detail} ->
+            {:error,
+             "the results site cannot confirm the key (it is older than this version), " <>
+               "so it was not taken over - ask its operator to update it"}
+
+          rejection ->
+            {:error, "the results site could not confirm the key: " <> failure_words(rejection)}
+        end
+
+      {:error, error} ->
+        {:error,
+         "the results site could not be asked to confirm the key: " <>
+           failure_words({:unreachable, transport_reason(error)})}
     end
   end
 
@@ -2593,16 +2741,14 @@ defmodule PairingsEngine.Publishing do
 
     Logger.warning("OpenResults publish failed for tournament #{entry.tournament_id}: #{failure}")
 
-    entry
-    |> Ecto.Changeset.change(%{
+    update_entry(entry,
       attempts: attempts,
       last_error: to_string(failure),
       last_reason: Failure.encode(failure),
       last_attempt_at: now,
       next_attempt_at: DateTime.add(now, wait, :second),
       stopped_at: if(failure.stop == :tournament, do: now)
-    })
-    |> Repo.update!()
+    )
 
     broadcast_queue(entry.tournament_id)
   end
@@ -2613,14 +2759,23 @@ defmodule PairingsEngine.Publishing do
 
     Logger.warning("OpenResults publish failed for tournament #{entry.tournament_id}: #{reason}")
 
-    entry
-    |> Ecto.Changeset.change(%{
+    update_entry(entry,
       attempts: attempts,
-      last_error: reason,
+      last_error: to_string(reason),
       last_attempt_at: now,
       next_attempt_at: DateTime.add(now, backoff_for(attempts), :second)
-    })
-    |> Repo.update!()
+    )
+  end
+
+  # By id rather than `Repo.update!/1`: the row may be gone by now - a
+  # tournament the results site deleted has its row dropped by `publish/1`
+  # before the drain gets here, and so may a hand-off or a switch-off in
+  # the meantime. Recording a failure on a row nobody needs any more is
+  # not worth crashing the drain over.
+  defp update_entry(%QueueEntry{id: id}, changes) do
+    Repo.update_all(from(q in QueueEntry, where: q.id == ^id),
+      set: Keyword.put(changes, :updated_at, DateTime.utc_now())
+    )
   end
 
   @doc "Seconds to wait before attempt number `attempts + 1`."

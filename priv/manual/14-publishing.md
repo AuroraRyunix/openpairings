@@ -128,7 +128,15 @@ characters) shown on the screen. Saving sends it at once.
 publishes again (use it if a link has leaked). **Remove from the results site**
 takes the tournament off the site. When a tournament file or a backup
 carries a publishing key, you are asked whether to *Take over publishing it* or
-*Start fresh*.
+*Start fresh*. On a hosted server, taking over first asks the results site
+whether that address really belongs to that key; if it does not, nothing is
+taken over and *Start fresh* is the way on.
+
+If the operator of the results site deletes the tournament there, the program
+stops trying: publishing is switched off for it and the page says the results
+site removed it. Switching it on again only helps once that operator allows
+it. If the results site answers that it has *moved*, nothing is sent to the
+new address on its own: check it, then enter it under **Connections**.
 
 ### Teams
 

@@ -1232,6 +1232,21 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         <div class="card">
           <h2>{gettext("Publish this tournament")}</h2>
 
+          <%!-- The results site's operator deleted it there, and publishing
+              was switched off here so the queue stopped asking
+              (`Publishing`, "Removed by the results site"). Said plainly,
+              once, until the arbiter switches it on again. --%>
+          <p
+            :if={@tournament.openresults_removed_at}
+            id="openresults-removed-notice"
+            class="setting-warning"
+            role="note"
+          >
+            {gettext(
+              "The results site removed this tournament: its operator deleted it there, so publishing has been switched off. Switching it on again only works if they allow it - ask them if you think this was a mistake."
+            )}
+          </p>
+
           <p class="hint" style="margin-top: 0">
             {gettext(
               "Publishing sends a copy of this tournament to the results site, where anyone can follow it - standings, pairings and player cards, no login. It is the only way this tournament becomes public: nothing is readable from this machine, which is the point, because spectators should never be loading the computer that runs the round."
