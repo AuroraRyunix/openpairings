@@ -28,7 +28,8 @@ defmodule PairingsEngine.RoundSwap do
 
   Refused unless both rounds are result-free: no result, no forfeit, no
   postponed mark, no date played, and no bye recorded for a player who has
-  a board in the round. Refused for match format (its two legs play back to
+  a board in the round - and, in a team event, nobody seated who cannot
+  play the round the boards would move to. Refused for match format (its two legs play back to
   back by definition), before the schedule exists (round 1 unpaired: the
   table's length is not known yet), and when one round is paired and the
   other is not - pair the rest of the schedule first.
@@ -37,8 +38,8 @@ defmodule PairingsEngine.RoundSwap do
   import Ecto.Query
   use Gettext, backend: PairingsEngineWeb.Gettext
 
-  alias PairingsEngine.{Repo, RoundRobin, Tournaments}
-  alias PairingsEngine.Tournaments.{Match, Pairing, Round, Tournament}
+  alias PairingsEngine.{Repo, RoundRobin, TeamRounds, Tournaments}
+  alias PairingsEngine.Tournaments.{Match, Pairing, Player, Round, Tournament}
 
   # What stays with the round NUMBER - the evening - when the content moves.
   @evening_fields [
@@ -69,8 +70,8 @@ defmodule PairingsEngine.RoundSwap do
          round_a = Tournaments.get_round(tournament.id, a),
          round_b = Tournaments.get_round(tournament.id, b),
          :ok <- both_or_neither(round_a, round_b, a, b),
-         :ok <- result_free(tournament, round_a),
-         :ok <- result_free(tournament, round_b) do
+         :ok <- result_free(tournament, round_a, b),
+         :ok <- result_free(tournament, round_b, a) do
       Repo.transaction(fn ->
         if round_a && round_b, do: move_content(tournament, round_a, round_b)
         swap_announcements(tournament.id, a, b)
@@ -157,9 +158,9 @@ defmodule PairingsEngine.RoundSwap do
          unpaired: unpaired
        )}
 
-  defp result_free(_tournament, nil), do: :ok
+  defp result_free(_tournament, nil, _destination), do: :ok
 
-  defp result_free(tournament, %Round{} = round) do
+  defp result_free(tournament, %Round{} = round, destination) do
     cond do
       Enum.any?(round.pairings, &decided?/1) or decided_match?(round) ->
         {:error,
@@ -175,8 +176,34 @@ defmodule PairingsEngine.RoundSwap do
            round: round.number
          )}
 
+      player = unavailable_seated(tournament, round, destination) ->
+        {:error,
+         gettext(
+           "Round %{round} seats %{player}, who cannot play round %{other} (absent, not yet started or withdrawn). Its line-ups were built for round %{round}; change that line-up or the player's availability first.",
+           round: round.number,
+           other: destination,
+           player: player.name
+         )}
+
       true ->
         :ok
+    end
+  end
+
+  # A team event's line-ups are built for the round NUMBER they were paired
+  # in (`TeamRounds.lineup/3` skips whoever cannot play that round), and the
+  # boards move with the content. A player seated in a round they cannot
+  # play would be sitting at a board in it; the reserve who played instead
+  # ends up in a round the regular player is free for. Rebuilding the
+  # line-ups would quietly change who plays, so the swap is refused and the
+  # arbiter decides.
+  defp unavailable_seated(tournament, round, destination) do
+    if Tournament.paired_as_teams?(tournament) do
+      ids = round |> seated() |> MapSet.to_list()
+
+      from(p in Player, where: p.id in ^ids, order_by: [p.board_order, p.name])
+      |> Repo.all()
+      |> Enum.find(&(not TeamRounds.available?(&1, destination)))
     end
   end
 

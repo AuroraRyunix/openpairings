@@ -88,7 +88,7 @@ the program applies*.
 
 | Code | Name | Meaning |
 | --- | --- | --- |
-| DE | Direct encounter | The result(s) between the tied players. |
+| DE | Direct encounter | The result(s) between the tied players; a forfeit counts only in a round robin (C.07 Art. 15.2). |
 | DE/P | Direct encounter, forfeits counted | Direct encounter in which forfeit wins and losses count as games played. |
 | WIN | Number of wins | Games won, forfeits included. |
 | WON | Number of games won over the board | Without forfeits and byes. |

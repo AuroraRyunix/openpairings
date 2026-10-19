@@ -194,7 +194,10 @@ round holds. Swap the same two again to undo it.
 
 It is refused while either round has a result, a forfeit, a postponed
 game or a date played, or a bye for a player who has a board in it - the
-message names the round. It is also refused in match format, before the
+message names the round. In a team round robin it is also refused when a
+seated player cannot play the round the boards would move to (absent, not
+yet started, withdrawn): the line-ups were built for their own round, and
+the message names the player. It is also refused in match format, before the
 schedule is paired, and when one of the two is paired and the other is
 not. In FIDE mode it is allowed (FIDE's own double round robin swaps two
 rounds), with a note that it changes the published schedule. Each swap

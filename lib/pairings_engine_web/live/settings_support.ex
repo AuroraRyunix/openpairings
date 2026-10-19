@@ -1482,6 +1482,18 @@ defmodule PairingsEngineWeb.SettingsSupport do
         "Not changed: this match was decided by its score. Withdraw the match score on the match's page first."
       )
 
+  def error_text(:match_decided),
+    do:
+      gettext(
+        "Not changed: this match was decided as a whole (forfeited to one team, or a double forfeit). Withdraw the decision on the Pairings page first."
+      )
+
+  def error_text(:nobody_to_seat),
+    do:
+      gettext(
+        "Not withdrawn: neither team can field a player in this round, so the match would be one nobody plays again. Mark the team or its players available for the round first, then withdraw the decision."
+      )
+
   def error_text(:not_optional),
     do:
       gettext(

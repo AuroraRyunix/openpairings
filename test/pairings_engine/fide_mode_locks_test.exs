@@ -160,6 +160,29 @@ defmodule PairingsEngine.FideModeLocksTest do
       assert Repo.reload!(t).rounds_count == 5
     end
 
+    # C.04.6 Art. 1.2.1: the scoring of a team competition is stated in its
+    # rules beforehand - match points as much as the bye's value.
+    test "a team event's match points are held too, and free again outside FIDE mode" do
+      {t, _} =
+        PairingsEngine.TeamFixtures.team_round_robin([{"A", [2000, 1900]}, {"B", [1950, 1850]}])
+
+      t = PairingsEngine.TeamFixtures.pair_all!(t)
+      assert Compliance.fide_mode?(t)
+
+      for field <- ~w(team_match_points_win team_match_points_draw team_match_points_loss) do
+        atom = String.to_existing_atom(field)
+        assert atom in Tournaments.fide_locked_fields(t)
+
+        assert Tournaments.update_tournament(t, %{field => "3"}, unlock: [atom]) ==
+                 {:error, :locked_in_fide_mode},
+               "#{field} changed in FIDE mode after round 1"
+      end
+
+      {:ok, t} = Tournaments.leave_fide_mode(t)
+      assert {:ok, t} = Tournaments.update_tournament(t, %{"team_match_points_win" => "3"})
+      assert t.team_match_points_win == 3.0
+    end
+
     test "the same value round-tripped by a form is not a change" do
       {t, _} = tournament()
       play_round!(t)

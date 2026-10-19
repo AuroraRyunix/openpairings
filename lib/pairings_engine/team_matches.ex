@@ -172,6 +172,17 @@ defmodule PairingsEngine.TeamMatches do
   before it, and the match is decided on its boards again. A board added to
   the match after the decision keeps whatever it holds. `{:error,
   :not_forfeited}` when there is no decision to withdraw.
+
+  A decision nobody took by hand - the double forfeit the pairing wrote for
+  a match neither team could play (`TeamRounds.create_round/4`), or one a
+  TRF import wrote - has no previous results to give back
+  (`forfeit_previous_results` nil). Clearing the flag alone used to leave a
+  match with nothing on its boards, which scores as a drawn 0-0 and pays
+  both teams a draw for a match neither played. So such a match is seated
+  again instead, exactly as the pairing would seat it now
+  (`reseat_lineups/2`): an arbiter who marked a team absent by mistake fixes
+  the absence, withdraws the decision, and has the match back. Refused with
+  `{:error, :nobody_to_seat}` while it would still be a match nobody plays.
   """
   def withdraw_forfeit(%Tournament{} = t, %Match{} = match) do
     cond do
@@ -184,8 +195,11 @@ defmodule PairingsEngine.TeamMatches do
       is_nil(match.forfeited_to_team_id) and not match.double_forfeit ->
         {:error, :not_forfeited}
 
+      is_nil(match.forfeit_previous_results) ->
+        reseat(t, match)
+
       true ->
-        previous = match.forfeit_previous_results || %{}
+        previous = match.forfeit_previous_results
 
         Repo.transaction(fn ->
           for p <- match_boards(match),
@@ -193,16 +207,76 @@ defmodule PairingsEngine.TeamMatches do
             p |> Pairing.changeset(%{result: result}) |> Repo.update!()
           end
 
-          match
-          |> Ecto.Changeset.change(
-            forfeited_to_team_id: nil,
-            forfeit_previous_results: nil,
-            double_forfeit: false
-          )
-          |> Repo.update!()
+          clear_decision(match)
         end)
         |> finish(t.id)
     end
+  end
+
+  @doc """
+  Whether `match` carries a decision the arbiter took by hand - one whose
+  withdrawal gives the boards back their earlier results - rather than one
+  the pairing or an import wrote, whose withdrawal seats the match again
+  (`withdraw_forfeit/2`).
+  """
+  def decided_by_hand?(%{forfeit_previous_results: previous}), do: is_map(previous)
+
+  defp clear_decision(match) do
+    match
+    |> Ecto.Changeset.change(
+      forfeited_to_team_id: nil,
+      forfeit_previous_results: nil,
+      double_forfeit: false
+    )
+    |> Repo.update!()
+  end
+
+  # A decision with no earlier boards to restore: the match is seated
+  # from scratch, the way `TeamRounds.create_round/4` seats a match today.
+  defp reseat(t, match) do
+    per_match = max(t.team_boards || 1, 1)
+
+    case reseat_lineups(t, match) do
+      {:ok, lineup_a, lineup_b, out} ->
+        Repo.transaction(fn ->
+          rewrite_boards(t, match, lineup_a, lineup_b, per_match, out)
+          clear_decision(match)
+        end)
+        |> finish(t.id)
+
+      {:error, _} = refusal ->
+        refusal
+    end
+  end
+
+  @doc """
+  The line-ups the pairing would seat `match` with now - both teams' default
+  line-ups for the round (`default_lineup/3`), or nobody for a team out of
+  the round as a team - and which side is out (`TeamRounds.teams_out/3`):
+  `{:ok, lineup_a, lineup_b, out}`, or `{:error, :nobody_to_seat}` when
+  that would again be a match neither team plays (both out as teams, or,
+  with required line-ups, neither able to field a player).
+  """
+  def reseat_lineups(%Tournament{} = t, %Match{} = match) do
+    number = round_number(match)
+    per_match = max(t.team_boards || 1, 1)
+    optional? = Tournament.team_lineups_optional?(t)
+    team_a = Repo.get!(PairingsEngine.Tournaments.Team, match.team_a_id)
+    team_b = Repo.get!(PairingsEngine.Tournaments.Team, match.team_b_id)
+    out = TeamRounds.teams_out(team_a, team_b, number)
+
+    lineup = fn team, out? ->
+      if out?,
+        do: [],
+        else: t.id |> Tournaments.team_roster(team.id) |> TeamRounds.lineup(number, per_match)
+    end
+
+    lineup_a = lineup.(team_a, out in [:a, :both])
+    lineup_b = lineup.(team_b, out in [:b, :both])
+
+    if out == :both or (not optional? and lineup_a == [] and lineup_b == []),
+      do: {:error, :nobody_to_seat},
+      else: {:ok, lineup_a, lineup_b, out}
   end
 
   @doc """
@@ -626,7 +700,11 @@ defmodule PairingsEngine.TeamMatches do
     end
   end
 
-  defp rewrite_boards(t, match, lineup_a, lineup_b, per_match) do
+  # `out` is the side out of the round as a team (`TeamRounds.teams_out/3`):
+  # its boards are the other side's forfeit wins, as the pairing writes
+  # them. A line-up change (`set_lineups/4`) seats what it is given:
+  # `:none`.
+  defp rewrite_boards(t, match, lineup_a, lineup_b, per_match, out \\ :none) do
     numbered =
       t
       |> TeamRounds.ensure_player_numbers(Enum.reject(lineup_a ++ lineup_b, &is_nil/1))
@@ -642,7 +720,8 @@ defmodule PairingsEngine.TeamMatches do
     wanted =
       lineup_a
       |> TeamRounds.match_boards(lineup_b, per_match,
-        optional: Tournament.team_lineups_optional?(t)
+        optional: Tournament.team_lineups_optional?(t),
+        out: out
       )
       |> Map.new(fn {k, w, b, result} -> {k, {w, b, result}} end)
 

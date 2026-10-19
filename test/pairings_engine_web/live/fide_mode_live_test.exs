@@ -138,6 +138,31 @@ defmodule PairingsEngineWeb.FideModeLiveTest do
              )
     end
 
+    # C.04.6 Art. 1.2.1: the competition's rules state the scoring in
+    # advance, the team match points included - held like the bye's.
+    test "a team event's match points, and outside FIDE mode they are free", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, _} =
+        PairingsEngine.TeamFixtures.team_round_robin(
+          [{"A", [2000, 1900]}, {"B", [1950, 1850]}],
+          user_id: scope.user.id
+        )
+
+      t = PairingsEngine.TeamFixtures.pair_all!(t)
+
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/scoring")
+
+      for field <- ~w(team_match_points_win team_match_points_draw team_match_points_loss) do
+        assert has_element?(lv, "input[name='tournament[#{field}]'][disabled]"), field
+      end
+
+      {:ok, _} = Tournaments.leave_fide_mode(t)
+      {:ok, lv, _} = live(conn, ~p"/t/#{t.id}/settings/scoring")
+      refute has_element?(lv, "input[name='tournament[team_match_points_win]'][disabled]")
+    end
+
     test "a save of the rest of the page still lands", %{conn: conn, scope: scope} do
       tournament = create_tournament(scope)
       pair!(tournament)

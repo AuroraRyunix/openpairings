@@ -3924,8 +3924,11 @@ defmodule PairingsEngine.Tournaments do
       true ->
         roster = team_roster(tournament.id, player.team_id)
         index = Enum.find_index(roster, &(&1.id == player.id))
-        target = if direction == :up, do: index - 1, else: index + 1
+        target = neighbour(index, direction)
 
+        # A player no longer on the roster this page drew (moved to another
+        # team, or deleted, by a co-arbiter) has nowhere to move: a no-op,
+        # like either end of the list.
         if index == nil or target < 0 or target >= length(roster) do
           {:ok, player}
         else
@@ -3939,6 +3942,13 @@ defmodule PairingsEngine.Tournaments do
         end
     end
   end
+
+  # The place one up or down from `index` - nil for an item that is not in
+  # the list at all, which the callers treat as a no-op. Computed before
+  # the nil check used to be `nil - 1`: an ArithmeticError, not a no-op.
+  defp neighbour(nil, _direction), do: nil
+  defp neighbour(index, :up), do: index - 1
+  defp neighbour(index, :down), do: index + 1
 
   defp renumber_roster(tournament_id, team_id),
     do: tournament_id |> team_roster(team_id) |> write_board_orders()
@@ -3975,7 +3985,7 @@ defmodule PairingsEngine.Tournaments do
       true ->
         teams = list_teams(tournament.id)
         index = Enum.find_index(teams, &(&1.id == team.id))
-        target = if direction == :up, do: index - 1, else: index + 1
+        target = neighbour(index, direction)
 
         if index == nil or target < 0 or target >= length(teams) do
           {:ok, team}
@@ -4256,13 +4266,20 @@ defmodule PairingsEngine.Tournaments do
       that has no result yet is forfeited by decision to its opponent
       (`PairingsEngine.TeamMatches.forfeit_match/3`) - the rounds a team
       round robin's *Pair all* wrote in advance. A match in a round FIDE mode
-      has closed (`ensure_round_editable/2`) is left as it is.
+      has closed (`ensure_round_editable/2`) is left as it is;
+    * every match of the team from round `from_round` on that the OPPONENT's
+      earlier withdrawal forfeited to this team, with no game played,
+      becomes a double forfeit (`PairingsEngine.TeamMatches.double_forfeit/2`):
+      both teams are out of it, so it is the match neither team plays that a
+      round paired after both withdrawals would have written. Which team
+      withdrew first no longer matters.
 
   `from_round` is the first round the team does not play. A team round robin
   set to annul a withdrawal under half its matches (`team_withdrawal_annul`)
   then leaves the team's matches out of the standings
   (`PairingsEngine.TeamStandings.annulled_team_ids/2`). Returns
-  `{:ok, %{team: team, forfeited: [match]}}`; `reinstate_team/2` undoes it.
+  `{:ok, %{team: team, forfeited: [match]}}` - the double forfeits among
+  them; `reinstate_team/2` undoes it.
   """
   def withdraw_team(%Tournament{} = tournament, %Team{} = team, from_round) do
     cond do
@@ -4300,10 +4317,48 @@ defmodule PairingsEngine.Tournaments do
                 [PairingsEngine.TeamMatches.forfeit_match(tournament, match, opponent_id)],
               do: updated
 
+        doubled =
+          for match <- matches_awarded_to(tournament, team, from_round),
+              {:ok, updated} <- [awarded_to_double_forfeit(tournament, match)],
+              do: updated
+
         invalidate_manual_ranking(tournament.id)
         broadcast_tournament_change(tournament.id, :players)
-        {:ok, %{team: team, forfeited: forfeited}}
+        {:ok, %{team: team, forfeited: forfeited ++ doubled}}
     end
+  end
+
+  # The team's matches in round `from_round` or later that an earlier
+  # withdrawal - the OPPONENT's - forfeited to this team before a game of
+  # them was played. Both teams are now out of them, so neither can have
+  # won: each becomes the double forfeit the pairing writes for a match
+  # neither team plays (`TeamRounds.create_round/4`). Without this the team
+  # that withdrew second kept a forfeit win for a match nobody played, and
+  # the standings depended on the order of the two clicks.
+  defp matches_awarded_to(tournament, team, from_round) do
+    from(m in Match,
+      join: r in assoc(m, :round),
+      where: r.tournament_id == ^tournament.id and r.number >= ^from_round,
+      where: m.forfeited_to_team_id == ^team.id,
+      order_by: [r.number, m.board]
+    )
+    |> Repo.all()
+    |> Enum.filter(&PairingsEngine.TeamMatches.decided_by_hand?/1)
+    |> Enum.reject(&PairingsEngine.TeamMatches.played_before_decision?/1)
+  end
+
+  # Withdraw the forfeit (its boards get back what they held), then record
+  # the double forfeit, in one transaction so a refusal halfway leaves the
+  # forfeit standing rather than nothing at all.
+  defp awarded_to_double_forfeit(tournament, match) do
+    Repo.transaction(fn ->
+      with {:ok, withdrawn} <- PairingsEngine.TeamMatches.withdraw_forfeit(tournament, match),
+           {:ok, doubled} <- PairingsEngine.TeamMatches.double_forfeit(tournament, withdrawn) do
+        doubled
+      else
+        {:error, reason} -> Repo.rollback(reason)
+      end
+    end)
   end
 
   # The team's matches in round `from_round` or later that nobody has
@@ -4325,7 +4380,9 @@ defmodule PairingsEngine.Tournaments do
   Undoes `withdraw_team/3`: the players it withdrew are back in the event,
   and the forfeit decisions it took on the team's later matches are
   withdrawn (`TeamMatches.withdraw_forfeit/2`), so those boards are as they
-  were. A decision on a match whose round FIDE mode has closed stays.
+  were. A double forfeit it made of a match against a team that withdrew
+  too is a forfeit to this team again. A decision on a match whose round
+  FIDE mode has closed stays.
   `{:error, :not_withdrawn}` for a team still in the event.
   """
   def reinstate_team(%Tournament{} = tournament, %Team{} = team) do
@@ -4352,6 +4409,25 @@ defmodule PairingsEngine.Tournaments do
 
         Enum.each(decided, &PairingsEngine.TeamMatches.withdraw_forfeit(tournament, &1))
 
+        # A double forfeit against a team that has itself withdrawn by then
+        # is what `withdraw_team/3` made of the forfeit that team's
+        # withdrawal had given this one. This team is back, so the forfeit
+        # is too - the same result as if this team had never left.
+        tournament
+        |> doubled_by_withdrawal(team)
+        |> Enum.each(fn match ->
+          Repo.transaction(fn ->
+            with {:ok, withdrawn} <-
+                   PairingsEngine.TeamMatches.withdraw_forfeit(tournament, match),
+                 {:ok, awarded} <-
+                   PairingsEngine.TeamMatches.forfeit_match(tournament, withdrawn, team.id) do
+              awarded
+            else
+              {:error, reason} -> Repo.rollback(reason)
+            end
+          end)
+        end)
+
         ids = team.withdrawal_player_ids || []
 
         {:ok, team} =
@@ -4370,6 +4446,35 @@ defmodule PairingsEngine.Tournaments do
         broadcast_tournament_change(tournament.id, :players)
         {:ok, team}
     end
+  end
+
+  # `team`'s double forfeits from its withdrawal round on, taken by hand
+  # (a double forfeit never has a game played), whose opponent had
+  # withdrawn by that round.
+  defp doubled_by_withdrawal(tournament, team) do
+    withdrawn_from =
+      Repo.all(
+        from t in Team,
+          where: t.tournament_id == ^tournament.id and not is_nil(t.withdrawn_from_round),
+          select: {t.id, t.withdrawn_from_round}
+      )
+      |> Map.new()
+
+    from(m in Match,
+      join: r in assoc(m, :round),
+      where: r.tournament_id == ^tournament.id and r.number >= ^team.withdrawn_from_round,
+      where: m.team_a_id == ^team.id or m.team_b_id == ^team.id,
+      where: m.double_forfeit == true,
+      select: {m, r.number}
+    )
+    |> Repo.all()
+    |> Enum.filter(fn {m, number} ->
+      opponent = if m.team_a_id == team.id, do: m.team_b_id, else: m.team_a_id
+      from = Map.get(withdrawn_from, opponent)
+
+      PairingsEngine.TeamMatches.decided_by_hand?(m) and is_integer(from) and from <= number
+    end)
+    |> Enum.map(&elem(&1, 0))
   end
 
   @doc """
@@ -6077,6 +6182,7 @@ defmodule PairingsEngine.Tournaments do
          :ok <- ensure_board_unchanged(pairing),
          :ok <- ensure_result_round_open(tournament, pairing),
          :ok <- ensure_no_match_score(pairing),
+         :ok <- ensure_match_undecided(pairing),
          :ok <- ensure_postponed_allowed(tournament, result),
          :ok <-
            pairing
@@ -6107,6 +6213,7 @@ defmodule PairingsEngine.Tournaments do
            %Tournament{} = tournament <- Repo.get(Tournament, tournament_id),
            :ok <- ensure_result_round_open(tournament, pairing),
            :ok <- ensure_no_match_score(pairing),
+           :ok <- ensure_match_undecided(pairing),
            :ok <-
              pairing
              |> PostponedGames.result_warnings("")
@@ -6180,6 +6287,26 @@ defmodule PairingsEngine.Tournaments do
            select: 1
        ),
        do: {:error, :match_score_set},
+       else: :ok
+  end
+
+  # A board of a match decided as a whole - forfeited to one team, or a
+  # double forfeit (`TeamMatches`) - carries the result the decision wrote.
+  # A board edited underneath it would leave the match decided one way and
+  # its boards saying another: game points moving, `match_played?` turning
+  # true, the TRF still writing a `330`. The decision is withdrawn first
+  # (`TeamMatches.withdraw_forfeit/2`), which frees the boards.
+  defp ensure_match_undecided(%Pairing{match_id: nil}), do: :ok
+
+  defp ensure_match_undecided(%Pairing{match_id: match_id}) do
+    if Repo.exists?(
+         from m in Match,
+           where:
+             m.id == ^match_id and
+               (not is_nil(m.forfeited_to_team_id) or m.double_forfeit == true),
+           select: 1
+       ),
+       do: {:error, :match_decided},
        else: :ok
   end
 

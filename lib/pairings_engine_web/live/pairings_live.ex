@@ -545,6 +545,35 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp no_team?(unattached, pairing), do: Enum.any?(unattached, &(&1.pairing.id == pairing.id))
 
+  # A board of a match forfeited by decision or recorded as a double
+  # forfeit: its result belongs to the decision (`Tournaments.
+  # update_pairing_result/3` refuses it with `:match_decided`).
+  # What withdrawing a match decision does: a decision taken by hand gives
+  # the boards back what they held; one the pairing or an import wrote has
+  # nothing to give back, so the match is seated again
+  # (`TeamMatches.withdraw_forfeit/2`).
+  defp withdraw_decision_confirm(m) do
+    if m.decided_by_hand?,
+      do:
+        gettext(
+          "Withdraw the decision? The boards of match %{match} get back the results they had before it.",
+          match: m.number
+        ),
+      else:
+        gettext(
+          "Withdraw the decision? Nobody took it by hand, so there are no earlier results to give back: match %{match} is seated again from the teams' line-ups for this round, as the pairing would seat it now.",
+          match: m.number
+        )
+  end
+
+  defp decided_board?(_team_matches, %{match_id: nil}), do: false
+
+  defp decided_board?(team_matches, %{match_id: match_id}) do
+    Enum.any?(team_matches, fn m ->
+      m.match_id == match_id and (not is_nil(m.forfeited_to) or m.double_forfeit?)
+    end)
+  end
+
   # The marker beside the board number of a board that belongs to no match.
   # Rendered only for such a board, so every other board's cell stays exactly
   # `<td class="num">N</td>`.
@@ -7776,12 +7805,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   phx-click="withdraw_match_forfeit"
                   phx-value-match-id={m.match_id}
                   aria-describedby={"match-decision-#{m.match_id}"}
-                  data-confirm={
-                    gettext(
-                      "Withdraw the decision? The boards of match %{match} get back the results they had before it.",
-                      match: m.number
-                    )
-                  }
+                  data-confirm={withdraw_decision_confirm(m)}
                   disabled={!is_nil(@tournament.archived_at)}
                 >
                   {gettext("Withdraw the decision")}
@@ -7799,12 +7823,7 @@ defmodule PairingsEngineWeb.PairingsLive do
                   phx-click="withdraw_match_forfeit"
                   phx-value-match-id={m.match_id}
                   aria-describedby={"match-decision-#{m.match_id}"}
-                  data-confirm={
-                    gettext(
-                      "Withdraw the decision? The boards of match %{match} get back the results they had before it.",
-                      match: m.number
-                    )
-                  }
+                  data-confirm={withdraw_decision_confirm(m)}
                   disabled={!is_nil(@tournament.archived_at)}
                 >
                   {gettext("Withdraw the decision")}
@@ -8003,6 +8022,20 @@ defmodule PairingsEngineWeb.PairingsLive do
                 <%= cond do %>
                   <% pairing.result == "bye" -> %>
                     <span class="badge">{gettext("bye (%{pts} pt)", pts: @tournament.bye_value)}</span>
+                  <% decided_board?(@team_matches, pairing) -> %>
+                    <%!-- The match was decided as a whole: its boards say what
+                          the decision wrote, and a picker here would only be
+                          refused (`:match_decided`). The way to change one is
+                          to withdraw the decision in the matches table. --%>
+                    <span
+                      class="badge"
+                      id={"decided-result-#{pairing.id}"}
+                      title={
+                        gettext("Decided on the match. Withdraw the decision to change this board.")
+                      }
+                    >
+                      {pairing.result}<span class="sr-only">{gettext(": decided on the match")}</span>
+                    </span>
                   <% @confirm_postponed && @confirm_postponed.pairing_id == pairing.id -> %>
                     <%!-- A postponed game given a result that is not a draw
                           (VCL4THP Q163): the same shape as clearing a result,

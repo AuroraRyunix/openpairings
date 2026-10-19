@@ -31,7 +31,9 @@ Keizer kan geen ploegentoernooi zijn.
    kan ook op haar kaart ingetypt worden, en die wint dan. Een ongerate speler telt mee met de rating
    ingesteld bij *Rating van een ongerate speler* (standaard 1400).
 6. **Wedstrijdpunten** (Instellingen, Puntentelling): standaard 2, 1, 0. Een competitie die 3, 1, 0
-   scoort, past ze hier aan. Partijpunten tellen de bordresultaten.
+   scoort, past ze hier aan. Partijpunten tellen de bordresultaten. In de FIDE-modus kun je ze
+   niet meer wijzigen zodra ronde 1 gepaard is: het reglement van de competitie legt de
+   puntentelling vooraf vast (C.04.6 art. 1.2.1).
 7. **Tiebreaks** (Instellingen, Toernooi): een ploegentoernooi krijgt de ploegtiebreaks aangeboden. De
    FIDE-standaard is MP, GP, DE, BB, SB.
 
@@ -84,7 +86,13 @@ een resultaat heeft, een link naar de opstellingen van de wedstrijd (*Opstelling
   van de wedstrijd is ingevoerd.
 - *Forfait bij beslissing*: *Aan ploeg A* / *Aan ploeg B* maakt elk bord van de wedstrijd het
   forfaitresultaat van die ploeg, en *Geen van beide* registreert een dubbel forfait (beide verliezen). *Beslissing intrekken* herstelt de oude
-  resultaten. Eerst wordt een herstelpunt bewaard.
+  resultaten. Eerst wordt een herstelpunt bewaard. De borden van een beslechte wedstrijd tonen het
+  resultaat van de beslissing en krijgen geen eigen resultaat: trek eerst de beslissing in.
+- Een dubbel forfait dat de paring zelf schreef (beide ploegen afwezig in de ronde, of geen van
+  beide kan een speler opstellen) heeft geen oude resultaten om te herstellen. *Beslissing
+  intrekken* stelt de wedstrijd dan opnieuw op, zoals de paring dat nu zou doen - markeer dus eerst
+  de ploeg of haar spelers als beschikbaar. Zolang niemand opgesteld kan worden, wordt het
+  geweigerd.
 - Een bord dat met de hand is toegevoegd (twee spelers uit de lijst van niet-spelenden) sluit aan bij de
   wedstrijd van hun ploegen wanneer het tafelnummer, de kleuren en de bordvolgordes passen; past het niet,
   dan wordt het gemarkeerd als **geen ploeg** en telt het voor geen enkele ploeg totdat je het een bord van
@@ -110,7 +118,10 @@ ingelezen, staat weer op de standaard.
 
 Een ploeg kan op haar kaart voor een ronde als **afwezig als ploeg** gemarkeerd worden (vóór de ronde gepaard
 is); een ploeg die zich terugtrekt, wordt in de rangschikking getoond als *teruggetrokken, resultaten niet
-geteld* (rondetoernooi, minder dan 50% gespeeld, FIDE Algemeen Reglement 6.6).
+geteld* (rondetoernooi, minder dan 50% gespeeld, FIDE Algemeen Reglement 6.6). Trekken twee ploegen
+die nog tegen elkaar moesten spelen zich allebei terug, dan is hun wedstrijd een dubbel forfait,
+welke ploeg zich ook eerst terugtrok; zet je een van beide terug, dan krijgt die de forfaitwinst
+terug.
 
 ## Resultaten en rangschikking {#results-and-standings}
 
@@ -128,6 +139,16 @@ partijen, punten, percentage en prestatie.
 MP (wedstrijdpunten), GP (partijpunten), DE (directe ontmoeting), BB (bordpunten gewogen per bord), SB, BH:GP, EMGSB, EGMSB, EGGSB, EDE (uitgebreide directe ontmoeting), TBR (resultaten op het topbord), BBE (eliminatie op het laagste bord), SSSC.
 De behandeling van niet-gespeelde partijen van C.07 artikel 16 geldt voor byes, forfaitwedstrijden
 en teruggetrokken ploegen in een ploegen-Zwitsers.
+
+- **Gewonnen, gelijk, verloren** en de tiebreaks lezen een wedstrijd af aan zijn wedstrijdpunten:
+  een wedstrijd toegekend aan een ploeg die niemand opstelde, staat 0-0 op de borden en is toch
+  een (forfait)winst.
+- **DE** telt een wedstrijd die zonder partij beslist werd - een forfait of een dubbel forfait -
+  alleen in een rondetoernooi mee, waar C.07 art. 15.2 forfaits tot partijen maakt; in een
+  ploegen-Zwitsers is het geen ontmoeting (art. 6.1.1). Het getoonde getal en de volgorde komen
+  overeen.
+- **BB** telt een bye in een ploegen-Zwitsers als een winst op elk bord, zoals Board Count dat doet
+  (C.07 art. 12), al zijn de partijpunten die van een gelijkgespeelde wedstrijd.
 
 ## Afdrukken {#printing}
 

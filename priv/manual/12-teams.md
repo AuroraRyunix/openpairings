@@ -33,7 +33,9 @@ Keizer cannot be a team tournament.
    rating can also be typed on its card, which then wins. An unrated player
    counts as the rating set in *Rating of an unrated player* (1400 by default).
 6. **Match points** (Settings, Scoring): 2, 1, 0 by default. A league that scores
-   3, 1, 0 changes them here. Game points count board results.
+   3, 1, 0 changes them here. Game points count board results. In FIDE mode
+   they cannot change once round 1 is paired: the competition's rules state the
+   scoring in advance (C.04.6 Art. 1.2.1).
 7. **Tie-breaks** (Settings, Tournament): a team tournament is offered the team
    tie-breaks. The FIDE default is MP, GP, DE, BB, SB.
 
@@ -90,7 +92,14 @@ line-ups (*Line-ups*) and the **Forfeit by decision** controls.
 - *Forfeit by decision*: *To Team A* / *To Team B* makes every board of the
   match the forfeit result of that team, and *Neither team* records a double
   forfeit (both lose). *Withdraw the decision* gives back the old results. A
-  restore point is saved first.
+  restore point is saved first. The boards of a decided match show the
+  decision's result and take no result of their own: withdraw the decision
+  first.
+- A double forfeit the pairing wrote itself (both teams out of the round, or
+  neither able to field a player) has no old results to give back.
+  *Withdraw the decision* then seats the match again, as the pairing would
+  seat it now - so mark the team or its players available first. While
+  nobody could be seated it is refused.
 - A board added by hand (two players from the not-playing list) joins its
   teams' match when the table number, the colours and the board orders fit; when it does
   not, it is marked **no team** and counts for no team until you make it a board
@@ -118,7 +127,9 @@ tournament read from a TRF comes back on the default.
 A team can be marked **absent as a team** for a round on its card (before the
 round is paired); a team that withdraws is shown as *withdrawn, results not
 counted* in the standings (round robin, under 50% played, FIDE General
-Regulations 6.6).
+Regulations 6.6). When two teams that still had to meet both withdraw, their
+match is a double forfeit, whichever withdrew first; reinstating one of them
+gives it the forfeit win back.
 
 ## Results and standings
 
@@ -138,6 +149,16 @@ weighted by board), SB, BH:GP, EMGSB, EGMSB, EGGSB, EDE (extended direct
 encounter), TBR (top board results), BBE (bottom board elimination), SSSC.
 The unplayed-game handling of C.07 Article 16 applies to byes, forfeited
 matches and withdrawn teams in a team Swiss.
+
+- **Won, drawn, lost** and the tie-breaks read a match by its match points:
+  a match awarded to a team that seated nobody is 0-0 on the boards and
+  still a (forfeit) win.
+- **DE** counts a match decided without a game - forfeited, or a double
+  forfeit - only in a round robin, where C.07 Art. 15.2 makes forfeits games;
+  in a team Swiss it is no encounter (Art. 6.1.1). The number shown and the
+  order agree.
+- **BB** counts a team Swiss bye as a win on every board, as Board Count
+  does (C.07 Art. 12), although its game points are a drawn match's.
 
 ## Printing
 

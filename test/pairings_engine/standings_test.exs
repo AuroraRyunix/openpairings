@@ -941,6 +941,41 @@ defmodule PairingsEngine.StandingsTest do
       assert ep.tiebreaks["DE"] == 1.0
       assert eq.tiebreaks["DE"] == 0.0
     end
+
+    # C.07 Art. 6.1.1 leaves forfeits out of DE except where Art. 15.2 makes
+    # them games: a round robin. The order (Ainalrami) reads it so; the
+    # number on the page has to as well.
+    test "DE counts a forfeit in a round robin, and only there" do
+      for {system, expected} <- [{"round_robin", {1.0, 0.0}}, {"swiss", {0.0, 0.0}}] do
+        tournament =
+          Repo.insert!(%Tournament{
+            name: "DE forfeit #{system}",
+            type: "swiss",
+            pairing_system: system,
+            rounds_count: 1,
+            tiebreaks: ~w(DE),
+            count_extra_points: true
+          })
+
+        p = Repo.insert!(%Player{tournament_id: tournament.id, name: "P", extra_points: 0.0})
+        q = Repo.insert!(%Player{tournament_id: tournament.id, name: "Q", extra_points: 1.0})
+        r1 = Repo.insert!(%Round{tournament_id: tournament.id, number: 1, status: "finished"})
+
+        Repo.insert!(%Pairing{
+          round_id: r1.id,
+          board: 1,
+          white_player_id: p.id,
+          black_player_id: q.id,
+          result: "1-0FF"
+        })
+
+        entries = Standings.standings(tournament)
+        ep = Enum.find(entries, &(&1.player.id == p.id))
+        eq = Enum.find(entries, &(&1.player.id == q.id))
+
+        assert {ep.tiebreaks["DE"], eq.tiebreaks["DE"]} == expected, system
+      end
+    end
   end
 
   describe "Article 16.5.1 Cut-1 Exception: a VUR contribution is cut in preference to an ordinary one" do
