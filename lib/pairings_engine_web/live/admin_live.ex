@@ -44,6 +44,19 @@ defmodule PairingsEngineWeb.AdminLive do
   It is deliberately a short, unpaginated list: this is "what changed
   recently", not the full tournament-style audit trail those acts are too
   broad to belong to (see `PairingsEngineWeb.AuditLive`).
+
+  ## The role is checked on every click, not just at the door
+
+  `PairingsEngineWeb.RequireRole` runs at mount. A socket lives for as long
+  as the tab stays open, so an administrator demoted at ten o'clock used to
+  keep administering until they happened to reload - with `current_scope`
+  still saying "admin", because it was read once and never again. Every
+  event now re-reads the acting account from the database first.
+
+  The other half: a role change disconnects the TARGET's live sockets (the
+  same `users_sessions:*` broadcast a password change uses), so they remount
+  through `RequireRole` with whatever they are now. Their session survives;
+  only their view of the world is refreshed.
   """
   use PairingsEngineWeb, :live_view
 
@@ -54,6 +67,7 @@ defmodule PairingsEngineWeb.AdminLive do
   alias PairingsEngine.Build
   alias PairingsEngine.Updates.Checker
   alias PairingsEngineWeb.AuditLive
+  alias PairingsEngineWeb.UserAuth
 
   require Logger
 
@@ -74,7 +88,27 @@ defmodule PairingsEngineWeb.AdminLive do
   end
 
   @impl true
-  def handle_event("ask", %{"id" => id, "role" => role}, socket) do
+  def handle_event(event, params, socket) do
+    if still_admin?(socket) do
+      event(event, params, socket)
+    else
+      {:noreply,
+       socket
+       |> put_flash(:error, gettext("This page is for administrators."))
+       |> redirect(to: ~p"/")}
+    end
+  end
+
+  # Fresh from the database, never from `current_scope`: that struct was
+  # loaded at mount and has no way of knowing what happened since.
+  defp still_admin?(socket) do
+    case socket.assigns.current_scope do
+      %{user: %User{id: id}} -> id |> Accounts.get_user() |> Authz.may_administer?()
+      _ -> false
+    end
+  end
+
+  defp event("ask", %{"id" => id, "role" => role}, socket) do
     user = Enum.find(socket.assigns.users, &(to_string(&1.id) == id))
 
     cond do
@@ -91,12 +125,22 @@ defmodule PairingsEngineWeb.AdminLive do
     end
   end
 
-  def handle_event("cancel", _params, socket), do: {:noreply, assign(socket, pending: nil)}
+  defp event("cancel", _params, socket), do: {:noreply, assign(socket, pending: nil)}
 
-  def handle_event("confirm", _params, %{assigns: %{pending: %{user: user, role: role}}} = socket) do
+  defp event("confirm", _params, %{assigns: %{pending: %{user: pending, role: role}}} = socket) do
+    # The list on screen may be minutes old - another administrator may have
+    # demoted somebody since - and "is this the last administrator?" is a
+    # question about now. So is the target's own current role.
+    socket = assign(socket, users: Accounts.list_users())
+    user = Enum.find(socket.assigns.users, &(&1.id == pending.id)) || pending
+
     if editable?(socket.assigns, user) and not last_admin_demotion?(socket.assigns, user, role) do
       from_role = User.role(user) |> to_string()
       {:ok, updated} = Accounts.set_role(user.email, role)
+
+      # Their open tabs were mounted under the old role; send them back
+      # through `RequireRole` rather than letting them find out on reload.
+      updated |> Accounts.list_user_sessions() |> UserAuth.disconnect_sessions()
 
       Logger.info(
         "Role changed: #{updated.email} is now #{role} " <>
@@ -118,14 +162,14 @@ defmodule PairingsEngineWeb.AdminLive do
     end
   end
 
-  def handle_event("confirm", _params, socket), do: {:noreply, socket}
+  defp event("confirm", _params, socket), do: {:noreply, socket}
 
   # Desktop only - guarded here even though the button that fires this is
   # itself only rendered on a local install (see the template), for the same
   # "checked more than once" reason `PairingsEngine.Updates`'s moduledoc
   # gives for its own three guards: a hosted server must never make this
   # request no matter what a crafted client message claims.
-  def handle_event("check_updates_now", _params, socket) do
+  defp event("check_updates_now", _params, socket) do
     if Authz.local_mode?() do
       {:noreply, assign(socket, update_check: Checker.check_now_manual())}
     else

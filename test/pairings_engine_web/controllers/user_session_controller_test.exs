@@ -79,6 +79,7 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       # domain check regardless of whether the password is correct.
       {:ok, user} =
         Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
           sub: Ecto.UUID.generate(),
           email: "someone@zerotwo.cloud"
         })
@@ -171,10 +172,11 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
 
   describe "password sign-in is rate limited" do
     # This route had no ceiling but bcrypt's own cost, while every other
-    # unauthenticated endpoint in the app was given one deliberately. It
-    # shares the magic-link form's two buckets: per address, so a password
-    # list cannot be walked against one account, and per client, so one
-    # client cannot walk a list of addresses.
+    # unauthenticated endpoint in the app was given one deliberately. Per
+    # {address, client}, so a password list cannot be walked against one
+    # account from one place, and per client, so one client cannot walk a
+    # list of addresses. Never per address alone: that is a lockout anybody
+    # can trigger for somebody else.
     setup do
       user =
         PairingsEngine.AccountsFixtures.set_password(
@@ -182,8 +184,7 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
         )
 
       clear = fn ->
-        PairingsEngine.RateLimit.clear(:login_email, String.downcase(user.email))
-        PairingsEngine.RateLimit.clear(:login_client, "127.0.0.1")
+        PairingsEngine.RateLimit.clear_all()
       end
 
       clear.()
@@ -193,7 +194,7 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
     end
 
     test "a wrong password eventually stops being answered", %{conn: conn, user: user} do
-      %{max: max} = PairingsEngine.RateLimit.config(:login_email)
+      %{max: max} = PairingsEngine.RateLimit.config(:login_password)
 
       # Exhaust the allowance with wrong passwords.
       for _ <- 1..max do
@@ -214,7 +215,7 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       # An arbiter signing in and out during their own tournament must not
       # run themselves out of attempts, so only failures are counted.
       password = PairingsEngine.AccountsFixtures.valid_user_password()
-      %{max: max} = PairingsEngine.RateLimit.config(:login_email)
+      %{max: max} = PairingsEngine.RateLimit.config(:login_password)
 
       for _ <- 1..(max + 2) do
         conn
@@ -231,6 +232,58 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       # request had failed some other way.
       assert get_session(conn, :user_token)
       assert redirected_to(conn) == ~p"/"
+    end
+
+    test "wrong passwords from one client do not lock the owner out from another", %{
+      conn: conn,
+      user: user
+    } do
+      original = Application.get_env(:pairings_engine, :trusted_proxy_hops, 0)
+      Application.put_env(:pairings_engine, :trusted_proxy_hops, 1)
+      on_exit(fn -> Application.put_env(:pairings_engine, :trusted_proxy_hops, original) end)
+
+      %{max: max} = PairingsEngine.RateLimit.config(:login_password)
+
+      attempt = fn ip, password ->
+        conn
+        |> put_req_header("x-forwarded-for", ip)
+        |> post(~p"/users/log-in", %{"user" => %{"email" => user.email, "password" => password}})
+      end
+
+      for _ <- 1..max, do: attempt.("203.0.113.66", "wrong-one")
+
+      # The guesser is out of tries, even with the right password...
+      blocked = attempt.("203.0.113.66", PairingsEngine.AccountsFixtures.valid_user_password())
+      assert Phoenix.Flash.get(blocked.assigns.flash, :error) =~ "Too many sign-in attempts"
+      refute get_session(blocked, :user_token)
+
+      # ...and the owner, somewhere else, never finds out it happened.
+      owner = attempt.("198.51.100.20", PairingsEngine.AccountsFixtures.valid_user_password())
+      assert get_session(owner, :user_token)
+    end
+
+    test "a spent magic-link allowance never refuses a correct password", %{
+      conn: conn,
+      user: user
+    } do
+      # Somebody asked for five log-in links to this address. That costs the
+      # owner a quarter of an hour of mail, not the ability to sign in.
+      %{max: max} = PairingsEngine.RateLimit.config(:login_email)
+
+      for _ <- 1..max,
+          do: PairingsEngine.RateLimit.record(:login_email, String.downcase(user.email))
+
+      refute PairingsEngine.RateLimit.allow?(:login_email, String.downcase(user.email))
+
+      conn =
+        post(conn, ~p"/users/log-in", %{
+          "user" => %{
+            "email" => user.email,
+            "password" => PairingsEngine.AccountsFixtures.valid_user_password()
+          }
+        })
+
+      assert get_session(conn, :user_token)
     end
 
     test "the client bucket is keyed on ClientIp, so one proxied visitor cannot lock out the rest",

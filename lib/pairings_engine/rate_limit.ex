@@ -16,7 +16,14 @@ defmodule PairingsEngine.RateLimit do
 
     * `:login_email` - magic-link sends, keyed by RECIPIENT address. This is
       the one that protects a person's inbox (and the SMTP quota) from being
-      buried in log-in links, so it is deliberately tight.
+      buried in log-in links, so it is deliberately tight. It counts MAIL
+      only, and nothing that checks a password ever consults it: keyed by
+      the victim's address alone, it is a button anyone can press to lock
+      that victim out.
+
+    * `:login_password` - wrong passwords, keyed by `{address, client}`. A
+      guesser runs out of tries against an account from where they sit; the
+      account's owner, typing from somewhere else, never notices.
 
     * `:login_client` - the same sends, keyed by CLIENT address, to stop one
       client walking a list of addresses. Much looser than the recipient
@@ -56,6 +63,7 @@ defmodule PairingsEngine.RateLimit do
     mobile_enroll: %{max: 8, window_ms: :timer.minutes(10)},
     login_email: %{max: 5, window_ms: :timer.minutes(15)},
     login_client: %{max: 30, window_ms: :timer.minutes(15)},
+    login_password: %{max: 10, window_ms: :timer.minutes(15)},
     public_register: %{max: 40, window_ms: :timer.minutes(15)},
     # The results site searching this machine's FIDE list on behalf of
     # somebody filling in the entry form. A person typing a name fires a
@@ -107,6 +115,7 @@ defmodule PairingsEngine.RateLimit do
           :mobile_enroll
           | :login_email
           | :login_client
+          | :login_password
           | :public_register
           | :fide_lookup
           | :tools_upload

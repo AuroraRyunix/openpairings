@@ -76,6 +76,9 @@ defmodule PairingsEngine.Accounts do
   """
   def get_user!(id), do: Repo.get!(User, id)
 
+  @doc "Gets a single user, or `nil` - for callers to whom a vanished account is an answer, not a crash."
+  def get_user(id), do: Repo.get(User, id)
+
   ## User registration
 
   @doc """
@@ -106,8 +109,10 @@ defmodule PairingsEngine.Accounts do
   to any other domain's SSO identity, per the same "SSO always gets in"
   policy.
 
-  `attrs` is `%{sub: sub, email: email}` (`sub` and `email` from Keycloak's
-  userinfo response - see `PairingsEngineWeb.KeycloakAuthController`).
+  `attrs` is `%{sub: sub, email: email, email_verified: boolean}` (from
+  Keycloak's userinfo response - see `PairingsEngineWeb.KeycloakAuthController`,
+  which also explains why its synthesized SSO-domain addresses count as
+  verified).
 
   Resolution order, matching how a person's SSO identity can legitimately
   relate to an existing local account:
@@ -118,25 +123,55 @@ defmodule PairingsEngine.Accounts do
   2. **By `email`** - a pre-existing password/magic-link account whose email
      matches this SSO identity gets *coupled* (its `keycloak_sub` is set) -
      "auto create a coupled account" for someone who already had one, rather
-     than producing a confusing second account with the same email.
+     than producing a confusing second account with the same email. Only
+     for a VERIFIED address, and only onto an account that is not already
+     coupled to somebody else's `sub`.
   3. **Neither** - a brand-new account is created, pre-confirmed (see
      `User.keycloak_changeset/2` for why).
 
-  Returns `{:ok, user}` or `{:error, changeset}`.
+  Returns `{:ok, user}`, `{:error, :email_unverified}` when the address was
+  not verified (nothing is looked up or created by it - an unverified
+  address is a claim, and claims do not open other people's accounts),
+  `{:error, :keycloak_sub_conflict}` when the address belongs to an account
+  coupled to a DIFFERENT identity, or `{:error, changeset}`.
+
+  A missing `:email_verified` counts as `false`. The safe default for a
+  function whose whole job is deciding who gets into an account is "no".
   """
-  def find_or_create_from_keycloak(%{sub: sub, email: email})
+  def find_or_create_from_keycloak(%{sub: sub, email: email} = attrs)
       when is_binary(sub) and is_binary(email) do
+    # Read outside the `case`: in a guard, `attrs.email_verified` on a map
+    # without the key quietly fails the guard and falls through to the clause
+    # that CREATES the account - the one place "no" must not become "yes".
+    verified? = Map.get(attrs, :email_verified) == true
+
     case get_user_by_keycloak_sub(sub) do
       %User{} = user ->
         {:ok, user}
 
+      nil when not verified? ->
+        {:error, :email_unverified}
+
       nil ->
         Repo.transact(fn ->
-          user = get_user_by_email(email) || %User{}
+          case get_user_by_email(email) do
+            nil ->
+              %User{}
+              |> User.keycloak_changeset(%{email: email, keycloak_sub: sub})
+              |> Repo.insert()
 
-          user
-          |> User.keycloak_changeset(%{email: email, keycloak_sub: sub})
-          |> Repo.insert_or_update()
+            # Already coupled to a different directory identity. Overwriting
+            # the `sub` would hand the account to whichever identity logged in
+            # last with that address - two identities claiming one mailbox is
+            # a question for a human, not a tie-break for this function.
+            %User{keycloak_sub: existing} when is_binary(existing) and existing != "" ->
+              {:error, :keycloak_sub_conflict}
+
+            %User{} = user ->
+              user
+              |> User.keycloak_changeset(%{email: email, keycloak_sub: sub})
+              |> Repo.update()
+          end
         end)
     end
   end

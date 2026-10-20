@@ -4,7 +4,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 #: lib/pairings_engine_web/components/core_components.ex:485
-#: lib/pairings_engine_web/live/admin_live.ex:238
+#: lib/pairings_engine_web/live/admin_live.ex:282
 #: lib/pairings_engine_web/live/badge_events_live.ex:167
 #: lib/pairings_engine_web/live/badge_studio_live.ex:765
 #: lib/pairings_engine_web/live/categories_live.ex:864
@@ -2681,7 +2681,7 @@ msgid "Bye"
 msgstr "Bye"
 
 #: lib/pairings_engine_web/controllers/board_connect_html.ex:76
-#: lib/pairings_engine_web/live/admin_live.ex:297
+#: lib/pairings_engine_web/live/admin_live.ex:341
 #: lib/pairings_engine_web/live/badge_events_live.ex:151
 #: lib/pairings_engine_web/live/categories_live.ex:1054
 #: lib/pairings_engine_web/live/fide_live.ex:776
@@ -3905,7 +3905,7 @@ msgstr "Waarde"
 msgid "Version %{version} - %[whats_new]"
 msgstr "Versie %{version} - %[whats_new]"
 
-#: lib/pairings_engine_web/live/admin_live.ex:354
+#: lib/pairings_engine_web/live/admin_live.ex:398
 #: lib/pairings_engine_web/live/audit_live.ex:2869
 #, elixir-autogen, elixir-format
 msgid "What"
@@ -3916,7 +3916,7 @@ msgstr "Wat"
 msgid "What a round a player sits out is worth, and how many of them are paid. This covers every absence the pairing knows about, whether the player asked for a specific round off or is marked absent outright - those are the same event, because the only way you know before pairing is that they told you. Somebody who was paired and then didn't turn up is a forfeit on their board, not this. A pairing-allocated bye - the odd player out when the field is uneven - has its own value above."
 msgstr "Wat een ronde waard is die een speler niet meespeelt, en hoeveel van die rondes uitbetaald worden. Dit dekt elke afwezigheid die de paring kent, of de speler nu een bepaalde ronde vrij vroeg of gewoon afwezig gezet is - dat is hetzelfde geval, want de enige manier waarop je het voor de paring weet, is dat ze het je verteld hebben. Wie wel gepaard was en dan niet kwam opdagen, is een forfait aan zijn bord, niet dit. Een door de paring toegekende bye - de overtallige speler bij een oneven veld - heeft hierboven zijn eigen waarde."
 
-#: lib/pairings_engine_web/live/admin_live.ex:350
+#: lib/pairings_engine_web/live/admin_live.ex:394
 #: lib/pairings_engine_web/live/audit_live.ex:2865
 #, elixir-autogen, elixir-format
 msgid "When"
@@ -3955,7 +3955,7 @@ msgstr "Wanneer"
 msgid "White"
 msgstr "Wit"
 
-#: lib/pairings_engine_web/live/admin_live.ex:352
+#: lib/pairings_engine_web/live/admin_live.ex:396
 #: lib/pairings_engine_web/live/audit_live.ex:2867
 #, elixir-autogen, elixir-format
 msgid "Who"
@@ -4090,7 +4090,7 @@ msgstr "deze twee spelers troffen elkaar al in een eerdere ronde van dit toernoo
 msgid "this player has now received more than one pairing-allocated (engine-assigned) bye - FIDE Dutch pairing normally avoids repeating that for the same player whenever an alternative exists."
 msgstr "deze speler heeft nu meer dan één door de paring toegekende (door de engine gegeven) bye gekregen - de FIDE Dutch-paring vermijdt dat normaal voor dezelfde speler telkens er een alternatief bestaat."
 
-#: lib/pairings_engine_web/live/admin_live.ex:393
+#: lib/pairings_engine_web/live/admin_live.ex:437
 #: lib/pairings_engine_web/live/tournaments_live.ex:3296
 #: lib/pairings_engine_web/live/tournaments_live.ex:3308
 #: lib/pairings_engine_web/registration_queue.ex:351
@@ -4731,85 +4731,85 @@ msgstr "Publiceren naar %{host} werkt"
 msgid "Refused"
 msgstr "Geweigerd"
 
-#: lib/pairings_engine_web/live/admin_live.ex:287
+#: lib/pairings_engine_web/live/admin_live.ex:331
 #, elixir-autogen, elixir-format
 msgid "%{email} becomes %{role}."
 msgstr "%{email} wordt %{role}."
 
-#: lib/pairings_engine_web/live/admin_live.ex:114
+#: lib/pairings_engine_web/live/admin_live.ex:158
 #, elixir-autogen, elixir-format
 msgid "%{email} is now %{role}"
 msgstr "%{email} is nu %{role}"
 
-#: lib/pairings_engine_web/live/admin_live.ex:251
+#: lib/pairings_engine_web/live/admin_live.ex:295
 #, elixir-autogen, elixir-format
 msgid "(set in the server configuration)"
 msgstr "(ingesteld in de serverconfiguratie)"
 
-#: lib/pairings_engine_web/live/admin_live.ex:247
+#: lib/pairings_engine_web/live/admin_live.ex:291
 #, elixir-autogen, elixir-format
 msgid "(you)"
 msgstr "(jij)"
 
 #: lib/pairings_engine_web/components/layouts.ex:450
-#: lib/pairings_engine_web/live/admin_live.ex:234
+#: lib/pairings_engine_web/live/admin_live.ex:278
 #: lib/pairings_engine_web/live/user_live/settings.ex:105
 #: lib/pairings_engine_web/live/user_live/settings.ex:614
 #, elixir-autogen, elixir-format
 msgid "Account"
 msgstr "Account"
 
-#: lib/pairings_engine_web/live/admin_live.ex:385
+#: lib/pairings_engine_web/live/admin_live.ex:429
 #: lib/pairings_engine_web/live/audit_live.ex:2472
 #, elixir-autogen, elixir-format
 msgid "Account owner"
 msgstr "Accounthouder"
 
-#: lib/pairings_engine_web/live/admin_live.ex:277
+#: lib/pairings_engine_web/live/admin_live.ex:321
 #, elixir-autogen, elixir-format
 msgid "Addresses set in the server's configuration always administer, whether or not they have an account here yet. Remove them from ADMIN_EMAILS to revoke."
 msgstr "Adressen die in de serverconfiguratie staan, beheren altijd, of ze hier al een account hebben of niet. Verwijder ze uit ADMIN_EMAILS om dit in te trekken."
 
 #: lib/pairings_engine_web/components/layouts.ex:326
-#: lib/pairings_engine_web/live/admin_live.ex:205
+#: lib/pairings_engine_web/live/admin_live.ex:249
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:166
 #, elixir-autogen, elixir-format
 msgid "Admin"
 msgstr "Beheer"
 
-#: lib/pairings_engine_web/live/admin_live.ex:383
+#: lib/pairings_engine_web/live/admin_live.ex:427
 #: lib/pairings_engine_web/live/audit_live.ex:2470
 #: lib/pairings_engine_web/live/user_live/settings.ex:1464
 #, elixir-autogen, elixir-format
 msgid "Administrator"
 msgstr "Beheerder"
 
-#: lib/pairings_engine_web/live/admin_live.ex:226
+#: lib/pairings_engine_web/live/admin_live.ex:270
 #, elixir-autogen, elixir-format
 msgid "An administrator can change where this machine publishes, download a backup, and update the rating lists. Support can see those things without changing them."
 msgstr "Een beheerder kan wijzigen waar deze machine publiceert, een back-up downloaden en de ratinglijsten bijwerken. Support kan die zaken bekijken zonder ze te wijzigen."
 
-#: lib/pairings_engine_web/live/admin_live.ex:323
+#: lib/pairings_engine_web/live/admin_live.ex:367
 #, elixir-autogen, elixir-format
 msgid "Backups, publishing and the rating lists are on the Connections page."
 msgstr "Back-ups, publiceren en de ratinglijsten staan op de pagina Verbindingen."
 
-#: lib/pairings_engine_web/live/admin_live.ex:295
+#: lib/pairings_engine_web/live/admin_live.ex:339
 #, elixir-autogen, elixir-format
 msgid "Change the role"
 msgstr "Rol wijzigen"
 
-#: lib/pairings_engine_web/live/admin_live.ex:284
+#: lib/pairings_engine_web/live/admin_live.ex:328
 #, elixir-autogen, elixir-format
 msgid "Change this role?"
 msgstr "Deze rol wijzigen?"
 
-#: lib/pairings_engine_web/live/admin_live.ex:317
+#: lib/pairings_engine_web/live/admin_live.ex:361
 #, elixir-autogen, elixir-format
 msgid "Database"
 msgstr "Databank"
 
-#: lib/pairings_engine_web/live/admin_live.ex:236
+#: lib/pairings_engine_web/live/admin_live.ex:280
 #: lib/pairings_engine_web/live/badge_studio_live.ex:620
 #: lib/pairings_engine_web/live/badge_studio_live.ex:759
 #: lib/pairings_engine_web/live/badge_studio_live.ex:931
@@ -4817,55 +4817,55 @@ msgstr "Databank"
 msgid "Role"
 msgstr "Rol"
 
-#: lib/pairings_engine_web/live/admin_live.ex:309
+#: lib/pairings_engine_web/live/admin_live.ex:353
 #, elixir-autogen, elixir-format
 msgid "Running as"
 msgstr "Draait als"
 
-#: lib/pairings_engine_web/live/admin_live.ex:384
+#: lib/pairings_engine_web/live/admin_live.ex:428
 #: lib/pairings_engine_web/live/audit_live.ex:2471
 #: lib/pairings_engine_web/live/user_live/settings.ex:1465
 #, elixir-autogen, elixir-format
 msgid "Support"
 msgstr "Support"
 
-#: lib/pairings_engine_web/live/admin_live.ex:184
+#: lib/pairings_engine_web/live/admin_live.ex:228
 #, elixir-autogen, elixir-format
 msgid "This address is set in the server's configuration, so it cannot be changed here."
 msgstr "Dit adres staat in de serverconfiguratie en kan hier niet worden gewijzigd."
 
-#: lib/pairings_engine_web/live/admin_live.ex:302
+#: lib/pairings_engine_web/live/admin_live.ex:346
 #, elixir-autogen, elixir-format
 msgid "This installation"
 msgstr "Deze installatie"
 
-#: lib/pairings_engine_web/live/admin_live.ex:189
+#: lib/pairings_engine_web/live/admin_live.ex:233
 #, elixir-autogen, elixir-format
 msgid "This is the last administrator, so the role cannot be taken away."
 msgstr "Dit is de laatste beheerder, dus de rol kan niet worden afgenomen."
 
-#: lib/pairings_engine_web/live/admin_live.ex:305
+#: lib/pairings_engine_web/live/admin_live.ex:349
 #: lib/pairings_engine_web/live/fide_live.ex:957
 #, elixir-autogen, elixir-format
 msgid "Version"
 msgstr "Versie"
 
-#: lib/pairings_engine_web/live/admin_live.ex:223
+#: lib/pairings_engine_web/live/admin_live.ex:267
 #, elixir-autogen, elixir-format
 msgid "Who may administer this installation"
 msgstr "Wie deze installatie mag beheren"
 
-#: lib/pairings_engine_web/live/admin_live.ex:181
+#: lib/pairings_engine_web/live/admin_live.ex:225
 #, elixir-autogen, elixir-format
 msgid "You cannot change your own role."
 msgstr "Je kunt je eigen rol niet wijzigen."
 
-#: lib/pairings_engine_web/live/admin_live.ex:314
+#: lib/pairings_engine_web/live/admin_live.ex:358
 #, elixir-autogen, elixir-format
 msgid "a hosted server"
 msgstr "een gehoste server"
 
-#: lib/pairings_engine_web/live/admin_live.ex:313
+#: lib/pairings_engine_web/live/admin_live.ex:357
 #, elixir-autogen, elixir-format
 msgid "a local install (no accounts, no roles needed)"
 msgstr "een lokale installatie (geen accounts, geen rollen nodig)"
@@ -4875,7 +4875,7 @@ msgstr "een lokale installatie (geen accounts, geen rollen nodig)"
 msgid "Settings - Export"
 msgstr "Instellingen - Export"
 
-#: lib/pairings_engine_web/live/admin_live.ex:362
+#: lib/pairings_engine_web/live/admin_live.ex:406
 #, elixir-autogen, elixir-format
 msgid "No installation-wide activity recorded yet."
 msgstr "Nog geen installatiebrede activiteit geregistreerd."
@@ -4885,12 +4885,12 @@ msgstr "Nog geen installatiebrede activiteit geregistreerd."
 msgid "Public address (optional)"
 msgstr "Publiek adres (optioneel)"
 
-#: lib/pairings_engine_web/live/admin_live.ex:338
+#: lib/pairings_engine_web/live/admin_live.ex:382
 #, elixir-autogen, elixir-format
 msgid "Recent activity"
 msgstr "Recente activiteit"
 
-#: lib/pairings_engine_web/live/admin_live.ex:341
+#: lib/pairings_engine_web/live/admin_live.ex:385
 #, elixir-autogen, elixir-format
 msgid "The most recent machine-wide actions: role changes, backup downloads, publishing changes and rating-list syncs."
 msgstr "De meest recente machinebrede acties: rolwijzigingen, back-updownloads, publicatiewijzigingen en synchronisaties van ratinglijsten."
@@ -10032,22 +10032,22 @@ msgstr "Al up-to-date: de lijst van de KBSB is niet gewijzigd sinds de vorige sy
 msgid "Imported %{count} players from KBSB's list."
 msgstr "%{count} spelers geïmporteerd uit de lijst van de KBSB."
 
-#: lib/pairings_engine_web/live/admin_live.ex:163
+#: lib/pairings_engine_web/live/admin_live.ex:207
 #, elixir-autogen, elixir-format
 msgid "%{version} is available - see the banner above."
 msgstr "%{version} is beschikbaar - zie de banner hierboven."
 
-#: lib/pairings_engine_web/live/admin_live.ex:328
+#: lib/pairings_engine_web/live/admin_live.ex:372
 #, elixir-autogen, elixir-format
 msgid "Check for updates now"
 msgstr "Nu controleren op updates"
 
-#: lib/pairings_engine_web/live/admin_live.ex:173
+#: lib/pairings_engine_web/live/admin_live.ex:217
 #, elixir-autogen, elixir-format
 msgid "Checked too recently - try again in a little while."
 msgstr "Net al gecontroleerd - probeer het straks opnieuw."
 
-#: lib/pairings_engine_web/live/admin_live.ex:170
+#: lib/pairings_engine_web/live/admin_live.ex:214
 #, elixir-autogen, elixir-format
 msgid "Couldn't reach GitHub."
 msgstr "Kon GitHub niet bereiken."
@@ -10057,7 +10057,7 @@ msgstr "Kon GitHub niet bereiken."
 msgid "Dismiss the update notice for this version"
 msgstr "De updatemelding voor deze versie sluiten"
 
-#: lib/pairings_engine_web/live/admin_live.ex:167
+#: lib/pairings_engine_web/live/admin_live.ex:211
 #, elixir-autogen, elixir-format
 msgid "You're on the latest version (v%{version})."
 msgstr "Je hebt de laatste versie (v%{version})."
@@ -19309,7 +19309,7 @@ msgstr "\"Verstuurd\" betekent dat de arbiter op Versturen drukte en dat het bes
 msgid "1 %{month}"
 msgstr "1 %{month}"
 
-#: lib/pairings_engine_web/live/admin_live.ex:207
+#: lib/pairings_engine_web/live/admin_live.ex:251
 #, elixir-autogen, elixir-format
 msgid "Admin pages"
 msgstr "Beheerpagina's"
@@ -19329,7 +19329,7 @@ msgstr "Downloaden is niet versturen. Versturen downloadt het ratingbestand en n
 msgid "For the rating list of %{list}: to be uploaded by %{date}."
 msgstr "Voor de ratinglijst van %{list}: te uploaden tegen %{date}."
 
-#: lib/pairings_engine_web/live/admin_live.ex:215
+#: lib/pairings_engine_web/live/admin_live.ex:259
 #, elixir-autogen, elixir-format
 msgid "For the rating officer: what every tournament sent for rating, per rating period, what is still missing, and the files themselves."
 msgstr "Voor de ratingverantwoordelijke: wat elk toernooi voor de rating verstuurde, per ratingperiode, wat nog ontbreekt, en de bestanden zelf."
@@ -19370,7 +19370,7 @@ msgid "Overdue. This tournament lasts more than 30 days, so each month's rounds 
 msgstr "Achterstallig. Dit toernooi duurt langer dan 30 dagen: de rondes van elke maand worden dus apart gerapporteerd (FIDE B.02, 4.1), en deze hebben de ratinglijst van %{list} gemist. Ze kunnen nog in de lijst van %{later}."
 
 #: lib/pairings_engine_web/components/layouts.ex:498
-#: lib/pairings_engine_web/live/admin_live.ex:213
+#: lib/pairings_engine_web/live/admin_live.ex:257
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:24
 #: lib/pairings_engine_web/live/rating_inbox_live.ex:153
 #, elixir-autogen, elixir-format
@@ -22256,3 +22256,8 @@ msgstr "Zet op de pagina's van het toernooi op de uitslagensite een link naar de
 #, elixir-autogen, elixir-format
 msgid "Show the live boards on the results site"
 msgstr "Toon de live borden op de uitslagensite"
+
+#: lib/pairings_engine_web/live/admin_live.ex:97
+#, elixir-autogen, elixir-format
+msgid "This page is for administrators."
+msgstr "Deze pagina is voor beheerders."
