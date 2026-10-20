@@ -1055,6 +1055,60 @@ gaps identified there, extracted here as actionable items:
 
 ## Backlog (no particular order, nothing blocking)
 
+### Saved ideas, parked by the maintainer (2026-09-23, kept 2026-10-20)
+
+None of these is started unless it says so. They are the big ones, kept
+here so they stop living only in someone's memory.
+
+Product:
+
+- **Replace chess-results.** OpenResults grows player pages that follow a
+  player across every event (the ELO archive has the history), live
+  projected rating changes, and search and embeds that work on a phone.
+  Belgium first.
+- **Players run their own side** - explicitly parked. Pairings on the phone
+  the moment they are published; both players enter the result and it counts
+  when they agree; the arbiter handles disputes only; check-in, byes and
+  withdrawals too.
+- **Photograph a scoresheet, get the game.** Straighten the photo, read each
+  cell as ranked guesses, decode with a move generator, use both players'
+  sheets and the result, stop honestly at a time scramble; a human fixes only
+  the unsure moves. First step: photograph both sheets of the DGT boards at
+  an event (DGT gives the true PGN for free) and count fixes per hundred
+  moves.
+- **Change the rules with data.** Ainalrami's corpora measure where the
+  Dutch system misbehaves (colours, float cascades, 5.2.5); bring the numbers
+  to FIDE's rules commission.
+- **Organiser planner.** Simulate the event thousands of times with the real
+  engine: chance of a clear winner, whether to accelerate, prize fairness.
+- **Hall display** - started 2026-09-30: big screen with pairings, live
+  results, standings, and a stream overlay.
+
+Ainalrami:
+
+- **A proof with every pairing** - the matching's dual values certify no
+  better pairing exists; ship them with every round plus a small independent
+  checker.
+- **The rules as a test** - the Dutch rules as a checker that lists the
+  articles a round breaks, offered to FIDE as the reference test.
+- **Exhaustive proof for small tournaments** - every reachable situation up
+  to about 10 players and 5 rounds, against brute force.
+- **Rule-change simulator** - rules as pluggable pieces, re-run the corpus on
+  a proposed change, report the effect. The engine half of "change the rules
+  with data".
+- **More FIDE systems** - Burstein, Dubov, Lim.
+- **A huge online Swiss** - FIDE-correct Dutch for 5,000-10,000 players in
+  about a second.
+
+Also waiting:
+
+- **Signed checksums** for the hall apps' releases (deferred in the
+  2026-10-19 sweep): GitHub build attestations, so no key has to be kept by
+  hand.
+- **Ainalrami's FE1 application** - drafted 2026-10-20
+  (`docs/fe1-application-draft.md` in Ainalrami); the maintainer's fields
+  and a re-run on the submitted release remain.
+
 - ~~**Tournament groups (asked 2026-10-08).**~~ - **built 2026-10-09, shipped in 0.80.0**
   (branch `tournament-groups`). One event is often several separate
   tournaments - the Open, the U20, the U12, a rapid on the side. Shipped:
