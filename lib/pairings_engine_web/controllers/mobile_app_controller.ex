@@ -226,6 +226,19 @@ defmodule PairingsEngineWeb.MobileAppController do
         board: board
       )
 
+  defp refusal(:photo_too_large, board, _),
+    do:
+      gettext("Board %{board}: not logged - the photo is too large. Log it again without it.",
+        board: board
+      )
+
+  defp refusal(:not_a_photo, board, _),
+    do:
+      gettext(
+        "Board %{board}: not logged - the photo could not be read. Log it again without it.",
+        board: board
+      )
+
   defp refusal(:note_too_long, board, _),
     do: gettext("Board %{board}: not logged - the note is too long.", board: board)
 

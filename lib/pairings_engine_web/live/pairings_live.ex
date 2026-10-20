@@ -186,6 +186,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        # The "Phone QR" dialog: open or not, the code just minted and the
        # list of phones enrolled so far (loaded when the dialog opens).
        phone_qr?: false,
+       phone_lan: nil,
+       arbiters: [],
        # Incidents per round number, from the phones (`PairingsEngine.Incidents`).
        incident_counts: Incidents.counts_by_round(tournament.id),
        new_enrollment: nil,
@@ -1178,11 +1180,73 @@ defmodule PairingsEngineWeb.PairingsLive do
   # dialog does (it is shown once, like any other secret).
   def handle_event("phone_qr_open", _params, socket) do
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        phone_qr?: true,
        new_enrollment: nil,
        enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
-     )}
+     )
+     |> assign_phone_reach()}
+  end
+
+  # A desktop copy: the phones' listener (`PhoneLan`). Turning it on or off,
+  # and picking the address, is the desk's call and nobody else's - this page
+  # only ever answers loopback on a desktop copy.
+  def handle_event("phone_lan_switch", %{"on" => on}, socket) do
+    _ = PairingsEngineWeb.PhoneLan.switch(on == "true")
+    {:noreply, assign_phone_reach(socket)}
+  end
+
+  def handle_event("phone_lan_choose", %{"address" => address, "port" => port}, socket) do
+    socket =
+      case PairingsEngineWeb.PhoneLan.choose(address, port) do
+        {:ok, _status} ->
+          socket
+
+        {:error, :bad_port} ->
+          put_flash(
+            socket,
+            :error,
+            gettext(
+              "Pick a port from 1024 to 65535 that is not already OpenPairings' own or the board link's."
+            )
+          )
+
+        {:error, _reason} ->
+          put_flash(socket, :error, gettext("That is not an address of this computer."))
+      end
+
+    {:noreply, assign_phone_reach(socket)}
+  end
+
+  def handle_event("assign_boards", %{"collaborator" => id} = params, socket) do
+    range = {PhoneQr.board_param(params["board_from"]), PhoneQr.board_param(params["board_to"])}
+
+    socket =
+      with {int, ""} <- Integer.parse(to_string(id)),
+           {:ok, _collaborator} <-
+             Tournaments.assign_boards(
+               socket.assigns.current_scope,
+               socket.assigns.tournament,
+               int,
+               range
+             ) do
+        put_flash(socket, :info, gettext("Boards saved."))
+      else
+        {:error, :invalid_range} ->
+          put_flash(
+            socket,
+            :error,
+            gettext(
+              "Board range is invalid - \"to\" must be at least \"from\", and both must be 1 or higher."
+            )
+          )
+
+        _other ->
+          put_flash(socket, :error, gettext("Could not save those boards."))
+      end
+
+    {:noreply, assign_phone_reach(socket)}
   end
 
   def handle_event("phone_qr_close", _params, socket),
@@ -1198,11 +1262,15 @@ defmodule PairingsEngineWeb.PairingsLive do
            PhoneQr.enrollment_opts(params)
          ) do
       {:ok, enrollment} ->
+        # On a desktop copy, looking again is what opens the listener for
+        # the first code.
         {:noreply,
-         assign(socket,
+         socket
+         |> assign(
            new_enrollment: enrollment,
            enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
-         )}
+         )
+         |> assign_phone_reach()}
 
       {:error, :too_many_codes} ->
         {:noreply,
@@ -1240,10 +1308,12 @@ defmodule PairingsEngineWeb.PairingsLive do
          else: socket.assigns.new_enrollment
 
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        new_enrollment: new_enrollment,
        enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
-     )}
+     )
+     |> assign_phone_reach()}
   end
 
   def handle_event("mpa_dialog_cancel", _params, socket),
@@ -7804,6 +7874,8 @@ defmodule PairingsEngineWeb.PairingsLive do
         new_enrollment={@new_enrollment}
         enrollments={@enrollments}
         local_mode?={PairingsEngine.Authz.local_mode?()}
+        lan={@phone_lan}
+        arbiters={@arbiters}
       /> <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">
@@ -9240,5 +9312,19 @@ defmodule PairingsEngineWeb.PairingsLive do
       </script>
     </Layouts.app>
     """
+  end
+
+  # What the Phone QR dialog needs to say how a phone gets here: the
+  # listener's state on a desktop copy, the arbiters and their boards on a
+  # server.
+  defp assign_phone_reach(socket) do
+    if PairingsEngine.Authz.local_mode?() do
+      assign(socket, phone_lan: PairingsEngineWeb.PhoneLan.status(), arbiters: [])
+    else
+      assign(socket,
+        phone_lan: nil,
+        arbiters: Tournaments.list_arbiters(socket.assigns.tournament)
+      )
+    end
   end
 end

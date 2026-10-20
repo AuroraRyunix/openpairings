@@ -28,12 +28,17 @@ defmodule PairingsEngine.Incidents.Incident do
     field :source, :string, default: "phone"
     field :enrollment_label, :string, default: ""
     field :client_id, :string
+    # A photo is in `PairingsEngine.Incidents.Photo`, one at most; this says
+    # whether there is one without loading it.
+    field :has_photo, :boolean, default: false
 
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :pairing, PairingsEngine.Tournaments.Pairing
     belongs_to :white_player, PairingsEngine.Tournaments.Player
     belongs_to :black_player, PairingsEngine.Tournaments.Player
     belongs_to :enrollment, PairingsEngine.Mobile.Enrollment
+    # The account that logged it, when the phone's code belongs to one.
+    belongs_to :user, PairingsEngine.Accounts.User
 
     timestamps(type: :utc_datetime)
   end

@@ -75,8 +75,10 @@ The owner can invite other arbiters. Settings, **Tournament**, card
   **Accept** (or **Decline**). Pending invitations are also listed on the
   Tournaments page. If the e-mail could not be sent, the page shows the link to
   pass on by hand.
-- A collaborator can do everything the owner can except managing collaborators
-  and deleting the tournament.
+- A collaborator invited as an **Editor** can do everything the owner can
+  except managing collaborators and deleting the tournament. One invited as an
+  **Arbiter** gets results and incidents on a phone and nothing else
+  ([Arbiters with their own account](07-results.md#arbiters-with-their-own-account)).
 - Everyone sees changes as they happen: when a colleague pairs a round or
   enters a result, your pages update by themselves. When it was a round that
   changed (paired, unpaired, paired again, published or withdrawn from

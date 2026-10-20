@@ -118,7 +118,7 @@ export class Outbox {
         const pending = (await queue.all()).filter(isPending);
         if (pending.length === 0) break;
 
-        const batch = pending.slice(0, BATCH);
+        const batch = slice(pending);
         for (const e of batch) {
           e.status = "sending";
           e.tried = true;
@@ -154,6 +154,9 @@ export class Outbox {
           } else {
             e.status = a.status === "saved" ? "sent" : "refused";
             e.answeredAt = Date.now();
+            // Answered either way: the photo has done its travelling, and a
+            // phone is no place to keep pictures of other people's games.
+            delete e.photo;
             if (e.status === "sent") saved.push(e);
           }
           if (a) e.message = a.message || "";
@@ -276,6 +279,19 @@ export class Outbox {
   }
 }
 
+// The next request's entries, in order: up to BATCH of them, but an entry
+// with a photo travels alone - a few of those together would be more than
+// the server reads in one request.
+function slice(pending) {
+  if (pending[0].photo) return [pending[0]];
+  const batch = [];
+  for (const e of pending) {
+    if (e.photo || batch.length >= BATCH) break;
+    batch.push(e);
+  }
+  return batch;
+}
+
 async function prune() {
   const now = Date.now();
   const sent = (await queue.all()).filter((e) => e.status === "sent").reverse();
@@ -287,7 +303,7 @@ async function prune() {
 
 // What goes over the wire: the entry minus the phone's own bookkeeping.
 function wire(e) {
-  const fields = ["cid", "enrollment", "kind", "round", "pairing", "board", "white", "black", "result", "expected", "type", "note", "at"];
+  const fields = ["cid", "enrollment", "kind", "round", "pairing", "board", "white", "black", "result", "expected", "type", "note", "photo", "at"];
   return Object.fromEntries(fields.filter((f) => e[f] !== undefined).map((f) => [f, e[f]]));
 }
 

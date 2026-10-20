@@ -98,6 +98,8 @@ defmodule PairingsEngineWeb.Components.Manubrium do
       phx-update="ignore"
       aria-labelledby="manubrium-incident-title"
       data-title={gettext("Board %{board}", board: "{board}")}
+      data-t-photoerror={gettext("That photo could not be read. Log it without one, or try again.")}
+      data-t-photoready={gettext("Photo ready (%{kb} kB).", kb: "{kb}")}
     >
       <form id="manubrium-incident-form" method="dialog">
         <h2 id="manubrium-incident-title" class="mq-dialog-title">
@@ -120,6 +122,22 @@ defmodule PairingsEngineWeb.Components.Manubrium do
           {gettext("No names, please: the board already says who is involved. The time is added.")}
         </p>
 
+        <%!-- A deputy's only: the scoresheet, the clock, the position. The
+              phone shrinks it before it is queued (hook.js); the server
+              keeps it with the tournament and shows it on the desk's
+              incidents page, nowhere else. --%>
+        <label :if={@level == "deputy"} class="mq-note mq-photo">
+          {gettext("Photo (optional)")}
+          <input
+            type="file"
+            name="photo"
+            accept="image/*"
+            capture="environment"
+            data-mq-photo
+          />
+        </label>
+        <p :if={@level == "deputy"} class="mq-hint" data-mq-photo-state hidden></p>
+
         <div class="mq-dialog-actions">
           <button type="button" class="mq-btn" data-mq-cancel>{gettext("Cancel")}</button>
           <button type="submit" class="mq-btn mq-btn--primary">{gettext("Log it")}</button>
@@ -133,7 +151,9 @@ defmodule PairingsEngineWeb.Components.Manubrium do
   def kind_label("illegal_move"), do: gettext("Illegal move")
   def kind_label("clock"), do: gettext("Clock problem")
   def kind_label("device"), do: gettext("Phone or electronic device")
-  def kind_label("dispute"), do: gettext("Dispute")
+  def kind_label("complaint"), do: gettext("Complaint")
+  def kind_label("time_added"), do: gettext("Time added")
+  def kind_label("game_rewound"), do: gettext("Game rewound")
   def kind_label("arbiter_call"), do: gettext("Arbiter call")
   def kind_label("other"), do: gettext("Other")
   def kind_label(kind), do: kind

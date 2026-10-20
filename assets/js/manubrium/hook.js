@@ -14,6 +14,71 @@ import {Outbox} from "./outbox";
 
 const num = (v) => (v === undefined || v === "" ? null : Number(v));
 
+// A photo is shrunk on the phone before it is queued: 1600 pixels on the
+// longest side, JPEG. A 12-megapixel original would be several megabytes
+// in a queue that has to survive the wifi; this is a few hundred kB and
+// still reads a scoresheet. The server caps it again (`Incidents.photo_max`).
+const PHOTO_EDGE = 1600;
+const PHOTO_QUALITY = 0.8;
+
+// Per-phone settings, not shared and not important: storage that throws
+// (a private window) just means the toggle starts off.
+const store = {
+  get(k) {
+    try {
+      return window.localStorage.getItem(k);
+    } catch (_e) {
+      return null;
+    }
+  },
+  set(k, v) {
+    try {
+      if (v) window.localStorage.setItem(k, "1");
+      else window.localStorage.removeItem(k);
+    } catch (_e) {
+      // nothing to keep it in
+    }
+  },
+};
+
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("not an image"));
+    };
+    img.src = url;
+  });
+}
+
+// The file from the camera input, as base64 JPEG bytes (no `data:` prefix).
+async function shrinkPhoto(file) {
+  const img = await loadImage(file);
+  const scale = Math.min(1, PHOTO_EDGE / Math.max(img.naturalWidth, img.naturalHeight));
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
+  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", PHOTO_QUALITY));
+  if (!blob) throw new Error("could not encode");
+
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+  return {b64: String(dataUrl).split(",", 2)[1] || "", bytes: blob.size};
+}
+
 export const Manubrium = {
   mounted() {
     this.enrollment = num(this.el.dataset.enrollment);
@@ -52,7 +117,16 @@ export const Manubrium = {
       };
       this.form.addEventListener("submit", this.onSubmit);
       this.dialog.addEventListener("click", this.onCancel);
+
+      this.photoInput = this.dialog.querySelector("[data-mq-photo]");
+      this.photoState = this.dialog.querySelector("[data-mq-photo-state]");
+      if (this.photoInput) {
+        this.onPhoto = () => this.preparePhoto();
+        this.photoInput.addEventListener("change", this.onPhoto);
+      }
     }
+
+    this.setupToggles();
 
     // LiveView redraws boards as results come in; the marks live in
     // `phx-update="ignore"` spans, so only NEW boards need one drawn.
@@ -71,6 +145,77 @@ export const Manubrium = {
     if (this.dialog) {
       this.form.removeEventListener("submit", this.onSubmit);
       this.dialog.removeEventListener("click", this.onCancel);
+      if (this.photoInput) this.photoInput.removeEventListener("change", this.onPhoto);
+    }
+    if (this.toggles) this.toggles.removeEventListener("click", this.onToggle);
+    document.removeEventListener("visibilitychange", this.onVisible);
+    this.releaseWake();
+  },
+
+  // ---- the header's two switches: keep the screen on, one-handed ----
+
+  setupToggles() {
+    this.toggles = document.getElementById("manubrium-toggles");
+    if (!this.toggles) return;
+
+    const wake = this.toggles.querySelector("[data-mq-wake]");
+    // No Screen Wake Lock in this browser (older iOS, some in-app
+    // browsers): no button, rather than one that does nothing.
+    if (wake) wake.hidden = !("wakeLock" in navigator);
+
+    this.onToggle = (e) => {
+      const b = e.target.closest("[data-mq-wake], [data-mq-hand]");
+      if (!b) return;
+      if (b.hasAttribute("data-mq-wake")) this.setWake(b.getAttribute("aria-pressed") !== "true");
+      else this.setHand(b.getAttribute("aria-pressed") !== "true");
+    };
+    this.toggles.addEventListener("click", this.onToggle);
+
+    // The browser drops a wake lock whenever the page is hidden; coming
+    // back takes it again if it was on.
+    this.onVisible = () => {
+      if (document.visibilityState === "visible" && this.wakeWanted) this.takeWake();
+    };
+    document.addEventListener("visibilitychange", this.onVisible);
+
+    this.setHand(store.get("manubrium:onehand") === "1");
+    if (store.get("manubrium:wake") === "1") this.setWake(true);
+  },
+
+  setHand(on) {
+    document.documentElement.classList.toggle("mq-onehand", on);
+    store.set("manubrium:onehand", on);
+    const b = this.toggles && this.toggles.querySelector("[data-mq-hand]");
+    if (b) b.setAttribute("aria-pressed", String(on));
+  },
+
+  setWake(on) {
+    this.wakeWanted = on;
+    store.set("manubrium:wake", on);
+    const b = this.toggles && this.toggles.querySelector("[data-mq-wake]");
+    if (b) b.setAttribute("aria-pressed", String(on));
+    if (on) this.takeWake();
+    else this.releaseWake();
+  },
+
+  async takeWake() {
+    if (!("wakeLock" in navigator) || this.wakeLock) return;
+    try {
+      this.wakeLock = await navigator.wakeLock.request("screen");
+      this.wakeLock.addEventListener("release", () => {
+        this.wakeLock = null;
+      });
+    } catch (_refused) {
+      // Battery saver, or a page not in front: nothing to do but try again
+      // when it is (`onVisible`).
+      this.wakeLock = null;
+    }
+  },
+
+  releaseWake() {
+    if (this.wakeLock) {
+      this.wakeLock.release().catch(() => {});
+      this.wakeLock = null;
     }
   },
 
@@ -102,24 +247,68 @@ export const Manubrium = {
     const title = this.dialog.querySelector("[data-mq-incident-title]");
     title.textContent = (this.dialog.dataset.title || "").split("{board}").join(this.incidentBoard.board);
     this.form.reset();
+    this.photo = null;
+    this.photoJob = null;
+    this.showPhotoState("");
     this.dialog.showModal();
   },
 
-  saveIncident() {
+  preparePhoto() {
+    const file = this.photoInput.files && this.photoInput.files[0];
+    this.photo = null;
+    if (!file) {
+      this.photoJob = null;
+      this.showPhotoState("");
+      return;
+    }
+
+    const job = shrinkPhoto(file).then(
+      (photo) => {
+        if (this.photoJob !== job) return null;
+        this.photo = photo;
+        this.showPhotoState(this.dialogText("photoready").split("{kb}").join(Math.round(photo.bytes / 1024)));
+        return photo;
+      },
+      () => {
+        if (this.photoJob !== job) return null;
+        this.photoInput.value = "";
+        this.showPhotoState(this.dialogText("photoerror"));
+        return null;
+      }
+    );
+    this.photoJob = job;
+  },
+
+  dialogText(key) {
+    return this.dialog.dataset["t" + key] || "";
+  },
+
+  showPhotoState(text) {
+    if (!this.photoState) return;
+    this.photoState.textContent = text;
+    this.photoState.hidden = !text;
+  },
+
+  async saveIncident() {
     const type = this.form.querySelector("input[name='type']:checked");
     if (!type || !this.incidentBoard) return;
 
     const {expected: _unused, ...board} = this.incidentBoard;
     const label = type.closest("label") ? type.closest("label").textContent.trim() : type.value;
+    const note = this.form.querySelector("textarea[name='note']").value.trim();
 
-    this.outbox.add({
-      ...board,
-      kind: "incident",
-      type: type.value,
-      note: this.form.querySelector("textarea[name='note']").value.trim(),
-      label,
-    });
+    // Still shrinking: wait for it, it is a fraction of a second.
+    const photo = this.photoJob ? await this.photoJob : null;
 
+    const entry = {...board, kind: "incident", type: type.value, note, label};
+    if (photo && photo.b64) {
+      entry.photo = photo.b64;
+      entry.label = label + " · 📷";
+    }
+
+    this.outbox.add(entry);
+    this.photo = null;
+    this.photoJob = null;
     this.dialog.close();
   },
 

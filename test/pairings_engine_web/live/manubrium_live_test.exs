@@ -239,7 +239,7 @@ defmodule PairingsEngineWeb.ManubriumLiveTest do
       refute has_element?(lv, "#round-incidents")
 
       {:ok, deputy} = Mobile.create_enrollment(t.id, level: "deputy")
-      incident(deputy, p, "dispute")
+      incident(deputy, p, "complaint")
 
       assert has_element?(
                lv,

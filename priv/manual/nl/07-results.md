@@ -123,8 +123,55 @@ Het scherm van de telefoon toont de ratings en scores van de spelers, heeft een
 slot dat tegen per ongeluk aantikken beschermt, en een eigen wisselaar voor het
 thema. Een telefoon kan niets anders in het programma bereiken.
 
-Telefoons hebben het gehoste programma nodig: de desktopinstallatie heeft geen
-adres dat een telefoon kan bereiken, en maakt dus geen telefooncodes.
+**Op de desktopinstallatie** antwoordt het programma alleen deze computer tot
+je in hetzelfde venster **Telefoons op dit netwerk laten verbinden** aanzet en
+het adres van deze computer op het netwerk van de zaal kiest (en zo nodig een
+poort; 4748 tenzij je die wijzigt). Vanaf dan, zolang er minstens één
+telefooncode actief is, bereiken telefoons op hetzelfde netwerk de
+telefoonpagina's - resultaten en incidenten, verder niets - op het adres in de
+QR-code. Alle andere pagina's blijven alleen op deze computer. Zet het uit als
+de ronde gedaan is; de firewall van de computer kan één keer vragen of het mag.
+Het is gewone http op het netwerk van de zaal, net als de bordkoppeling.
+
+### Arbiters met een eigen account {#arbiters-with-their-own-account}
+
+Een arbiter op het gehoste programma kan onder zijn eigen naam werken in plaats
+van met een gedeelde code. De eigenaar nodigt hem uit in Instellingen,
+**Delen / Team**, met de rol **Arbiter - uitslagen en incidenten op een
+telefoon**. Na het aanvaarden opent de arbiter `/m/connect` op zijn telefoon
+(de codepagina linkt ernaar), kiest het toernooi en tikt **Deze telefoon
+gebruiken**; **Toon een code voor een andere telefoon** toont een QR-code voor
+een tweede telefoon of voor de geïnstalleerde app. Een arbiter:
+
+- voert resultaten in en corrigeert ze en meldt incidenten zoals een
+  deputy-telefoon, en alles wat hij invoert staat in het auditlogboek onder
+  zijn eigen account;
+- kan het toernooi niet aan de tafel openen, niet paren en verder niets
+  wijzigen;
+- verliest zijn telefoons zodra hij verwijderd wordt of vertrekt.
+
+In het venster Telefoon-QR geeft **Borden van de arbiters** elke arbiter een
+reeks borden; **Mijn borden** op zijn telefoon toont dan alleen die. De
+eigenaar en de bewerkers kunnen alles wat een arbiter kan.
+
+### Het zaaloverzicht {#the-hall-view}
+
+- Elk bord zegt of het nog **Bezig** of **Afgelopen** is.
+- Een regel onder de ronde zegt hoe lang ze al loopt: sinds de paringen
+  gepubliceerd zijn, of, als dat niet gebeurde, sinds het eerste live bord
+  meldde. Hij zegt welke van de twee. Zonder een van beide zegt hij niets, in
+  plaats van te gokken.
+- **Zoek een speler of een bord** zoekt op naam of bordnummer.
+- Met live borden ([Live borden](17-live-boards.md)) toont elk bord ook wat het
+  bord in de zaal zag: dezelfde uitslag, een uitslag die nog niet is ingevoerd,
+  of, in het rood, een andere. Het is een waarschuwing; de telefoon voert ze
+  nooit zelf in.
+- Als twee arbiters voor hetzelfde bord een andere uitslag invoeren, wordt de
+  tweede geweigerd en tonen beide telefoons de onenigheid in het rood bij dat
+  bord. Niets wordt overschreven; spreek het af en voer de juiste in.
+- **Scherm aan laten** houdt de telefoon wakker zolang de pagina openstaat
+  (waar de telefoon dat kan), en **Met één hand** zet de knoppen onderaan met
+  grotere uitslagknoppen. Beide onthoudt de telefoon zelf.
 
 ### Manubrium, de telefoonapp {#manubrium-the-phone-app}
 
@@ -155,15 +202,18 @@ Om de app te installeren open je de codepagina of de resultatenpagina en kies je
 in de browser **Zet op beginscherm** (Android: het menu, **App installeren** of
 **Toevoegen aan startscherm**; iPhone: **Deel**, **Zet op beginscherm**). Op een
 iPhone deelt de app de aanmelding van Safari niet: zet ze dus eerst op het
-beginscherm en typ daarna de code in de app.
+beginscherm en typ daarna de code in de app - of open de QR-code in Safari,
+kopieer de link die die pagina toont en plak hem in het codevak van de app.
 
 ### Incidenten aan de borden {#incidents-logged-at-the-boards}
 
 Elk bord op de telefoon heeft een knop voor incidenten.
 
 - Een **deputy-telefoon** meldt een incident: onreglementaire zet, probleem met
-  de klok, telefoon of elektronisch toestel, geschil, arbiter geroepen of
-  andere, met een korte opmerking. Het bord, de ronde, de spelers en de tijd
+  de klok, telefoon of elektronisch toestel, klacht, tijd bijgegeven, partij
+  teruggezet, arbiter geroepen of andere, met een korte opmerking en, als dat
+  helpt, een foto die je ter plaatse neemt (de telefoon verkleint ze voor het
+  versturen; er komt hoogstens zo'n 2 MB aan). Het bord, de ronde, de spelers en de tijd
   komen er vanzelf bij; de opmerking is niet de plaats voor namen.
 - Een **helpertelefoon** heeft in de plaats **Arbiter roepen**: die meldt
   alleen dat de arbiter naar dat bord moet komen.
@@ -171,8 +221,11 @@ Elk bord op de telefoon heeft een knop voor incidenten.
 Incidenten gaan door hetzelfde postvak als resultaten, en wachten dus ook op de
 wifi. Op de pagina Paringen zegt een regel onder de ronde hoeveel er zijn, en
 **Meer**, **Incidenten** toont ze allemaal, per ronde, de nieuwste eerst; een
-nieuw incident verschijnt terwijl de pagina openstaat. Een afdrukbaar
-incidentenverslag komt later.
+nieuw incident verschijnt terwijl de pagina openstaat. Een foto staat daar als
+miniatuur, en alleen daar: ze staat op geen enkele openbare pagina, een
+arbiteraccount kan ze niet openen, ze reist niet mee in een export, en ze
+verdwijnt als het toernooi verwijderd wordt. Elk incident staat ook in het
+auditlogboek. Een afdrukbaar incidentenverslag komt later.
 
 ## Uitgestelde partijen {#postponed-games}
 

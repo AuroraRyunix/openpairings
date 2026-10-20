@@ -104,7 +104,7 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
 
     pairing = tournament.id |> Tournaments.get_round(1) |> Map.fetch!(:pairings) |> hd()
 
-    lv |> element("button.mobile-lock-btn") |> render_click()
+    lv |> element("button[phx-click=toggle_lock]") |> render_click()
     assert render(lv) =~ "locked - tap the lock to enter results"
 
     # The result buttons are also `disabled` while locked (Phoenix.LiveViewTest
@@ -116,7 +116,7 @@ defmodule PairingsEngineWeb.MobileResultsLiveTest do
            |> Enum.find(&(&1.id == pairing.id))
            |> Map.fetch!(:result) == ""
 
-    lv |> element("button.mobile-lock-btn") |> render_click()
+    lv |> element("button[phx-click=toggle_lock]") |> render_click()
 
     render_click(lv, "set_result", %{"id" => to_string(pairing.id), "result" => "1-0"})
 

@@ -473,12 +473,19 @@ defmodule PairingsEngine.TournamentExport do
   #     is - it is a live offer, and the one created on import genuinely was
   #     created then. Carrying the source's timestamps would age an
   #     invitation nobody has seen yet.
+  #   board_from, board_to
+  #     An arbiter's boards for the day in this hall (Phone QR, "Arbiters'
+  #     boards"). They only change what that arbiter's phone shows first,
+  #     and the person they were given to has not even accepted on the other
+  #     side yet. The next hall assigns its own.
   @collaborator_excluded [
     :id,
     :tournament_id,
     :user_id,
     :invite_token,
     :status,
+    :board_from,
+    :board_to,
     :inserted_at,
     :updated_at
   ]
@@ -543,9 +550,14 @@ defmodule PairingsEngine.TournamentExport do
   #     then a hand-off leaves them on the machine they were logged on,
   #     where the incidents page still lists them. A snapshot restore keeps
   #     them, like the audit trail.
+  #   incident_photos
+  #     Goes with `incidents`, and when those travel, the photos should be
+  #     a decision of their own: a picture of a scoresheet is a heavier
+  #     thing to hand to another machine than a line of text.
   @excluded_tables [
     :board_links,
     :incidents,
+    :incident_photos,
     :mobile_submissions,
     :board_relay_requests,
     :mobile_enrollments,

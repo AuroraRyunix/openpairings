@@ -684,7 +684,14 @@ if config_env() == :prod do
   config :pairings_engine, PairingsEngineWeb.Endpoint,
     # Only a server needs the list: local mode answers on loopback and keeps
     # Phoenix's default check.
-    check_origin: if(local_mode?, do: true, else: Enum.map(origin_hosts, &("//" <> &1))),
+    # Local mode keeps what Phoenix's default check allows, plus the phones'
+    # network listener while it listens
+    # (`PairingsEngineWeb.PhoneLan.origin_allowed?/1`).
+    check_origin:
+      if(local_mode?,
+        do: {PairingsEngineWeb.PhoneLan, :origin_allowed?, []},
+        else: Enum.map(origin_hosts, &("//" <> &1))
+      ),
     url: url_config,
     http: [
       # Loopback unless OPENPAIRINGS_LISTEN_IP says otherwise - see above.

@@ -331,7 +331,7 @@ defmodule PairingsEngine.MobileSyncTest do
 
     test "a resend makes no second incident" do
       %{e: e, p1: p1, t: t} = setup_board("deputy")
-      entry = incident_entry(e, p1, "dispute")
+      entry = incident_entry(e, p1, "complaint")
 
       assert %{status: :saved} = one(e, entry)
       assert %{status: :saved} = one(e, entry)

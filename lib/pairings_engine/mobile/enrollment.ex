@@ -12,6 +12,10 @@ defmodule PairingsEngine.Mobile.Enrollment do
     * `"deputy"` - enter and correct, any paired round (today's original,
       unrestricted behaviour).
 
+  `user_id` set means the code belongs to an account (an arbiter, an
+  editor, the owner): deputy rights, the account's name in the audit trail,
+  and valid only while that account is still on the tournament.
+
   `board_from`/`board_to` are an orthogonal, optional restriction on top of
   either level - both `nil` means every board.
 
@@ -35,6 +39,11 @@ defmodule PairingsEngine.Mobile.Enrollment do
     field :claimed_at, :utc_datetime
 
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
+    # Set for an arbiter's own code (docs/manubrium.md): what the phone
+    # enters is audited under this account, and the code stops working the
+    # moment the account stops being on the tournament. `nil` for the
+    # no-account codes helpers use.
+    belongs_to :user, PairingsEngine.Accounts.User
 
     timestamps(type: :utc_datetime)
   end

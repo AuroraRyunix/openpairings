@@ -489,4 +489,34 @@ defmodule PairingsEngineWeb.SharingTest do
       assert Tournaments.list_collaborators(tournament) == []
     end
   end
+
+  describe "inviting an arbiter" do
+    test "the Share card invites with the role chosen", %{conn: conn, scope: scope} do
+      previous = Application.get_env(:pairings_engine, :local_mode)
+      Application.put_env(:pairings_engine, :local_mode, false)
+
+      on_exit(fn ->
+        if is_nil(previous),
+          do: Application.delete_env(:pairings_engine, :local_mode),
+          else: Application.put_env(:pairings_engine, :local_mode, previous)
+      end)
+
+      # The test mailer posts each email to the process that sent it -
+      # here the LiveView, which has no clause for it. Sent here instead.
+      Application.put_env(:swoosh, :shared_test_process, self())
+      on_exit(fn -> Application.delete_env(:swoosh, :shared_test_process) end)
+
+      %{tournament: t} = fixture(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+
+      lv
+      |> form("#add-collaborator-form", %{"email" => "ref@example.com", "role" => "arbiter"})
+      |> render_submit()
+
+      assert [%{email: "ref@example.com", role: "arbiter"} = c] =
+               Tournaments.list_collaborators(t)
+
+      assert has_element?(lv, "#collaborator-role-#{c.id}", "Arbiter")
+    end
+  end
 end

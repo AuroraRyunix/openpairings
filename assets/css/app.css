@@ -6255,6 +6255,33 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   cursor: pointer;
 }
 .mobile-btn:active { background: var(--accent-hover); }
+.mobile-btn--quiet { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+.mobile-btn--quiet:active { background: var(--accent-soft); }
+/* The QR link, shown to be copied into the installed app: an address, not
+   a code, so none of the code box's big spaced digits. */
+.mobile-link-input {
+  width: 100%;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-align: left;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.connect-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.connect-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.connect-item .mobile-btn { width: 100%; }
+.connect-name { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.connect-role { font-size: 12px; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+.phone-qr-lan-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.phone-qr-arbiter { min-width: 10em; }
 
 .mobile-header {
   display: flex;
@@ -6540,6 +6567,101 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 .mobile-incident-btn:hover { color: var(--text); border-color: var(--text-soft); }
 .mobile-incident-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ---- Manubrium phase 2: the hall view's extras ---- */
+.mq-toggles { display: inline-flex; gap: 8px; }
+.mq-toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.mobile-clock {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+  margin: 6px 0 0;
+}
+.mobile-search { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.mobile-search-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 16px; /* under 16px and iOS zooms the page on focus */
+  border: 1px solid var(--text-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+.mobile-search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mobile-filter-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.mobile-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.mobile-status.playing { background: var(--warn-soft); color: var(--warn); }
+.mobile-status.finished { background: var(--success-soft); color: var(--success); }
+.mobile-report {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0 0 6px;
+}
+.mobile-report.mismatch {
+  color: var(--danger);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.mobile-report.pending { color: var(--warn); font-weight: 600; }
+.mobile-conflict {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.mobile-conflict-ok {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--danger);
+  font-weight: 700;
+  cursor: pointer;
+}
+.mq-photo input[type="file"] { font-size: 14px; }
+
+/* One-handed: the phone's own setting (hook.js puts the class on <html>).
+   The header's buttons go to the bottom edge, where a thumb is, and the
+   result buttons grow to a size a thumb hits without looking. */
+html.mq-onehand .mobile-shell { padding-bottom: 84px; }
+html.mq-onehand .mobile-header-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  justify-content: space-around;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+}
+html.mq-onehand .mobile-header-actions .mobile-lock-btn { width: 44px; height: 44px; }
+html.mq-onehand .mobile-result-btn { min-height: 56px; font-size: 18px; }
 
 .mobile-result-btn { min-height: 52px; }
 

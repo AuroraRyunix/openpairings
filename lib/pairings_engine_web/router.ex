@@ -385,6 +385,15 @@ defmodule PairingsEngineWeb.Router do
     post "/connect", BoardConnectController, :create
   end
 
+  # An incident's photo, for the desk's incidents page: signed in, and the
+  # controller asks `get_authorized_tournament/2` like every desk page -
+  # so not an arbiter, not a phone, and never a public page.
+  scope "/t", PairingsEngineWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/:id/incidents/:incident_id/photo", IncidentPhotoController, :show
+  end
+
   # Installed theme packs' stylesheets and fonts (`PairingsEngine.ThemePacks`).
   # No pipeline: they are files, the sign-in page needs them as much as any
   # other, and a session would change nothing about what is served. The
@@ -579,6 +588,7 @@ defmodule PairingsEngineWeb.Router do
     get "/", MobileEnrollController, :new
     post "/", MobileEnrollController, :submit
     get "/e/:token", MobileEnrollController, :enroll
+    post "/e/:token", MobileEnrollController, :redeem
     get "/leave", MobileEnrollController, :leave
 
     live_session :mobile_results,
@@ -589,6 +599,18 @@ defmodule PairingsEngineWeb.Router do
       ] do
       live "/results", MobileResultsLive
     end
+  end
+
+  # An arbiter's own phone, signed in to their account: `require_authenticated_user`
+  # because the code made here is bound to that account (what it enters is
+  # audited under it). Kept out of the phones' LAN listener's path list - a
+  # desktop copy has no accounts but its owner, who signs in on loopback only.
+  scope "/m", PairingsEngineWeb do
+    pipe_through [:browser, :english, :manubrium, :require_authenticated_user]
+
+    get "/connect", MobileConnectController, :index
+    post "/connect/:id", MobileConnectController, :here
+    post "/connect/:id/code", MobileConnectController, :code
   end
 
   defp put_manubrium(conn, _opts), do: Plug.Conn.assign(conn, :manubrium, true)

@@ -247,7 +247,7 @@ defmodule PairingsEngineWeb.LocaleTest do
       html = html_response(conn, 200)
 
       assert html =~ "Enter results"
-      assert html =~ "Enrollment code"
+      assert html =~ "Code, or the link from the QR code"
       assert html =~ ~s(lang="en")
       refute html =~ ~s(lang="nl")
 

@@ -136,9 +136,15 @@ defmodule PairingsEngine.Mobile.Sync do
 
       {:saved, :saved, nil}
     else
-      :unchanged -> {:saved, :unchanged, nil}
-      {:conflict, current} -> {:refused, :conflict, current}
-      {:error, reason} -> {:refused, write_reason(reason), nil}
+      :unchanged ->
+        {:saved, :unchanged, nil}
+
+      {:conflict, current} ->
+        Mobile.announce_conflict(enrollment, e.pairing, e.board, e.result, current)
+        {:refused, :conflict, current}
+
+      {:error, reason} ->
+        {:refused, write_reason(reason), nil}
     end
   end
 
@@ -155,7 +161,8 @@ defmodule PairingsEngine.Mobile.Sync do
              kind: e.type,
              note: e.note,
              occurred_at: e.at,
-             client_id: e.cid
+             client_id: e.cid,
+             photo: e.photo
            }) do
       {:saved, :saved, nil}
     else
@@ -292,12 +299,28 @@ defmodule PairingsEngine.Mobile.Sync do
     type = entry["type"]
     note = entry["note"] || ""
 
-    if is_binary(type) and is_binary(note) do
-      {:ok, Map.merge(base, %{type: type, note: note, at: datetime(entry["at"])})}
+    with true <- is_binary(type) and is_binary(note),
+         {:ok, photo} <- photo(entry["photo"]) do
+      {:ok, Map.merge(base, %{type: type, note: note, at: datetime(entry["at"]), photo: photo})}
     else
-      :error
+      _ -> :error
     end
   end
+
+  # The phone sends a photo as base64 inside the entry, so it waits in the
+  # same queue as everything else. Size and kind are `Incidents`' to judge
+  # once it is bytes; this only refuses what is not base64 at all, or so
+  # long that decoding it would be the waste.
+  @photo_b64_max div(PairingsEngine.Incidents.photo_max() * 4, 3) + 4
+
+  defp photo(nil), do: {:ok, nil}
+  defp photo(""), do: {:ok, nil}
+
+  defp photo(b64) when is_binary(b64) and byte_size(b64) <= @photo_b64_max,
+    do: Base.decode64(b64)
+
+  defp photo(b64) when is_binary(b64), do: {:ok, :too_large}
+  defp photo(_other), do: :error
 
   defp int(v) when is_integer(v) and v > 0, do: {:ok, v}
 

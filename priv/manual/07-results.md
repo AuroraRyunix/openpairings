@@ -126,8 +126,50 @@ card. The phone's screen shows the players' ratings and scores, has a lock
 that guards against accidental taps, and its own theme switch. A phone
 cannot reach anything else in the program.
 
-Phones need the hosted program: the desktop install has no address a phone
-can reach, so it does not make phone codes.
+**On the desktop install** the program answers only this computer until you
+switch on **Let phones on this network connect** in the same dialog and pick
+this computer's address on the hall network (and, if you need to, a port;
+4748 unless you change it). From then on, while at least one phone code is
+active, phones on the same network reach the phone pages - result entry and
+incidents, nothing else - at the address the QR code carries. Every other page
+stays on this computer only. Switch it off when the round is done; the
+computer's firewall may ask once whether to allow it. It is plain http on the
+hall network, like the board link.
+
+### Arbiters with their own account
+
+An arbiter on the hosted program can work under their own name instead of a
+shared code. The owner invites them in Settings, **Share / Team**, with the
+role **Arbiter - results and incidents on a phone**. After accepting, the
+arbiter opens `/m/connect` on their phone (the code page links to it), picks
+the tournament and taps **Use this phone**; **Show a code for another phone**
+shows a QR code for a second phone or for the installed app. An arbiter:
+
+- enters and corrects results and logs incidents like a deputy phone, and
+  everything they enter is in the audit trail under their own account;
+- cannot open the tournament at the desk, pair, or change anything else;
+- loses their phones the moment they are removed or leave.
+
+In the Phone QR dialog, **Arbiters' boards** gives each arbiter a range of
+boards; **My boards** on their phone then shows just those. The owner and the
+editors can do everything an arbiter can.
+
+### The hall view
+
+- Each board says whether it is still **Playing** or **Finished**.
+- A line under the round says how long it has been going: since the pairings
+  were published, or, if they were not, since the first live board reported.
+  It says which. Without either it says nothing rather than guess.
+- **Find a player or a board** searches by name or board number.
+- With live boards ([Live boards](17-live-boards.md)) every board also shows
+  what the board in the hall saw: the same result, a result not entered yet,
+  or, in red, a different one. It is a warning; the phone never enters it.
+- When two arbiters enter different results for the same board, the second is
+  refused and both phones show the disagreement in red on that board. Nothing
+  is overwritten; settle it and enter the right one.
+- **Keep the screen on** stops the phone from going dark while the page is open
+  (where the phone supports it), and **One-handed layout** moves the controls to
+  the bottom edge with bigger result buttons. Both are remembered per phone.
 
 ### Manubrium, the phone app
 
@@ -155,14 +197,17 @@ To install it, open the code page or the result page and use the browser's
 **Add to Home Screen** (Android: the menu, **Install app** or **Add to Home
 screen**; iPhone: **Share**, **Add to Home Screen**). On an iPhone the app does
 not share Safari's login, so add it to the home screen first and type the code
-in the app.
+in the app - or open the QR code in Safari, copy the link that page shows,
+and paste it into the app's code box.
 
 ### Incidents logged at the boards
 
 Each board on the phone has an incident button.
 
 - A **deputy** phone logs an incident: illegal move, clock problem, phone or
-  electronic device, dispute, arbiter call or other, with a short note. The
+  electronic device, complaint, time added, game rewound, arbiter call or
+  other, with a short note and, if useful, a photo taken there and then (the
+  phone shrinks it before sending; at most about 2 MB arrives). The
   board, the round, the players and the time come with it; the note is not the
   place for names.
 - A **helper** phone has **Call arbiter** instead: it only logs an arbiter call
@@ -171,7 +216,11 @@ Each board on the phone has an incident button.
 Incidents go through the same outbox as results, so they also wait for the
 wifi. On the Pairings page a line under the round says how many it has, and
 **More**, **Incidents** lists them all, per round, newest first; a new one
-appears while the page is open. A printable incident report comes later.
+appears while the page is open. A photo shows as a thumbnail there, and only
+there: it is not on any public page, an arbiter account cannot open it, it
+does not travel in an export, and it goes when the tournament is deleted.
+Every incident is also in the audit trail. A printable incident report comes
+later.
 
 ## Postponed games
 

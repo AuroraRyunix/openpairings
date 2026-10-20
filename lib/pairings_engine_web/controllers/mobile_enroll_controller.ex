@@ -3,8 +3,10 @@ defmodule PairingsEngineWeb.MobileEnrollController do
   Enrollment entry points for the no-account mobile result-entry flow:
 
     * `GET  /m`            - the code-entry page.
-    * `POST /m`            - validate a typed numeric code (per-IP rate limited).
-    * `GET  /m/e/:token`   - enroll straight from a scanned QR link.
+    * `POST /m`            - validate a typed numeric code, or a pasted QR
+      link (per-IP rate limited).
+    * `GET  /m/e/:token`   - the page a scanned QR opens: one button.
+    * `POST /m/e/:token`   - that button: enrol this browser.
     * `GET  /m/leave`      - drop the enrollment from this browser.
 
   On success the enrollment is claimed for this phone (`PairingsEngine.Mobile.claim/1`
@@ -31,7 +33,7 @@ defmodule PairingsEngineWeb.MobileEnrollController do
           code: ""
         )
 
-      enrollment = Mobile.get_active_by_code(code) ->
+      enrollment = by_code_or_link(code) ->
         claim_and_enroll(conn, enrollment, code)
 
       true ->
@@ -42,7 +44,37 @@ defmodule PairingsEngineWeb.MobileEnrollController do
 
   def submit(conn, _params), do: render(conn, :new, error: gettext("Enter your code."), code: "")
 
+  # A scanned QR used to enrol the browser on the GET. Two things were wrong
+  # with that. A link checker, a chat preview or a QR app that "looks ahead"
+  # fetched it first and burnt the one claim, leaving the phone with "already
+  # used". And on an iPhone the scan opens Safari, which then held the
+  # enrolment the installed app never sees. Now the GET only asks: one tap
+  # connects this browser, and the page shows the link to paste into the
+  # installed app instead.
   def enroll(conn, %{"token" => token}) do
+    case Mobile.get_active_by_token(token) do
+      nil ->
+        render(conn, :new,
+          error: gettext("That enrollment link is invalid or has expired."),
+          code: ""
+        )
+
+      %{claimed_at: claimed} when not is_nil(claimed) ->
+        render(conn, :new,
+          error:
+            gettext(
+              "This code has already been used by another phone - ask your arbiter for a new one."
+            ),
+          code: ""
+        )
+
+      enrollment ->
+        enrollment = PairingsEngine.Repo.preload(enrollment, [:tournament, :user])
+        render(conn, :confirm, enrollment: enrollment, link: current_url(conn))
+    end
+  end
+
+  def redeem(conn, %{"token" => token}) do
     case Mobile.get_active_by_token(token) do
       nil ->
         render(conn, :new,
@@ -54,6 +86,19 @@ defmodule PairingsEngineWeb.MobileEnrollController do
         claim_and_enroll(conn, enrollment, "")
     end
   end
+
+  # The code box takes the eight digits, or the whole link from the QR code
+  # pasted in - the installed app's way to use a QR its camera never saw.
+  @link_token ~r"/m/e/([A-Za-z0-9_-]{16,64})"
+
+  defp by_code_or_link(text) when is_binary(text) do
+    case Regex.run(@link_token, text) do
+      [_, token] -> Mobile.get_active_by_token(token)
+      nil -> Mobile.get_active_by_code(text)
+    end
+  end
+
+  defp by_code_or_link(_text), do: nil
 
   def leave(conn, _params) do
     conn

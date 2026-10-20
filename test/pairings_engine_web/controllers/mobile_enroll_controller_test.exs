@@ -40,10 +40,25 @@ defmodule PairingsEngineWeb.MobileEnrollControllerTest do
   end
 
   describe "one device per code" do
-    test "a first scan via the QR token claims the phone", %{conn: conn} do
+    test "opening the QR link only asks; it claims nothing", %{conn: conn} do
       {:ok, e} = Mobile.create_enrollment(tournament().id)
 
       conn = get(conn, ~p"/m/e/#{e.token}")
+
+      assert html_response(conn, 200) =~ "enroll-confirm-form"
+      assert html_response(conn, 200) =~ "enroll-confirm-link"
+      assert get_session(conn, :mobile_enrollment_id) == nil
+      assert Repo.get!(Enrollment, e.id).claimed_at == nil
+
+      # ... so a link preview that fetched it first burnt nothing.
+      again = get(build_conn(), ~p"/m/e/#{e.token}")
+      assert html_response(again, 200) =~ "enroll-confirm-form"
+    end
+
+    test "the confirm button claims the phone", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+
+      conn = post(conn, ~p"/m/e/#{e.token}")
 
       assert redirected_to(conn) == ~p"/m/results"
       assert get_session(conn, :mobile_enrollment_id) == e.id
@@ -53,11 +68,29 @@ defmodule PairingsEngineWeb.MobileEnrollControllerTest do
     test "a second scan of the same token is refused and does not get a session", %{conn: conn} do
       {:ok, e} = Mobile.create_enrollment(tournament().id)
 
-      _first = get(conn, ~p"/m/e/#{e.token}")
-      second = get(build_conn(), ~p"/m/e/#{e.token}")
+      _first = post(conn, ~p"/m/e/#{e.token}")
+      second = post(build_conn(), ~p"/m/e/#{e.token}")
 
       assert html_response(second, 200) =~ "already been used by another phone"
       assert get_session(second, :mobile_enrollment_id) == nil
+
+      opened = get(build_conn(), ~p"/m/e/#{e.token}")
+      assert html_response(opened, 200) =~ "already been used by another phone"
+    end
+
+    test "the QR link pasted into the code box claims the phone", %{conn: conn} do
+      {:ok, e} = Mobile.create_enrollment(tournament().id)
+
+      conn = post(conn, ~p"/m", %{"code" => "  http://192.168.1.20:4748/m/e/#{e.token}\n"})
+
+      assert redirected_to(conn) == ~p"/m/results"
+      assert get_session(conn, :mobile_enrollment_id) == e.id
+    end
+
+    test "a pasted link with a dead token is the ordinary refusal", %{conn: conn} do
+      conn = post(conn, ~p"/m", %{"code" => "https://example.org/m/e/AAAAAAAAAAAAAAAAAAAAAAAA"})
+
+      assert html_response(conn, 200) =~ "wrong or has expired"
     end
 
     test "a first scan of the 6-digit code claims the phone", %{conn: conn} do
@@ -90,6 +123,9 @@ defmodule PairingsEngineWeb.MobileEnrollControllerTest do
       by_token = get(build_conn(), ~p"/m/e/#{e.token}")
       refute html_response(by_token, 200) =~ "already been used by another phone"
       assert html_response(by_token, 200) =~ "invalid or has expired"
+
+      by_button = post(build_conn(), ~p"/m/e/#{e.token}")
+      assert html_response(by_button, 200) =~ "invalid or has expired"
     end
 
     test "an expired code still says so, not that it was already used", %{conn: conn} do

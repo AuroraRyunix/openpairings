@@ -4,10 +4,11 @@ defmodule PairingsEngineWeb.IncidentsLive do
   Manubrium, docs/manubrium.md - logged at the boards, newest first,
   optionally one round at a time (`?round=N`).
 
-  Read-only in phase 1, and live: a helper's "arbiter call" is no use to an
-  arbiter who reads it at the end of the round, so a new one appears here as
-  it arrives. Printing, editing and the desk's own entries are phase 2; the
-  rows already carry what those need.
+  Read-only, and live: a helper's "arbiter call" is no use to an arbiter who
+  reads it at the end of the round, so a new one appears here as it
+  arrives. A photo taken with the incident is shown small and opens full
+  size, from `PairingsEngineWeb.IncidentPhotoController` - behind the same
+  sign-in as this page, and nowhere else.
   """
   use PairingsEngineWeb, :live_view
 
@@ -62,6 +63,9 @@ defmodule PairingsEngineWeb.IncidentsLive do
   defp player_name(player, _snapshot), do: player.name
 
   defp at(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
+
+  defp source(%{user: %PairingsEngine.Accounts.User{} = user}),
+    do: PairingsEngine.Accounts.User.display_label(user)
 
   defp source(%{enrollment_label: label}) when label not in [nil, ""],
     do: gettext("Phone \"%{label}\"", label: label)
@@ -124,6 +128,7 @@ defmodule PairingsEngineWeb.IncidentsLive do
             <th>{gettext("What")}</th>
             <th>{gettext("Players")}</th>
             <th>{gettext("Note")}</th>
+            <th>{gettext("Photo")}</th>
             <th>{gettext("From")}</th>
           </tr>
         </thead>
@@ -144,6 +149,23 @@ defmodule PairingsEngineWeb.IncidentsLive do
               )}
             </td>
             <td>{i.note}</td>
+            <td>
+              <a
+                :if={i.has_photo}
+                href={~p"/t/#{@tournament.id}/incidents/#{i.id}/photo"}
+                target="_blank"
+                rel="noopener"
+                id={"incident-photo-#{i.id}"}
+                class="incident-photo"
+              >
+                <img
+                  src={~p"/t/#{@tournament.id}/incidents/#{i.id}/photo"}
+                  alt={gettext("Photo of board %{board}", board: i.board)}
+                  loading="lazy"
+                  width="72"
+                />
+              </a>
+            </td>
             <td class="hint">{source(i)}</td>
           </tr>
         </tbody>

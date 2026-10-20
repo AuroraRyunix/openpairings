@@ -164,6 +164,29 @@ defmodule PairingsEngine.BoardLink.AccountCodeTest do
     end
   end
 
+  describe "an arbiter's account" do
+    # An arbiter shares the hall, not the desk: entering results on a phone
+    # is theirs, connecting the tournament's boards is not.
+    test "reaches nothing through an account code" do
+      me = user_scope_fixture()
+      other = user_scope_fixture()
+      shared = tournament(other)
+
+      Repo.insert!(%Collaborator{
+        tournament_id: shared.id,
+        user_id: me.user.id,
+        email: me.user.email,
+        status: "accepted",
+        role: "arbiter"
+      })
+
+      {link, _grant} = connect!(me)
+
+      refute shared.id in reached(link)
+      refute link.id in Enum.map(BoardLink.account_links(shared.id), & &1.id)
+    end
+  end
+
   describe "making and withdrawing" do
     test "eight to an account" do
       me = user_scope_fixture()

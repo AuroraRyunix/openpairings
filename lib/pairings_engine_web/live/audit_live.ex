@@ -121,7 +121,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
         pairing.rating_correction pibe.correction
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
-        pairing.announcement_compared pairing.announcement_acknowledged)},
+        pairing.announcement_compared pairing.announcement_acknowledged incident.logged)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.late_entry_numbering_kept
         tournament.fide_compliance_lost
@@ -151,7 +151,7 @@ defmodule PairingsEngineWeb.AuditLive do
      ~w(import.swar import.swar_merged import.trf pibe.import import.json trf.finalised trf.postponed_sent
         trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
-        collaborator.removed)},
+        collaborator.removed collaborator.boards_assigned)},
     {"tournament",
      ~w(tournament.created tournament.deleted tournament.restored tournament.archived
         tournament.unarchived tournament.duplicated tournament.left tournament.handoff_forced
@@ -1405,8 +1405,41 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("import.json", d),
     do: gettext("Imported tournament %{name} from a JSON backup.", name: name(d, "name"))
 
+  def describe("collaborator.invited", %{"role" => "arbiter"} = d),
+    do: gettext("Invited %{email} as an arbiter.", email: value(d, "email"))
+
   def describe("collaborator.invited", d),
     do: gettext("Invited %{email} as a collaborator.", email: value(d, "email"))
+
+  def describe("collaborator.boards_assigned", %{"from" => nil, "to" => nil} = d),
+    do: gettext("Took the assigned boards away from %{email}.", email: value(d, "email"))
+
+  def describe("collaborator.boards_assigned", d),
+    do:
+      gettext("Gave %{email} boards %{from} to %{to}.",
+        email: value(d, "email"),
+        from: d["from"] || "1",
+        to: d["to"] || gettext("the last")
+      )
+
+  # From a phone (Manubrium): what happened, where, and - when the arbiter
+  # wrote one - the note, which is short by rule (`Incidents.note_max/0`).
+  def describe("incident.logged", d) do
+    what =
+      gettext("Logged an incident on board %{board} (round %{round}): %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+    note =
+      if is_binary(d["note"]) and d["note"] != "",
+        do: gettext("Note: %{note}", note: d["note"])
+
+    photo = if d["photo"] == true, do: gettext("With a photo.")
+
+    sentences([what, note, photo, phone_sentence(d)])
+  end
 
   def describe("collaborator.accepted", d),
     do: gettext("Accepted the collaboration invite (%{email}).", email: value(d, "email"))

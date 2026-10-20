@@ -32,7 +32,12 @@ defmodule PairingsEngine.Tournaments.Collaborator do
   use Ecto.Schema
   import Ecto.Changeset
 
-  @roles ~w(editor)
+  # `editor`: everything the owner can do but manage the sharing and delete.
+  # `arbiter`: results and incidents from the hall (Manubrium,
+  # docs/manubrium.md) and nothing else - an arbiter row is NOT counted by
+  # `Tournaments.get_authorized_tournament/2`, so not one desk page opens
+  # for it. `Tournaments.hall_role/2` is where it counts.
+  @roles ~w(editor arbiter)
   @statuses ~w(pending accepted)
 
   schema "tournament_collaborators" do
@@ -40,6 +45,11 @@ defmodule PairingsEngine.Tournaments.Collaborator do
     field :role, :string, default: "editor"
     field :status, :string, default: "pending"
     field :invite_token, :string
+    # The boards the desk gave an arbiter ("my boards" on their phone). A
+    # view, not a permission: what a phone may write is its code's range.
+    # Set only through `Tournaments.assign_boards/4`, never cast here.
+    field :board_from, :integer
+    field :board_to, :integer
     # Not persisted - set in-memory by
     # `PairingsEngine.Tournaments.add_collaborator/3` so the caller (the
     # Settings LiveView) can tell whether the invitation email actually went
@@ -65,6 +75,9 @@ defmodule PairingsEngine.Tournaments.Collaborator do
     |> unique_constraint([:tournament_id, :email])
     |> unique_constraint(:invite_token)
   end
+
+  @doc "The roles a collaborator may have."
+  def roles, do: @roles
 
   defp normalize_email(email) when is_binary(email),
     do: email |> String.trim() |> String.downcase()

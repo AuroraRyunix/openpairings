@@ -137,7 +137,12 @@ defmodule PairingsEngine.Application do
       # the life of the node - the supervisor has no children and the server
       # never reads its switch.
       {DynamicSupervisor, name: PairingsEngineWeb.BoardLan.Supervisor, strategy: :one_for_one},
-      PairingsEngineWeb.BoardLan
+      PairingsEngineWeb.BoardLan,
+      # Its sibling for the arbiters' phones (`PairingsEngineWeb.PhoneLan`):
+      # Manubrium's `/m` pages and nothing else, off until switched on, idle
+      # on a server for the same reason.
+      {DynamicSupervisor, name: PairingsEngineWeb.PhoneLan.Supervisor, strategy: :one_for_one},
+      PairingsEngineWeb.PhoneLan
     ]
 
     # See https://elixir.hexdocs.pm/Supervisor.html
