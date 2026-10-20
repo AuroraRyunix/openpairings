@@ -28,8 +28,13 @@ defmodule PairingsEngineWeb.PhoneLan do
     * the switch is on (`meta`, so it survives a restart);
     * the chosen address is still one of this PC's (it does not follow the
       PC to another network by itself);
-    * at least one phone code is active (`PairingsEngine.Mobile.any_active?/0`).
-      Revoke or outlive the last one and the port closes.
+    * at least one phone code is active (`PairingsEngine.Mobile.any_active?/0`),
+      or a Manubrium app is connected or about to be
+      (`PairingsEngine.Manubrium.any_active?/0`). Revoke or outlive the last
+      of them and the port closes.
+
+  The full app's API (`/api/manubrium/v1`) rides the same listener: a phone
+  in the hall reaches a desktop copy the way the hall pages do.
 
   ## What it does not do
 
@@ -43,7 +48,7 @@ defmodule PairingsEngineWeb.PhoneLan do
 
   require Logger
 
-  alias PairingsEngine.{Authz, Meta, Mobile}
+  alias PairingsEngine.{Authz, Manubrium, Meta, Mobile}
   alias PairingsEngineWeb.BoardLan
 
   @supervisor PairingsEngineWeb.PhoneLan.Supervisor
@@ -268,7 +273,7 @@ defmodule PairingsEngineWeb.PhoneLan do
       not config.enabled? -> :off
       is_nil(config.address) -> :no_address
       config.address not in config.addresses -> :address_gone
-      not Mobile.any_active?() -> :idle
+      not (Mobile.any_active?() or Manubrium.any_active?()) -> :idle
       true -> :listen
     end
   end

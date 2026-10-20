@@ -197,6 +197,35 @@ defmodule PairingsEngineWeb.PhoneLanTest do
       assert %DateTime{} = PairingsEngine.Repo.get!(Mobile.Enrollment, enrollment.id).claimed_at
     end
 
+    test "a Manubrium connect code opens it, and the app's API answers there", %{
+      port: port,
+      scope: scope,
+      status: status
+    } do
+      {:ok, %{secret: secret, link: link}} =
+        PairingsEngine.Manubrium.create_connect_code(scope, status.base_url)
+
+      assert link =~ URI.encode_www_form(status.base_url)
+      assert %{state: :listening} = PhoneLan.status()
+
+      assert {:ok, %{status: 401}} = ask(port, "/api/manubrium/v1/me")
+
+      {:ok, connected} =
+        ask(port, "/api/manubrium/v1/connect",
+          method: :post,
+          json: %{secret: secret, name: "Hall phone"}
+        )
+
+      assert connected.status == 201
+      assert connected.body["server"]["desktop"] == true
+      token = connected.body["token"]
+
+      assert {:ok, %{status: 200, body: %{"tournaments" => [_ | _]}}} =
+               ask(port, "/api/manubrium/v1/tournaments",
+                 headers: [{"authorization", "Bearer " <> token}]
+               )
+    end
+
     test "a caller from a public address is turned away" do
       conn =
         Plug.Test.conn(:get, "/m")

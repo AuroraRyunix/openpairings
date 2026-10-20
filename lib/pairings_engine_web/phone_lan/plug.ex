@@ -69,6 +69,11 @@ defmodule PairingsEngineWeb.PhoneLan.Plug do
   def phone_route?("GET", ["m", "sw.js"]), do: true
   def phone_route?("POST", ["m", "sync"]), do: true
 
+  # The Manubrium app's API: bearer tokens, no session, every verb it uses.
+  def phone_route?(method, ["api", "manubrium", "v1" | rest])
+      when method in ~w(GET POST PUT PATCH DELETE),
+      do: rest != []
+
   def phone_route?(method, ["live", t]) when method in ["GET", "POST"],
     do: t in ~w(websocket longpoll)
 
