@@ -99,7 +99,13 @@ defmodule PairingsEngineWeb.MobileAppController do
     conn |> put_status(400) |> json(%{error: "bad_request"})
   end
 
-  defp wire(answer) do
+  @doc """
+  One answer of `Mobile.Sync.submit/2` as the phone reads it, sentence
+  included. Shared with the Manubrium app's API
+  (`PairingsEngineWeb.ManubriumApi.TournamentController`), whose queue is
+  this queue.
+  """
+  def wire(answer) do
     %{
       cid: answer.cid,
       status: answer.status,

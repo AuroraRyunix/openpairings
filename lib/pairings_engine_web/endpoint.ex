@@ -89,5 +89,7 @@ defmodule PairingsEngineWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug Plug.Session, @session_options
+  # Development only - empty, and so inert, everywhere else. See the plug.
+  plug PairingsEngineWeb.Plugs.ManubriumDevCors
   plug PairingsEngineWeb.Router
 end

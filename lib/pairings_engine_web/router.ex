@@ -49,6 +49,26 @@ defmodule PairingsEngineWeb.Router do
     plug PairingsEngineWeb.Plugs.English
   end
 
+  # The Manubrium app's API (`/api/manubrium/v1`, docs/manubrium.md "Full
+  # app"): JSON in and out, a bearer token and nothing else - no session,
+  # no cookie, no CSRF token, because nothing here is a browser. English,
+  # like the hall pages: the refusals are sentences the phone shows.
+  pipeline :manubrium_api do
+    plug :accepts, ["json"]
+
+    plug :put_secure_browser_headers, %{
+      "content-security-policy" => "default-src 'none'; frame-ancestors 'none'"
+    }
+
+    plug PairingsEngineWeb.Plugs.English
+  end
+
+  # The bearer check, rate limits included. In its own pipeline so a route
+  # cannot be added to the scope below without it.
+  pipeline :manubrium_device do
+    plug PairingsEngineWeb.ManubriumApi.Auth
+  end
+
   # Marks a response as one of Manubrium's pages, so the root layout links
   # the manifest and registers the service worker there and nowhere else.
   pipeline :manubrium do
@@ -356,6 +376,43 @@ defmodule PairingsEngineWeb.Router do
     post "/box", BoardLinkController, :box
     get "/tournaments/:id", BoardLinkController, :tournament
     post "/tournaments/:id/games", BoardLinkController, :games
+  end
+
+  # Manubrium, the full app: a phone runs a tournament through these. The
+  # connect trade is the one route without a token - the one-time connect
+  # code it carries is the credential, and refused ones are rate limited by
+  # address in `PairingsEngine.Manubrium.redeem/3`. Everything else carries
+  # the device token (`:manubrium_device`). On a desktop copy the phones'
+  # network listener (`PairingsEngineWeb.PhoneLan`) serves these too.
+  scope "/api/manubrium/v1", PairingsEngineWeb.ManubriumApi do
+    pipe_through [:manubrium_api]
+
+    post "/connect", AccountController, :connect
+  end
+
+  scope "/api/manubrium/v1", PairingsEngineWeb.ManubriumApi do
+    pipe_through [:manubrium_api, :manubrium_device]
+
+    get "/me", AccountController, :me
+    delete "/me", AccountController, :sign_out
+
+    get "/tournaments", TournamentController, :index
+    get "/tournaments/:id", TournamentController, :show
+    get "/tournaments/:id/standings", TournamentController, :standings
+    get "/tournaments/:id/incidents", TournamentController, :incidents
+    post "/tournaments/:id/sync", TournamentController, :sync
+    post "/tournaments/:id/rounds", TournamentController, :pair
+    get "/tournaments/:id/rounds/:number", TournamentController, :round
+    delete "/tournaments/:id/rounds/:number", TournamentController, :unpair
+    put "/tournaments/:id/rounds/:number/publish", TournamentController, :publish
+
+    post "/tournaments/:id/rounds/:number/boards/:pairing_id/clear",
+         TournamentController,
+         :clear
+
+    get "/tournaments/:id/players", PlayerController, :index
+    post "/tournaments/:id/players", PlayerController, :create
+    patch "/tournaments/:id/players/:player_id", PlayerController, :update
   end
 
   # Trading a grant for an account code (`BoardConnectController.grant/2`).
