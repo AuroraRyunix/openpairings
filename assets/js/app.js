@@ -25,6 +25,8 @@ import {LiveSocket} from "phoenix_live_view"
 import {hooks as colocatedHooks} from "phoenix-colocated/pairings_engine"
 import topbar from "../vendor/topbar"
 import {isMenuKey, gridKeyAction, movePosition, restorePosition, fillTemplate} from "./grid_keys"
+import {Manubrium} from "./manubrium/hook"
+import {Outbox as ManubriumOutbox} from "./manubrium/outbox"
 
 // Persists the player-grid column selection (the "Display" panel) in localStorage.
 //
@@ -1265,7 +1267,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
   longPollFallbackMs: 2500,
   reconnectAfterMs: (tries) => [250, 500, 1000, 2000, 3000][tries - 1] || 5000,
   params: {_csrf_token: csrfToken},
-  hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut, Flash, DialogFocus},
+  hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut, Flash, DialogFocus, Manubrium},
   dom: {
     // The pickers' `aria-pressed` is set here in the browser (`markPickers`
     // below - the server never knows the theme), so a patch that re-renders
@@ -1285,6 +1287,18 @@ window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page
 liveSocket.connect()
+
+// Manubrium (docs/manubrium.md). The worker is registered only where the root
+// layout linked Manubrium's manifest - the `/m` pages - and is scoped to
+// `/m/`, so no other page of the site ever runs through it. The code-entry
+// page `/m` has no LiveView, so its outbox (what a phone still had waiting
+// when its access ended) is started here rather than by the hook.
+if ("serviceWorker" in navigator && document.querySelector('link[rel="manifest"][href^="/m/"]')) {
+  navigator.serviceWorker.register("/m/sw.js", {scope: "/m/"}).catch(() => {})
+}
+
+const standaloneOutbox = document.querySelector("#manubrium-outbox[data-standalone]")
+if (standaloneOutbox) new ManubriumOutbox(standaloneOutbox)
 
 // expose liveSocket on window for web console debug logs and latency simulation:
 // >> liveSocket.enableDebug()

@@ -45,6 +45,8 @@ pairings_engine-*.tar
 # files behind and made `git status` lie about whether a tree was clean.
 /priv/static/images/logo-*.png
 /priv/static/images/favicon-*.png
+# Manubrium's icons, digested: the originals have no dash in their names.
+/priv/static/images/manubrium/*-*.png
 
 # Node/npm leftovers
 npm-debug.log

@@ -32,6 +32,29 @@ defmodule PairingsEngineWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Manubrium's queue (`MobileAppController.sync/2`): JSON in and out, but a
+  # write made from a page with a session, so it gets the session and the
+  # CSRF check a form post gets - not `:api`'s bare pipe. English, like the
+  # rest of `/m`: the answers are sentences the phone shows. The answer is
+  # JSON and never a document, so its policy allows nothing at all.
+  pipeline :mobile_sync do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug :protect_from_forgery
+
+    plug :put_secure_browser_headers, %{
+      "content-security-policy" => "default-src 'none'; frame-ancestors 'none'"
+    }
+
+    plug PairingsEngineWeb.Plugs.English
+  end
+
+  # Marks a response as one of Manubrium's pages, so the root layout links
+  # the manifest and registers the service worker there and nowhere else.
+  pipeline :manubrium do
+    plug :put_manubrium
+  end
+
   # Player-facing controller pages, after `:browser`: English for this request
   # whatever `Plugs.Locale` resolved, without touching the session it wrote.
   # The controller-side twin of `EnglishHook` - see `Plugs.English`.
@@ -92,6 +115,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/registrations", RegistrationsLive
       live "/t/:id/pairings", PairingsLive
       live "/t/:id/postponed", PostponedLive
+      live "/t/:id/incidents", IncidentsLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive
       live "/t/:id/pairings/:round/matches/:match", MatchLive
       live "/t/:id/standings", StandingsLive
@@ -534,8 +558,23 @@ defmodule PairingsEngineWeb.Router do
   #
   # English throughout, like the result entry it leads to: `:english` pins the
   # controller routes, `EnglishHook` the live_session.
+  #
+  # Manubrium, the installable form of the same pages (docs/manubrium.md):
+  # the manifest and the service worker are the same for everybody and need
+  # no session; the queue is a write and gets the session and CSRF check.
   scope "/m", PairingsEngineWeb do
-    pipe_through [:browser, :english]
+    get "/manifest.webmanifest", MobileAppController, :manifest
+    get "/sw.js", MobileAppController, :service_worker
+  end
+
+  scope "/m", PairingsEngineWeb do
+    pipe_through [:mobile_sync]
+
+    post "/sync", MobileAppController, :sync
+  end
+
+  scope "/m", PairingsEngineWeb do
+    pipe_through [:browser, :english, :manubrium]
 
     get "/", MobileEnrollController, :new
     post "/", MobileEnrollController, :submit
@@ -551,4 +590,6 @@ defmodule PairingsEngineWeb.Router do
       live "/results", MobileResultsLive
     end
   end
+
+  defp put_manubrium(conn, _opts), do: Plug.Conn.assign(conn, :manubrium, true)
 end

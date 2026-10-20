@@ -532,8 +532,21 @@ defmodule PairingsEngine.TournamentExport do
   #     arrived by file would make the box's old secret valid on a machine
   #     its arbiter never connected it to. The games those boxes reported DO
   #     travel (`"board_games"`).
+  #   mobile_submissions
+  #     The answers a phone's queue was given (`PairingsEngine.Mobile.Sync`),
+  #     keyed by an enrolment that does not travel either. Bookkeeping for
+  #     one phone talking to one machine.
+  #   incidents
+  #     Not yet, rather than never: what the phones logged at the boards
+  #     (`PairingsEngine.Incidents`) IS part of the event, and travels with
+  #     the printable incident report (docs/manubrium.md, phase 2). Until
+  #     then a hand-off leaves them on the machine they were logged on,
+  #     where the incidents page still lists them. A snapshot restore keeps
+  #     them, like the audit trail.
   @excluded_tables [
     :board_links,
+    :incidents,
+    :mobile_submissions,
     :board_relay_requests,
     :mobile_enrollments,
     :tournament_snapshots,

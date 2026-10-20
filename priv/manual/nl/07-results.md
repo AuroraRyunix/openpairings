@@ -123,6 +123,57 @@ Het scherm van de telefoon toont de ratings en scores van de spelers, heeft een
 slot dat tegen per ongeluk aantikken beschermt, en een eigen wisselaar voor het
 thema. Een telefoon kan niets anders in het programma bereiken.
 
+Telefoons hebben het gehoste programma nodig: de desktopinstallatie heeft geen
+adres dat een telefoon kan bereiken, en maakt dus geen telefooncodes.
+
+### Manubrium, de telefoonapp {#manubrium-the-phone-app}
+
+Je kunt de telefoonpagina's als app op het beginscherm van de telefoon zetten,
+onder de naam **Manubrium**. Ze opent dan schermvullend zoals elke andere app,
+en blijft werken als de wifi in de zaal wegvalt:
+
+- Een aangetikt resultaat gaat eerst naar het postvak op de telefoon en wordt
+  van daaruit verstuurd, in de volgorde waarin je het invoerde. Zonder
+  verbinding wacht het op de telefoon en wordt het verstuurd zodra de wifi terug
+  is. Bovenaan staat hoeveel er wachten, en elk bord toont *Wacht*,
+  *Verstuurd* of *Niet aanvaard*.
+- Het programma beoordeelt elk resultaat wanneer het aankomt, niet wanneer het
+  werd aangetikt. Een resultaat dat niet meer mag - de code van de telefoon werd
+  ingetrokken, de ronde is voor een helper niet meer de laatste, de spelers aan
+  het bord zijn veranderd, of het bord kreeg intussen een ander resultaat - wordt
+  **niet aanvaard**, en de telefoon zegt per bord waarom, tot je het wegdoet.
+  Een resultaat dat aan de tafel van de arbiter werd ingevoerd, wordt nooit
+  overschreven door een telefoon die onbereikbaar was.
+- Hetzelfde resultaat twee keer versturen (een verloren antwoord, een
+  herlaadbeurt) slaat het maar één keer op.
+- Een resultaat wissen, het slot, de rondekeuze en **Meer** hebben een
+  verbinding nodig.
+- **Verlaten** op een telefoon waar nog resultaten wachten, vraagt eerst
+  bevestiging: wie weggaat, gooit ze weg.
+
+Om de app te installeren open je de codepagina of de resultatenpagina en kies je
+in de browser **Zet op beginscherm** (Android: het menu, **App installeren** of
+**Toevoegen aan startscherm**; iPhone: **Deel**, **Zet op beginscherm**). Op een
+iPhone deelt de app de aanmelding van Safari niet: zet ze dus eerst op het
+beginscherm en typ daarna de code in de app.
+
+### Incidenten aan de borden {#incidents-logged-at-the-boards}
+
+Elk bord op de telefoon heeft een knop voor incidenten.
+
+- Een **deputy-telefoon** meldt een incident: onreglementaire zet, probleem met
+  de klok, telefoon of elektronisch toestel, geschil, arbiter geroepen of
+  andere, met een korte opmerking. Het bord, de ronde, de spelers en de tijd
+  komen er vanzelf bij; de opmerking is niet de plaats voor namen.
+- Een **helpertelefoon** heeft in de plaats **Arbiter roepen**: die meldt
+  alleen dat de arbiter naar dat bord moet komen.
+
+Incidenten gaan door hetzelfde postvak als resultaten, en wachten dus ook op de
+wifi. Op de pagina Paringen zegt een regel onder de ronde hoeveel er zijn, en
+**Meer**, **Incidenten** toont ze allemaal, per ronde, de nieuwste eerst; een
+nieuw incident verschijnt terwijl de pagina openstaat. Een afdrukbaar
+incidentenverslag komt later.
+
 ## Uitgestelde partijen {#postponed-games}
 
 Een partij die niet in haar ronde kan worden gespeeld (verplaatst door

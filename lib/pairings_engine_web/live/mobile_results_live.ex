@@ -1,14 +1,22 @@
 defmodule PairingsEngineWeb.MobileResultsLive do
   @moduledoc """
-  The no-account mobile result-entry screen. Reached only via an active
-  enrollment (see `PairingsEngineWeb.MobileAuth`), scoped to that one
-  tournament. A helper taps a board and picks the result - nothing else is
-  reachable from here.
+  The no-account mobile result-entry screen - Manubrium's hall view
+  (docs/manubrium.md). Reached only via an active enrollment (see
+  `PairingsEngineWeb.MobileAuth`), scoped to that one tournament. A helper
+  taps a board and picks the result - nothing else is reachable from here.
+
+  With the `Manubrium` hook running, a tap does not come here at all: it
+  becomes an entry in the phone's queue, sent to `/m/sync` and judged by
+  `PairingsEngine.Mobile.Sync`, so it survives the hall wifi dropping. The
+  `set_result` event below is the same write made directly, which is what a
+  page without the hook (or a test) uses. Both go through
+  `Mobile.permit_result/4` and `Tournaments.update_pairing_result/3`.
   """
   use PairingsEngineWeb, :live_view
 
   alias PairingsEngine.Pairing, as: Engine
-  alias PairingsEngine.{Audit, Mobile, Standings, Tournaments}
+  alias PairingsEngine.{Mobile, Standings, Tournaments}
+  alias PairingsEngineWeb.Components.Manubrium
   alias PairingsEngine.Tournaments.{Pairing, Player, Tournament}
 
   @results [{"1-0", "1-0"}, {"1/2-1/2", "½-½"}, {"0-1", "0-1"}]
@@ -64,6 +72,12 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   # lying about in a noisy hall.
   @confirm_ms 4_000
 
+  # How long a board whose result is on its way (the hook said so) stays on
+  # screen if the answer never comes back. The answer normally arrives in a
+  # fraction of a second and starts the ordinary `@settle_ms` instead; this
+  # is only the ceiling for a reply lost on the way.
+  @hold_ms 15_000
+
   # The buttons must offer everything the guard accepts, minus the blank
   # (which has its own labelled, two-tap "Clear result" button below the
   # results; tapping the chosen result again does nothing at all).
@@ -108,6 +122,13 @@ defmodule PairingsEngineWeb.MobileResultsLive do
        # for the second (see `@confirm_ms`).
        confirm_clear: nil,
        saved_notice: "",
+       # Boards whose result the phone's queue is sending right now: kept on
+       # screen (not green yet) until the answer starts their settle.
+       held: MapSet.new(),
+       # The hall view's own board filter, on top of the enrolment's range:
+       # "boards 21 to 40", for a deputy covering one room of a big hall.
+       filter_form: to_form(%{"from" => "", "to" => ""}, as: :filter),
+       filter_range: {nil, nil},
        # Which board's "More…" panel is open, if any - one at a time, so
        # the page doesn't grow tall with several boards expanded at once.
        # Cleared on round switch (below) since the boards it referred to no
@@ -128,6 +149,10 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   # and each timer must retire only its own.
   def handle_info({:settle_board, pairing_id}, socket) do
     {:noreply, update(socket, :just_saved, &MapSet.delete(&1, pairing_id))}
+  end
+
+  def handle_info({:release_hold, pairing_id}, socket) do
+    {:noreply, update(socket, :held, &MapSet.delete(&1, pairing_id))}
   end
 
   def handle_info({:clear_confirm_expired, pairing_id}, socket) do
@@ -410,6 +435,38 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     end
   end
 
+  # The queue (`assets/js/manubrium/`) tells the page a board's result is
+  # on its way, and then that it arrived. Neither writes anything - the
+  # write is `/m/sync`'s - they only keep the board on screen long enough
+  # for the helper to see it land, as a direct tap always did. Ids not on
+  # this page's boards are ignored.
+  def handle_event("manubrium_hold", %{"ids" => ids}, socket) when is_list(ids) do
+    ids = board_ids(socket, ids)
+    Enum.each(ids, &Process.send_after(self(), {:release_hold, &1}, @hold_ms))
+    {:noreply, update(socket, :held, &MapSet.union(&1, MapSet.new(ids)))}
+  end
+
+  def handle_event("manubrium_settle", %{"ids" => ids}, socket) when is_list(ids) do
+    ids = board_ids(socket, ids)
+    Enum.each(ids, &Process.send_after(self(), {:settle_board, &1}, @settle_ms))
+
+    {:noreply,
+     socket
+     |> update(:held, &MapSet.difference(&1, MapSet.new(ids)))
+     |> update(:just_saved, &MapSet.union(&1, MapSet.new(ids)))
+     |> assign(saved_notice: saved_notice(socket, ids))}
+  end
+
+  def handle_event("filter_boards", %{"filter" => params}, socket) do
+    range = {parse_board(params["from"]), parse_board(params["to"])}
+
+    {:noreply,
+     assign(socket,
+       filter_form: to_form(Map.take(params, ["from", "to"]), as: :filter),
+       filter_range: range
+     )}
+  end
+
   # Deputies correct filled boards, so they need the whole list back; helpers
   # cannot, so for them this is really "let me check what I already did".
   def handle_event("toggle_show_all", _params, socket) do
@@ -442,6 +499,58 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   defp button_label("*B", :postponed_black), do: gettext("* postponed by Black")
   defp button_label(_value, label), do: label
 
+  defp board_ids(socket, ids) do
+    on_page = MapSet.new(socket.assigns.boards, & &1.id)
+
+    ids
+    |> Enum.map(&to_int/1)
+    |> Enum.filter(&MapSet.member?(on_page, &1))
+  end
+
+  defp saved_notice(socket, ids) do
+    socket.assigns.boards
+    |> Enum.filter(&(&1.id in ids))
+    |> Enum.map_join(" ", &gettext("Board %{board}: saved.", board: &1.board))
+  end
+
+  defp to_int(id) when is_integer(id), do: id
+
+  defp to_int(id) when is_binary(id) do
+    case Integer.parse(id) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp to_int(_), do: nil
+
+  defp parse_board(value) when is_binary(value) do
+    case Integer.parse(String.trim(value)) do
+      {n, ""} when n > 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_board(_), do: nil
+
+  # The nine-squares mark, small, in the header: the middle column filled,
+  # the centre in the accent (brand/marks/manubrium.svg).
+  defp manubrium_mark(assigns) do
+    ~H"""
+    <svg class="mobile-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <rect x="2.6" y="2.6" width="4.8" height="4.8" class="mobile-mark-open" />
+      <rect x="9" y="2" width="6" height="6" class="mobile-mark-fill" />
+      <rect x="16.6" y="2.6" width="4.8" height="4.8" class="mobile-mark-open" />
+      <rect x="2.6" y="9.6" width="4.8" height="4.8" class="mobile-mark-open" />
+      <rect x="9" y="9" width="6" height="6" class="mobile-mark-accent" />
+      <rect x="16.6" y="9.6" width="4.8" height="4.8" class="mobile-mark-open" />
+      <rect x="2.6" y="16.6" width="4.8" height="4.8" class="mobile-mark-open" />
+      <rect x="9" y="16" width="6" height="6" class="mobile-mark-fill" />
+      <rect x="16.6" y="16.6" width="4.8" height="4.8" class="mobile-mark-open" />
+    </svg>
+    """
+  end
+
   defp helper?(%Mobile.Enrollment{level: "helper"}), do: true
   defp helper?(%Mobile.Enrollment{}), do: false
 
@@ -452,59 +561,36 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   # helper had tapped it, and only as "Could not save that result."
   defp read_only?(tournament), do: Tournaments.ensure_writable(tournament) != :ok
 
-  # No-account phones weren't writing to the audit trail at all before this -
-  # a real gap, since a mobile-entered result is exactly as write-worthy as
-  # one entered from PairingsLive (same `Audit.log/4` action names, so the
-  # audit page's existing "pairings" filter and describe/2 clauses pick
-  # these up automatically), just with no `Scope`/user to attribute it to.
-  # `Audit.log/4`'s `nil` case handles that ("System" in the audit UI) - the
-  # enrollment's own id/code/label are threaded into `details` instead, so
-  # an arbiter can still tell which phone made the change even without a
-  # user account attached to it.
+  # The audit row lives with the queued path's in `Mobile.log_result/6`, so
+  # a tap and a queued tap are recorded in one shape.
   defp log_mobile_result(socket, pairing, previous, result) do
-    tournament = socket.assigns.tournament
-    enrollment = socket.assigns.mobile_enrollment
-
-    action =
-      cond do
-        result == "" -> "pairing.result_cleared"
-        previous in [nil, ""] -> "pairing.result_entered"
-        true -> "pairing.result_changed"
-      end
-
-    Audit.log(tournament.id, nil, action, %{
-      pairing_id: pairing.id,
-      round: socket.assigns.round_number,
-      board: pairing.board,
-      white: player_name(pairing.white_player),
-      black: player_name(pairing.black_player),
-      from: previous,
-      to: result,
-      via: "mobile",
-      enrollment_id: enrollment.id,
-      enrollment_code: enrollment.code,
-      enrollment_label: enrollment.label,
-      # What the phone was ALLOWED to do at the time, not just which phone -
-      # a level minted before this feature existed is not recorded (there
-      # was none), and `AuditLive.mobile_suffix/1` treats that absence as
-      # "nothing to add" rather than guessing.
-      enrollment_level: enrollment.level
-    })
+    Mobile.log_result(
+      socket.assigns.mobile_enrollment,
+      pairing,
+      socket.assigns.round_number,
+      previous,
+      result
+    )
   end
-
-  defp player_name(nil), do: nil
-  defp player_name(%Player{name: name}), do: name
 
   # Boards still worth showing: everything unfinished, plus whatever was just
   # entered and is still being confirmed. `show_all?` overrides both.
   #
   # Clearing a result puts a board back among the unfinished ones on its own,
   # because "unfinished" is read from the result rather than remembered.
-  defp visible_boards(boards, _just_saved, true), do: boards
+  #
+  # The hall filter's range applies on top, whatever `show_all?` says.
+  defp visible_boards(assigns) do
+    %{boards: boards, just_saved: just_saved, held: held, show_all: show_all?} = assigns
+    {from, to} = assigns.filter_range
 
-  defp visible_boards(boards, just_saved, false) do
-    Enum.filter(boards, fn p ->
-      p.result in [nil, ""] or MapSet.member?(just_saved, p.id)
+    boards
+    |> Enum.filter(fn p ->
+      (is_nil(from) or p.board >= from) and (is_nil(to) or p.board <= to)
+    end)
+    |> Enum.filter(fn p ->
+      show_all? or p.result in [nil, ""] or MapSet.member?(just_saved, p.id) or
+        MapSet.member?(held, p.id)
     end)
   end
 
@@ -585,27 +671,39 @@ defmodule PairingsEngineWeb.MobileResultsLive do
 
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, :visible, visible_boards(assigns))
+
     ~H"""
     <div class="mobile-shell">
       <header class="mobile-header">
         <div>
-          <div class="mobile-brand">Open<strong>Pairings</strong></div>
+          <div class="mobile-brand">
+            <.manubrium_mark /> <strong>Manubrium</strong>
+          </div>
           <%!-- The page's one heading: which tournament this phone is entering
                 results for. --%>
           <h1 class="mobile-tname">{@tournament.name}</h1>
+          <%!-- Sent, waiting, refused: kept by the queue in the browser,
+                because it has to be right while this LiveView is
+                unreachable. --%>
+          <Manubrium.count />
         </div>
         <div class="mobile-header-actions">
           <button
             type="button"
             class={["mobile-lock-btn", @locked && "active"]}
             phx-click="toggle_lock"
-            title={if @locked, do: "Unlock result entry", else: "Lock result entry"}
-            aria-label={if @locked, do: "Unlock result entry", else: "Lock result entry"}
+            title={if @locked, do: gettext("Unlock result entry"), else: gettext("Lock result entry")}
+            aria-label={
+              if @locked, do: gettext("Unlock result entry"), else: gettext("Lock result entry")
+            }
           >
             {if @locked, do: "🔒", else: "🔓"}
           </button>
           <Layouts.theme_switch />
-          <.link href={~p"/m/leave"} class="mobile-leave">Leave</.link>
+          <.link href={~p"/m/leave"} class="mobile-leave" id="mobile-leave" data-mq-leave>
+            {gettext("Leave")}
+          </.link>
         </div>
       </header>
 
@@ -618,11 +716,19 @@ defmodule PairingsEngineWeb.MobileResultsLive do
             here too. --%>
       <Layouts.flash_group flash={@flash} />
 
+      <Manubrium.outbox />
+
       <%!-- `<main>` for the root layout's skip link, which this bare shell had
             nowhere to send; and the status line a screen reader hears each
             save through - always on the page, so a change to its text is
-            announced. --%>
-      <main id="main-content" tabindex="-1">
+            announced. It is also the queue's hook: taps on the boards inside
+            it become entries (assets/js/manubrium/hook.js). --%>
+      <main
+        id="main-content"
+        tabindex="-1"
+        phx-hook="Manubrium"
+        data-enrollment={@mobile_enrollment.id}
+      >
         <p class="sr-only" role="status">{@saved_notice}</p>
 
         <%!-- A helper is pinned to the latest paired round (`Mobile.permit_round/3`)
@@ -644,15 +750,17 @@ defmodule PairingsEngineWeb.MobileResultsLive do
         </div>
 
         <p class="mobile-hint">
-          Round {@round_number} ·
+          {gettext("Round %{n}", n: @round_number)} ·
           <%= if @locked do %>
-            🔒 locked - tap the lock to enter results
+            🔒 {gettext("locked - tap the lock to enter results")}
           <% else %>
-            tap a result for each board
+            {gettext("tap a result for each board")}
           <% end %>
         </p>
 
-        <div :if={@boards == []} class="mobile-empty">No boards paired for this round yet.</div>
+        <div :if={@boards == []} class="mobile-empty">
+          {gettext("No boards paired for this round yet.")}
+        </div>
 
         <%!-- Finished boards drop out of the list as they are entered, so what
             is left on screen is what is left to do. The count is the honest
@@ -662,24 +770,61 @@ defmodule PairingsEngineWeb.MobileResultsLive do
           <span class="mobile-filter-count">
             <%= case remaining_count(@boards) do %>
               <% 0 -> %>
-                All results in
+                {gettext("All results in")}
               <% 1 -> %>
-                1 board left
+                {gettext("1 board left")}
               <% n -> %>
-                {n} boards left
+                {gettext("%{n} boards left", n: n)}
             <% end %>
           </span>
 
           <button type="button" class="mobile-filter-btn" phx-click="toggle_show_all">
-            {if @show_all, do: "Hide finished", else: "Show all"}
+            {if @show_all, do: gettext("Hide finished"), else: gettext("Show all")}
           </button>
         </div>
 
-        <div
-          :if={@boards != [] and visible_boards(@boards, @just_saved, @show_all) == []}
-          class="mobile-empty"
+        <%!-- The hall view's range: "my room is boards 21-40". Narrows what is
+              shown, never what is allowed - that is the enrolment's range,
+              checked on every write. Only offered where there are enough
+              boards for it to matter. --%>
+        <.form
+          :if={length(@boards) > 6}
+          for={@filter_form}
+          id="hall-filter"
+          class="mobile-range"
+          phx-change="filter_boards"
+          phx-submit="filter_boards"
         >
-          Every board in this round has a result. Tap "Show all" to look them over.
+          <span class="mobile-range-label">{gettext("Boards")}</span>
+          <.input
+            field={@filter_form[:from]}
+            type="number"
+            min="1"
+            inputmode="numeric"
+            placeholder={gettext("from")}
+            aria-label={gettext("First board to show")}
+            class="mobile-range-input"
+            phx-debounce="300"
+          />
+          <span aria-hidden="true">–</span>
+          <.input
+            field={@filter_form[:to]}
+            type="number"
+            min="1"
+            inputmode="numeric"
+            placeholder={gettext("to")}
+            aria-label={gettext("Last board to show")}
+            class="mobile-range-input"
+            phx-debounce="300"
+          />
+        </.form>
+
+        <div :if={@boards != [] and @visible == []} class="mobile-empty">
+          <%= if @filter_range == {nil, nil} do %>
+            {gettext("Every board in this round has a result. Tap \"Show all\" to look them over.")}
+          <% else %>
+            {gettext("No open boards in that range.")}
+          <% end %>
         </div>
 
         <%!-- Keyed by id, so LiveView keeps each board's own elements when a
@@ -687,15 +832,42 @@ defmodule PairingsEngineWeb.MobileResultsLive do
             buttons of the board below were being reused for the board that
             left, focus included. Each row of result buttons is a group named
             for its board and players, and the recorded result is
-            `aria-pressed` - it was a colour. --%>
+            `aria-pressed` - it was a colour.
+
+            The `data-*` on the board are what a queued entry is made of:
+            where it is, who sits there, and what the phone believes the
+            board holds (the compare-and-set in `Mobile.Sync`). --%>
         <div
-          :for={p <- visible_boards(@boards, @just_saved, @show_all)}
+          :for={p <- @visible}
           id={"mobile-board-#{p.id}"}
           class={["mobile-board", MapSet.member?(@just_saved, p.id) && "just-saved"]}
           phx-hook=".KeepFocus"
+          data-pairing={p.id}
+          data-board={p.board}
+          data-round={@round_number}
+          data-white={p.white_player_id}
+          data-black={p.black_player_id}
+          data-result={p.result}
         >
           <div class="mobile-board-head">
-            <span class="mobile-board-no" id={"mobile-board-#{p.id}-no"}>Board {p.board}</span>
+            <span class="mobile-board-no" id={"mobile-board-#{p.id}-no"}>
+              {gettext("Board %{board}", board: p.board)}
+            </span>
+            <span id={"mobile-board-#{p.id}-queue"} phx-update="ignore" data-mq-badge></span>
+            <button
+              type="button"
+              id={"mobile-incident-#{p.id}"}
+              class="mobile-incident-btn"
+              disabled={@locked}
+              data-incident
+              aria-label={
+                if helper?(@mobile_enrollment),
+                  do: gettext("Call the arbiter to board %{board}", board: p.board),
+                  else: gettext("Log an incident on board %{board}", board: p.board)
+              }
+            >
+              {if helper?(@mobile_enrollment), do: gettext("Call arbiter"), else: gettext("Incident")}
+            </button>
           </div>
           <div class="mobile-players">
             <div class="mobile-side">
@@ -704,7 +876,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               </span>
               <span class="mobile-meta">{player_meta(p.white_player, @scores)}</span>
             </div>
-            <span class="mobile-vs">vs</span>
+            <span class="mobile-vs">{gettext("vs")}</span>
             <div class="mobile-side mobile-side--black">
               <span class="mobile-black" id={"mobile-board-#{p.id}-black"}>
                 {p.black_player && p.black_player.name}
@@ -726,6 +898,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               phx-click="set_result"
               phx-value-id={p.id}
               phx-value-result={value}
+              data-entry={value}
             >
               {label}
             </button>
@@ -736,12 +909,13 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               phx-click="toggle_extra"
               phx-value-id={p.id}
             >
-              {if @expanded_id == p.id, do: "▲ Less", else: "▼ More"}
+              {if @expanded_id == p.id, do: gettext("▲ Less"), else: gettext("▼ More")}
             </button>
           </div>
 
           <%!-- Deputies only, and only where the clear would be accepted.
-              Two taps: the first arms the button, the second clears. --%>
+              Two taps: the first arms the button, the second clears. Never
+              queued: taking a result away waits for a connection. --%>
           <div :if={MapSet.member?(@clearable, p.id)} class="mobile-clear-row">
             <button
               type="button"
@@ -778,11 +952,14 @@ defmodule PairingsEngineWeb.MobileResultsLive do
               phx-click="set_result"
               phx-value-id={p.id}
               phx-value-result={value}
+              data-entry={value}
             >
               {button_label(value, label)}
             </button>
           </div>
         </div>
+
+        <Manubrium.incident_dialog level={@mobile_enrollment.level} />
       </main>
 
       <script :type={Phoenix.LiveView.ColocatedHook} name=".KeepFocus">

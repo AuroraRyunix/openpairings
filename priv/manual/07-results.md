@@ -126,6 +126,53 @@ card. The phone's screen shows the players' ratings and scores, has a lock
 that guards against accidental taps, and its own theme switch. A phone
 cannot reach anything else in the program.
 
+Phones need the hosted program: the desktop install has no address a phone
+can reach, so it does not make phone codes.
+
+### Manubrium, the phone app
+
+The phone pages can be added to the phone's home screen as an app called
+**Manubrium**. It opens full screen like any other app, and it keeps working
+when the hall wifi drops:
+
+- A tapped result goes into the phone's outbox first and is sent from there,
+  in the order it was entered. Without a connection it waits on the phone and
+  is sent when the wifi is back. The header says how many are waiting, and each
+  board shows *Waiting*, *Sent* or *Not accepted*.
+- The program judges every result when it arrives, not when it was tapped. A
+  result that is no longer allowed - the phone's code was revoked, the round is
+  no longer the latest for a helper, the players on the board changed, or the
+  board got a different result in the meantime - is **not accepted**, and the
+  phone says why, per board, until it is dismissed. A result entered at the
+  desk is never overwritten by a phone that was out of reach.
+- Sending the same result twice (a lost reply, a reload) saves it once.
+- Clearing a result, the lock, the round switcher and **More** need a
+  connection.
+- **Leave** on a phone with results still waiting asks first: leaving drops
+  them.
+
+To install it, open the code page or the result page and use the browser's
+**Add to Home Screen** (Android: the menu, **Install app** or **Add to Home
+screen**; iPhone: **Share**, **Add to Home Screen**). On an iPhone the app does
+not share Safari's login, so add it to the home screen first and type the code
+in the app.
+
+### Incidents logged at the boards
+
+Each board on the phone has an incident button.
+
+- A **deputy** phone logs an incident: illegal move, clock problem, phone or
+  electronic device, dispute, arbiter call or other, with a short note. The
+  board, the round, the players and the time come with it; the note is not the
+  place for names.
+- A **helper** phone has **Call arbiter** instead: it only logs an arbiter call
+  for that board.
+
+Incidents go through the same outbox as results, so they also wait for the
+wifi. On the Pairings page a line under the round says how many it has, and
+**More**, **Incidents** lists them all, per round, newest first; a new one
+appears while the page is open. A printable incident report comes later.
+
 ## Postponed games
 
 A game that cannot be played in its round (moved by agreement or adjourned)

@@ -6,6 +6,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   alias PairingsEngineWeb.PublicLink
   alias PairingsEngineWeb.Components.PhoneQr
   alias PairingsEngine.Mobile
+  alias PairingsEngine.Incidents
 
   import PairingsEngineWeb.SettingsSupport,
     only: [
@@ -87,6 +88,8 @@ defmodule PairingsEngineWeb.PairingsLive do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
       # What the boards in the hall report, for the board column.
       PairingsEngine.BoardLink.subscribe(tournament.id)
+      # Incidents logged from phones, for the count under the round.
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Incidents.topic(tournament.id))
     end
 
     {:ok,
@@ -183,6 +186,8 @@ defmodule PairingsEngineWeb.PairingsLive do
        # The "Phone QR" dialog: open or not, the code just minted and the
        # list of phones enrolled so far (loaded when the dialog opens).
        phone_qr?: false,
+       # Incidents per round number, from the phones (`PairingsEngine.Incidents`).
+       incident_counts: Incidents.counts_by_round(tournament.id),
        new_enrollment: nil,
        enrollments: [],
        # The "Swap rounds" dialog of a round robin (`PairingsEngine.RoundSwap`):
@@ -261,6 +266,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_info(:check_explanation, socket) do
     socket = assign(socket, explanation_check: false)
     {:noreply, put_explanation_state(socket, socket.assigns.round_number)}
+  end
+
+  def handle_info({:incident_logged, tournament_id, _round}, socket) do
+    {:noreply, assign(socket, incident_counts: Incidents.counts_by_round(tournament_id))}
   end
 
   def handle_info({:tournament_changed, _tournament_id, hint}, socket) do
@@ -7123,6 +7132,15 @@ defmodule PairingsEngineWeb.PairingsLive do
                 {gettext("Phone QR")}
               </button>
 
+              <%!-- What the phones (Manubrium) logged at the boards. --%>
+              <.link
+                role="menuitem"
+                id="incidents-link"
+                navigate={~p"/t/#{@tournament.id}/incidents"}
+              >
+                {gettext("Incidents")}
+              </.link>
+
               <a
                 :if={PublicLink.public?(@tournament)}
                 role="menuitem"
@@ -7157,6 +7175,21 @@ defmodule PairingsEngineWeb.PairingsLive do
       <%!-- The round changed since it was sent: the rating officer holds
             the old version. Named, never re-sent. --%>
       <SentReceipt.drift_warning status={@round_receipt} id="round-receipt-drift" />
+      <%!-- Incidents the phones logged on this round's boards (Manubrium),
+            live: an "arbiter call" is no use read an hour later. --%>
+      <p
+        :if={Map.get(@incident_counts, @round_number, 0) > 0}
+        id="round-incidents"
+        class="hint round-incidents"
+      >
+        <.link navigate={~p"/t/#{@tournament.id}/incidents?round=#{@round_number}"}>
+          {ngettext(
+            "1 incident logged from a phone in this round",
+            "%{count} incidents logged from phones in this round",
+            Map.get(@incident_counts, @round_number, 0)
+          )}
+        </.link>
+      </p>
       <%!-- Boards of the round about to be paired whose name cards are out
             (`PairingsEngine.BoardAnnouncements`): watched until the round
             is paired. --%>

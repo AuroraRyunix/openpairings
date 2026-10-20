@@ -416,7 +416,7 @@ defmodule PairingsEngineWeb.AccessibilityTest do
       assert js =~ "DialogFocus"
 
       assert js =~
-               "hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut, Flash, DialogFocus}"
+               "hooks: {...colocatedHooks, ColumnPrefs, PlayerGrid, AddPlayerShortcut, Flash, DialogFocus, Manubrium}"
     end
 
     test "the app script loads the grid's keyboard model" do

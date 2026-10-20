@@ -168,6 +168,15 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
                 <p class="hint">
                   {gettext("Expires %{when}.", when: enroll_expiry(@new_enrollment.expires_at))}
                 </p>
+
+                <%!-- Manubrium is `/m` installed (docs/manubrium.md). iOS
+                      gives a home-screen app its own cookies, hence the
+                      order on an iPhone. --%>
+                <p class="hint" id="phone-qr-manubrium">
+                  {gettext(
+                    "The phone can add Manubrium to its home screen: it then opens like an app and keeps results when the hall wifi drops, sending them when it is back. On an iPhone, add it first (Share, Add to Home Screen) and type the code in the app."
+                  )}
+                </p>
               </div>
             </div>
 

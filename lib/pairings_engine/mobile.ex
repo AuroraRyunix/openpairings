@@ -391,6 +391,61 @@ defmodule PairingsEngine.Mobile do
     (is_nil(from) or board >= from) and (is_nil(to) or board <= to)
   end
 
+  @doc """
+  Writes the audit row for a result `enrollment` just wrote to `pairing`
+  (round `round_number`), `previous` being what the board held before.
+
+  No-account phones went years without writing to the audit trail at all.
+  Same action names as `PairingsEngineWeb.PairingsLive` uses, so the audit
+  page's "pairings" filter and its descriptions pick these up unchanged;
+  `Audit.log/4`'s `nil` user is "System", and the enrolment's id, code,
+  label and level go into `details` so an arbiter can still tell which
+  phone it was - and what that phone was allowed to do at the time.
+
+  Shared by the direct tap (`PairingsEngineWeb.MobileResultsLive`) and the
+  queued one (`PairingsEngine.Mobile.Sync`); `extra` adds what only the
+  queued path knows (the phone's id for the entry).
+  """
+  def log_result(
+        %Enrollment{} = enrollment,
+        %Pairing{} = pairing,
+        round_number,
+        previous,
+        result,
+        extra \\ %{}
+      ) do
+    action =
+      cond do
+        result == "" -> "pairing.result_cleared"
+        previous in [nil, ""] -> "pairing.result_entered"
+        true -> "pairing.result_changed"
+      end
+
+    details =
+      Map.merge(
+        %{
+          pairing_id: pairing.id,
+          round: round_number,
+          board: pairing.board,
+          white: player_name(pairing.white_player),
+          black: player_name(pairing.black_player),
+          from: previous,
+          to: result,
+          via: "mobile",
+          enrollment_id: enrollment.id,
+          enrollment_code: enrollment.code,
+          enrollment_label: enrollment.label,
+          enrollment_level: enrollment.level
+        },
+        extra
+      )
+
+    PairingsEngine.Audit.log(enrollment.tournament_id, nil, action, details)
+  end
+
+  defp player_name(%PairingsEngine.Tournaments.Player{name: name}), do: name
+  defp player_name(_), do: nil
+
   # ---- internals ----
 
   defp check_board_range(enrollment, board) do
