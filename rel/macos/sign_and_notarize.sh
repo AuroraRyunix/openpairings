@@ -3,18 +3,21 @@
 #
 #   rel/macos/sign_and_notarize.sh <path to OpenPairings.app>
 #
-# NOT USED YET: there is no Apple Developer account. The workflow runs this
-# only when the secrets below exist, and skips it otherwise - the app then
-# ships ad-hoc signed by build_app.sh, which macOS opens after the arbiter
-# says so once (docs/macos.md). Adding the account is adding these five
-# repository secrets; nothing in the workflow changes.
+# The workflow runs this only when the secrets below exist (an organisation
+# secret in teapot-chess; a fork has none) and skips it otherwise - the app
+# then ships ad-hoc signed by build_app.sh, which macOS opens after the arbiter
+# says so once (docs/macos.md).
 #
-#   APPLE_CERTIFICATE_P12_BASE64   the "Developer ID Application" certificate
-#                                  and its private key, exported as .p12, base64
-#   APPLE_CERTIFICATE_PASSWORD     the .p12's password
-#   APPLE_TEAM_ID                  the ten-character team id
-#   APPLE_ID                       the Apple ID that notarises
-#   APPLE_APP_PASSWORD             an app-specific password for that Apple ID
+#   MACOS_CERT_P12        the "Developer ID Application" certificate and its
+#                         private key, exported as .p12, base64
+#   MACOS_CERT_PASSWORD   the .p12's password
+#   APPLE_TEAM_ID         the ten-character team id
+#   ASC_KEY_ID            App Store Connect API key id
+#   ASC_ISSUER_ID         App Store Connect API issuer id
+#   ASC_KEY_P8            the API key's .p8 file, base64
+#
+# The notary service is asked with the API key, not with an Apple ID and an
+# app-specific password: a key can be revoked without touching an account.
 #
 # What it does: a throwaway keychain with the certificate in it; every
 # Mach-O file signed from the inside out with the hardened runtime and the
@@ -29,7 +32,7 @@ set -eu
 app=${1:?usage: sign_and_notarize.sh <path to OpenPairings.app>}
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 
-for name in APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_TEAM_ID APPLE_ID APPLE_APP_PASSWORD; do
+for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
   eval "value=\${$name:-}"
   [ -n "$value" ] || {
     echo "::error::$name is not set" >&2
@@ -38,7 +41,9 @@ for name in APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_TEAM_I
 done
 
 work=$(mktemp -d)
-keychain="$work/signing.keychain-db"
+# A fixed place, so that the workflow's `if: always()` step can delete the
+# keychain even when this script died before its own trap ran.
+keychain="${RUNNER_TEMP:-$work}/signing.keychain-db"
 keychain_password=$(openssl rand -hex 24)
 
 cleanup() {
@@ -47,11 +52,13 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf '%s' "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode >"$work/cert.p12"
+printf '%s' "$MACOS_CERT_P12" | base64 --decode >"$work/cert.p12"
+printf '%s' "$ASC_KEY_P8" | base64 --decode >"$work/asc.p8"
+notary_auth="--key $work/asc.p8 --key-id $ASC_KEY_ID --issuer $ASC_ISSUER_ID"
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 3600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
-security import "$work/cert.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+security import "$work/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
 security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" >/dev/null
 # The search list gets this keychain added, not replaced: codesign looks
 # there, and the login keychain stays where it was.
@@ -109,5 +116,5 @@ fi
 xcrun stapler staple "$app"
 xcrun stapler validate "$app"
 
-spctl --assess --type execute --verbose=2 "$app"
+spctl -a -vvv -t exec "$app"
 echo "Signed, notarised and stapled: $app"
