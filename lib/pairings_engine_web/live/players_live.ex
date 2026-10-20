@@ -23,6 +23,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   alias PairingsEngine.ByeTypes
   alias PairingsEngine.LateEntry
   alias PairingsEngine.RatingLists
+  alias PairingsEngineWeb.DeskActions
   alias PairingsEngineWeb.RegistrationQueue
 
   alias PairingsEngine.Tournaments.ByeChoice
@@ -1852,38 +1853,23 @@ defmodule PairingsEngineWeb.PlayersLive do
     params = keep_derived_start(params, socket.assigns.edit_derived_start)
     params = expand_bye_choice(params, socket.assigns.tournament)
     sent = Tournaments.sent_absence_rounds(before, params)
-    ack? = params["sent_ack"] == "true"
-    half_ack? = params["half_ack"] == "true"
 
-    opts =
-      [
-        acknowledged:
-          List.flatten([
-            if(ack?, do: [:sent_round_changed], else: []),
-            if(half_ack?, do: [:second_half_bye], else: [])
-          ])
-      ]
+    acknowledged =
+      List.flatten([
+        if(params["sent_ack"] == "true", do: [:sent_round_changed], else: []),
+        if(params["half_ack"] == "true", do: [:second_half_bye], else: [])
+      ])
 
-    case Tournaments.update_player(before, params, opts) do
-      {:ok, player} ->
-        changed = player_diff(before, player)
-
-        if changed != %{} do
-          Audit.log(
-            socket.assigns.tournament.id,
-            socket.assigns.current_scope,
-            "player.updated",
-            Enum.reduce(
-              [
-                if(ack? and sent != [], do: %{confirmed: "sent_round_changed"}, else: %{}),
-                if(half_ack?, do: %{confirmed_second_half_bye: true}, else: %{})
-              ],
-              %{player_id: player.id, player_name: player.name, changed_fields: changed},
-              &Map.merge(&2, &1)
-            )
-          )
-        end
-
+    # The write and its audit row: `DeskActions.update_player/5`, which the
+    # phone app's player changes go through too.
+    case DeskActions.update_player(
+           socket.assigns.tournament,
+           socket.assigns.current_scope,
+           before,
+           params,
+           acknowledged
+         ) do
+      {:ok, _player} ->
         {:noreply,
          socket
          |> assign(
@@ -2060,31 +2046,15 @@ defmodule PairingsEngineWeb.PlayersLive do
   # for why a raw "F" in the form is a sex that silently disappears.
   defp normalize_fide_sex(s), do: Player.normalize_sex(s)
 
-  # Tracked player fields whose before/after change is worth recording in the
-  # audit trail - returns a `%{"field" => [before, after]}` map of only the
-  # fields that actually changed (empty map when nothing tracked changed).
-  @audited_player_fields ~w(name title sex fide_id fide_rating national_rating tournament_rating
-    federation club club_number birth_year category categories status absent
-    forfeit absent_rounds fixed_board start_round extra_points manual_rank no_bye
-    no_bye_rounds bye_preference bye_preference_rounds period_ratings)a
-
-  defp player_diff(before, after_player) do
-    for field <- @audited_player_fields,
-        Map.get(before, field) != Map.get(after_player, field),
-        into: %{} do
-      {to_string(field), [Map.get(before, field), Map.get(after_player, field)]}
-    end
-  end
-
   defp do_save(socket, params) do
-    case Tournaments.create_player(socket.assigns.tournament.id, params) do
-      {:ok, player} ->
-        Audit.log(socket.assigns.tournament.id, socket.assigns.current_scope, "player.created", %{
-          player_id: player.id,
-          player_name: player.name,
-          rating: Player.rating(player)
-        })
-
+    # The add and its audit row: `DeskActions.create_player/3`, which the
+    # phone app's late entry goes through too.
+    case DeskActions.create_player(
+           socket.assigns.tournament,
+           socket.assigns.current_scope,
+           params
+         ) do
+      {:ok, _player} ->
         {:noreply,
          socket
          |> assign(
