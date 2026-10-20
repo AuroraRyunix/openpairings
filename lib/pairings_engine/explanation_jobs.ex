@@ -392,9 +392,19 @@ defmodule PairingsEngine.ExplanationJobs do
     outcome
   end
 
+  # Behind an `:explanation` slot (`PairingsEngine.EngineSlots`) as well as
+  # low priority: low priority stops one job from starving the pages, and
+  # the slot stops forty of them - one per alternative somebody clicked open
+  # in a hurry - from starving each other and the pages besides. Waiting for
+  # the slot does not count against the timeout; the registry entry is
+  # already there, so the page shows the job as on its way.
   defp with_timeout(work) do
     Process.flag(:priority, :low)
 
+    PairingsEngine.EngineSlots.run(:explanation, nil, fn -> timed(work) end)
+  end
+
+  defp timed(work) do
     task =
       Task.async(fn ->
         Process.flag(:priority, :low)

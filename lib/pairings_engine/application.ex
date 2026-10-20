@@ -86,6 +86,9 @@ defmodule PairingsEngine.Application do
       PairingsEngine.Federations.BEL.Sync,
       PairingsEngine.Tools.Session,
       PairingsEngine.RateLimit,
+      # Counts engine runs, so a dozen tabs is a queue rather than a dozen
+      # runs - see its moduledoc.
+      PairingsEngine.EngineSlots,
       PairingsEngine.Deploy,
       # Always supervised, idle on a hosted server - see its own moduledoc
       # for why (same "idle at the entrances" reasoning as

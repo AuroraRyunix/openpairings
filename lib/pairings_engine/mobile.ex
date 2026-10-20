@@ -86,6 +86,32 @@ defmodule PairingsEngine.Mobile do
     end
   end
 
+  @doc """
+  `create_enrollment/2` on behalf of `scope`'s account, counted against that
+  account's hourly allowance of new codes (`PairingsEngine.RateLimit`'s
+  `:mobile_code_create`). `{:error, :too_many_codes}` past it.
+
+  Every active code is another right answer somewhere in the eight-digit
+  space `/m` lets strangers guess at, so an account minting codes on a loop
+  would be doing the guessing for whoever is guessing. The page mints
+  through here; `create_enrollment/2` stays for callers that are not a
+  person.
+  """
+  def create_enrollment_for(scope, tournament_id, opts \\ [])
+
+  def create_enrollment_for(%{user: %{id: user_id}}, tournament_id, opts) do
+    key = Integer.to_string(user_id)
+
+    if PairingsEngine.RateLimit.allow?(:mobile_code_create, key) do
+      with {:ok, _enrollment} = ok <- create_enrollment(tournament_id, opts) do
+        PairingsEngine.RateLimit.record(:mobile_code_create, key)
+        ok
+      end
+    else
+      {:error, :too_many_codes}
+    end
+  end
+
   # Uniqueness is the DATABASE's answer, not a read-then-insert's. The old
   # `gen_unique_code/1` queried for the code it had just drawn and inserted
   # it if nothing came back - which two callers could do at once, and which

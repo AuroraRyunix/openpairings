@@ -32,7 +32,7 @@ defmodule PairingsEngineWeb.MobileEnrollController do
         )
 
       enrollment = Mobile.get_active_by_code(code) ->
-        claim_and_enroll(conn, enrollment, code, fn -> RateLimit.clear(:mobile_enroll, ip) end)
+        claim_and_enroll(conn, enrollment, code)
 
       true ->
         RateLimit.record(:mobile_enroll, ip)
@@ -51,7 +51,7 @@ defmodule PairingsEngineWeb.MobileEnrollController do
         )
 
       enrollment ->
-        claim_and_enroll(conn, enrollment, "", fn -> :ok end)
+        claim_and_enroll(conn, enrollment, "")
     end
   end
 
@@ -66,15 +66,16 @@ defmodule PairingsEngineWeb.MobileEnrollController do
   # claim (`Mobile.claim/1`) rather than each reimplementing "first phone
   # wins" on its own.
   #
-  # `on_success` carries the one thing the two paths do differently once a
-  # claim actually succeeds (the code path clears this IP's rate-limit
-  # counter; the QR path has none to clear) - everything else, including
-  # what happens when the claim LOSES, is identical.
-  defp claim_and_enroll(conn, enrollment, code, on_success) do
+  # A success used to wipe this address's count of wrong guesses. Which
+  # sounds kind, until an account mints its own codes and redeems one
+  # between every seven guesses: the limit then reset itself on demand,
+  # and the whole eight-digit space was open to anyone patient with a
+  # tournament of their own. Wrong guesses now age out of their window and
+  # nothing else; an honest phone that typed one digit wrong has seven
+  # more tries, which is plenty for a person and nothing for a script.
+  defp claim_and_enroll(conn, enrollment, code) do
     case Mobile.claim(enrollment) do
       {:ok, claimed} ->
-        on_success.()
-
         conn
         |> MobileAuth.put_enrollment(claimed)
         |> redirect(to: ~p"/m/results")

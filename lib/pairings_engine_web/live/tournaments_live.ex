@@ -5,6 +5,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     Audit,
     Handoff,
     Publishing,
+    Quotas,
     Tournaments,
     TournamentExport,
     TournamentGroups,
@@ -572,6 +573,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         {:noreply, push_navigate(socket, to: ~p"/t/#{tournament.id}/players")}
 
+      {:error, :tournament_quota} ->
+        {:noreply, assign(socket, error: Quotas.message(:tournament_quota))}
+
       {:error, changeset} ->
         {:noreply, assign(socket, error: error_text(changeset))}
     end
@@ -970,47 +974,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # whoever clicks it, with no collaborators carried over (the export
   # envelope never includes them).
   def handle_event("duplicate", %{"id" => id}, socket) do
-    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "Tournament not found.")}
+    scope = socket.assigns.current_scope
 
-      tournament ->
-        envelope =
-          tournament
-          |> TournamentExport.export_tournament()
-          |> put_in(
-            ["tournaments", Access.at(0), "tournament", "name"],
-            "Copy of #{tournament.name}"
-          )
-          # The publishing key does not come along. Importing a FILE leaves
-          # the key dormant as an offer, which is right: the machine that
-          # exported it may be gone and somebody has to be able to take the
-          # published copy over. Duplicating is not that case at all - the
-          # original is right there in the same list, still publishing - so
-          # offering "Copy of X" a takeover of X's published page would put
-          # two rows one click away from fighting over one address.
-          |> put_in(["tournaments", Access.at(0), "openresults"], nil)
-          # Nor does the SWAR guid, for the same reason: it is the original's
-          # identity in SWAR and on the federation's results site, and the
-          # original is still here. The copy mints its own the first time
-          # it goes to SWAR.
-          |> put_in(["tournaments", Access.at(0), "tournament", "swar_guid"], nil)
-
-        case TournamentImport.import(envelope, socket.assigns.current_scope) do
-          {:ok, [new_tournament]} ->
-            Audit.log(new_tournament.id, socket.assigns.current_scope, "tournament.duplicated", %{
-              from_tournament_id: tournament.id,
-              from_name: tournament.name
-            })
-
-            {:noreply,
-             socket
-             |> put_flash(:info, "Duplicated as \"#{new_tournament.name}\".")
-             |> assign_tournaments()}
-
-          {:error, reason} ->
-            {:noreply, put_flash(socket, :error, "Could not duplicate: #{reason}")}
-        end
+    # A duplicate is an export and an import back to back, so it is counted
+    # as an import (`PairingsEngine.Quotas`) - only once the tournament is
+    # known to be one this account may copy.
+    with %Tournament{} = tournament <- Tournaments.get_authorized_tournament(scope, id),
+         :ok <- Quotas.check_import(scope) do
+      duplicate(socket, tournament)
+    else
+      nil -> {:noreply, put_flash(socket, :error, "Tournament not found.")}
+      {:error, reason} -> {:noreply, put_flash(socket, :error, Quotas.message(reason))}
     end
   end
 
@@ -1167,7 +1141,65 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # `handle_event/3` clause, so that group stays contiguous (Elixir warns
   # otherwise) rather than scattered one per matching handler.
 
-  defp do_import_backup_file(socket) do
+  # The copy itself, once `"duplicate"` has said who may have one.
+  defp duplicate(socket, tournament) do
+    envelope =
+      tournament
+      |> TournamentExport.export_tournament()
+      |> put_in(
+        ["tournaments", Access.at(0), "tournament", "name"],
+        "Copy of #{tournament.name}"
+      )
+      # The publishing key does not come along. Importing a FILE leaves
+      # the key dormant as an offer, which is right: the machine that
+      # exported it may be gone and somebody has to be able to take the
+      # published copy over. Duplicating is not that case at all - the
+      # original is right there in the same list, still publishing - so
+      # offering "Copy of X" a takeover of X's published page would put
+      # two rows one click away from fighting over one address.
+      |> put_in(["tournaments", Access.at(0), "openresults"], nil)
+      # Nor does the SWAR guid, for the same reason: it is the original's
+      # identity in SWAR and on the federation's results site, and the
+      # original is still here. The copy mints its own the first time
+      # it goes to SWAR.
+      |> put_in(["tournaments", Access.at(0), "tournament", "swar_guid"], nil)
+
+    case TournamentImport.import(envelope, socket.assigns.current_scope) do
+      {:ok, [new_tournament]} ->
+        Audit.log(new_tournament.id, socket.assigns.current_scope, "tournament.duplicated", %{
+          from_tournament_id: tournament.id,
+          from_name: tournament.name
+        })
+
+        {:noreply,
+         socket
+         |> put_flash(:info, "Duplicated as \"#{new_tournament.name}\".")
+         |> assign_tournaments()}
+
+      {:error, reason} ->
+        {:noreply, put_flash(socket, :error, "Could not duplicate: #{reason}")}
+    end
+  end
+
+  # Every file this page reads is counted against the account's hourly
+  # allowance first (`PairingsEngine.Quotas`). A refused upload is thrown
+  # away unread: reading it is the expensive part, so reading it to say no
+  # would rather miss the point.
+  defp metered(socket, upload, fun) do
+    case Quotas.check_import(socket.assigns.current_scope) do
+      :ok ->
+        fun.(socket)
+
+      {:error, reason} ->
+        consume_uploaded_entries(socket, upload, fn _meta, _entry -> {:ok, nil} end)
+        {:noreply, assign(socket, error: Quotas.message(reason))}
+    end
+  end
+
+  defp do_import_backup_file(socket),
+    do: metered(socket, :backup, &import_backup_file_now/1)
+
+  defp import_backup_file_now(socket) do
     scope = socket.assigns.current_scope
 
     results =
@@ -1202,7 +1234,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
-  defp do_receive_handoff_file(socket) do
+  defp do_receive_handoff_file(socket),
+    do: metered(socket, :handoff, &receive_handoff_file_now/1)
+
+  defp receive_handoff_file_now(socket) do
     scope = socket.assigns.current_scope
 
     results =
@@ -1226,7 +1261,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
-  defp do_release_handoff_file(socket) do
+  defp do_release_handoff_file(socket),
+    do: metered(socket, :handoff_return, &release_handoff_file_now/1)
+
+  defp release_handoff_file_now(socket) do
     tournament = socket.assigns.return_target
     scope = socket.assigns.current_scope
 
@@ -1403,7 +1441,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
-  defp do_import_tournament_file(socket, panel) do
+  defp do_import_tournament_file(socket, panel),
+    do: metered(socket, panel, &import_tournament_file_now(&1, panel))
+
+  defp import_tournament_file_now(socket, panel) do
     scope = socket.assigns.current_scope
     # The TRF panel accepts a `.swar` file too (see above), so the SWAR
     # switch has to be consulted HERE and not only at the SWAR panel's own
@@ -1599,10 +1640,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
          assign(socket,
            swar_pending: nil,
            importing: true,
-           error: "Could not import this SWAR file: #{inspect(reason)}"
+           error: swar_commit_error(reason)
          )}
     end
   end
+
+  # A sentence the import already wrote (the account's tournament ceiling,
+  # a refused player) is shown as written; anything else as it came.
+  defp swar_commit_error(reason) when is_binary(reason),
+    do: "Could not import this SWAR file: " <> reason
+
+  defp swar_commit_error(reason), do: "Could not import this SWAR file: #{inspect(reason)}"
 
   # The one place a TRF file becomes a tournament from this page: the real
   # import (the review was a rolled-back run of the same), then the audit

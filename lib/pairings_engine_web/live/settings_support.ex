@@ -1742,6 +1742,32 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text(:full_point_bye_unsupported),
     do: gettext("Keizer and team tournaments have no full-point bye.")
 
+  # The engine's slots (`PairingsEngine.EngineSlots`): nothing was paired
+  # in any of these, and the button is free to press again.
+  def error_text(:engine_already_pairing),
+    do:
+      gettext(
+        "This round is already being paired - from another tab or by a co-arbiter. Wait for that to finish; this page updates when it does."
+      )
+
+  def error_text(:engine_busy),
+    do:
+      gettext(
+        "The pairing engine is busy with other tournaments right now. Nothing was paired; try again in a moment."
+      )
+
+  def error_text(:engine_timeout),
+    do:
+      gettext(
+        "The pairing took longer than this server allows and was stopped. Nothing was paired. Try again, and if it keeps happening, export the tournament and pair it in the desktop version."
+      )
+
+  def error_text(:engine_failed),
+    do: gettext("The pairing engine stopped with an error. Nothing was paired.")
+
+  def error_text(reason) when reason in [:tournament_quota, :import_quota],
+    do: PairingsEngine.Quotas.message(reason)
+
   def error_text(reason) when is_atom(reason),
     do: reason |> to_string() |> String.replace("_", " ")
 
