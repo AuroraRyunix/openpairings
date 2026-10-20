@@ -486,6 +486,39 @@ if config_env() == :prod do
     end
   end
 
+  # What one account, and one pairing run, may take of the hosted box - see
+  # `PairingsEngine.EngineSlots` and `PairingsEngine.Quotas`. All three are
+  # ignored by a desktop install, which has nobody else to protect.
+  #
+  #   PAIRINGS_ENGINE_SLOTS       pairing runs at once, machine-wide (default 2)
+  #   PAIRINGS_PAIRING_TIMEOUT_S  seconds one pairing run may take (default 180)
+  #   PAIRINGS_MAX_TOURNAMENTS    tournaments one account may own (default 200)
+  positive_int = fn name ->
+    case System.get_env(name) do
+      nil ->
+        nil
+
+      value ->
+        case Integer.parse(value) do
+          {n, ""} when n >= 1 -> n
+          _ -> raise "#{name} is a whole number of at least 1, got: #{inspect(value)}"
+        end
+    end
+  end
+
+  if slots = positive_int.("PAIRINGS_ENGINE_SLOTS") do
+    # Keyword config merges, so the other pools keep their defaults.
+    config :pairings_engine, :engine_slots, pairing: slots
+  end
+
+  if seconds = positive_int.("PAIRINGS_PAIRING_TIMEOUT_S") do
+    config :pairings_engine, :pairing_timeout_ms, seconds * 1000
+  end
+
+  if max = positive_int.("PAIRINGS_MAX_TOURNAMENTS") do
+    config :pairings_engine, :max_tournaments_per_account, max
+  end
+
   config :pairings_engine, PairingsEngine.Repo,
     database: database_path,
     # Two locally rather than five. One person cannot use five connections,

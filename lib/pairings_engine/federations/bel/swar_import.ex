@@ -1478,20 +1478,26 @@ defmodule PairingsEngine.Federations.BEL.SwarImport do
   ## ---------- Tournament ----------
 
   defp create_tournament(data, scope) do
-    attrs =
-      data
-      |> tournament_attrs()
-      |> resolve_official_fide_ids()
+    # The account's ceiling (`PairingsEngine.Quotas`), said in words: this
+    # error reaches the page as it stands.
+    with :ok <- PairingsEngine.Quotas.check_tournaments(scope) do
+      attrs =
+        data
+        |> tournament_attrs()
+        |> resolve_official_fide_ids()
 
-    # `swar_settings` is not cast (no form may write it); set on the struct.
-    # So are the pairing numbers' origin: they are the file's.
-    %Tournament{
-      user_id: scope && scope.user.id,
-      swar_settings: swar_settings(data),
-      pairing_numbers_origin: "import"
-    }
-    |> Tournament.changeset(attrs)
-    |> Repo.insert()
+      # `swar_settings` is not cast (no form may write it); set on the
+      # struct. So are the pairing numbers' origin: they are the file's.
+      %Tournament{
+        user_id: scope && scope.user.id,
+        swar_settings: swar_settings(data),
+        pairing_numbers_origin: "import"
+      }
+      |> Tournament.changeset(attrs)
+      |> Repo.insert()
+    else
+      {:error, reason} when is_atom(reason) -> {:error, PairingsEngine.Quotas.message(reason)}
+    end
   end
 
   ## ---------- Arbiters / officials ----------

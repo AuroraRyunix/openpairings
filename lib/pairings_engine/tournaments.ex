@@ -485,6 +485,9 @@ defmodule PairingsEngine.Tournaments do
           collaborator ->
             Repo.delete(collaborator)
             |> tap_ok(fn deleted ->
+              # Their hall boxes go with them - see
+              # `BoardLink.revoke_codes_made_by/2`.
+              PairingsEngine.BoardLink.revoke_codes_made_by(tournament.id, deleted.user_id)
               broadcast_tournament_change(tournament.id, :collaborators)
               if deleted.user_id, do: broadcast_user_tournaments(deleted.user_id)
             end)
@@ -532,6 +535,7 @@ defmodule PairingsEngine.Tournaments do
           collaborator ->
             Repo.delete(collaborator)
             |> tap_ok(fn _deleted ->
+              PairingsEngine.BoardLink.revoke_codes_made_by(tournament.id, scope.user.id)
               broadcast_tournament_change(tournament.id, :collaborators)
               broadcast_user_tournaments(scope.user.id)
             end)
@@ -706,22 +710,28 @@ defmodule PairingsEngine.Tournaments do
     |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
   end
 
-  @doc "Creates a tournament owned by the scope's user."
+  @doc """
+  Creates a tournament owned by the scope's user. `{:error, :tournament_quota}`
+  when the account already owns as many as the hosted edition allows
+  (`PairingsEngine.Quotas`).
+  """
   def create_tournament(%Scope{} = scope, attrs) do
     type = attrs["type"] || attrs[:type] || "swiss"
 
-    # A new tournament is under C.04.2 2.4 from the start
-    # (`Tournament`'s `round_one_absentees_late`).
-    %Tournament{
-      tiebreaks: Tiebreaks.fide_defaults(type),
-      user_id: scope.user.id,
-      round_one_absentees_late: true
-    }
-    |> Tournament.changeset(attrs)
-    |> Tournament.validate_no_team_keizer()
-    |> stamp_compliance_loss(0)
-    |> Repo.insert()
-    |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
+    with :ok <- PairingsEngine.Quotas.check_tournaments(scope) do
+      # A new tournament is under C.04.2 2.4 from the start
+      # (`Tournament`'s `round_one_absentees_late`).
+      %Tournament{
+        tiebreaks: Tiebreaks.fide_defaults(type),
+        user_id: scope.user.id,
+        round_one_absentees_late: true
+      }
+      |> Tournament.changeset(attrs)
+      |> Tournament.validate_no_team_keizer()
+      |> stamp_compliance_loss(0)
+      |> Repo.insert()
+      |> tap_ok(fn tournament -> broadcast_user_tournaments(tournament.user_id) end)
+    end
   end
 
   @doc """

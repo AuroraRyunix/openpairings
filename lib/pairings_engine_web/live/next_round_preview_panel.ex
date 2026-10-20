@@ -222,7 +222,15 @@ defmodule PairingsEngineWeb.NextRoundPreviewPanel do
           send(page, {:next_round_preview, {:progress, run, done, total}})
         end
 
-        result = runner().(Tournaments.get_tournament!(id), progress: progress)
+        # One preview at a time on the hosted box (`PairingsEngine.EngineSlots`):
+        # each is up to 729 pairings across every core, and a second tab -
+        # or a second tournament - waits its turn rather than splitting the
+        # machine with it. The task is the page's, so a closed tab gives its
+        # place back.
+        result =
+          PairingsEngine.EngineSlots.run(:preview, nil, fn ->
+            runner().(Tournaments.get_tournament!(id), progress: progress)
+          end)
 
         with {:ok, preview} <- result,
              do: Cache.put(id, preview.fingerprint, preview)

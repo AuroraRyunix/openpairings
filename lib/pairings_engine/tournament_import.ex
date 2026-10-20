@@ -85,6 +85,12 @@ defmodule PairingsEngine.TournamentImport do
       not valid_tournaments_list?(data) ->
         {:error, "This export file contains no tournaments to import."}
 
+      # Every tournament in the file is a new one for this account, so the
+      # whole file has to fit under its ceiling - half an import is not a
+      # thing (`PairingsEngine.Quotas`).
+      PairingsEngine.Quotas.check_tournaments(scope, length(data["tournaments"])) != :ok ->
+        {:error, PairingsEngine.Quotas.message(:tournament_quota)}
+
       true ->
         do_import(Map.fetch!(data, "tournaments"), scope, opts)
     end

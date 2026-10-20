@@ -42,6 +42,29 @@ the bulk club update, SWAR import, SWAR export, the SWAR results page, the
 next-round preview and the bye preferences. An arbiter outside Belgium never sees any of them. Switching a
 feature off only hides its controls: a tournament that used it keeps all its data.
 
+### Limits on a shared server
+
+A server is shared by every account on it, so it keeps one account from
+taking all of it. The limits are generous; an ordinary tournament never
+meets them. The desktop build has none.
+
+| What | Limit |
+| --- | --- |
+| Tournaments one account owns | 200 (the recycle bin does not count) |
+| Files read on the Tournaments page (backup, TRF, SWAR, hand-off, *Duplicate*) | 20 an hour per account |
+| New phone codes ([Phone entry](07-results.md)) | 40 an hour per account |
+| Rounds paired at the same time, on the whole server | 2 |
+| Time one pairing may take | 3 minutes |
+
+The server's administrator can change the tournament count, the number of
+rounds paired at once and the time limit. When the server is already pairing
+other tournaments, a team Swiss round waits its turn and the button says it
+is queued; an individual round that cannot start within a few seconds says
+the engine is busy, and pressing the button again a moment later pairs it. A
+round that is already being paired, from another tab or by a co-arbiter, is
+not paired a second time. A pairing stopped at the time limit, or refused,
+leaves nothing behind: the round is still waiting to be paired.
+
 ## Sharing a tournament
 
 The owner can invite other arbiters. Settings, **Tournament**, card
@@ -64,7 +87,9 @@ The owner can invite other arbiters. Settings, **Tournament**, card
   page and filter you were looking at, and every collaborator sees the same
   rows as the owner.
 - The owner can remove a collaborator; a collaborator can **Leave** a shared
-  tournament from the list.
+  tournament from the list. Either way, the hall-box codes that person made
+  for the tournament are withdrawn with them ([Live boards](17-live-boards.md)),
+  and a code someone made only works while they can still open the tournament.
 
 ## The tournament list
 

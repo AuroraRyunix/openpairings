@@ -48,6 +48,8 @@ defmodule PairingsEngine.RateLimit do
     * `:board_link`, `:board_link_auth` - a hall box's requests, keyed by
       its link, and refused codes on the same routes, keyed by CLIENT
       address.
+    * `:tournament_import`, `:mobile_code_create` - file imports and phone
+      codes minted, keyed by USER id, hosted edition only. See the buckets.
 
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
   `conn.remote_ip` - behind a proxy the latter is the same value for
@@ -107,7 +109,19 @@ defmodule PairingsEngine.RateLimit do
     # address. The secret is 256 bits, so this is not what stands between a
     # guesser and a tournament; it is what keeps a guesser from costing a
     # hash and a query per try for as long as they like.
-    board_link_auth: %{max: 30, window_ms: :timer.minutes(10)}
+    board_link_auth: %{max: 30, window_ms: :timer.minutes(10)},
+    # Tournament files read for one account (`PairingsEngine.Quotas`), keyed
+    # by USER id: a backup, a TRF, a SWAR file, a hand-off, a duplicate.
+    # Each is up to ten megabytes or twenty thousand records parsed on the
+    # spot. Twenty an hour is an arbiter having a very bad afternoon with a
+    # file, not a loop.
+    tournament_import: %{max: 20, window_ms: :timer.minutes(60)},
+    # Phone codes minted (`PairingsEngine.Mobile.create_enrollment_for/3`),
+    # keyed by USER id. Every active code is one more right answer in the
+    # eight-digit space `:mobile_enroll` guards, so minting thousands of them
+    # would do the guessing for the guesser. Forty an hour covers every
+    # helper at a big event, twice.
+    mobile_code_create: %{max: 40, window_ms: :timer.minutes(60)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."
@@ -124,6 +138,8 @@ defmodule PairingsEngine.RateLimit do
           | :email_change
           | :board_link
           | :board_link_auth
+          | :tournament_import
+          | :mobile_code_create
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 

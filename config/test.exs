@@ -58,6 +58,15 @@ config :pairings_engine, PairingsEngine.Mailer, adapter: Swoosh.Adapters.Test
 # no task outlives the test's sandbox. Its own tests switch it to `:async`.
 config :pairings_engine, :explanation_jobs, :inline
 
+# No machine-wide cap on engine runs here: async tests pair dozens of
+# tournaments at once, and a cap would turn that into flaky "engine busy"
+# failures. The per-tournament lock still applies; the caps themselves are
+# tested on servers of their own (`PairingsEngine.EngineSlotsTest`).
+config :pairings_engine, :engine_slots,
+  pairing: :infinity,
+  preview: :infinity,
+  explanation: :infinity
+
 # Lets the plugin seam's tests register a fake plugin at run time
 # (`PairingsEngine.Plugins.all/0`, test/support/fake_plugin.ex). Read at
 # compile time, so no other environment can.

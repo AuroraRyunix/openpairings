@@ -324,6 +324,30 @@ defmodule PairingsEngine.BoardLink do
   end
 
   @doc """
+  Deletes the codes `user_id` made for `tournament_id` itself - called when
+  that person stops being a collaborator on it, removed or leaving.
+
+  `covered/1` already refuses such a code from the next request on, so this
+  is not the lock; it is taking the key back as well, so the tournament's
+  code list does not keep showing a box that can no longer do anything.
+  Group codes are left alone: they reach whatever their maker can still
+  open, and that is decided per request. Returns how many went.
+  """
+  @spec revoke_codes_made_by(integer(), integer() | nil) :: non_neg_integer()
+  def revoke_codes_made_by(tournament_id, user_id)
+      when is_integer(tournament_id) and is_integer(user_id) do
+    {count, _} =
+      Repo.delete_all(
+        from l in Link, where: l.tournament_id == ^tournament_id and l.created_by_id == ^user_id
+      )
+
+    if count > 0, do: notify(tournament_id)
+    count
+  end
+
+  def revoke_codes_made_by(_tournament_id, _user_id), do: 0
+
+  @doc """
   The codes that reach `tournament`: `%{tournament: [link], group: [link]}`,
   oldest first. `group` is empty for a tournament in no group.
   """
@@ -619,10 +643,30 @@ defmodule PairingsEngine.BoardLink do
   A group code reaches the members its maker may open - the switcher's rule
   (`TournamentGroups.switcher/2`) with a box in the place of a person.
   """
-  def covered(%Link{tournament_id: id}) when is_integer(id) do
-    case Repo.one(live_tournaments() |> where([t], t.id == ^id)) do
-      %Tournament{} = tournament -> [%{tournament: tournament, label: nil}]
-      nil -> []
+  #
+  # A tournament code borrows its maker's access exactly like a group code
+  # does, and is asked about it on every request like a group code is. It
+  # used to check only that the tournament still existed - so a collaborator
+  # who made a code and was then removed from the tournament kept a box in
+  # the hall with full write access to it, which is the sort of thing one
+  # finds out about from the standings. A code whose maker is gone, or no
+  # longer an owner or accepted collaborator, reaches nothing.
+  def covered(%Link{tournament_id: id, created_by_id: user_id})
+      when is_integer(id) and is_integer(user_id) do
+    case Repo.get(User, user_id) do
+      %User{} = user ->
+        allowed = Tournaments.authorized_tournament_ids(Scope.for_user(user))
+
+        case Repo.one(
+               live_tournaments()
+               |> where([t], t.id == ^id and t.id in subquery(allowed))
+             ) do
+          %Tournament{} = tournament -> [%{tournament: tournament, label: nil}]
+          nil -> []
+        end
+
+      nil ->
+        []
     end
   end
 
@@ -666,8 +710,8 @@ defmodule PairingsEngine.BoardLink do
     end
   end
 
-  # A group code whose maker's account is gone reaches nothing: there is
-  # nobody left whose access it could be borrowing.
+  # A tournament or group code whose maker's account is gone reaches
+  # nothing: there is nobody left whose access it could be borrowing.
   def covered(%Link{}), do: []
 
   defp live_tournaments do

@@ -38,6 +38,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   }
 
   alias PairingsEngine.Pairing, as: Engine
+  alias PairingsEngine.EngineSlots
   alias PairingsEngine.PairTiming
   alias PairingsEngine.{ByeTypes, HalfByes}
   alias PairingsEngine.Tournaments.Tournament
@@ -134,6 +135,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        # can't be mistaken for a frozen page, and the "pair" handler uses it
        # to refuse a second click instead of starting a second search.
        pairing_in_progress: false,
+       # Set while that task waits for a free engine slot rather than
+       # running (`PairingsEngine.EngineSlots`), so the button can say
+       # "queued" instead of looking like the slowest search in history.
+       pairing_queued: false,
        importing_results: false,
        import_errors: nil,
        # Set instead of consuming when Import was pressed while the CSV was
@@ -270,10 +275,18 @@ defmodule PairingsEngineWeb.PairingsLive do
   # process) a stray reply is dropped rather than misapplied.
   def handle_info({:team_pairing_result, tournament_id, result}, socket) do
     if socket.assigns.tournament.id == tournament_id do
-      apply_pair_result(assign(socket, pairing_in_progress: false), result)
+      apply_pair_result(assign(socket, pairing_in_progress: false, pairing_queued: false), result)
     else
       {:noreply, socket}
     end
+  end
+
+  # The same task, saying it is waiting for an engine slot. Cleared by the
+  # result above, which is the only thing that can follow it.
+  def handle_info({:team_pairing_queued, tournament_id}, socket) do
+    if socket.assigns.tournament.id == tournament_id,
+      do: {:noreply, assign(socket, pairing_queued: true)},
+      else: {:noreply, socket}
   end
 
   # The next-round preview's own messages - see `NextRoundPreviewPanel`.
@@ -1166,10 +1179,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("phone_qr_close", _params, socket),
     do: {:noreply, assign(socket, phone_qr?: false, new_enrollment: nil)}
 
-  # `create_enrollment/2` refuses on an archived or handed-off tournament, and
-  # on a local run; say why instead of crashing the page.
+  # `create_enrollment_for/3` refuses on an archived or handed-off
+  # tournament, on a local run, and past the account's hourly allowance of
+  # new codes; say why instead of crashing the page.
   def handle_event("generate_enrollment", params, socket) do
-    case Mobile.create_enrollment(
+    case Mobile.create_enrollment_for(
+           socket.assigns.current_scope,
            socket.assigns.tournament.id,
            PhoneQr.enrollment_opts(params)
          ) do
@@ -1178,6 +1193,16 @@ defmodule PairingsEngineWeb.PairingsLive do
          assign(socket,
            new_enrollment: enrollment,
            enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
+         )}
+
+      {:error, :too_many_codes} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "That is enough new phone codes for one hour. The codes already made still work; wait a while before making more."
+           )
          )}
 
       {:error, reason} when is_atom(reason) ->
@@ -3802,6 +3827,11 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # How long an individual Swiss waits for an engine slot before the page
+  # says the engine is busy. Long enough to outlast another individual
+  # round, short enough not to look like the page died.
+  @individual_slot_wait_ms 3_000
+
   defp pair_individual(socket, opts) do
     # Already taken by the click the Level-4 question interrupted: the
     # confirmed run pairs from the very same state. Or by the renumbering
@@ -3817,11 +3847,27 @@ defmodule PairingsEngineWeb.PairingsLive do
       end)
     end
 
+    tournament = socket.assigns.tournament
+    acknowledged = socket.assigns.pair_acknowledged
+    guard? = not socket.assigns.fide_gate_confirmed
+
+    # Under the same slots as the team Swiss below. An individual round is
+    # well under a second on any real field, so this one waits for a slot
+    # briefly in the page's own process and then says the engine is busy -
+    # rather than holding the page hostage behind somebody's 400-team event.
     result =
       PairTiming.span(:pair, fn ->
-        Engine.pair_next_round(socket.assigns.tournament,
-          acknowledged: socket.assigns.pair_acknowledged,
-          fide_departure_guard: not socket.assigns.fide_gate_confirmed
+        EngineSlots.run(
+          :pairing,
+          tournament.id,
+          fn ->
+            Engine.pair_next_round(tournament,
+              acknowledged: acknowledged,
+              fide_departure_guard: guard?
+            )
+          end,
+          wait: @individual_slot_wait_ms,
+          timeout: EngineSlots.pairing_timeout()
         )
       end)
 
@@ -3914,8 +3960,20 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     acknowledged = socket.assigns.pair_acknowledged
 
+    # Under a slot (`PairingsEngine.EngineSlots`): at most a few runs on the
+    # whole machine, one per tournament however many tabs ask, and stopped
+    # at the time limit instead of whenever it feels like it. Waiting for a
+    # slot is reported, so a queued run reads as queued and not as hung.
     Task.Supervisor.start_child(PairingsEngine.TaskSupervisor, fn ->
-      result = Engine.pair_next_round(tournament, acknowledged: acknowledged)
+      result =
+        EngineSlots.run(
+          :pairing,
+          tournament.id,
+          fn -> Engine.pair_next_round(tournament, acknowledged: acknowledged) end,
+          timeout: EngineSlots.pairing_timeout(),
+          on_queued: fn -> send(parent, {:team_pairing_queued, tournament.id}) end
+        )
+
       send(parent, {:team_pairing_result, tournament.id, result})
     end)
 
@@ -6806,6 +6864,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             }
           >
             {cond do
+              @pairing_in_progress and @pairing_queued ->
+                gettext(
+                  "Round %{n} is queued: the pairing engine is busy with other tournaments and will start on it shortly",
+                  n: @round_number
+                )
+
               @pairing_in_progress ->
                 gettext("Pairing round %{n}… this can take up to a minute for large events",
                   n: @round_number

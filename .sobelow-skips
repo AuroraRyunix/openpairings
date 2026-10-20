@@ -40,9 +40,11 @@ Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_we
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:464,37ED976
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2208,2E7C41
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2237,38323F6
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2262,78F7AC1
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:348,C49B3A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tools_norms_live.ex:296,5A91744
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2570,EA212F
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2618,7D904E8
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/backup.ex:167,592C3DF
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/backup.ex:663,33444C3
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/federations/bel/swar_import.ex:645,4005D4C
@@ -51,6 +53,7 @@ Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/lau
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/publishing/takedown_journal.ex:177,550E565
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/theme_packs.ex:264,2A7F1BB
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/tournament_import.ex:152,D9CBA
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/tournament_import.ex:158,3760BC5
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/controllers/theme_pack_controller.ex:47,15D3458
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/live/rating_lists_live.ex:65,378EBED
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:183,15829FF
@@ -89,6 +92,7 @@ XSS.Raw: XSS,lib/pairings_engine_web/live/changelog_live.ex:42,6D9B74E
 XSS.Raw: XSS,lib/pairings_engine_web/live/help_live.ex:504,759F10E
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6611,1A1B1F
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6640,687C8C4
+XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6698,63EFC74
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:916,111B9F9
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:928,7D98D70
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/badge_controller.ex:110,673A2CC

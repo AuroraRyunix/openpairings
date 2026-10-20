@@ -916,14 +916,20 @@ defmodule PairingsEngine.TrfImport do
   ## ---------- tournament ----------
 
   defp create_tournament(data, scope) do
-    # The numbers are the file's (`pairing_numbers_origin`), so unpairing
-    # back to nothing leaves them be.
-    %Tournament{user_id: scope && scope.user.id, pairing_numbers_origin: "import"}
-    |> Tournament.changeset(tournament_attrs(data))
-    |> Repo.insert()
-    |> case do
-      {:ok, tournament} -> {:ok, tournament}
-      {:error, changeset} -> {:error, "Could not import: " <> changeset_error_text(changeset)}
+    # The account's ceiling first (`PairingsEngine.Quotas`) - before the
+    # twenty thousand records, not after.
+    with :ok <- PairingsEngine.Quotas.check_tournaments(scope) do
+      # The numbers are the file's (`pairing_numbers_origin`), so unpairing
+      # back to nothing leaves them be.
+      %Tournament{user_id: scope && scope.user.id, pairing_numbers_origin: "import"}
+      |> Tournament.changeset(tournament_attrs(data))
+      |> Repo.insert()
+      |> case do
+        {:ok, tournament} -> {:ok, tournament}
+        {:error, changeset} -> {:error, "Could not import: " <> changeset_error_text(changeset)}
+      end
+    else
+      {:error, reason} -> {:error, PairingsEngine.Quotas.message(reason)}
     end
   end
 

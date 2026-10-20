@@ -36,6 +36,20 @@ bewaren het adres en wachtwoord bij de organisatie.
 
 Account, **Functies**. De onderdelen van het programma die bij één federatie horen, zijn aparte schakelaars, allemaal standaard uit. Op dit moment horen ze bij het Belgische pakket: de synchronisatie van de nationale ratinglijst, de nationale spelerszoekfunctie, de bulkupdate van clubs, SWAR-import, SWAR-export, de SWAR-resultatenpagina, de voorvertoning van de volgende ronde en de bye-voorkeuren. Een arbiter buiten België ziet er nooit één van. Een functie uitschakelen verbergt alleen de bediening: een toernooi dat ze gebruikte, behoudt al zijn gegevens.
 
+### Grenzen op een gedeelde server {#limits-on-a-shared-server}
+
+Een server wordt gedeeld door elk account erop, dus voorkomt hij dat één account alles inneemt. De grenzen zijn ruim; een gewoon toernooi komt ze nooit tegen. De desktopversie heeft ze niet.
+
+| Wat | Grens |
+| --- | --- |
+| Toernooien die één account bezit | 200 (de prullenbak telt niet mee) |
+| Bestanden ingelezen op de pagina Toernooien (back-up, TRF, SWAR, overdracht, *Dupliceren*) | 20 per uur per account |
+| Nieuwe telefooncodes ([Invoer per telefoon](07-results.md)) | 40 per uur per account |
+| Ronden die tegelijk gepaard worden, op de hele server | 2 |
+| Tijd die één paring mag duren | 3 minuten |
+
+De beheerder van de server kan het aantal toernooien, het aantal ronden dat tegelijk gepaard wordt en de tijdslimiet aanpassen. Is de server al bezig met andere toernooien, dan wacht een ronde van een Zwitsers teamtoernooi op zijn beurt en meldt de knop dat ze in de wachtrij staat; een individuele ronde die niet binnen enkele seconden kan beginnen, meldt dat de engine bezig is, en wie de knop even later opnieuw indrukt, paart ze alsnog. Een ronde die al gepaard wordt, vanuit een ander tabblad of door een collega-arbiter, wordt geen tweede keer gepaard. Een paring die aan de tijdslimiet gestopt of geweigerd wordt, laat niets achter: de ronde wacht nog altijd om gepaard te worden.
+
 ## Een toernooi delen {#sharing-a-tournament}
 
 De eigenaar kan andere arbiters uitnodigen. Instellingen, **Toernooi**, kaart
@@ -45,7 +59,7 @@ De eigenaar kan andere arbiters uitnodigen. Instellingen, **Toernooi**, kaart
   met een link (`/invites/…`) en moet aangemeld zijn met dat adres en op **Aanvaarden** (of **Weigeren**) drukken. Openstaande uitnodigingen worden ook op de pagina Toernooien getoond. Als de e-mail niet verstuurd kon worden, toont de pagina de link om met de hand door te geven.
 - Een medewerker kan alles wat de eigenaar kan, behalve medewerkers beheren en het toernooi verwijderen.
 - Iedereen ziet wijzigingen zodra ze gebeuren: wanneer een collega een ronde paart of een resultaat invoert, worden je pagina's vanzelf bijgewerkt. Ging het om een ronde (gepaard, ongedaan gemaakt, opnieuw gepaard, gepubliceerd of weer ingetrokken) dan meldt een kort bericht op de pagina Paringen of Spelers dat, bijvoorbeeld "Ronde 4 is zojuist elders gepaard"; wie het zelf deed hoort niets, en het bericht noemt nooit een persoon. Dat geldt ook voor het auditspoor: een regel die wordt weggeschreven terwijl je het open hebt staan verschijnt binnen een ogenblik, op de pagina en met het filter waar je naar keek, en elke medewerker ziet dezelfde regels als de eigenaar.
-- De eigenaar kan een medewerker verwijderen; een medewerker kan een gedeeld toernooi **Verlaten** vanuit de lijst.
+- De eigenaar kan een medewerker verwijderen; een medewerker kan een gedeeld toernooi **Verlaten** vanuit de lijst. Hoe dan ook worden de codes voor zaalboxen die die persoon voor het toernooi maakte samen met die persoon ingetrokken ([Live borden](17-live-boards.md)), en een code werkt alleen zolang wie hem maakte het toernooi nog kan openen.
 
 ## De lijst met toernooien {#the-tournament-list}
 
