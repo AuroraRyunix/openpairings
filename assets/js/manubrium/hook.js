@@ -205,10 +205,14 @@ export const Manubrium = {
       this.wakeLock.addEventListener("release", () => {
         this.wakeLock = null;
       });
-    } catch (_refused) {
-      // Battery saver, or a page not in front: nothing to do but try again
-      // when it is (`onVisible`).
+    } catch (refused) {
       this.wakeLock = null;
+      // Not allowed here at all (no https, a policy): say so by letting the
+      // button go, rather than a pressed button and a screen that sleeps.
+      // Battery saver or a page not in front just waits for `onVisible`.
+      if (refused && refused.name === "NotAllowedError" && document.visibilityState === "visible") {
+        this.setWake(false);
+      }
     }
   },
 

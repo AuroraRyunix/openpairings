@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.MobileConnectHTML do
 
       <main class="mobile-card" id="main-content" tabindex="-1">
         <div class="mobile-brand">
-          <strong>Manubrium</strong> · Open<strong>Pairings</strong>
+          <strong>Manubrium Lite</strong> · Open<strong>Pairings</strong>
         </div>
         <h1>{gettext("Your tournaments")}</h1>
         <p class="mobile-sub">
@@ -71,7 +71,7 @@ defmodule PairingsEngineWeb.MobileConnectHTML do
 
       <main class="mobile-card" id="main-content" tabindex="-1">
         <div class="mobile-brand">
-          <strong>Manubrium</strong> · Open<strong>Pairings</strong>
+          <strong>Manubrium Lite</strong> · Open<strong>Pairings</strong>
         </div>
         <h1>{@enrollment.tournament.name}</h1>
         <p class="mobile-sub">

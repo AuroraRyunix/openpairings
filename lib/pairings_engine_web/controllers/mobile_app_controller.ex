@@ -1,14 +1,14 @@
 defmodule PairingsEngineWeb.MobileAppController do
   @moduledoc """
-  What turns `/m` into Manubrium, the installable phone app
-  (docs/manubrium.md):
+  What keeps `/m` - Manubrium Lite - working through a wifi drop
+  (docs/manubrium.md). Lite is a page in the phone's browser, not an app
+  to install; that is the full Manubrium's job, so there is no manifest.
 
-    * `GET  /m/manifest.webmanifest` - the web app manifest.
-    * `GET  /m/sw.js`                - the service worker, scope `/m/`.
-    * `POST /m/sync`                 - the phone's queue of results and
-      incidents, judged by `PairingsEngine.Mobile.Sync`.
+    * `GET  /m/sw.js` - the service worker, scope `/m/`.
+    * `POST /m/sync`  - the phone's queue of results and incidents, judged
+      by `PairingsEngine.Mobile.Sync`.
 
-  The first two are the same for everybody and need no session. The third
+  The first is the same for everybody and needs no session. The second
   reads the enrolment from the phone's signed session, like
   `/m/results` does, and needs the page's CSRF token like any form post: a
   queued entry is a write, and nothing about being queued makes it a
@@ -24,44 +24,12 @@ defmodule PairingsEngineWeb.MobileAppController do
   @external_resource @sw_path
   @sw_source File.read!(@sw_path)
 
-  def manifest(conn, _params) do
-    manifest = %{
-      name: "Manubrium",
-      short_name: "Manubrium",
-      description:
-        gettext("Results and incidents from the boards, for the arbiters of OpenPairings."),
-      id: "/m/results",
-      start_url: "/m/results",
-      scope: "/m/",
-      display: "standalone",
-      orientation: "portrait",
-      # The light palette's paper and the accent: the splash is paper, the
-      # status bar the accent. The page itself follows the phone's theme.
-      background_color: "#f7f6f3",
-      theme_color: "#2e5e44",
-      icons: [
-        %{src: ~p"/images/manubrium/icon192.png", sizes: "192x192", type: "image/png"},
-        %{src: ~p"/images/manubrium/icon512.png", sizes: "512x512", type: "image/png"},
-        %{
-          src: ~p"/images/manubrium/maskable512.png",
-          sizes: "512x512",
-          type: "image/png",
-          purpose: "maskable"
-        }
-      ]
-    }
-
-    conn
-    |> put_resp_content_type("application/manifest+json")
-    |> send_resp(200, Jason.encode!(manifest))
-  end
-
   def service_worker(conn, _params) do
     text = %{
-      title: gettext("Manubrium is offline"),
+      title: gettext("Manubrium Lite is offline"),
       body:
         gettext(
-          "This phone has not opened the result page with a connection yet, so there is nothing to show. Connect to the hall wifi once, open Manubrium, and it keeps working when the wifi drops."
+          "This phone has not opened the result page with a connection yet, so there is nothing to show. Connect to the hall wifi once, open the result page, and it keeps working when the wifi drops."
         )
     }
 

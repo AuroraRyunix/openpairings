@@ -120,7 +120,7 @@ msgstr ""
 msgid "Accent colour"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:242
+#: lib/pairings_engine_web/components/phone_qr.ex:234
 #, elixir-autogen, elixir-format
 msgid "Active phones"
 msgstr ""
@@ -2803,7 +2803,7 @@ msgstr ""
 msgid "Club"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:249
+#: lib/pairings_engine_web/components/phone_qr.ex:241
 #, elixir-autogen, elixir-format
 msgid "Code %{code}"
 msgstr ""
@@ -2911,7 +2911,7 @@ msgid "Description"
 msgstr ""
 
 #: lib/pairings_engine_web/components/layouts.ex:589
-#: lib/pairings_engine_web/components/layouts/root.html.heex:247
+#: lib/pairings_engine_web/components/layouts/root.html.heex:244
 #: lib/pairings_engine_web/components/manubrium.ex:35
 #, elixir-autogen, elixir-format
 msgid "Dismiss"
@@ -3500,7 +3500,7 @@ msgstr ""
 msgid "Result:"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:265
+#: lib/pairings_engine_web/components/phone_qr.ex:257
 #, elixir-autogen, elixir-format
 msgid "Revoke"
 msgstr ""
@@ -3575,7 +3575,7 @@ msgstr[1] ""
 msgid "Same grouping the report itself uses (see %{fills} and %{titled} - CM/WCM don't count as titled). The feds count is the number of distinct federations in that group; the host count is how many of them are %{host}. Groups with no players in them aren't shown."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:320
+#: lib/pairings_engine_web/components/phone_qr.ex:312
 #: lib/pairings_engine_web/live/fide_live.ex:905
 #: lib/pairings_engine_web/live/fide_live.ex:968
 #: lib/pairings_engine_web/live/fide_live.ex:1266
@@ -4034,7 +4034,7 @@ msgstr ""
 msgid "bye (%{pts} pt)"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:256
+#: lib/pairings_engine_web/components/phone_qr.ex:248
 #, elixir-autogen, elixir-format
 msgid "expires %{when}"
 msgstr ""
@@ -5045,7 +5045,7 @@ msgstr ""
 msgid "Collaborator access. Everyone the tournament is shared with arrives there as an invitation they have to accept again."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:454
+#: lib/pairings_engine_web/components/phone_qr.ex:446
 #: lib/pairings_engine_web/controllers/mobile_connect_controller.ex:80
 #, elixir-autogen, elixir-format
 msgid "Could not enrol a phone - please retry."
@@ -5474,7 +5474,7 @@ msgstr ""
 msgid "No results site is set up yet - connect one on the %[link] page."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:410
+#: lib/pairings_engine_web/components/phone_qr.ex:402
 #, elixir-autogen, elixir-format
 msgid "%{range} · %{level}"
 msgstr ""
@@ -5484,30 +5484,30 @@ msgstr ""
 msgid "Access level"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:156
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:124
 #: lib/pairings_engine_web/live/mobile_results_live.ex:586
 #, elixir-autogen, elixir-format
 msgid "Board %{board} already has a result - only the arbiter can change it."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:169
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:137
 #: lib/pairings_engine_web/live/mobile_results_live.ex:592
 #, elixir-autogen, elixir-format
 msgid "Board %{board} is outside the boards this phone is allowed to enter."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:450
+#: lib/pairings_engine_web/components/phone_qr.ex:442
 #: lib/pairings_engine_web/live/pairings_live.ex:1240
 #, elixir-autogen, elixir-format
 msgid "Board range is invalid - \"to\" must be at least \"from\", and both must be 1 or higher."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:398
+#: lib/pairings_engine_web/components/phone_qr.ex:390
 #, elixir-autogen, elixir-format
 msgid "Boards %{from}+"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:400
+#: lib/pairings_engine_web/components/phone_qr.ex:392
 #, elixir-autogen, elixir-format
 msgid "Boards %{from}-%{to}"
 msgstr ""
@@ -5517,12 +5517,12 @@ msgstr ""
 msgid "Boards (optional)"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:399
+#: lib/pairings_engine_web/components/phone_qr.ex:391
 #, elixir-autogen, elixir-format
 msgid "Boards up to %{to}"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:394
+#: lib/pairings_engine_web/components/phone_qr.ex:386
 #: lib/pairings_engine_web/live/audit_live.ex:2497
 #, elixir-autogen, elixir-format
 msgid "Deputy"
@@ -5533,7 +5533,7 @@ msgstr ""
 msgid "Deputy - enter and correct, any round"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:395
+#: lib/pairings_engine_web/components/phone_qr.ex:387
 #: lib/pairings_engine_web/live/audit_live.ex:2498
 #, elixir-autogen, elixir-format
 msgid "Helper"
@@ -5555,7 +5555,7 @@ msgid "Helpers can only view the current round - ask the arbiter to check an ear
 msgstr ""
 
 #: lib/pairings_engine_web/components/phone_qr.ex:181
-#: lib/pairings_engine_web/components/phone_qr.ex:307
+#: lib/pairings_engine_web/components/phone_qr.ex:299
 #: lib/pairings_engine_web/live/badge_studio_live.ex:672
 #: lib/pairings_engine_web/live/mobile_results_live.ex:1076
 #, elixir-autogen, elixir-format
@@ -5563,7 +5563,7 @@ msgid "from"
 msgstr ""
 
 #: lib/pairings_engine_web/components/phone_qr.ex:189
-#: lib/pairings_engine_web/components/phone_qr.ex:317
+#: lib/pairings_engine_web/components/phone_qr.ex:309
 #: lib/pairings_engine_web/live/mobile_results_live.ex:1087
 #, elixir-autogen, elixir-format
 msgid "to"
@@ -5574,7 +5574,7 @@ msgstr ""
 msgid "Anke, Board 1-10 helper"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:422
+#: lib/pairings_engine_web/components/phone_qr.ex:414
 #, elixir-autogen, elixir-format
 msgid "Claimed %{when}"
 msgstr ""
@@ -5589,12 +5589,12 @@ msgstr ""
 msgid "Name (optional)"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:414
+#: lib/pairings_engine_web/components/phone_qr.ex:406
 #, elixir-autogen, elixir-format
 msgid "No name given"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:419
+#: lib/pairings_engine_web/components/phone_qr.ex:411
 #, elixir-autogen, elixir-format
 msgid "Not used yet"
 msgstr ""
@@ -7189,7 +7189,7 @@ msgstr ""
 msgid "Asking the results site who runs it..."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:327
+#: lib/pairings_engine_web/components/phone_qr.ex:319
 #: lib/pairings_engine_web/live/help_live.ex:636
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:360
 #: lib/pairings_engine_web/live/players_live.ex:4120
@@ -7205,7 +7205,7 @@ msgstr ""
 msgid "Connected. This computer publishes with a key of its own, no token needed."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:61
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:51
 #: lib/pairings_engine_web/public_consent.ex:306
 #, elixir-autogen, elixir-format
 msgid "Continue"
@@ -8623,7 +8623,7 @@ msgstr ""
 msgid "Rose"
 msgstr ""
 
-#: lib/pairings_engine_web/components/layouts/root.html.heex:203
+#: lib/pairings_engine_web/components/layouts/root.html.heex:200
 #, elixir-autogen, elixir-format
 msgid "Skip to content"
 msgstr ""
@@ -11068,13 +11068,13 @@ msgstr ""
 msgid "Board %{board} of round %{round} was postponed and has counted as a draw for pairing. %{result} is not a draw: the scores that later rounds were paired with change, and those pairings stay as they are."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:210
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:178
 #: lib/pairings_engine_web/live/mobile_results_live.ex:500
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was already sent in a TRF finalised for sending. Changing it has to be done by the arbiter, on the Pairings page."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:196
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:164
 #: lib/pairings_engine_web/live/mobile_results_live.ex:479
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was postponed and counted provisionally for pairing. A result that is not a draw has to be entered by the arbiter, on the Pairings page."
@@ -11432,8 +11432,8 @@ msgstr ""
 #: lib/pairings_engine/federations/bel/swar_merge.ex:987
 #: lib/pairings_engine_web/components/sent_receipt.ex:109
 #: lib/pairings_engine_web/components/sent_receipt.ex:110
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:248
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:249
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:216
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:217
 #: lib/pairings_engine_web/live/history_live.ex:1023
 #: lib/pairings_engine_web/live/mobile_results_live.ex:776
 #: lib/pairings_engine_web/live/mobile_results_live.ex:777
@@ -15803,7 +15803,7 @@ msgstr ""
 msgid "A later round was already paired with the result being corrected."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:203
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:171
 #: lib/pairings_engine_web/live/mobile_results_live.ex:495
 #, elixir-autogen, elixir-format
 msgid "A later round was already paired with the result of board %{board}. Correcting it has to be done by the arbiter, on the Pairings page."
@@ -19481,7 +19481,7 @@ msgstr[1] ""
 msgid "too late"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:175
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:143
 #: lib/pairings_engine_web/live/mobile_results_live.ex:446
 #, elixir-autogen, elixir-format
 msgid "Not saved: board %{board} changed - the arbiter changed its players. Check who is on it now and enter the result again."
@@ -21360,11 +21360,6 @@ msgstr ""
 msgid "setup"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:139
-#, elixir-autogen, elixir-format
-msgid "Enter results on a phone"
-msgstr ""
-
 #: lib/pairings_engine_web/components/phone_qr.ex:56
 #, elixir-autogen, elixir-format
 msgid "Hold the screen up, or turn it round, and let the phone scan."
@@ -22389,73 +22384,73 @@ msgstr ""
 msgid "Arbiter call"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:115
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:83
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: already had this result."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:118
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:86
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: incident logged."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:217
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:185
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - a helper phone can only call the arbiter."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:243
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:211
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the note is too long."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:224
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:192
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - this phone has logged as many incidents as one code may. Ask the arbiter for a new code."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:141
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:109
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - it was entered under an earlier code on this phone. Enter it again if it still stands."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:182
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:150
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that pairing no longer exists (the round was paired again). Check the board and enter it again."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:162
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:130
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that round is no longer the current round, and helpers can only enter the current one."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:148
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:116
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the board now says %{current}, entered elsewhere while this phone was waiting. Check with the arbiter."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:189
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:157
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the tournament is not taking results at the moment (archived, or handed to another machine)."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:134
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:102
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - this phone's access was ended by the arbiter, or ran out. Tell the arbiter this result."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:246
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:214
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved. Check with the arbiter."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:121
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:89
 #: lib/pairings_engine_web/live/mobile_results_live.ex:616
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: saved."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:125
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:93
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: the server is busy - this phone tries again shortly."
 msgstr ""
@@ -22539,11 +22534,6 @@ msgstr ""
 msgid "Logged at the boards from phones (Manubrium). Times are the phone's clock when it was plausible."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:61
-#, elixir-autogen, elixir-format
-msgid "Manubrium is offline"
-msgstr ""
-
 #: lib/pairings_engine_web/live/mobile_results_live.ex:1003
 #, elixir-autogen, elixir-format
 msgid "No boards paired for this round yet."
@@ -22604,11 +22594,6 @@ msgstr ""
 msgid "Phone or electronic device"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:32
-#, elixir-autogen, elixir-format
-msgid "Results and incidents from the boards, for the arbiters of OpenPairings."
-msgstr ""
-
 #: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:25
 #, elixir-autogen, elixir-format
 msgid "Scan the QR code your arbiter is showing, or type the code below. No account needed."
@@ -22627,11 +22612,6 @@ msgstr ""
 #: lib/pairings_engine_web/components/manubrium.ex:56
 #, elixir-autogen, elixir-format
 msgid "This browser will not let the page keep entries if it closes. Keep it open until everything is sent."
-msgstr ""
-
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:63
-#, elixir-autogen, elixir-format
-msgid "This phone has not opened the result page with a connection yet, so there is nothing to show. Connect to the hall wifi once, open Manubrium, and it keeps working when the wifi drops."
 msgstr ""
 
 #: lib/pairings_engine_web/live/incidents_live.ex:125
@@ -22700,17 +22680,17 @@ msgstr ""
 msgid "Arbiter - results and incidents on a phone"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:68
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:58
 #, elixir-autogen, elixir-format
 msgid "Arbiter with an account? Sign in instead"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:286
+#: lib/pairings_engine_web/components/phone_qr.ex:278
 #, elixir-autogen, elixir-format
 msgid "Arbiters sign in on their own phone at %{url}. The boards you give each one are what \"My boards\" shows them."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:283
+#: lib/pairings_engine_web/components/phone_qr.ex:275
 #, elixir-autogen, elixir-format
 msgid "Arbiters' boards"
 msgstr ""
@@ -22720,12 +22700,12 @@ msgstr ""
 msgid "Back to your tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:237
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:205
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo could not be read. Log it again without it."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:231
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:199
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo is too large. Log it again without it."
 msgstr ""
@@ -22760,7 +22740,7 @@ msgstr ""
 msgid "Boards saved."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:44
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:34
 #, elixir-autogen, elixir-format
 msgid "Code, or the link from the QR code"
 msgstr ""
@@ -22770,12 +22750,12 @@ msgstr ""
 msgid "Complaint"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:110
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:100
 #, elixir-autogen, elixir-format
 msgid "Connect this phone"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:380
+#: lib/pairings_engine_web/components/phone_qr.ex:372
 #, elixir-autogen, elixir-format
 msgid "Could not open the port. The log says why."
 msgstr ""
@@ -22806,7 +22786,7 @@ msgstr ""
 msgid "Finished"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:308
+#: lib/pairings_engine_web/components/phone_qr.ex:300
 #, elixir-autogen, elixir-format
 msgid "First board"
 msgstr ""
@@ -22832,7 +22812,7 @@ msgstr ""
 msgid "Keep the screen on"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:318
+#: lib/pairings_engine_web/components/phone_qr.ex:310
 #, elixir-autogen, elixir-format
 msgid "Last board"
 msgstr ""
@@ -22843,7 +22823,6 @@ msgid "Let phones on this network connect"
 msgstr ""
 
 #: lib/pairings_engine_web/controllers/mobile_connect_html.ex:103
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:125
 #, elixir-autogen, elixir-format
 msgid "Link to paste into the app"
 msgstr ""
@@ -22893,12 +22872,12 @@ msgstr ""
 msgid "OK"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:382
+#: lib/pairings_engine_web/components/phone_qr.ex:374
 #, elixir-autogen, elixir-format
 msgid "Off. Phones cannot reach this computer."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:365
+#: lib/pairings_engine_web/components/phone_qr.ex:357
 #, elixir-autogen, elixir-format
 msgid "On. It opens when you make the first code below."
 msgstr ""
@@ -22914,7 +22893,7 @@ msgstr ""
 msgid "Owner"
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:362
+#: lib/pairings_engine_web/components/phone_qr.ex:354
 #, elixir-autogen, elixir-format
 msgid "Phones can connect at %{url}."
 msgstr ""
@@ -22954,7 +22933,7 @@ msgstr ""
 msgid "Playing"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:94
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:84
 #, elixir-autogen, elixir-format
 msgid "Results and incidents as %{name}."
 msgstr ""
@@ -22964,7 +22943,7 @@ msgstr ""
 msgid "Results and incidents you enter from here are recorded under your own account."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:98
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:88
 #, elixir-autogen, elixir-format
 msgid "Results for this tournament, without an account."
 msgstr ""
@@ -23004,7 +22983,7 @@ msgstr ""
 msgid "That photo could not be read. Log it without one, or try again."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:368
+#: lib/pairings_engine_web/components/phone_qr.ex:360
 #, elixir-autogen, elixir-format
 msgid "That port is in use by another program - pick another."
 msgstr ""
@@ -23014,17 +22993,12 @@ msgstr ""
 msgid "That tournament is not one you work in."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:234
-#, elixir-autogen, elixir-format
-msgid "The phone can add Manubrium to its home screen: it then opens like an app and keeps results when the hall wifi drops, sending them when it is back. On an iPhone, add it first (Share, Add to Home Screen), then type the code - or paste the link the QR opened - in the app."
-msgstr ""
-
-#: lib/pairings_engine_web/components/phone_qr.ex:377
+#: lib/pairings_engine_web/components/phone_qr.ex:369
 #, elixir-autogen, elixir-format
 msgid "This computer has no network address phones could reach."
 msgstr ""
 
-#: lib/pairings_engine_web/components/phone_qr.ex:372
+#: lib/pairings_engine_web/components/phone_qr.ex:364
 #, elixir-autogen, elixir-format
 msgid "This computer no longer has that address - it may have changed network. Pick its address again."
 msgstr ""
@@ -23042,11 +23016,6 @@ msgstr ""
 #: lib/pairings_engine_web/components/manubrium.ex:155
 #, elixir-autogen, elixir-format
 msgid "Time added"
-msgstr ""
-
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:34
-#, elixir-autogen, elixir-format
-msgid "Tip: add this page to your home screen to get Manubrium as an app that keeps working when the wifi drops. On an iPhone, do that first, then type the code - or paste the link the QR opened - in the app."
 msgstr ""
 
 #: lib/pairings_engine_web/live/audit_live.ex:1415
@@ -23069,11 +23038,6 @@ msgstr ""
 msgid "Use this phone"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:116
-#, elixir-autogen, elixir-format
-msgid "Using Manubrium from the home screen on an iPhone? Do not tap the button here: copy this link, open the app and paste it into the code box."
-msgstr ""
-
 #: lib/pairings_engine_web/live/audit_live.ex:1439
 #, elixir-autogen, elixir-format
 msgid "With a photo."
@@ -23092,4 +23056,19 @@ msgstr ""
 #: lib/pairings_engine_web/live/audit_live.ex:1422
 #, elixir-autogen, elixir-format
 msgid "the last"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:29
+#, elixir-autogen, elixir-format
+msgid "Manubrium Lite is offline"
+msgstr ""
+
+#: lib/pairings_engine_web/components/phone_qr.ex:139
+#, elixir-autogen, elixir-format
+msgid "Manubrium Lite: results on a phone"
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:31
+#, elixir-autogen, elixir-format
+msgid "This phone has not opened the result page with a connection yet, so there is nothing to show. Connect to the hall wifi once, open the result page, and it keeps working when the wifi drops."
 msgstr ""

@@ -1,7 +1,7 @@
 defmodule PairingsEngineWeb.MobileAppControllerTest do
   @moduledoc """
-  Manubrium's three routes (docs/manubrium.md): the manifest, the service
-  worker, and `POST /m/sync`, which judges a phone's queue against the
+  Manubrium Lite's two routes (docs/manubrium.md): the service worker,
+  and `POST /m/sync`, which judges a phone's queue against the
   enrolment in ITS session - never one an entry names.
   """
   use PairingsEngineWeb.ConnCase
@@ -58,22 +58,11 @@ defmodule PairingsEngineWeb.MobileAppControllerTest do
     |> post(~p"/m/sync", %{"entries" => entries})
   end
 
-  describe "the manifest" do
-    test "names Manubrium, starts at the result page and stays inside /m", %{conn: conn} do
-      conn = get(conn, ~p"/m/manifest.webmanifest")
-
-      assert [type] = get_resp_header(conn, "content-type")
-      assert type =~ "application/manifest+json"
-
-      manifest = Jason.decode!(conn.resp_body)
-      assert manifest["name"] == "Manubrium"
-      assert manifest["short_name"] == "Manubrium"
-      assert manifest["start_url"] == "/m/results"
-      assert manifest["scope"] == "/m/"
-      assert manifest["display"] == "standalone"
-      assert Enum.any?(manifest["icons"], &(&1["purpose"] == "maskable"))
-      assert Enum.all?(manifest["icons"], &String.starts_with?(&1["src"], "/images/manubrium/"))
-    end
+  test "Lite has no manifest: it is a page, not an app to install" do
+    refute Enum.any?(
+             Phoenix.Router.routes(PairingsEngineWeb.Router),
+             &(&1.path == "/m/manifest.webmanifest")
+           )
   end
 
   describe "the service worker" do
@@ -88,7 +77,7 @@ defmodule PairingsEngineWeb.MobileAppControllerTest do
       refute body =~ "__MANUBRIUM_VERSION__"
       refute body =~ "__MANUBRIUM_TEXT__"
       assert body =~ ~s(const VERSION = "#{PairingsEngine.Build.version()}-)
-      assert body =~ "Manubrium is offline"
+      assert body =~ "Manubrium Lite is offline"
     end
 
     test "caches nothing but the result page and the public bundles", %{conn: conn} do
@@ -187,19 +176,19 @@ defmodule PairingsEngineWeb.MobileAppControllerTest do
     end
   end
 
-  describe "where the manifest is linked" do
-    test "on Manubrium's pages", %{conn: conn} do
+  describe "where the service worker's tag is" do
+    test "on Lite's pages, with no install prompt anywhere", %{conn: conn} do
       html = conn |> get(~p"/m") |> html_response(200)
 
-      assert html =~ ~s(rel="manifest")
-      assert html =~ "/m/manifest.webmanifest"
-      assert html =~ ~s(id="manubrium-install-hint")
+      assert html =~ ~s(name="manubrium-lite")
+      refute html =~ ~s(rel="manifest")
+      refute html =~ "apple-mobile-web-app-capable"
     end
 
     test "and not on the rest of the app", %{conn: conn} do
       html = conn |> get(~p"/users/log-in") |> html_response(200)
 
-      refute html =~ "manifest.webmanifest"
+      refute html =~ "manubrium-lite"
     end
   end
 end

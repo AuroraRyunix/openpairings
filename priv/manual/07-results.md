@@ -171,11 +171,11 @@ editors can do everything an arbiter can.
   (where the phone supports it), and **One-handed layout** moves the controls to
   the bottom edge with bigger result buttons. Both are remembered per phone.
 
-### Manubrium, the phone app
+### Manubrium Lite, when the wifi drops
 
-The phone pages can be added to the phone's home screen as an app called
-**Manubrium**. It opens full screen like any other app, and it keeps working
-when the hall wifi drops:
+These phone pages are **Manubrium Lite**: a page in the phone's browser, served
+by the program itself, nothing to install. It keeps working when the hall wifi
+drops, as long as the page stays open:
 
 - A tapped result goes into the phone's outbox first and is sent from there,
   in the order it was entered. Without a connection it waits on the phone and
@@ -193,12 +193,8 @@ when the hall wifi drops:
 - **Leave** on a phone with results still waiting asks first: leaving drops
   them.
 
-To install it, open the code page or the result page and use the browser's
-**Add to Home Screen** (Android: the menu, **Install app** or **Add to Home
-screen**; iPhone: **Share**, **Add to Home Screen**). On an iPhone the app does
-not share Safari's login, so add it to the home screen first and type the code
-in the app - or open the QR code in Safari, copy the link that page shows,
-and paste it into the app's code box.
+Running the whole tournament from a phone - pairing, players, standings - is
+the full Manubrium app, which connects to the program separately.
 
 ### Incidents logged at the boards
 
