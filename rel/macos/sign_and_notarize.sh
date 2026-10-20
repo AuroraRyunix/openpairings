@@ -54,7 +54,16 @@ trap cleanup EXIT
 
 printf '%s' "$MACOS_CERT_P12" | base64 --decode >"$work/cert.p12"
 printf '%s' "$ASC_KEY_P8" | base64 --decode >"$work/asc.p8"
+# Word-split on purpose below: mktemp paths have no spaces.
 notary_auth="--key $work/asc.p8 --key-id $ASC_KEY_ID --issuer $ASC_ISSUER_ID"
+# Ask OpenSSL first: Apple's importer says "wrong password?" for any reason
+# at all, and a fingerprint of the file tells which certificate CI was given.
+if ! openssl pkcs12 -in "$work/cert.p12" -passin env:MACOS_CERT_PASSWORD -noout 2>"$work/openssl.err"; then
+  echo "::error::MACOS_CERT_PASSWORD does not open MACOS_CERT_P12 (p12 sha256 $(shasum -a 256 "$work/cert.p12" | cut -c1-16))" >&2
+  cat "$work/openssl.err" >&2
+  exit 1
+fi
+echo "p12 opens; sha256 $(shasum -a 256 "$work/cert.p12" | cut -c1-16)"
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 3600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
@@ -84,7 +93,12 @@ sign() {
 # compiled Launcher.swift - is signed by the last `sign`, the one on the
 # bundle, with the same hardened runtime and entitlements: codesign signs a
 # bundle's main executable as part of signing the bundle.
-find "$app/Contents/Resources" -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 |
+# Contents/Frameworks exists only in the Intel build, where the Swift runtime
+# is copied in for old macOS; Apple signed those dylibs, the notary wants ours.
+inner="$app/Contents/Resources"
+[ -d "$app/Contents/Frameworks" ] && inner="$inner $app/Contents/Frameworks"
+# Unquoted on purpose: two directories, and the build path has no spaces.
+find $inner -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 |
   while IFS= read -r binary; do
     sign "$binary"
   done
@@ -102,7 +116,7 @@ ditto -c -k --keepParent "$app" "$work/notarise.zip"
 # --wait returns when Apple has decided, and a refusal is a decision: the
 # status is what says whether it was a yes.
 result=$(xcrun notarytool submit "$work/notarise.zip" \
-  --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" \
+  $notary_auth \
   --wait --timeout 30m --output-format json)
 echo "$result"
 status=$(printf '%s' "$result" | plutil -extract status raw -o - -)
@@ -110,7 +124,7 @@ if [ "$status" != "Accepted" ]; then
   id=$(printf '%s' "$result" | plutil -extract id raw -o - -)
   echo "::error::notarisation said $status" >&2
   xcrun notarytool log "$id" \
-    --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" || true
+    $notary_auth || true
   exit 1
 fi
 xcrun stapler staple "$app"
