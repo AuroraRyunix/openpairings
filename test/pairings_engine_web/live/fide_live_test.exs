@@ -79,6 +79,7 @@ defmodule PairingsEngineWeb.FideLiveTest do
     defp sso_conn(conn) do
       {:ok, user} =
         Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
           sub: "sso-sub-#{System.unique_integer()}",
           email: "sso-user-#{System.unique_integer()}@example.com"
         })

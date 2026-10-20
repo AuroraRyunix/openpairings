@@ -66,12 +66,29 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
   defp complete_login(conn, code) do
     with {:ok, %{"access_token" => access_token}} <- Keycloak.exchange_code(code),
          {:ok, claims} <- Keycloak.fetch_userinfo(access_token),
-         {:ok, sub, email} <- identity_from(claims),
-         {:ok, user} <- Accounts.find_or_create_from_keycloak(%{sub: sub, email: email}) do
+         {:ok, identity} <- identity_from(claims),
+         {:ok, user} <- Accounts.find_or_create_from_keycloak(identity) do
       conn
       |> put_flash(:info, "Welcome!")
       |> UserAuth.log_in_user(user)
     else
+      # The address on file already belongs to a different directory
+      # identity. Logged without the address: the log is not the place to
+      # keep a list of whose account somebody tried to walk into.
+      {:error, :keycloak_sub_conflict} ->
+        require Logger
+
+        Logger.warning(
+          "02cloud SSO login refused: the account with that email is coupled to a different SSO identity"
+        )
+
+        conn
+        |> put_flash(
+          :error,
+          "This email address already belongs to an account linked to a different single sign-on identity. Contact support."
+        )
+        |> redirect(to: ~p"/users/log-in")
+
       # A userinfo response with neither a usable email nor a username to
       # derive one from, or an {:error, reason} from Keycloak.*/Accounts.*.
       # Must degrade to a flash, never a 500.
@@ -87,23 +104,38 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
 
   # Keycloak omits the `email` claim entirely for a directory account with no
   # `mail` attribute, while still sending `email_verified` - so the presence of
-  # the latter proves nothing, and a blank string must be treated as absent.
+  # the latter proves nothing on its own, and a blank string must be treated
+  # as absent.
   #
-  # When there's no email we synthesize `<preferred_username>@<sso domain>`.
-  # That is safe here specifically *because* the SSO domain is otherwise
-  # unreachable: it can't be self-registered, can't be changed to, and can't
-  # be used for magic-link or password login (see `User.sso_domain_email?/1`
-  # and its call sites). So a synthesized address can never collide with an
-  # account someone made by another route, and the fact that it isn't a real
-  # mailbox costs nothing - SSO is the only way in for that domain anyway.
-  defp identity_from(%{"sub" => sub, "email" => email})
+  # An address is only taken at face value when Keycloak says it was
+  # VERIFIED. An unverified one is whatever somebody typed into their profile,
+  # and `find_or_create_from_keycloak/1` couples by email - so trusting it
+  # would let anyone with a directory account type in an arbiter's address
+  # and walk into their tournaments. An unverified address is therefore
+  # ignored entirely, and the identity falls through to the synthesized
+  # address below as if no email had been sent.
+  #
+  # The synthesized `<preferred_username>@<sso domain>` is safe to treat as
+  # verified *because* the SSO domain is otherwise unreachable: it can't be
+  # self-registered, can't be changed to, and can't be used for magic-link or
+  # password login (see `User.sso_domain_email?/1` and its call sites). So it
+  # can never collide with an account someone made by another route, and the
+  # fact that it isn't a real mailbox costs nothing - SSO is the only way in
+  # for that domain anyway. Creating the account under the unverified address
+  # instead was the other option, and the worse one: it would squat an
+  # address its owner could then never register, and hand the account to
+  # whoever reads that mailbox the first time they ask for a magic link.
+  #
+  # No usable username either means no account at all: refused, not guessed.
+  defp identity_from(%{"sub" => sub, "email" => email, "email_verified" => true})
        when is_binary(sub) and is_binary(email) and email != "" do
-    {:ok, sub, email}
+    {:ok, %{sub: sub, email: email, email_verified: true}}
   end
 
   defp identity_from(%{"sub" => sub, "preferred_username" => username})
        when is_binary(sub) and is_binary(username) and username != "" do
-    {:ok, sub, "#{String.downcase(username)}@#{PairingsEngine.Accounts.User.sso_domain()}"}
+    email = "#{String.downcase(username)}@#{PairingsEngine.Accounts.User.sso_domain()}"
+    {:ok, %{sub: sub, email: email, email_verified: true}}
   end
 
   defp identity_from(_), do: {:error, :bad_claims}

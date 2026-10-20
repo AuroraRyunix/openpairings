@@ -125,6 +125,7 @@ defmodule PairingsEngineWeb.UserLive.LoginTest do
          %{conn: conn} do
       {:ok, user} =
         PairingsEngine.Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
           sub: Ecto.UUID.generate(),
           email: "someone@zerotwo.cloud"
         })

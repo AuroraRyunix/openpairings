@@ -36,16 +36,17 @@ defmodule PairingsEngineWeb.UserSessionController do
     limits = rate_limits(conn, email)
 
     cond do
-      # Counted before the password is ever checked, and on the same two
-      # buckets the magic-link form uses: per address, so a list cannot be
-      # walked against one account, and per client, so one client cannot
-      # walk a list of addresses.
+      # Counted before the password is ever checked, per {address, client}
+      # so a list cannot be walked against one account from one place, and
+      # per client so one client cannot walk a list of addresses.
       #
-      # This route had no ceiling at all except bcrypt's own cost, while
-      # every other unauthenticated endpoint in the app - mobile enrolment,
-      # magic link, registration, the FIDE lookup - was given one
-      # deliberately. Passwords are the secondary path here, behind SSO and
-      # magic links, but secondary is not unused.
+      # NOT per address alone. That bucket used to be shared with the
+      # magic-link form and checked here first, which made it a lock anyone
+      # could turn: five wrong passwords - or five log-in links requested -
+      # for somebody else's address, and that somebody could not sign in for
+      # a quarter of an hour, correct password and all. A guesser spread
+      # over many addresses still meets bcrypt's cost and SSO-first habits;
+      # an arbiter locked out on round day meets only us.
       #
       # Refused BEFORE `get_user_by_email_and_password/2` runs, so a
       # throttled attempt costs no bcrypt round and cannot be timed to
@@ -93,9 +94,9 @@ defmodule PairingsEngineWeb.UserSessionController do
     end
   end
 
-  # Deliberately the same shape as `PairingsEngineWeb.UserLive.Login`'s own
-  # `rate_limits/2` - the same two buckets, keyed the same way. Two sign-in
-  # doors onto the same accounts should not have two different ceilings.
+  # Password attempts only. The magic-link and registration forms keep
+  # `:login_email`, keyed by recipient, because they SEND mail; nothing here
+  # sends any, so nothing here needs a key the victim cannot get away from.
   #
   # The client key comes from `ClientIp`, not `conn.remote_ip`: behind a
   # reverse proxy the peer address is the proxy's, identical for every
@@ -103,12 +104,10 @@ defmodule PairingsEngineWeb.UserSessionController do
   # login for the whole site. `RateLimit`'s moduledoc says as much, and
   # every other caller already obeys it.
   defp rate_limits(conn, email) do
-    recipient = email |> to_string() |> String.trim() |> String.downcase()
+    address = email |> to_string() |> String.trim() |> String.downcase()
+    ip = ClientIp.get(conn)
 
-    case ClientIp.get(conn) do
-      nil -> [{:login_email, recipient}]
-      ip -> [{:login_email, recipient}, {:login_client, ip}]
-    end
+    [{:login_password, "#{ip} #{address}"}, {:login_client, ip}]
   end
 
   def update_password(conn, %{"user" => user_params} = params) do

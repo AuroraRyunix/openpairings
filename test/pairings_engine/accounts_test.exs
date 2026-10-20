@@ -149,7 +149,13 @@ defmodule PairingsEngine.AccountsTest do
       email = unique_user_email()
       sub = Ecto.UUID.generate()
 
-      assert {:ok, user} = Accounts.find_or_create_from_keycloak(%{sub: sub, email: email})
+      assert {:ok, user} =
+               Accounts.find_or_create_from_keycloak(%{
+                 email_verified: true,
+                 sub: sub,
+                 email: email
+               })
+
       assert User.sso?(user)
     end
 
@@ -165,7 +171,13 @@ defmodule PairingsEngine.AccountsTest do
       email = unique_user_email()
       sub = Ecto.UUID.generate()
 
-      assert {:ok, user} = Accounts.find_or_create_from_keycloak(%{sub: sub, email: email})
+      assert {:ok, user} =
+               Accounts.find_or_create_from_keycloak(%{
+                 email_verified: true,
+                 sub: sub,
+                 email: email
+               })
+
       assert user.email == email
       assert user.keycloak_sub == sub
       assert user.confirmed_at
@@ -175,7 +187,13 @@ defmodule PairingsEngine.AccountsTest do
       email = "someone@zerotwo.cloud"
       sub = Ecto.UUID.generate()
 
-      assert {:ok, user} = Accounts.find_or_create_from_keycloak(%{sub: sub, email: email})
+      assert {:ok, user} =
+               Accounts.find_or_create_from_keycloak(%{
+                 email_verified: true,
+                 sub: sub,
+                 email: email
+               })
+
       assert user.email == email
     end
 
@@ -183,10 +201,18 @@ defmodule PairingsEngine.AccountsTest do
       sub = Ecto.UUID.generate()
 
       {:ok, first} =
-        Accounts.find_or_create_from_keycloak(%{sub: sub, email: unique_user_email()})
+        Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
+          sub: sub,
+          email: unique_user_email()
+        })
 
       {:ok, second} =
-        Accounts.find_or_create_from_keycloak(%{sub: sub, email: unique_user_email()})
+        Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
+          sub: sub,
+          email: unique_user_email()
+        })
 
       assert first.id == second.id
       # The email on file does NOT change from a repeat login - only the
@@ -199,7 +225,11 @@ defmodule PairingsEngine.AccountsTest do
       sub = Ecto.UUID.generate()
 
       assert {:ok, coupled} =
-               Accounts.find_or_create_from_keycloak(%{sub: sub, email: user.email})
+               Accounts.find_or_create_from_keycloak(%{
+                 email_verified: true,
+                 sub: sub,
+                 email: user.email
+               })
 
       assert coupled.id == user.id
       assert coupled.keycloak_sub == sub
@@ -214,11 +244,73 @@ defmodule PairingsEngine.AccountsTest do
 
       assert {:ok, coupled} =
                Accounts.find_or_create_from_keycloak(%{
+                 email_verified: true,
                  sub: sub,
                  email: String.upcase(user.email)
                })
 
       assert coupled.id == user.id
+    end
+
+    test "an unverified address neither couples to an existing account nor creates one" do
+      user = user_fixture()
+      sub = Ecto.UUID.generate()
+
+      assert {:error, :email_unverified} =
+               Accounts.find_or_create_from_keycloak(%{
+                 sub: sub,
+                 email: user.email,
+                 email_verified: false
+               })
+
+      assert Accounts.get_user!(user.id).keycloak_sub == nil
+      refute Accounts.get_user_by_keycloak_sub(sub)
+    end
+
+    test "a missing email_verified flag counts as unverified" do
+      user = user_fixture()
+
+      assert {:error, :email_unverified} =
+               Accounts.find_or_create_from_keycloak(%{sub: "sub-no-flag", email: user.email})
+
+      assert Accounts.get_user!(user.id).keycloak_sub == nil
+    end
+
+    test "never replaces a different keycloak_sub already on the account" do
+      {:ok, owner} =
+        Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
+          sub: "sub-original",
+          email: unique_user_email()
+        })
+
+      assert {:error, :keycloak_sub_conflict} =
+               Accounts.find_or_create_from_keycloak(%{
+                 email_verified: true,
+                 sub: "sub-intruder",
+                 email: owner.email
+               })
+
+      assert Accounts.get_user!(owner.id).keycloak_sub == "sub-original"
+      refute Accounts.get_user_by_keycloak_sub("sub-intruder")
+    end
+
+    test "the same sub logs straight in, whatever the flag says this time" do
+      {:ok, first} =
+        Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
+          sub: "sub-returning",
+          email: unique_user_email()
+        })
+
+      assert {:ok, again} =
+               Accounts.find_or_create_from_keycloak(%{
+                 email_verified: false,
+                 sub: "sub-returning",
+                 email: unique_user_email()
+               })
+
+      assert again.id == first.id
     end
   end
 
