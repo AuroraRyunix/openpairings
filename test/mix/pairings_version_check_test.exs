@@ -51,9 +51,9 @@ defmodule Mix.Tasks.Pairings.VersionCheckTest do
 
     assert Mix.Tasks.Pairings.VersionCheck.run([]) == :ok
 
-    bump("CHANGELOG.md", "## [#{version}]", "## [0.99.0]")
+    bump("CHANGELOG.md", "## [#{version}]", "## [9.99.9]")
     error = assert_raise Mix.Error, fn -> Mix.Tasks.Pairings.VersionCheck.run([]) end
-    assert error.message =~ "0.99.0"
+    assert error.message =~ "9.99.9"
   end
 
   test "says so when a document states no version at all" do
