@@ -44,6 +44,11 @@ defmodule PairingsEngine.Mobile.Enrollment do
     # moment the account stops being on the tournament. `nil` for the
     # no-account codes helpers use.
     belongs_to :user, PairingsEngine.Accounts.User
+    # Set for the code a Manubrium app device enters under in this
+    # tournament (`PairingsEngine.Manubrium.enrollment_for/2`): the app
+    # shares the hall's queue, compare-and-set and audit trail through it.
+    # Revoking the device revokes it. `nil` for every other code.
+    belongs_to :device, PairingsEngine.Manubrium.Device
 
     timestamps(type: :utc_datetime)
   end

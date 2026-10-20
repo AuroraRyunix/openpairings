@@ -52,6 +52,10 @@ defmodule PairingsEngine.RateLimit do
       codes minted, keyed by USER id, hosted edition only. See the buckets.
     * `:mobile_sync`, `:mobile_incident` - entries a Manubrium phone sends
       and incidents it logs, keyed by ENROLMENT id. See the buckets.
+    * `:manubrium_connect`, `:manubrium_redeem`, `:manubrium_auth`,
+      `:manubrium_api` - the Manubrium app's connect codes (USER id),
+      refused secrets and tokens (CLIENT address) and its requests (DEVICE
+      id). See the buckets.
 
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
   `conn.remote_ip` - behind a proxy the latter is the same value for
@@ -135,7 +139,23 @@ defmodule PairingsEngine.RateLimit do
     # ENROLMENT id. A deputy logs a few an hour on a bad day; thirty in ten
     # minutes covers a hall that has gone collectively mad, and the
     # per-enrolment cap in `Incidents` covers the rest.
-    mobile_incident: %{max: 30, window_ms: :timer.minutes(10)}
+    mobile_incident: %{max: 30, window_ms: :timer.minutes(10)},
+    # "Connect Manubrium" QR codes made (`PairingsEngine.Manubrium`), keyed
+    # by USER id. Each is a one-time secret good for minutes; twenty an hour
+    # is a hall full of phones connected one after another, with retries.
+    manubrium_connect: %{max: 20, window_ms: :timer.minutes(60)},
+    # Connect secrets the app traded that were NOT good, keyed by CLIENT
+    # address. The secret is 256 bits, so this is not what stands between a
+    # guesser and an account; it is what keeps a guesser from costing a hash
+    # and a query per try for as long as they like.
+    manubrium_redeem: %{max: 10, window_ms: :timer.minutes(10)},
+    # Bearer tokens on the app's API that were NOT good, keyed by CLIENT
+    # address - the same reasoning as `:board_link_auth`.
+    manubrium_auth: %{max: 30, window_ms: :timer.minutes(10)},
+    # Requests a connected app makes, keyed by DEVICE id. A phone polls the
+    # round every few seconds while it is open and sends what was tapped;
+    # ten a second is an app that has lost its mind, not a tournament.
+    manubrium_api: %{max: 600, window_ms: :timer.minutes(1)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."
@@ -156,6 +176,10 @@ defmodule PairingsEngine.RateLimit do
           | :mobile_code_create
           | :mobile_sync
           | :mobile_incident
+          | :manubrium_connect
+          | :manubrium_redeem
+          | :manubrium_auth
+          | :manubrium_api
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 

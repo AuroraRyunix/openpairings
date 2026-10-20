@@ -54,7 +54,9 @@ defmodule PairingsEngine.Mobile do
   `opts`: `:label` (free text), `:ttl_hours` (default #{@default_ttl_hours}),
   `:level` (`"helper"` or `"deputy"`, default `"helper"`), `:board_from` /
   `:board_to` (optional positive integers, `board_from <= board_to` when
-  both are given - `nil`/`nil` means every board).
+  both are given - `nil`/`nil` means every board), `:device_id` (the
+  Manubrium app device the code is for - see
+  `PairingsEngine.Manubrium.enrollment_for/2`).
 
   Refuses `{:error, :archived}` / `{:error, :handed_off}` for a tournament
   that has gone read-only. Minting was ungated for a long time, and the
@@ -83,6 +85,7 @@ defmodule PairingsEngine.Mobile do
           # arbiter (or more) on this tournament, which is the point.
           level: if(user_id, do: "deputy", else: Keyword.get(opts, :level, "helper") || "helper"),
           user_id: user_id,
+          device_id: Keyword.get(opts, :device_id),
           board_from: Keyword.get(opts, :board_from),
           board_to: Keyword.get(opts, :board_to),
           expires_at: expires_at
@@ -608,6 +611,55 @@ defmodule PairingsEngine.Mobile do
     else
       changeset
     end
+  end
+
+  @doc """
+  The active code a Manubrium app device enters under in `tournament_id`
+  (`PairingsEngine.Manubrium.enrollment_for/2`), or nil. Held like every
+  account code: nil once the account is off the tournament.
+  """
+  def get_active_for_device(device_id, tournament_id)
+      when is_integer(device_id) and is_integer(tournament_id) do
+    Repo.all(
+      from e in active_query(),
+        where: e.device_id == ^device_id and e.tournament_id == ^tournament_id,
+        order_by: [desc: e.id],
+        limit: 1
+    )
+    |> List.first()
+    |> held()
+  end
+
+  @doc """
+  Revokes every active code of the Manubrium device `device_id` - the device
+  was signed out or withdrawn. Like `revoke_for_user/2`, it does not ask
+  whether the tournament is writable: taking access away is never the
+  wrong direction.
+  """
+  def revoke_for_device(device_id) when is_integer(device_id) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    rows =
+      Repo.all(
+        from e in active_query(),
+          where: e.device_id == ^device_id,
+          select: {e.id, e.tournament_id}
+      )
+
+    Repo.update_all(
+      from(e in Enrollment, where: e.id in ^Enum.map(rows, &elem(&1, 0))),
+      set: [revoked_at: now]
+    )
+
+    for {id, tournament_id} <- rows do
+      Phoenix.PubSub.broadcast(
+        PairingsEngine.PubSub,
+        Tournaments.tournament_topic(tournament_id),
+        {:mobile_enrollment_revoked, id}
+      )
+    end
+
+    :ok
   end
 
   defp active_query do
