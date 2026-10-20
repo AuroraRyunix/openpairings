@@ -246,7 +246,7 @@ The card **The results site** on Settings, Live boards says where it stands:
 
 OpenPairings asks when the tournament is on the results site and one of these
 is true: a connect code reaches it (its own, or its group's), a box has
-reported a game, or **Live link on the results site** is on. It does not matter
+reported a game, or **Show the live boards on the results site** is on. It does not matter
 in which order you do things. A code made before the tournament was published
 is served as soon as the first publish has arrived.
 
@@ -480,7 +480,7 @@ code that names no country, keeps the code and gets no picture.
 
 *Built.* In OpenPairings: Settings, OpenResults, the card *Publishing each
 round*, the switch **Live boards**. The same switch is on Settings, Live boards,
-as **Live link on the results site**. It is off for every tournament until you
+as **Show the live boards on the results site**. It is off for every tournament until you
 switch it on, and it is offered only while the tournament is published.
 
 On, OpenPairings sends a word in the snapshot (`live_boards: true` in the

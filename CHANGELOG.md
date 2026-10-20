@@ -17,6 +17,9 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **The toggle that was called "Live link on the results site" now says what it does.** It is "Show the live boards on the results site", with a hint that says the same. Under the old name, a reasonable arbiter could take it for a link to something, or a link between things, or a mood.
+- [Feature] **The results-site settings page opens with a link to the tournament's page on the results site.** Once the tournament is published, a link at the top opens it in a new tab, and the address in "Connected to ..." on the Live boards page is a link too, instead of text one has to copy into a browser like it is 1996.
+
 ## [0.98.3] - 2026-10-20
 
 - [Fix] **Stopping from Ascella, an update or a logout no longer hangs on "Stopping".** On a Mac, the window waited for its server to end inside the very queue that was to bring the news, so the server ended and the window kept saying "Stopping" until somebody force-quit it. Quit from the menu never had the problem, which is how it survived this long. Any stop that hangs anyway now ends after forty seconds.

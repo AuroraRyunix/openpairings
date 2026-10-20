@@ -645,17 +645,29 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
 
           <%= if @target do %>
             <p class="hint" style="margin-top: 0" id="boards-target">
-              {gettext(
-                "Connected to %{server} as %{slug}. The box sends the moves there and learns both over the link.",
-                server: @target["server_url"],
-                slug: @target["slug"]
-              )}
+              <.rich_text text={
+                gettext(
+                  "Connected to %[server] as %{slug}. The box sends the moves there and learns both over the link.",
+                  slug: @target["slug"]
+                )
+              }>
+                <:part name="server">
+                  <.link
+                    id="boards-target-link"
+                    href={@target["server_url"]}
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    {@target["server_url"]}
+                  </.link>
+                </:part>
+              </.rich_text>
             </p>
 
             <div class="set-field solo">
               <.publish_toggle
                 id="boards-live-toggle"
-                label={gettext("Live link on the results site")}
+                label={gettext("Show the live boards on the results site")}
                 state={if @tournament.public_live_boards, do: :public, else: :not_public}
                 on_text={gettext("On")}
                 off_text={gettext("Off")}
@@ -663,7 +675,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
               />
               <p class="hint" style="margin: 6px 0 0">
                 {gettext(
-                  "Connecting a box does not switch this on. It puts a Live link on the public pages, and that is yours to say."
+                  "Connecting a box does not switch this on. When it is on, the tournament's public pages link to the live boards, and that is yours to say."
                 )}
               </p>
             </div>

@@ -90,6 +90,7 @@ XSS.Raw: XSS,lib/pairings_engine_web/live/help_live.ex:504,759F10E
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6611,1A1B1F
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6640,687C8C4
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:916,111B9F9
+XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:928,7D98D70
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/badge_controller.ex:110,673A2CC
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/export_controller.ex:523,4F253E4
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/export_controller.ex:670,1CE83E2
