@@ -370,8 +370,9 @@ anyone else, arbiters included. Every incident is also an audit row
 ## Full app
 
 Manubrium (as opposed to Manubrium Lite, the `/m` pages above) is a native
-phone app, built with Capacitor from its own repository (`manubrium`, kept
-apart from this one). It runs a tournament from a phone against one or
+phone app, built with Capacitor from its own repository
+([teapot-chess/Manubrium](https://github.com/teapot-chess/Manubrium),
+Apache-2.0, kept apart from this one). It runs a tournament from a phone against one or
 more OpenPairings servers at once: the round as its home screen, results
 entered offline, and, for the organiser and editors, pairing, publishing,
 standings and players.
