@@ -458,6 +458,34 @@ defmodule PairingsEngineWeb.SettingsResultsLiveTest do
       assert Audit.list_for_tournament(tournament.id, action: "openresults.live_boards") == []
     end
 
+    test "the page opens with a link to the tournament on the results site, once published", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+      refute has_element?(lv, "#results-public-page-link")
+
+      Publishing.put_endpoint("https://openresults.example/")
+      Publishing.put_public_base(nil)
+
+      {:ok, tournament} =
+        tournament
+        |> Ecto.Changeset.change(
+          publish_to_openresults: true,
+          public_slug: "link-test-slug",
+          openresults_key: "tk-link-test"
+        )
+        |> Repo.update()
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/results")
+
+      assert has_element?(
+               lv,
+               "#results-public-page-link[href='https://openresults.example/t/link-test-slug'][target='_blank'][rel~='noopener']"
+             )
+    end
+
     test "off by default; switching it on and off is saved, audited and re-published", %{
       conn: conn,
       scope: scope

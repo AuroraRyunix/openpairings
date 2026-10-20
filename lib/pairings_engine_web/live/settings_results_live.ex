@@ -1191,8 +1191,18 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
     end
   end
 
+  # The tournament's public page on the results site, once it is there.
+  defp public_page_url(tournament) do
+    case PairingsEngine.BoardLink.openresults_target(tournament) do
+      %{"server_url" => base, "slug" => slug} -> "#{base}/t/#{slug}"
+      nil -> nil
+    end
+  end
+
   @impl true
   def render(assigns) do
+    assigns = assign(assigns, :public_page_url, public_page_url(assigns.tournament))
+
     ~H"""
     <%!-- `tournament` and `active` are not optional decoration here. Without
           them the top bar drops every tournament tab - Players, Pairings,
@@ -1217,6 +1227,13 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         subtitle={gettext("OpenResults")}
         advanced={advanced(@show_advanced, advanced_changed(@tournament), has_advanced?(assigns))}
       >
+        <p :if={@public_page_url} id="results-public-page" style="margin-top: 0">
+          <.link id="results-public-page-link" href={@public_page_url} target="_blank" rel="noopener">
+            {gettext("Open this tournament on the results site")}
+          </.link>
+          <span class="hint" id="results-public-page-address">{@public_page_url}</span>
+        </p>
+
         <div
           :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)}
           id="team-publish-note"
@@ -1462,7 +1479,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
             <p class="hint" style="margin: 6px 0 0">
               <.rich_text text={
                 gettext(
-                  "Shows a Live link on the results site. Needs a relay in the hall sending the moves - see %[link]."
+                  "Puts a link to the live boards on the tournament's pages on the results site. Needs a relay in the hall sending the moves - see %[link]."
                 )
               }>
                 <:part name="link">

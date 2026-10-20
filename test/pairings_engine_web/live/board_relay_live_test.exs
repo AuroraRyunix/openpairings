@@ -59,6 +59,14 @@ defmodule PairingsEngineWeb.BoardRelayLiveTest do
     lv = open(conn, t)
 
     assert has_element?(lv, "#boards-target")
+
+    assert has_element?(
+             lv,
+             "#boards-target a#boards-target-link[href='https://openresults.example'][target='_blank'][rel~='noopener']"
+           )
+
+    assert has_element?(lv, "#boards-live-toggle")
+    assert render(lv) =~ "Show the live boards on the results site"
     assert has_element?(lv, "#boards-permission[data-state='idle'] #relay-key-idle")
     refute has_element?(lv, "#relay-key-form")
     refute has_element?(lv, "#relay-key-retry")

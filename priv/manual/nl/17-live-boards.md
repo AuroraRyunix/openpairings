@@ -495,7 +495,7 @@ houdt de code en krijgt geen plaatje.
 
 *Gebouwd.* In OpenPairings: Instellingen, OpenResults, de kaart *Elke ronde publiceren*, de
 schakelaar **Live borden**. Dezelfde schakelaar staat op Instellingen, Live borden, als
-**Live-link op de uitslagensite**. Hij staat uit voor elk toernooi tot je hem aanzet, en wordt
+**Toon de live borden op de uitslagensite**. Hij staat uit voor elk toernooi tot je hem aanzet, en wordt
 alleen aangeboden zolang het toernooi gepubliceerd is.
 
 Aan: OpenPairings stuurt een woord mee in de momentopname (`live_boards: true` in het deel
