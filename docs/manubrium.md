@@ -356,3 +356,146 @@ anyone else, arbiters included. Every incident is also an audit row
 * Clock times entered from the phone.
 * Background Sync API to send while the app is closed.
 * A round start time of its own (the clock then counts from it).
+
+## Full app
+
+Manubrium (as opposed to Manubrium Lite, the `/m` pages above) is a native
+phone app, built with Capacitor from its own repository (`manubrium`, kept
+apart from this one). It runs a tournament from a phone against one or
+more OpenPairings servers at once: the round as its home screen, results
+entered offline, and, for the organiser and editors, pairing, publishing,
+standings and players.
+
+### Architecture
+
+```
+phone (Capacitor app)                      server
+---------------------                      ------
+server list (one token per server)
+  |  native HTTP (CapacitorHttp):          /api/manubrium/v1   (JSON, Bearer)
+  |  no browser, no cookie, no CORS          ManubriumApi.Auth  token -> device -> scope
+  |                                          TournamentController / PlayerController
+round screen  ---- GET round ------------>   ManubriumApi.Json  (read-only presenters)
+result taps   ---- POST sync (queued) --->   Mobile.Sync.submit  (the hall's queue)
+pair/publish  ---- POST/PUT (online) ---->   PairingsEngineWeb.DeskActions
+players       ---- POST/PATCH (online) -->     (also called by PairingsLive / PlayersLive)
+```
+
+Nothing in the API decides a rule. Every write is a function the desk or
+the hall pages already call:
+
+| What | Function | Shared with |
+|---|---|---|
+| results, incidents | `Mobile.Sync.submit/2` under the device's phone code | Manubrium Lite's queue |
+| clearing a result | `Manubrium.clear_result/4` (the deputy clear) | Lite's clear |
+| pairing the next round | `DeskActions.pair_next_round/3` | the Pairings page |
+| unpairing the latest round | `DeskActions.delete_round/3` | the Pairings page |
+| a round's public level | `DeskActions.set_publish_level/4` | the Pairings page |
+| late entry, player edits | `DeskActions.create_player/3`, `update_player/5` | the Players page |
+
+Where the desk would open a dialog and ask - the pairing-number question,
+the FIDE departure guard, bye exclusions, a round of hand edits in
+progress, a round robin's whole schedule, a team event - the API refuses
+with `409` and a sentence saying to do it at the desk. It never answers the
+question on the arbiter's behalf. The two confirmations a phone can sensibly
+give are asked instead: postponed-game warnings before pairing
+(`next_round.warnings`, sent back as `acknowledged`) and the player-edit
+confirmations (`409 needs_acknowledgement` with `confirm` ids).
+
+### Token model
+
+1. A signed-in account makes a **connect code** on the account page
+   (Account, Manubrium app, "Connect a phone"): a 256-bit one-time secret,
+   ten minutes, shown as a QR code of
+   `manubrium://connect?server=<base url>&secret=<secret>`. Only its SHA-256
+   is stored (`manubrium_connect_codes`).
+2. The app trades it once (`POST /connect`) for a **device token**
+   (`mnb_` + 256 bits), bound to the account and to that phone. Only its hash
+   and last four characters are stored (`manubrium_devices`). The trade is a
+   single conditional `UPDATE`, so two phones scanning one QR cannot both win.
+3. Every request carries `Authorization: Bearer <token>`. No session, no
+   cookie, no CSRF token.
+4. The account page lists the devices and signs any of them out; the app can
+   sign itself out (`DELETE /me`). Signing out is final, and revokes the
+   device's phone codes with it.
+
+A device has its account's rights and no more: `Tournaments.hall_role/2` and
+`Tournaments.get_authorized_tournament/2` are asked on every request, so an
+arbiter taken off a tournament loses it on the phone at once. Results are
+entered under a claimed, account-bound deputy phone code per device and
+tournament (`Manubrium.enrollment_for/2`, `mobile_enrollments.device_id`), so
+the audit trail names the account, and the desk's list of phones shows
+"Manubrium: <phone name>".
+
+Rate limits (`PairingsEngine.RateLimit`): `:manubrium_connect` (codes per
+account, 20 an hour), `:manubrium_redeem` (refused trades per address, 10 per
+ten minutes), `:manubrium_auth` (refused tokens per address, 30 per ten
+minutes), `:manubrium_api` (requests per device, 600 a minute).
+
+### Roles
+
+| Role | `can` | Routes |
+|---|---|---|
+| owner, editor | `results incidents pair publish players standings settings` | all |
+| arbiter | `results incidents` | the list, a tournament, a round, sync, clear |
+
+Anything else answers `403 arbiter_role` for an arbiter and
+`404 tournament_not_found` for an account with no role on the tournament
+(the same answer as for a tournament that does not exist).
+
+### Desktop
+
+A desktop copy has no accounts: the local owner is signed in on loopback.
+That owner opens the account page on the PC and makes the code like anyone
+else, but the code carries the phones' network listener's address
+(`PhoneLan.status().base_url`), not the loopback one. That listener
+(`PairingsEngineWeb.PhoneLan`) serves `/api/manubrium/v1/*` beside the Lite
+pages, and is open while the switch "Let phones on this network connect" is
+on and a phone code, an unused connect code or a connected device exists.
+With the switch off the account page refuses to make a code and says why.
+The API's results path also needs the switch (`Mobile.create_enrollment/2`
+refuses `:local_mode` without it; the API answers `409 phones_off`).
+
+### API
+
+All under `/api/manubrium/v1`, JSON, errors as
+`{"error": code, "message": sentence}`.
+
+| Method and path | Who | Body | Answer |
+|---|---|---|---|
+| `POST /connect` | anyone with a code | `{secret, name?, platform?}` | `201 {token, device, user, server}`; `401 invalid_code`, `429` |
+| `GET /me` | device | | `{device, user, server}` |
+| `DELETE /me` | device | | `204`, token withdrawn |
+| `GET /tournaments` | device | | `{tournaments: [{id, name, role, status, rounds_count, paired_rounds, ...}]}` |
+| `GET /tournaments/:id` | hall | | `{tournament: {can, rounds: [{number, publish_level, missing_results}], next_round: {number, blocker, warnings}, settings, ...}}` |
+| `GET /tournaments/:id/rounds/:n` | hall | | `{round: {number, latest, publish_level, boards: [{id, board, label, white, black, bye, result, clearable}], byes, results}}` |
+| `POST /tournaments/:id/sync` | hall | `{entries: [...]}` (at most 25) | `{results: [{cid, status, reason, message}]}` |
+| `POST /tournaments/:id/rounds/:n/boards/:pairing/clear` | hall | `{expected}` | `{status: "cleared"}`; `409 conflict` with `current` |
+| `POST /tournaments/:id/rounds` | desk | `{acknowledged: [warning ids]}` | `201 {round}`; `409` for every desk question |
+| `DELETE /tournaments/:id/rounds/:n` | desk | | `204`; `422` unless it is the latest |
+| `PUT /tournaments/:id/rounds/:n/publish` | desk | `{level: 0..3}` | `{round, publish_level}` |
+| `GET /tournaments/:id/standings` | desk | | `{standings: {tiebreaks: [{code, name}], rows: [{rank, player, points, tiebreaks}]}}` |
+| `GET /tournaments/:id/incidents` | desk | `?round=n` | `{incidents: [...]}` (no photos) |
+| `GET /tournaments/:id/players` | desk | | `{players: [...]}` |
+| `POST /tournaments/:id/players` | desk | `{player: {name, title, sex, fide_id, ratings, federation, club, birth_year, start_round}}` | `201 {player}`; `422 duplicate_fide_id` |
+| `PATCH /tournaments/:id/players/:pid` | desk | `{player: {basic fields, withdrawn, absent, absent_rounds: [n], bye_types}, acknowledged}` | `{player}`; `409 needs_acknowledgement` |
+
+A sync entry is Lite's entry without the `enrollment` field (the server
+fills in the device's own): `{cid, kind: "result", round, pairing, board,
+white, black, result, expected}` or `{cid, kind: "incident", round, pairing?,
+board?, type, note, at?, photo?}`. The `cid` makes a resend harmless.
+
+For the app's web bundle on a developer's screen, `config/dev.exs` lists the
+Vite dev server's origins (`:manubrium_dev_origins`) and
+`PairingsEngineWeb.Plugs.ManubriumDevCors` answers their preflights. No
+other config sets it; the installed app needs no CORS at all.
+
+### Not built yet
+
+- Manual pairing changes (hand edits): the desk's staging, freezing and
+  checker are not yet behind a function both can call.
+- Writing settings: the app reads them; changing them is the desk's.
+- Results Lite refuses for the desk (a decisive postponed game, a correction
+  after the next round is paired, a round already sent to FIDE) are refused
+  in the app too, with the same sentence. Acknowledging them from a phone is
+  a later decision.
