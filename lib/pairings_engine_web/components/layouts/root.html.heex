@@ -22,16 +22,13 @@
       type="image/svg+xml"
       href="data:image/svg+xml;base64,PHN2ZyB2aWV3Qm94PSIwIDAgNjQgNDgiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGRlZnM+CiAgICA8bGluZWFyR3JhZGllbnQgaWQ9Im9yYi1hdXJvcmEiIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjYzA4NGZjIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iNDIlIiBzdG9wLWNvbG9yPSIjODE4Y2Y4Ii8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzAyODRjNyIvPgogICAgPC9saW5lYXJHcmFkaWVudD4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0ic3BlY3VsYXItYXVyb3JhIiBjeD0iMzUlIiBjeT0iMjUlIiByPSI2NSUiPgogICAgICA8c3RvcCBvZmZzZXQ9IjAlIiBzdG9wLWNvbG9yPSIjZmZmZmZmIiBzdG9wLW9wYWNpdHk9IjAuNTUiLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI1MCUiIHN0b3AtY29sb3I9IiNjMDg0ZmMiIHN0b3Atb3BhY2l0eT0iMC4xIi8+CiAgICAgIDxzdG9wIG9mZnNldD0iMTAwJSIgc3RvcC1jb2xvcj0iIzAwMDAwMCIgc3RvcC1vcGFjaXR5PSIwIi8+CiAgICA8L3JhZGlhbEdyYWRpZW50PgogIDwvZGVmcz4KICA8IS0tIExlZnQgV2luZyAtLT4KICA8cGF0aCBkPSJNMjIsMTggUTEwLDEwIDEsMTQgUTgsMjIgMTAsMzAgUTE2LDMyIDIyLDMwIFEyNiwyNiAyMiwxOCBaIiBmaWxsPSIjZjhmYWZjIiBzdHJva2U9IiMwZjE3MmEiIHN0cm9rZS13aWR0aD0iMi4yIi8+CiAgPCEtLSBSaWdodCBXaW5nIC0tPgogIDxwYXRoIGQ9Ik00MiwxOCBRNTQsMTAgNjMsMTQgUTU2LDIyIDU0LDMwIFE0OCwzMiA0MiwzMCBRMzgsMjYgNDIsMTggWiIgZmlsbD0iI2Y4ZmFmYyIgc3Ryb2tlPSIjMGYxNzJhIiBzdHJva2Utd2lkdGg9IjIuMiIvPgogIDwhLS0gQ2VudHJhbCBBdXJvcmEgT3JiIC0tPgogIDxjaXJjbGUgY3g9IjMyIiBjeT0iMjQiIHI9IjE0IiBmaWxsPSJ1cmwoI29yYi1hdXJvcmEpIiBzdHJva2U9IiMwZjE3MmEiIHN0cm9rZS13aWR0aD0iMi41Ii8+CiAgPGNpcmNsZSBjeD0iMzIiIGN5PSIyNCIgcj0iMTMuMiIgZmlsbD0idXJsKCNzcGVjdWxhci1hdXJvcmEpIi8+CiAgPCEtLSBTcGVjdWxhciBDcmVzY2VudCBBY2NlbnQgLS0+CiAgPHBhdGggZD0iTTI1LDE4IEExMCwxMCAwIDAsMSAzOSwxOCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIwLjY1Ii8+Cjwvc3ZnPg=="
     />
-    <%!-- Manubrium (docs/manubrium.md): only on `/m`, where the router's
-          `:manubrium` pipeline sets the assign. The manifest link is also
-          what `app.js` looks for before registering the service worker, so
-          no other page ever installs one. --%>
+    <%!-- Manubrium Lite (docs/manubrium.md): only on `/m`, where the router's
+          `:manubrium` pipeline sets the assign. A page in the phone's
+          browser, deliberately not an installable app - that is the full
+          Manubrium's job. The meta tag is what `app.js` looks for before
+          registering the service worker, so no other page ever gets one. --%>
     <%= if assigns[:manubrium] do %>
-      <link rel="manifest" href={~p"/m/manifest.webmanifest"} />
-      <link rel="apple-touch-icon" href={~p"/images/manubrium/touch180.png"} />
-      <meta name="apple-mobile-web-app-capable" content="yes" />
-      <meta name="mobile-web-app-capable" content="yes" />
-      <meta name="apple-mobile-web-app-title" content="Manubrium" />
+      <meta name="manubrium-lite" content="/m/sw.js" />
       <meta name="theme-color" content="#f7f6f3" media="(prefers-color-scheme: light)" />
       <meta name="theme-color" content="#0e1210" media="(prefers-color-scheme: dark)" />
     <% end %>

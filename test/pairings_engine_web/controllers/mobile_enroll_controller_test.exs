@@ -46,7 +46,6 @@ defmodule PairingsEngineWeb.MobileEnrollControllerTest do
       conn = get(conn, ~p"/m/e/#{e.token}")
 
       assert html_response(conn, 200) =~ "enroll-confirm-form"
-      assert html_response(conn, 200) =~ "enroll-confirm-link"
       assert get_session(conn, :mobile_enrollment_id) == nil
       assert Repo.get!(Enrollment, e.id).claimed_at == nil
 

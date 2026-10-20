@@ -625,11 +625,11 @@ defmodule PairingsEngineWeb.Router do
   # English throughout, like the result entry it leads to: `:english` pins the
   # controller routes, `EnglishHook` the live_session.
   #
-  # Manubrium, the installable form of the same pages (docs/manubrium.md):
-  # the manifest and the service worker are the same for everybody and need
-  # no session; the queue is a write and gets the session and CSRF check.
+  # Manubrium Lite, the same pages surviving a wifi drop (docs/manubrium.md):
+  # the service worker is the same for everybody and needs no session; the
+  # queue is a write and gets the session and CSRF check. No manifest: Lite
+  # is a browser page, not something to install.
   scope "/m", PairingsEngineWeb do
-    get "/manifest.webmanifest", MobileAppController, :manifest
     get "/sw.js", MobileAppController, :service_worker
   end
 

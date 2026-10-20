@@ -1,5 +1,15 @@
 # Manubrium - the arbiter's phone app
 
+> **2026-10-20: split in two.** What this document calls Manubrium (phases 1
+> and 2) is now **Manubrium Lite**: `/m` in the phone's browser, no install.
+> The web app manifest and the home-screen meta tags are gone - the service
+> worker stays, registered off a `<meta name="manubrium-lite">` tag, so a
+> page that is open survives a wifi drop. The **full Manubrium** is a native
+> app (Capacitor, its own repo) that runs whole tournaments against one or
+> more servers over a versioned API, because a web app on an https origin
+> cannot talk to a desktop install's plain-http hall listener. Read
+> "installable" and "manifest" below as history.
+
 Manubrium is what `/m` (no-account mobile result entry) becomes: an
 installable web app (PWA) on top of the same enrolment, the same session and
 the same permission checks. There is no store build. An Apple developer
@@ -37,7 +47,7 @@ phone                                        server
 /m/manifest.webmanifest, icons               client id, the answer it got
 ```
 
-* **Manifest** `GET /m/manifest.webmanifest` (`MobileAppController`):
+* **Manifest** (removed with the Lite split) `GET /m/manifest.webmanifest`:
   name and short_name "Manubrium", `start_url` `/m/results`, `scope` `/m/`,
   OpenPairings' palette, PNG icons drawn from the nine-squares Manubrium mark
   (`priv/static/images/manubrium/*.png`, drawn by

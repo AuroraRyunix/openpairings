@@ -878,7 +878,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
       <header class="mobile-header">
         <div>
           <div class="mobile-brand">
-            <.manubrium_mark /> <strong>Manubrium</strong>
+            <.manubrium_mark /> <strong>Manubrium Lite</strong>
           </div>
           <%!-- The page's one heading: which tournament this phone is entering
                 results for. --%>

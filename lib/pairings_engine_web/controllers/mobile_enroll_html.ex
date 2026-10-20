@@ -18,7 +18,7 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
             code box, so a screen reader hears it on the field it is about. --%>
       <main class="mobile-card" id="main-content" tabindex="-1">
         <div class="mobile-brand">
-          <strong>Manubrium</strong> · Open<strong>Pairings</strong>
+          <strong>Manubrium Lite</strong> · Open<strong>Pairings</strong>
         </div>
         <h1>{gettext("Enter results")}</h1>
         <p class="mobile-sub">
@@ -26,16 +26,6 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
             "Scan the QR code your arbiter is showing, or type the code below. No account needed."
           )}
         </p>
-        <%!-- iOS gives an app added to the home screen its own cookies, so a
-              code redeemed in Safari does not come along. Installing first
-              and typing the code in the app is the order that works on
-              both. --%>
-        <p class="mobile-sub" id="manubrium-install-hint">
-          {gettext(
-            "Tip: add this page to your home screen to get Manubrium as an app that keeps working when the wifi drops. On an iPhone, do that first, then type the code - or paste the link the QR opened - in the app."
-          )}
-        </p>
-
         <p :if={@error} class="mobile-error" id="enroll-code-error" role="alert">{@error}</p>
 
         <form method="post" action={~p"/m"} class="mobile-form" id="enroll-form">
@@ -86,7 +76,7 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
 
       <main class="mobile-card" id="main-content" tabindex="-1">
         <div class="mobile-brand">
-          <strong>Manubrium</strong> · Open<strong>Pairings</strong>
+          <strong>Manubrium Lite</strong> · Open<strong>Pairings</strong>
         </div>
         <h1>{@enrollment.tournament.name}</h1>
         <p class="mobile-sub" id="enroll-confirm-who">
@@ -110,22 +100,6 @@ defmodule PairingsEngineWeb.MobileEnrollHTML do
             {gettext("Connect this phone")}
           </button>
         </form>
-
-        <div class="mobile-sub" id="enroll-confirm-app">
-          <p>
-            {gettext(
-              "Using Manubrium from the home screen on an iPhone? Do not tap the button here: copy this link, open the app and paste it into the code box."
-            )}
-          </p>
-          <input
-            type="text"
-            readonly
-            value={@link}
-            class="mobile-code-input mobile-link-input"
-            aria-label={gettext("Link to paste into the app")}
-            id="enroll-confirm-link"
-          />
-        </div>
       </main>
     </div>
     """

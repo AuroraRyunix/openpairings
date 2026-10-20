@@ -43,7 +43,7 @@ msgstr "Geboortejaar"
 #: lib/pairings_engine_web/components/layouts.ex:1154
 #: lib/pairings_engine_web/components/layouts.ex:1155
 #: lib/pairings_engine_web/components/layouts.ex:1160
-#: lib/pairings_engine_web/live/user_live/settings.ex:1021
+#: lib/pairings_engine_web/live/user_live/settings.ex:1019
 #, elixir-autogen, elixir-format
 msgid "Language"
 msgstr "Taal"
@@ -107,12 +107,12 @@ msgstr "Afwezig in de rondes (bv. 3,5 of 2-4)"
 
 #: lib/pairings_engine_web/components/layouts.ex:1067
 #: lib/pairings_engine_web/components/layouts.ex:1068
-#: lib/pairings_engine_web/live/user_live/settings.ex:1046
+#: lib/pairings_engine_web/live/user_live/settings.ex:1044
 #, elixir-autogen, elixir-format
 msgid "Accent colour"
 msgstr "Accentkleur"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:242
+#: lib/pairings_engine_web/components/phone_qr.ex:233
 #, elixir-autogen, elixir-format
 msgid "Active phones"
 msgstr "Actieve telefoons"
@@ -285,7 +285,7 @@ msgstr "Annuleren (Esc)"
 msgid "Category list"
 msgstr "Categorielijst"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:866
+#: lib/pairings_engine_web/live/user_live/settings.ex:864
 #, elixir-autogen, elixir-format
 msgid "Change Email"
 msgstr "E-mailadres wijzigen"
@@ -338,7 +338,7 @@ msgid "Claimed title"
 msgstr "Geclaimde titel"
 
 #: lib/pairings_engine_web/live/settings_dates_live.ex:247
-#: lib/pairings_engine_web/live/user_live/settings.ex:1188
+#: lib/pairings_engine_web/live/user_live/settings.ex:1186
 #, elixir-autogen, elixir-format
 msgid "Clear all"
 msgstr "Alles wissen"
@@ -384,7 +384,7 @@ msgstr "Kleurbalans (echte partijen)"
 #: lib/pairings_engine_web/components/layouts.ex:1210
 #: lib/pairings_engine_web/components/layouts.ex:1211
 #: lib/pairings_engine_web/components/layouts.ex:1216
-#: lib/pairings_engine_web/live/user_live/settings.ex:1031
+#: lib/pairings_engine_web/live/user_live/settings.ex:1029
 #, elixir-autogen, elixir-format
 msgid "Colour theme"
 msgstr "Kleurthema"
@@ -414,7 +414,7 @@ msgstr "Bevestigen en importeren"
 msgid "Confirm and sign in only this time"
 msgstr "Bevestigen en enkel deze keer aanmelden"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:919
+#: lib/pairings_engine_web/live/user_live/settings.ex:917
 #, elixir-autogen, elixir-format
 msgid "Confirm new password"
 msgstr "Nieuw wachtwoord bevestigen"
@@ -545,7 +545,7 @@ msgid "Elo bands (rating:bonus, comma-separated)"
 msgstr "Elo-schijven (rating:bonus, gescheiden door komma's)"
 
 #: lib/pairings_engine_web/live/settings_tournament_live.ex:914
-#: lib/pairings_engine_web/live/user_live/settings.ex:832
+#: lib/pairings_engine_web/live/user_live/settings.ex:830
 #, elixir-autogen, elixir-format
 msgid "Email address"
 msgstr "E-mailadres"
@@ -756,7 +756,7 @@ msgstr "Terug naar dit punt"
 #: lib/pairings_engine_web/controllers/board_connect_html.ex:106
 #: lib/pairings_engine_web/live/invite_live.ex:136
 #: lib/pairings_engine_web/live/invite_live.ex:154
-#: lib/pairings_engine_web/live/user_live/settings.ex:1523
+#: lib/pairings_engine_web/live/user_live/settings.ex:1521
 #, elixir-autogen, elixir-format
 msgid "Go to Tournaments"
 msgstr "Naar Toernooien"
@@ -989,7 +989,7 @@ msgstr "Nationale rating"
 msgid "New category name"
 msgstr "Nieuwe categorienaam"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:911
+#: lib/pairings_engine_web/live/user_live/settings.ex:909
 #, elixir-autogen, elixir-format
 msgid "New password"
 msgstr "Nieuw wachtwoord"
@@ -1165,7 +1165,7 @@ msgstr "Paringsverantwoording"
 #: lib/pairings_engine_web/live/settings_options_live.ex:465
 #: lib/pairings_engine_web/live/settings_support.ex:807
 #: lib/pairings_engine_web/live/tournaments_live.ex:3029
-#: lib/pairings_engine_web/live/user_live/settings.ex:1101
+#: lib/pairings_engine_web/live/user_live/settings.ex:1099
 #, elixir-autogen, elixir-format
 msgid "Pairing system"
 msgstr "Paringssysteem"
@@ -1301,7 +1301,7 @@ msgstr "Zet ze hier"
 #: lib/pairings_engine/federations/bel/swar_merge.ex:909
 #: lib/pairings_engine_web/live/settings_options_live.ex:934
 #: lib/pairings_engine_web/live/tournaments_live.ex:3154
-#: lib/pairings_engine_web/live/user_live/settings.ex:1123
+#: lib/pairings_engine_web/live/user_live/settings.ex:1121
 #, elixir-autogen, elixir-format
 msgid "Rate of play"
 msgstr "Speeltempo"
@@ -1394,7 +1394,7 @@ msgstr "Hetzelfde paringsblad, met onder de tabel een rubriek met de aangevraagd
 msgid "Save FIDE settings"
 msgstr "FIDE-instellingen opslaan"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:931
+#: lib/pairings_engine_web/live/user_live/settings.ex:929
 #, elixir-autogen, elixir-format
 msgid "Save Password"
 msgstr "Wachtwoord opslaan"
@@ -1818,7 +1818,7 @@ msgid "e.g. Chess Club A, Chess Club B"
 msgstr "bv. Schaakclub A, Schaakclub B"
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:3135
-#: lib/pairings_engine_web/live/user_live/settings.ex:1135
+#: lib/pairings_engine_web/live/user_live/settings.ex:1133
 #, elixir-autogen, elixir-format
 msgid "e.g. Gent"
 msgstr "bv. Gent"
@@ -2599,7 +2599,7 @@ msgstr "Archiveren"
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:3760
 #: lib/pairings_engine_web/live/tournaments_live.ex:3774
-#: lib/pairings_engine_web/live/user_live/settings.ex:1456
+#: lib/pairings_engine_web/live/user_live/settings.ex:1454
 #, elixir-autogen, elixir-format
 msgid "Archived"
 msgstr "Gearchiveerd"
@@ -2658,7 +2658,7 @@ msgstr "Zwart"
 #: lib/pairings_engine_web/live/pairings_live.ex:7951
 #: lib/pairings_engine_web/live/settings_export_live.ex:1381
 #: lib/pairings_engine_web/live/teams_live.ex:940
-#: lib/pairings_engine_web/live/user_live/settings.ex:1673
+#: lib/pairings_engine_web/live/user_live/settings.ex:1671
 #, elixir-autogen, elixir-format
 msgid "Board"
 msgstr "Bord"
@@ -2767,7 +2767,7 @@ msgstr "Categorie: %{name}"
 msgid "Changelog"
 msgstr "Wijzigingen"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:864
+#: lib/pairings_engine_web/live/user_live/settings.ex:862
 #, elixir-autogen, elixir-format
 msgid "Changing..."
 msgstr "Bezig met wijzigen..."
@@ -2795,7 +2795,7 @@ msgstr "Het geregistreerde resultaat (%{result}) voor dit bord wissen?"
 msgid "Club"
 msgstr "Club"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:249
+#: lib/pairings_engine_web/components/phone_qr.ex:240
 #, elixir-autogen, elixir-format
 msgid "Code %{code}"
 msgstr "Code %{code}"
@@ -2903,7 +2903,7 @@ msgid "Description"
 msgstr "Omschrijving"
 
 #: lib/pairings_engine_web/components/layouts.ex:589
-#: lib/pairings_engine_web/components/layouts/root.html.heex:247
+#: lib/pairings_engine_web/components/layouts/root.html.heex:244
 #: lib/pairings_engine_web/components/manubrium.ex:35
 #, elixir-autogen, elixir-format
 msgid "Dismiss"
@@ -2920,7 +2920,7 @@ msgid "Document"
 msgstr "Document"
 
 #: lib/pairings_engine_web/live/players_live.ex:3518
-#: lib/pairings_engine_web/live/user_live/settings.ex:1380
+#: lib/pairings_engine_web/live/user_live/settings.ex:1378
 #, elixir-autogen, elixir-format
 msgid "Done"
 msgstr "Klaar"
@@ -2977,7 +2977,7 @@ msgstr "FIDE-ID: %{value}"
 #: lib/pairings_engine_web/live/players_live.ex:4639
 #: lib/pairings_engine_web/live/rating_lists_live.ex:307
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1232
-#: lib/pairings_engine_web/live/user_live/settings.ex:1140
+#: lib/pairings_engine_web/live/user_live/settings.ex:1138
 #, elixir-autogen, elixir-format
 msgid "Federation"
 msgstr "Federatie"
@@ -3011,7 +3011,7 @@ msgid "Following"
 msgstr "Volgende"
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:3171
-#: lib/pairings_engine_web/live/user_live/settings.ex:1116
+#: lib/pairings_engine_web/live/user_live/settings.ex:1114
 #, elixir-autogen, elixir-format
 msgid "Format"
 msgstr "Formaat"
@@ -3230,7 +3230,7 @@ msgstr "Opties"
 
 #: lib/pairings_engine_web/live/settings_norms_live.ex:475
 #: lib/pairings_engine_web/live/tools_norms_live.ex:1108
-#: lib/pairings_engine_web/live/user_live/settings.ex:1149
+#: lib/pairings_engine_web/live/user_live/settings.ex:1147
 #, elixir-autogen, elixir-format
 msgid "Organizer"
 msgstr "Organisator"
@@ -3288,7 +3288,7 @@ msgid "Pairings - round %{n}"
 msgstr "Paringen - ronde %{n}"
 
 #: lib/pairings_engine_web/live/user_live/login.ex:215
-#: lib/pairings_engine_web/live/user_live/settings.ex:875
+#: lib/pairings_engine_web/live/user_live/settings.ex:873
 #, elixir-autogen, elixir-format
 msgid "Password"
 msgstr "Wachtwoord"
@@ -3306,7 +3306,7 @@ msgstr "Kies een %[ext]-bestand dat geëxporteerd werd via %[settings_export] of
 #: lib/pairings_engine_web/live/standings_live.ex:992
 #: lib/pairings_engine_web/live/standings_live.ex:1202
 #: lib/pairings_engine_web/live/tournaments_live.ex:3131
-#: lib/pairings_engine_web/live/user_live/settings.ex:1134
+#: lib/pairings_engine_web/live/user_live/settings.ex:1132
 #, elixir-autogen, elixir-format
 msgid "Place"
 msgstr "Plaats"
@@ -3493,7 +3493,7 @@ msgstr "Resultaatkaartjes - ronde %{n}"
 msgid "Result:"
 msgstr "Resultaat:"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:265
+#: lib/pairings_engine_web/components/phone_qr.ex:256
 #, elixir-autogen, elixir-format
 msgid "Revoke"
 msgstr "Intrekken"
@@ -3546,7 +3546,7 @@ msgstr "Rondedata: %{from} - %{to}"
 #: lib/pairings_engine_web/live/tools_norms_live.ex:972
 #: lib/pairings_engine_web/live/tournaments_live.ex:3059
 #: lib/pairings_engine_web/live/tournaments_live.ex:3691
-#: lib/pairings_engine_web/live/user_live/settings.ex:1108
+#: lib/pairings_engine_web/live/user_live/settings.ex:1106
 #, elixir-autogen, elixir-format
 msgid "Rounds"
 msgstr "Rondes"
@@ -3568,7 +3568,7 @@ msgstr[1] "SWAR heeft voor %{count} spelers geen FIDE-id. Kies hieronder een mat
 msgid "Same grouping the report itself uses (see %{fills} and %{titled} - CM/WCM don't count as titled). The feds count is the number of distinct federations in that group; the host count is how many of them are %{host}. Groups with no players in them aren't shown."
 msgstr "Dezelfde groepering die het rapport zelf gebruikt (zie %{fills} en %{titled} - CM/WCM tellen niet als getiteld). De feds-teller is het aantal verschillende federaties in die groep; de host-teller is hoeveel daarvan %{host} zijn. Groepen zonder spelers worden niet getoond."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:320
+#: lib/pairings_engine_web/components/phone_qr.ex:311
 #: lib/pairings_engine_web/live/fide_live.ex:905
 #: lib/pairings_engine_web/live/fide_live.ex:968
 #: lib/pairings_engine_web/live/fide_live.ex:1266
@@ -3590,9 +3590,9 @@ msgstr "Opslaan"
 msgid "Saving this recomputes Buchholz/Sonneborn-Berger for every opponent of every player who has sat a round out, across the whole tournament, immediately. The default is on because every absence the pairing knows about was announced - you only find out before the round is paired because the player told you - and an announced absence is exactly what C.07 means by a voluntarily unplayed round. Turning it off treats those rounds like forfeit losses instead. Either is defensible; changing it mid-tournament moves published standings."
 msgstr "Dit opslaan herberekent onmiddellijk Buchholz/Sonneborn-Berger voor elke tegenstander van elke speler die een ronde niet meespeelde, over het hele toernooi. De standaard staat aan omdat elke afwezigheid die de paring kent aangekondigd was - je weet het enkel voor de ronde gepaard wordt omdat de speler het verteld heeft - en een aangekondigde afwezigheid is precies wat C.07 een vrijwillig niet-gespeelde ronde noemt. Uitschakelen behandelt die rondes als verliezen bij forfait. Beide zijn verdedigbaar; het middenin het toernooi wijzigen verschuift gepubliceerde standen."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:782
-#: lib/pairings_engine_web/live/user_live/settings.ex:929
-#: lib/pairings_engine_web/live/user_live/settings.ex:1177
+#: lib/pairings_engine_web/live/user_live/settings.ex:780
+#: lib/pairings_engine_web/live/user_live/settings.ex:927
+#: lib/pairings_engine_web/live/user_live/settings.ex:1175
 #, elixir-autogen, elixir-format
 msgid "Saving..."
 msgstr "Bezig met opslaan..."
@@ -3719,7 +3719,7 @@ msgstr "Bezig met synchroniseren…"
 #: lib/pairings_engine_web/components/layouts.ex:1224
 #: lib/pairings_engine_web/live/audit_live.ex:2747
 #: lib/pairings_engine_web/live/tournaments_live.ex:3689
-#: lib/pairings_engine_web/live/user_live/settings.ex:1668
+#: lib/pairings_engine_web/live/user_live/settings.ex:1666
 #, elixir-autogen, elixir-format
 msgid "System"
 msgstr "Systeem"
@@ -3857,7 +3857,7 @@ msgstr "Toernooilogo"
 
 #: lib/pairings_engine_web/live/settings_export_live.ex:1745
 #: lib/pairings_engine_web/live/tournaments_live.ex:2820
-#: lib/pairings_engine_web/live/user_live/settings.ex:1450
+#: lib/pairings_engine_web/live/user_live/settings.ex:1448
 #, elixir-autogen, elixir-format
 msgid "Tournaments"
 msgstr "Toernooien"
@@ -4027,7 +4027,7 @@ msgstr "bye"
 msgid "bye (%{pts} pt)"
 msgstr "bye (%{pts} pt)"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:256
+#: lib/pairings_engine_web/components/phone_qr.ex:247
 #, elixir-autogen, elixir-format
 msgid "expires %{when}"
 msgstr "vervalt %{when}"
@@ -4282,7 +4282,7 @@ msgstr "Verbinding controleren..."
 
 #: lib/pairings_engine_web/components/connection_status.ex:331
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1046
-#: lib/pairings_engine_web/live/user_live/settings.ex:1733
+#: lib/pairings_engine_web/live/user_live/settings.ex:1731
 #, elixir-autogen, elixir-format
 msgid "Connected"
 msgstr "Verbonden"
@@ -4792,7 +4792,7 @@ msgstr "Beheer"
 
 #: lib/pairings_engine_web/live/admin_live.ex:427
 #: lib/pairings_engine_web/live/audit_live.ex:2503
-#: lib/pairings_engine_web/live/user_live/settings.ex:1637
+#: lib/pairings_engine_web/live/user_live/settings.ex:1635
 #, elixir-autogen, elixir-format
 msgid "Administrator"
 msgstr "Beheerder"
@@ -4838,7 +4838,7 @@ msgstr "Draait als"
 
 #: lib/pairings_engine_web/live/admin_live.ex:428
 #: lib/pairings_engine_web/live/audit_live.ex:2504
-#: lib/pairings_engine_web/live/user_live/settings.ex:1638
+#: lib/pairings_engine_web/live/user_live/settings.ex:1636
 #, elixir-autogen, elixir-format
 msgid "Support"
 msgstr "Support"
@@ -5038,7 +5038,7 @@ msgstr "Kies eerst het retourbestand."
 msgid "Collaborator access. Everyone the tournament is shared with arrives there as an invitation they have to accept again."
 msgstr "Toegang van medewerkers. Iedereen met wie het toernooi gedeeld is, komt daar terug als een uitnodiging die opnieuw aanvaard moet worden."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:454
+#: lib/pairings_engine_web/components/phone_qr.ex:445
 #: lib/pairings_engine_web/controllers/mobile_connect_controller.ex:80
 #, elixir-autogen, elixir-format
 msgid "Could not enrol a phone - please retry."
@@ -5377,12 +5377,12 @@ msgid "Features"
 msgstr "Functies"
 
 #: lib/pairings_engine_web/live/user_live/settings.ex:726
-#: lib/pairings_engine_web/live/user_live/settings.ex:1204
+#: lib/pairings_engine_web/live/user_live/settings.ex:1202
 #, elixir-autogen, elixir-format
 msgid "Federation features"
 msgstr "Federatiefuncties"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1218
+#: lib/pairings_engine_web/live/user_live/settings.ex:1216
 #, elixir-autogen, elixir-format
 msgid "It hides buttons. Everything already imported - players, clubs, scores, categories - stays exactly as it is, and scores exactly as it did."
 msgstr "Het verbergt knoppen. Alles wat al geïmporteerd is - spelers, clubs, scores, categorieën - blijft precies zoals het is, en scoort precies zoals voorheen."
@@ -5417,7 +5417,7 @@ msgstr "SWAR-import"
 msgid "SWAR import is switched off for your account. Turn it on under Features to import a .swar file."
 msgstr "SWAR-import staat uit voor je account. Zet het aan onder Functies om een .swar-bestand te importeren."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1207
+#: lib/pairings_engine_web/live/user_live/settings.ex:1205
 #, elixir-autogen, elixir-format
 msgid "Some national federations have their own member list, their own file format, and their own habits. Switch on the ones you work with; leave the rest off and they stay out of your way."
 msgstr "Sommige nationale federaties hebben hun eigen ledenlijst, hun eigen bestandsformaat en hun eigen gewoontes. Schakel in wat je gebruikt; laat de rest uit, en die blijft uit de weg."
@@ -5442,17 +5442,17 @@ msgstr "De KBSB-clubupdate staat uit voor je account. Zet het aan onder Functies
 msgid "The KBSB player lookup is switched off for your account. Turn it on under Features."
 msgstr "De KBSB-opzoeking van spelers staat uit voor je account. Zet het aan onder Functies."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1277
+#: lib/pairings_engine_web/live/user_live/settings.ex:1275
 #, elixir-autogen, elixir-format
 msgid "The player lookup and the bulk club update read the member list the rating list sync downloads. They work with the sync switched off - they just search whatever was last downloaded, which may be an old list, or nothing at all if this machine has never synced."
 msgstr "De opzoeking van spelers en het bijwerken van clubs in bulk lezen de ledenlijst die de ratinglijstsynchronisatie downloadt. Ze werken ook met de synchronisatie uitgeschakeld - ze doorzoeken dan gewoon wat het laatst gedownload is, wat een oude lijst kan zijn, of helemaal niets als deze machine nog nooit gesynchroniseerd heeft."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1216
+#: lib/pairings_engine_web/live/user_live/settings.ex:1214
 #, elixir-autogen, elixir-format
 msgid "Turning a feature off never changes your tournaments"
 msgstr "Een functie uitschakelen verandert nooit je toernooien"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1787
+#: lib/pairings_engine_web/live/user_live/settings.ex:1785
 #, elixir-autogen, elixir-format
 msgid "%{on} of %{total} on"
 msgstr "%{on} van %{total} aan"
@@ -5467,7 +5467,7 @@ msgstr "NIET OPGESLAGEN - de database was bezig en heeft de wijziging niet aanva
 msgid "No results site is set up yet - connect one on the %[link] page."
 msgstr "Nog geen uitslagensite ingesteld - verbind er een op de pagina %[link]."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:410
+#: lib/pairings_engine_web/components/phone_qr.ex:401
 #, elixir-autogen, elixir-format
 msgid "%{range} · %{level}"
 msgstr "%{range} · %{level}"
@@ -5477,30 +5477,30 @@ msgstr "%{range} · %{level}"
 msgid "Access level"
 msgstr "Toegangsniveau"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:162
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:130
 #: lib/pairings_engine_web/live/mobile_results_live.ex:586
 #, elixir-autogen, elixir-format
 msgid "Board %{board} already has a result - only the arbiter can change it."
 msgstr "Bord %{board} heeft al een resultaat - enkel de arbiter kan dit wijzigen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:175
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:143
 #: lib/pairings_engine_web/live/mobile_results_live.ex:592
 #, elixir-autogen, elixir-format
 msgid "Board %{board} is outside the boards this phone is allowed to enter."
 msgstr "Bord %{board} valt buiten de borden die deze telefoon mag invoeren."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:450
+#: lib/pairings_engine_web/components/phone_qr.ex:441
 #: lib/pairings_engine_web/live/pairings_live.ex:1226
 #, elixir-autogen, elixir-format
 msgid "Board range is invalid - \"to\" must be at least \"from\", and both must be 1 or higher."
 msgstr "Het bordbereik is ongeldig - \"tot\" moet minstens \"van\" zijn, en beide moeten 1 of hoger zijn."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:398
+#: lib/pairings_engine_web/components/phone_qr.ex:389
 #, elixir-autogen, elixir-format
 msgid "Boards %{from}+"
 msgstr "Borden %{from}+"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:400
+#: lib/pairings_engine_web/components/phone_qr.ex:391
 #, elixir-autogen, elixir-format
 msgid "Boards %{from}-%{to}"
 msgstr "Borden %{from}-%{to}"
@@ -5510,12 +5510,12 @@ msgstr "Borden %{from}-%{to}"
 msgid "Boards (optional)"
 msgstr "Borden (optioneel)"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:399
+#: lib/pairings_engine_web/components/phone_qr.ex:390
 #, elixir-autogen, elixir-format
 msgid "Boards up to %{to}"
 msgstr "Borden tot %{to}"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:394
+#: lib/pairings_engine_web/components/phone_qr.ex:385
 #: lib/pairings_engine_web/live/audit_live.ex:2497
 #, elixir-autogen, elixir-format
 msgid "Deputy"
@@ -5526,7 +5526,7 @@ msgstr "Deputy"
 msgid "Deputy - enter and correct, any round"
 msgstr "Deputy - voert in en corrigeert, elke ronde"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:395
+#: lib/pairings_engine_web/components/phone_qr.ex:386
 #: lib/pairings_engine_web/live/audit_live.ex:2498
 #, elixir-autogen, elixir-format
 msgid "Helper"
@@ -5548,7 +5548,7 @@ msgid "Helpers can only view the current round - ask the arbiter to check an ear
 msgstr "Helpers kunnen enkel de huidige ronde bekijken - vraag de arbiter om een eerdere ronde na te kijken."
 
 #: lib/pairings_engine_web/components/phone_qr.ex:181
-#: lib/pairings_engine_web/components/phone_qr.ex:307
+#: lib/pairings_engine_web/components/phone_qr.ex:298
 #: lib/pairings_engine_web/live/badge_studio_live.ex:672
 #: lib/pairings_engine_web/live/mobile_results_live.ex:1076
 #, elixir-autogen, elixir-format
@@ -5556,7 +5556,7 @@ msgid "from"
 msgstr "van"
 
 #: lib/pairings_engine_web/components/phone_qr.ex:189
-#: lib/pairings_engine_web/components/phone_qr.ex:317
+#: lib/pairings_engine_web/components/phone_qr.ex:308
 #: lib/pairings_engine_web/live/mobile_results_live.ex:1087
 #, elixir-autogen, elixir-format
 msgid "to"
@@ -5567,7 +5567,7 @@ msgstr "tot"
 msgid "Anke, Board 1-10 helper"
 msgstr "Anke, hulp bij borden 1-10"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:422
+#: lib/pairings_engine_web/components/phone_qr.ex:413
 #, elixir-autogen, elixir-format
 msgid "Claimed %{when}"
 msgstr "Geclaimd %{when}"
@@ -5582,12 +5582,12 @@ msgstr "Voer je code in."
 msgid "Name (optional)"
 msgstr "Naam (optioneel)"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:414
+#: lib/pairings_engine_web/components/phone_qr.ex:405
 #, elixir-autogen, elixir-format
 msgid "No name given"
 msgstr "Geen naam opgegeven"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:419
+#: lib/pairings_engine_web/components/phone_qr.ex:410
 #, elixir-autogen, elixir-format
 msgid "Not used yet"
 msgstr "Nog niet gebruikt"
@@ -6238,7 +6238,7 @@ msgstr "Aan geen van beide kanten een kleurvoorkeur, dus artikel 5.2.5 besliste 
 msgid "No legal round exists for the remaining players."
 msgstr "Er bestaat geen geldige ronde voor de overblijvende spelers."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1285
+#: lib/pairings_engine_web/live/user_live/settings.ex:1283
 #, elixir-autogen, elixir-format
 msgid "No other federations are packaged yet. Everything else in the application - FIDE ratings, TRF files, the FIDE report forms - is available to everyone and needs no switch."
 msgstr "Er zijn nog geen andere federaties meegeleverd. Al de rest van de applicatie - FIDE-ratings, TRF-bestanden, de FIDE-rapportformulieren - is voor iedereen beschikbaar en heeft geen schakelaar nodig."
@@ -7182,7 +7182,7 @@ msgstr "Akkoord en publiceren"
 msgid "Asking the results site who runs it..."
 msgstr "Navragen wie de uitslagensite beheert..."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:327
+#: lib/pairings_engine_web/components/phone_qr.ex:318
 #: lib/pairings_engine_web/live/help_live.ex:636
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:360
 #: lib/pairings_engine_web/live/players_live.ex:4090
@@ -7198,7 +7198,7 @@ msgstr "Sluiten"
 msgid "Connected. This computer publishes with a key of its own, no token needed."
 msgstr "Verbonden. Deze computer publiceert met een eigen sleutel, zonder token."
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:61
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:51
 #: lib/pairings_engine_web/public_consent.ex:306
 #, elixir-autogen, elixir-format
 msgid "Continue"
@@ -8505,7 +8505,7 @@ msgid "Account and display"
 msgstr "Account en weergave"
 
 #: lib/pairings_engine_web/components/layouts.ex:1045
-#: lib/pairings_engine_web/live/user_live/settings.ex:1686
+#: lib/pairings_engine_web/live/user_live/settings.ex:1684
 #, elixir-autogen, elixir-format
 msgid "Blue"
 msgstr "Blauw"
@@ -8521,43 +8521,43 @@ msgid "Board %{board}: result cleared"
 msgstr "Bord %{board}: resultaat gewist"
 
 #: lib/pairings_engine_web/components/layouts.ex:1051
-#: lib/pairings_engine_web/live/user_live/settings.ex:1692
+#: lib/pairings_engine_web/live/user_live/settings.ex:1690
 #, elixir-autogen, elixir-format
 msgid "Cyan"
 msgstr "Cyaan"
 
 #: lib/pairings_engine_web/components/layouts.ex:1108
-#: lib/pairings_engine_web/live/user_live/settings.ex:1670
+#: lib/pairings_engine_web/live/user_live/settings.ex:1668
 #, elixir-autogen, elixir-format
 msgid "Dark"
 msgstr "Donker"
 
 #: lib/pairings_engine_web/components/layouts.ex:1052
-#: lib/pairings_engine_web/live/user_live/settings.ex:1693
+#: lib/pairings_engine_web/live/user_live/settings.ex:1691
 #, elixir-autogen, elixir-format
 msgid "Fuchsia"
 msgstr "Fuchsia"
 
 #: lib/pairings_engine_web/components/layouts.ex:1044
-#: lib/pairings_engine_web/live/user_live/settings.ex:1685
+#: lib/pairings_engine_web/live/user_live/settings.ex:1683
 #, elixir-autogen, elixir-format
 msgid "Green"
 msgstr "Groen"
 
 #: lib/pairings_engine_web/components/layouts.ex:1113
-#: lib/pairings_engine_web/live/user_live/settings.ex:1675
+#: lib/pairings_engine_web/live/user_live/settings.ex:1673
 #, elixir-autogen, elixir-format
 msgid "High Contrast"
 msgstr "Hoog contrast"
 
 #: lib/pairings_engine_web/components/layouts.ex:1050
-#: lib/pairings_engine_web/live/user_live/settings.ex:1691
+#: lib/pairings_engine_web/live/user_live/settings.ex:1689
 #, elixir-autogen, elixir-format
 msgid "Indigo"
 msgstr "Indigo"
 
 #: lib/pairings_engine_web/components/layouts.ex:1107
-#: lib/pairings_engine_web/live/user_live/settings.ex:1669
+#: lib/pairings_engine_web/live/user_live/settings.ex:1667
 #, elixir-autogen, elixir-format
 msgid "Light"
 msgstr "Licht"
@@ -8578,7 +8578,7 @@ msgid "Move %{tiebreak} up"
 msgstr "%{tiebreak} omhoog verplaatsen"
 
 #: lib/pairings_engine_web/components/layouts.ex:1110
-#: lib/pairings_engine_web/live/user_live/settings.ex:1672
+#: lib/pairings_engine_web/live/user_live/settings.ex:1670
 #, elixir-autogen, elixir-format
 msgid "Paper"
 msgstr "Papier"
@@ -8611,26 +8611,26 @@ msgid "Resume cycling"
 msgstr "Automatisch doorbladeren hervatten"
 
 #: lib/pairings_engine_web/components/layouts.ex:1048
-#: lib/pairings_engine_web/live/user_live/settings.ex:1689
+#: lib/pairings_engine_web/live/user_live/settings.ex:1687
 #, elixir-autogen, elixir-format
 msgid "Rose"
 msgstr "Roze"
 
-#: lib/pairings_engine_web/components/layouts/root.html.heex:203
+#: lib/pairings_engine_web/components/layouts/root.html.heex:200
 #, elixir-autogen, elixir-format
 msgid "Skip to content"
 msgstr "Naar de inhoud"
 
 #: lib/pairings_engine_web/components/layouts.ex:1049
 #: lib/pairings_engine_web/components/layouts.ex:1109
-#: lib/pairings_engine_web/live/user_live/settings.ex:1671
-#: lib/pairings_engine_web/live/user_live/settings.ex:1690
+#: lib/pairings_engine_web/live/user_live/settings.ex:1669
+#: lib/pairings_engine_web/live/user_live/settings.ex:1688
 #, elixir-autogen, elixir-format
 msgid "Slate"
 msgstr "Leisteen"
 
 #: lib/pairings_engine_web/components/layouts.ex:1046
-#: lib/pairings_engine_web/live/user_live/settings.ex:1687
+#: lib/pairings_engine_web/live/user_live/settings.ex:1685
 #, elixir-autogen, elixir-format
 msgid "Teal"
 msgstr "Blauwgroen"
@@ -8641,7 +8641,7 @@ msgid "Type RESTORE to confirm"
 msgstr "Typ RESTORE om te bevestigen"
 
 #: lib/pairings_engine_web/components/layouts.ex:1047
-#: lib/pairings_engine_web/live/user_live/settings.ex:1688
+#: lib/pairings_engine_web/live/user_live/settings.ex:1686
 #, elixir-autogen, elixir-format
 msgid "Violet"
 msgstr "Violet"
@@ -11061,13 +11061,13 @@ msgstr "Bord %{board} van ronde %{round} was uitgesteld en telde als %{white} vo
 msgid "Board %{board} of round %{round} was postponed and has counted as a draw for pairing. %{result} is not a draw: the scores that later rounds were paired with change, and those pairings stay as they are."
 msgstr "Bord %{board} van ronde %{round} was uitgesteld en telde als remise voor de paring. %{result} is geen remise: de scores waarmee latere rondes gepaard werden veranderen, en die paringen blijven zoals ze zijn."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:216
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:184
 #: lib/pairings_engine_web/live/mobile_results_live.ex:500
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was already sent in a TRF finalised for sending. Changing it has to be done by the arbiter, on the Pairings page."
 msgstr "Bord %{board} werd al verstuurd in een TRF die vastgelegd werd om te versturen. Wijzigen doet de arbiter, op de pagina Paringen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:202
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:170
 #: lib/pairings_engine_web/live/mobile_results_live.ex:479
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was postponed and counted provisionally for pairing. A result that is not a draw has to be entered by the arbiter, on the Pairings page."
@@ -11426,8 +11426,8 @@ msgstr "als niet gespeeld in het verslag van haar ronde - klaar voor het bestand
 #: lib/pairings_engine_web/components/sent_receipt.ex:109
 #: lib/pairings_engine_web/components/sent_receipt.ex:110
 #: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:146
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:254
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:255
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:222
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:223
 #: lib/pairings_engine_web/live/history_live.ex:1023
 #: lib/pairings_engine_web/live/mobile_results_live.ex:776
 #: lib/pairings_engine_web/live/mobile_results_live.ex:777
@@ -12638,17 +12638,17 @@ msgstr "Toeschouwers zien: paringen, resultaten en stand"
 msgid "What spectators see on the results site"
 msgstr "Wat toeschouwers zien op de uitslagensite"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1067
+#: lib/pairings_engine_web/live/user_live/settings.ex:1065
 #, elixir-autogen, elixir-format
 msgid "\"This device decides\" leaves each browser with the theme and accent picked in its own top bar. Choose one here to use it everywhere; the top-bar pickers then change it everywhere too."
 msgstr "\"Dit apparaat beslist\" laat elke browser het thema en de accentkleur houden die in zijn eigen bovenbalk gekozen zijn. Kies er hier een om ze overal te gebruiken; de keuzes in de bovenbalk passen ze dan ook overal aan."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1721
+#: lib/pairings_engine_web/live/user_live/settings.ex:1719
 #, elixir-autogen, elixir-format
 msgid "%{browser} on %{system}"
 msgstr "%{browser} op %{system}"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1758
+#: lib/pairings_engine_web/live/user_live/settings.ex:1756
 #, elixir-autogen, elixir-format
 msgid "%{count} of its tournaments is in the recycle bin, where it can still be restored."
 msgid_plural "%{count} of its tournaments are in the recycle bin, where they can still be restored."
@@ -12666,7 +12666,7 @@ msgstr "%{who} (account verwijderd)"
 msgid "A link to confirm your email change has been sent to the new address."
 msgstr "Er is een link om je nieuwe e-mailadres te bevestigen naar dat adres gestuurd."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:838
+#: lib/pairings_engine_web/live/user_live/settings.ex:836
 #, elixir-autogen, elixir-format
 msgid "A new address takes effect once you click the link we send to it."
 msgstr "Een nieuw adres gaat pas in als je op de link klikt die we ernaar sturen."
@@ -12676,23 +12676,23 @@ msgstr "Een nieuw adres gaat pas in als je op de link klikt die we ernaar sturen
 msgid "Account sections"
 msgstr "Onderdelen van je account"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:881
+#: lib/pairings_engine_web/live/user_live/settings.ex:879
 #, elixir-autogen, elixir-format
 msgid "At least 12 characters. Changing it signs every other browser out, including this one for a moment."
 msgstr "Minstens 12 tekens. Een nieuw wachtwoord meldt elke andere browser af, en deze heel even ook."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1645
+#: lib/pairings_engine_web/live/user_live/settings.ex:1643
 #, elixir-autogen, elixir-format
 msgid "Automatic (the browser's language)"
 msgstr "Automatisch (de taal van de browser)"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:812
+#: lib/pairings_engine_web/live/user_live/settings.ex:810
 #, elixir-autogen, elixir-format
 msgid "Changing your address or password and signing other browsers out ask you to confirm it's you first, because you signed in a while ago."
 msgstr "Je adres of wachtwoord wijzigen en andere browsers afmelden vraagt eerst een bevestiging dat jij het bent, omdat je al een tijdje geleden aangemeld bent."
 
 #: lib/pairings_engine_web/live/user_live/login.ex:134
-#: lib/pairings_engine_web/live/user_live/settings.ex:1601
+#: lib/pairings_engine_web/live/user_live/settings.ex:1599
 #, elixir-autogen, elixir-format
 msgid "Confirm it's you"
 msgstr "Bevestig dat jij het bent"
@@ -12712,48 +12712,48 @@ msgstr "Bevestig eerst dat jij het bent - en verwijder de account daarna opnieuw
 msgid "Confirm it's you first - then download again."
 msgstr "Bevestig eerst dat jij het bent - en download daarna opnieuw."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:744
-#: lib/pairings_engine_web/live/user_live/settings.ex:1496
+#: lib/pairings_engine_web/live/user_live/settings.ex:742
+#: lib/pairings_engine_web/live/user_live/settings.ex:1494
 #, elixir-autogen, elixir-format
 msgid "Delete account"
 msgstr "Account verwijderen"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1575
+#: lib/pairings_engine_web/live/user_live/settings.ex:1573
 #, elixir-autogen, elixir-format
 msgid "Delete my account"
 msgstr "Mijn account verwijderen"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1519
+#: lib/pairings_engine_web/live/user_live/settings.ex:1517
 #, elixir-autogen, elixir-format
 msgid "Delete the tournaments you no longer need and empty the recycle bin on the Tournaments page, or ask a collaborator to keep a copy from a backup first."
 msgstr "Verwijder de toernooien die je niet meer nodig hebt en maak de prullenbak leeg op de pagina Toernooien, of laat een medewerker eerst een kopie uit een back-up bewaren."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1499
+#: lib/pairings_engine_web/live/user_live/settings.ex:1497
 #, elixir-autogen, elixir-format
 msgid "Deletes this account for good. There is no undo, so download your data first."
 msgstr "Verwijdert deze account voorgoed. Dat kan niet ongedaan gemaakt worden, dus download eerst je gegevens."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1509
+#: lib/pairings_engine_web/live/user_live/settings.ex:1507
 #, elixir-autogen, elixir-format
 msgid "Deleting it would delete everything it owns with it, so it has to own nothing first:"
 msgstr "Ze verwijderen zou alles wat ze bezit mee verwijderen, dus ze mag eerst niets meer bezitten:"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1549
+#: lib/pairings_engine_web/live/user_live/settings.ex:1547
 #, elixir-autogen, elixir-format
 msgid "Deleting the account asks you to confirm it's you first."
 msgstr "De account verwijderen vraagt eerst een bevestiging dat jij het bent."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:772
+#: lib/pairings_engine_web/live/user_live/settings.ex:770
 #, elixir-autogen, elixir-format
 msgid "Display name"
 msgstr "Weergavenaam"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1481
+#: lib/pairings_engine_web/live/user_live/settings.ex:1479
 #, elixir-autogen, elixir-format
 msgid "Download everything (.zip)"
 msgstr "Alles downloaden (.zip)"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1477
+#: lib/pairings_engine_web/live/user_live/settings.ex:1475
 #, elixir-autogen, elixir-format
 msgid "Downloading everything asks you to confirm it's you first."
 msgstr "Alles downloaden vraagt eerst een bevestiging dat jij het bent."
@@ -12768,7 +12768,7 @@ msgstr "De link om je e-mailadres te wijzigen is ongeldig of verlopen."
 msgid "Email changed successfully."
 msgstr "E-mailadres gewijzigd."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:944
+#: lib/pairings_engine_web/live/user_live/settings.ex:942
 #, elixir-autogen, elixir-format
 msgid "Every browser that can open this account without signing in again. Sign out any you don't recognise, or a computer you have finished with."
 msgstr "Elke browser die deze account kan openen zonder opnieuw aan te melden. Meld af wat je niet herkent, of een computer waar je klaar mee bent."
@@ -12778,82 +12778,82 @@ msgstr "Elke browser die deze account kan openen zonder opnieuw aan te melden. M
 msgid "Filled in from %[link]. Anything you change here applies to this tournament only."
 msgstr "Ingevuld vanuit %[link]. Wat je hier wijzigt, geldt alleen voor dit toernooi."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:756
+#: lib/pairings_engine_web/live/user_live/settings.ex:754
 #, elixir-autogen, elixir-format
 msgid "How you appear to the people you share tournaments with: in the audit log, the history, the sharing list and the invitations you send."
 msgstr "Hoe je verschijnt bij de mensen met wie je toernooien deelt: in het auditlogboek, de geschiedenis, de lijst van medewerkers en de uitnodigingen die je stuurt."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1462
+#: lib/pairings_engine_web/live/user_live/settings.ex:1460
 #, elixir-autogen, elixir-format
 msgid "In the recycle bin"
 msgstr "In de prullenbak"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1766
+#: lib/pairings_engine_web/live/user_live/settings.ex:1764
 #, elixir-autogen, elixir-format
 msgid "It is the only administrator. Make somebody else an administrator on the Admin page first."
 msgstr "Het is de enige beheerder. Maak eerst iemand anders beheerder op de pagina Beheer."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1750
+#: lib/pairings_engine_web/live/user_live/settings.ex:1748
 #, elixir-autogen, elixir-format
 msgid "It owns %{count} tournament (archived ones included)."
 msgid_plural "It owns %{count} tournaments (archived ones included)."
 msgstr[0] "Ze bezit %{count} toernooi (gearchiveerde meegeteld)."
 msgstr[1] "Ze bezit %{count} toernooien (gearchiveerde meegeteld)."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:778
+#: lib/pairings_engine_web/live/user_live/settings.ex:776
 #, elixir-autogen, elixir-format
 msgid "Leave it empty to show your email address instead."
 msgstr "Laat dit leeg om in de plaats je e-mailadres te tonen."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:868
+#: lib/pairings_engine_web/live/user_live/settings.ex:866
 #, elixir-autogen, elixir-format
 msgid "Link sent"
 msgstr "Link verstuurd"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:855
+#: lib/pairings_engine_web/live/user_live/settings.ex:853
 #, elixir-autogen, elixir-format
 msgid "New email address"
 msgstr "Nieuw e-mailadres"
 
 #: lib/pairings_engine_web/live/user_live/settings.ex:722
-#: lib/pairings_engine_web/live/user_live/settings.ex:1081
+#: lib/pairings_engine_web/live/user_live/settings.ex:1079
 #, elixir-autogen, elixir-format
 msgid "New tournaments"
 msgstr "Nieuwe toernooien"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1707
+#: lib/pairings_engine_web/live/user_live/settings.ex:1705
 #, elixir-autogen, elixir-format
 msgid "No default"
 msgstr "Geen standaard"
 
 #: lib/pairings_engine_web/live/user_live/settings.ex:718
-#: lib/pairings_engine_web/live/user_live/settings.ex:1005
+#: lib/pairings_engine_web/live/user_live/settings.ex:1003
 #, elixir-autogen, elixir-format
 msgid "Preferences"
 msgstr "Voorkeuren"
 
 #: lib/pairings_engine_web/live/user_live/settings.ex:712
-#: lib/pairings_engine_web/live/user_live/settings.ex:753
+#: lib/pairings_engine_web/live/user_live/settings.ex:751
 #, elixir-autogen, elixir-format
 msgid "Profile"
 msgstr "Profiel"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1178
+#: lib/pairings_engine_web/live/user_live/settings.ex:1176
 #, elixir-autogen, elixir-format
 msgid "Save defaults"
 msgstr "Standaarden opslaan"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:783
+#: lib/pairings_engine_web/live/user_live/settings.ex:781
 #, elixir-autogen, elixir-format
 msgid "Save profile"
 msgstr "Profiel opslaan"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1614
+#: lib/pairings_engine_web/live/user_live/settings.ex:1612
 #, elixir-autogen, elixir-format
 msgid "Saved"
 msgstr "Opgeslagen"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:875
+#: lib/pairings_engine_web/live/user_live/settings.ex:873
 #, elixir-autogen, elixir-format
 msgid "Set a password"
 msgstr "Een wachtwoord instellen"
@@ -12863,47 +12863,47 @@ msgstr "Een wachtwoord instellen"
 msgid "Several confirmation links went out just now. Try again in an hour."
 msgstr "Er zijn net verschillende bevestigingslinks verstuurd. Probeer het over een uur opnieuw."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:990
-#: lib/pairings_engine_web/live/user_live/settings.ex:1424
+#: lib/pairings_engine_web/live/user_live/settings.ex:988
+#: lib/pairings_engine_web/live/user_live/settings.ex:1422
 #, elixir-autogen, elixir-format
 msgid "Sign out"
 msgstr "Afmelden"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:956
+#: lib/pairings_engine_web/live/user_live/settings.ex:954
 #, elixir-autogen, elixir-format
 msgid "Sign out every other browser? This one stays signed in."
 msgstr "Elke andere browser afmelden? Deze blijft aangemeld."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:958
+#: lib/pairings_engine_web/live/user_live/settings.ex:956
 #, elixir-autogen, elixir-format
 msgid "Sign out everywhere else"
 msgstr "Overal elders afmelden"
 
 #: lib/pairings_engine_web/live/user_live/settings.ex:714
-#: lib/pairings_engine_web/live/user_live/settings.ex:798
+#: lib/pairings_engine_web/live/user_live/settings.ex:796
 #, elixir-autogen, elixir-format
 msgid "Sign-in & security"
 msgstr "Aanmelden en beveiliging"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1744
+#: lib/pairings_engine_web/live/user_live/settings.ex:1742
 #, elixir-autogen, elixir-format
 msgid "Signed in %{count} day ago"
 msgid_plural "Signed in %{count} days ago"
 msgstr[0] "%{count} dag geleden aangemeld"
 msgstr[1] "%{count} dagen geleden aangemeld"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1742
+#: lib/pairings_engine_web/live/user_live/settings.ex:1740
 #, elixir-autogen, elixir-format
 msgid "Signed in today"
 msgstr "Vandaag aangemeld"
 
 #: lib/pairings_engine_web/live/user_live/settings.ex:702
-#: lib/pairings_engine_web/live/user_live/settings.ex:821
+#: lib/pairings_engine_web/live/user_live/settings.ex:819
 #, elixir-autogen, elixir-format
 msgid "Signed in with 02cloud"
 msgstr "Aangemeld met 02cloud"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1743
+#: lib/pairings_engine_web/live/user_live/settings.ex:1741
 #, elixir-autogen, elixir-format
 msgid "Signed in yesterday"
 msgstr "Gisteren aangemeld"
@@ -12915,12 +12915,12 @@ msgid_plural "Signed out of %{count} other sessions."
 msgstr[0] "%{count} andere sessie afgemeld."
 msgstr[1] "%{count} andere sessies afgemeld."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1469
+#: lib/pairings_engine_web/live/user_live/settings.ex:1467
 #, elixir-autogen, elixir-format
 msgid "Some of these are published on the results site, and their backups carry the publishing key: anyone holding the zip can update or delete those pages. Keep it somewhere private."
 msgstr "Sommige hiervan zijn gepubliceerd op de uitslagensite, en hun back-ups bevatten de publicatiesleutel: wie de zip heeft, kan die pagina's bijwerken of verwijderen. Bewaar hem op een privéplek."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1008
+#: lib/pairings_engine_web/live/user_live/settings.ex:1006
 #, elixir-autogen, elixir-format
 msgid "Stored on your account, so they follow you to every computer you sign in on. Saved as you choose."
 msgstr "Bewaard in je account, zodat ze je volgen naar elke computer waarop je aanmeldt. Opgeslagen zodra je kiest."
@@ -12950,22 +12950,22 @@ msgstr "De account kon niet verwijderd worden. Er is niets gewijzigd."
 msgid "The account still owns tournaments, so it was not deleted."
 msgstr "De account bezit nog toernooien, dus ze werd niet verwijderd."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1025
+#: lib/pairings_engine_web/live/user_live/settings.ex:1023
 #, elixir-autogen, elixir-format
 msgid "The language picker in the top bar changes this too. \"Automatic\" uses whatever each browser asks for."
 msgstr "De taalkeuze in de bovenbalk wijzigt dit ook. \"Automatisch\" gebruikt wat elke browser vraagt."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1509
+#: lib/pairings_engine_web/live/user_live/settings.ex:1507
 #, elixir-autogen, elixir-format
 msgid "This account can't be deleted yet."
 msgstr "Deze account kan nog niet verwijderd worden."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:842
+#: lib/pairings_engine_web/live/user_live/settings.ex:840
 #, elixir-autogen, elixir-format
 msgid "This account is also linked to 02cloud sign-in, which keeps working."
 msgstr "Deze account is ook gekoppeld aan aanmelden met 02cloud, en dat blijft werken."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:981
+#: lib/pairings_engine_web/live/user_live/settings.ex:979
 #, elixir-autogen, elixir-format
 msgid "This browser"
 msgstr "Deze browser"
@@ -12975,18 +12975,18 @@ msgstr "Deze browser"
 msgid "This computer"
 msgstr "Deze computer"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1652
-#: lib/pairings_engine_web/live/user_live/settings.ex:1659
+#: lib/pairings_engine_web/live/user_live/settings.ex:1650
+#: lib/pairings_engine_web/live/user_live/settings.ex:1657
 #, elixir-autogen, elixir-format
 msgid "This device decides"
 msgstr "Dit apparaat beslist"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1532
+#: lib/pairings_engine_web/live/user_live/settings.ex:1530
 #, elixir-autogen, elixir-format
 msgid "Tournaments shared with you stay with their owners; you are removed from them, and each one's audit log says you left."
 msgstr "Toernooien die met je gedeeld zijn, blijven bij hun eigenaars; je wordt eruit verwijderd, en het auditlogboek van elk ervan vermeldt dat je vertrokken bent."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1564
+#: lib/pairings_engine_web/live/user_live/settings.ex:1562
 #, elixir-autogen, elixir-format
 msgid "Type %{email} to confirm"
 msgstr "Typ %{email} om te bevestigen"
@@ -12997,17 +12997,17 @@ msgstr "Typ %{email} om te bevestigen"
 msgid "Type your email address exactly to delete the account."
 msgstr "Typ je e-mailadres precies om de account te verwijderen."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1718
+#: lib/pairings_engine_web/live/user_live/settings.ex:1716
 #, elixir-autogen, elixir-format
 msgid "Unknown browser"
 msgstr "Onbekende browser"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1117
+#: lib/pairings_engine_web/live/user_live/settings.ex:1115
 #, elixir-autogen, elixir-format
 msgid "Usual default (Standard)"
 msgstr "Gewone standaard (Standaard)"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1102
+#: lib/pairings_engine_web/live/user_live/settings.ex:1100
 #, elixir-autogen, elixir-format
 msgid "Usual default (Swiss)"
 msgstr "Gewone standaard (Zwitsers)"
@@ -13017,32 +13017,32 @@ msgstr "Gewone standaard (Zwitsers)"
 msgid "We could not send the confirmation email. Please try again shortly."
 msgstr "We konden de bevestigingsmail niet versturen. Probeer het zo meteen opnieuw."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1084
+#: lib/pairings_engine_web/live/user_live/settings.ex:1082
 #, elixir-autogen, elixir-format
 msgid "What \"New tournament\" starts with, so a club that runs the same event every week doesn't type it every week. Leave a field empty to keep the usual default. Existing tournaments and imports are not affected."
 msgstr "Waarmee \"Nieuw toernooi\" begint, zodat een club die elke week hetzelfde toernooi speelt het niet elke week hoeft te typen. Laat een veld leeg om de gewone standaard te houden. Bestaande toernooien en imports veranderen niet."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1538
+#: lib/pairings_engine_web/live/user_live/settings.ex:1536
 #, elixir-autogen, elixir-format
 msgid "What you changed in other people's tournaments stays in their audit logs under your address - it is their record of who did what."
 msgstr "Wat je in toernooien van anderen gewijzigd hebt, blijft in hun auditlogboek onder je adres staan - het is hun verslag van wie wat deed."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:941
+#: lib/pairings_engine_web/live/user_live/settings.ex:939
 #, elixir-autogen, elixir-format
 msgid "Where you're signed in"
 msgstr "Waar je aangemeld bent"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1528
+#: lib/pairings_engine_web/live/user_live/settings.ex:1526
 #, elixir-autogen, elixir-format
 msgid "You are signed out everywhere, and this address can register again."
 msgstr "Je wordt overal afgemeld, en dit adres kan zich opnieuw registreren."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:835
+#: lib/pairings_engine_web/live/user_live/settings.ex:833
 #, elixir-autogen, elixir-format
 msgid "You sign in as %[email]."
 msgstr "Je meldt je aan als %[email]."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:885
+#: lib/pairings_engine_web/live/user_live/settings.ex:883
 #, elixir-autogen, elixir-format
 msgid "You sign in with an email link. A password lets you sign in without waiting for one. At least 12 characters."
 msgstr "Je meldt je aan met een link per e-mail. Met een wachtwoord kan je aanmelden zonder erop te wachten. Minstens 12 tekens."
@@ -13052,28 +13052,28 @@ msgstr "Je meldt je aan met een link per e-mail. Met een wachtwoord kan je aanme
 msgid "Your account has been deleted."
 msgstr "Je account is verwijderd."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:823
+#: lib/pairings_engine_web/live/user_live/settings.ex:821
 #, elixir-autogen, elixir-format
 msgid "Your address (%{email}) and your password are managed by 02cloud. Change them there; this account follows."
 msgstr "Je adres (%{email}) en je wachtwoord worden beheerd door 02cloud. Wijzig ze daar; deze account volgt."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:801
+#: lib/pairings_engine_web/live/user_live/settings.ex:799
 #, elixir-autogen, elixir-format
 msgid "Your address, your password, and every browser that is signed in to this account."
 msgstr "Je adres, je wachtwoord, en elke browser die in deze account aangemeld is."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1543
+#: lib/pairings_engine_web/live/user_live/settings.ex:1541
 #, elixir-autogen, elixir-format
 msgid "Your badge events are deleted with the account."
 msgstr "Je badge-evenementen worden samen met de account verwijderd."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:740
-#: lib/pairings_engine_web/live/user_live/settings.ex:1438
+#: lib/pairings_engine_web/live/user_live/settings.ex:738
+#: lib/pairings_engine_web/live/user_live/settings.ex:1436
 #, elixir-autogen, elixir-format
 msgid "Your data"
 msgstr "Je gegevens"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:773
+#: lib/pairings_engine_web/live/user_live/settings.ex:771
 #, elixir-autogen, elixir-format
 msgid "e.g. Jan Peeters"
 msgstr "bv. Jan Peeters"
@@ -13083,7 +13083,7 @@ msgstr "bv. Jan Peeters"
 msgid "your defaults for new tournaments"
 msgstr "je standaarden voor nieuwe toernooien"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1441
+#: lib/pairings_engine_web/live/user_live/settings.ex:1439
 #, elixir-autogen, elixir-format
 msgid "One zip with your account settings and a backup of every tournament you can open. Each backup is the same file a tournament's Settings - Export gives you, and goes back in with \"Import backup (JSON)\" on the Tournaments page."
 msgstr "Eén zip met je accountinstellingen en een back-up van elk toernooi dat je kan openen. Elke back-up is hetzelfde bestand dat Instellingen - Exporteren van een toernooi je geeft, en gaat terug naar binnen met \"Back-up importeren (JSON)\" op de pagina Toernooien."
@@ -13291,7 +13291,7 @@ msgstr "Uit - niet gepubliceerd"
 msgid "On the results site:"
 msgstr "Op de uitslagensite:"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1162
+#: lib/pairings_engine_web/live/user_live/settings.ex:1160
 #, elixir-autogen, elixir-format
 msgid "Pairings after (minutes)"
 msgstr "Paringen na (minuten)"
@@ -13306,7 +13306,7 @@ msgstr "Paringen worden publiek na"
 msgid "Pairings once paired"
 msgstr "Paringen zodra gepaard"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1154
+#: lib/pairings_engine_web/live/user_live/settings.ex:1152
 #, elixir-autogen, elixir-format
 msgid "Publish automatically"
 msgstr "Automatisch publiceren"
@@ -13341,7 +13341,7 @@ msgstr "Resultaten zodra ze ingevoerd worden"
 msgid "Results go live from now on - including the results of rounds whose pairings are already public. Continue?"
 msgstr "Resultaten worden voortaan rechtstreeks publiek - ook die van rondes waarvan de paringen al publiek zijn. Doorgaan?"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1171
+#: lib/pairings_engine_web/live/user_live/settings.ex:1169
 #, elixir-autogen, elixir-format
 msgid "Rounds go public without you pressing anything."
 msgstr "Rondes worden publiek zonder dat je ergens op drukt."
@@ -13426,7 +13426,7 @@ msgstr "Dit toernooi staat niet meer op de voorpagina. De link werkt nog."
 msgid "This tournament will appear on the results site's front page."
 msgstr "Dit toernooi komt op de voorpagina van de uitslagensite."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1155
+#: lib/pairings_engine_web/live/user_live/settings.ex:1153
 #, elixir-autogen, elixir-format
 msgid "Usual default (by hand)"
 msgstr "Gewone standaard (handmatig)"
@@ -13446,7 +13446,7 @@ msgstr "Waar dit toernooi op de uitslagensite staat"
 msgid "Who plays whom, once a round is paired"
 msgstr "Wie tegen wie speelt, zodra een ronde gepaard is"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1171
+#: lib/pairings_engine_web/live/user_live/settings.ex:1169
 #, elixir-autogen, elixir-format
 msgid "With no delay the field sees a pairing at the same moment you do. You can always take a round back down on the Pairings page."
 msgstr "Zonder vertraging ziet het veld een paring op hetzelfde moment als jij. Je kan een ronde altijd terugzetten op de pagina Paringen."
@@ -15798,7 +15798,7 @@ msgstr "Een correctie enkel voor het ratingrapport geldt voor een ronde waarvan 
 msgid "A later round was already paired with the result being corrected."
 msgstr "Een latere ronde werd al gepaard met het resultaat dat wordt verbeterd."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:209
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:177
 #: lib/pairings_engine_web/live/mobile_results_live.ex:495
 #, elixir-autogen, elixir-format
 msgid "A later round was already paired with the result of board %{board}. Correcting it has to be done by the arbiter, on the Pairings page."
@@ -17345,12 +17345,12 @@ msgstr[1] "%{count} byes voor nog niet gepaarde ronden (ronden %{rounds}) zijn n
 msgid "Adds \"Preview next round\" to the Pairings page: while the last games of a round are still being played, it works out which boards of the next round are already certain, whatever those games' results, so name cards can go out early. Can be printed."
 msgstr "Voegt \"Volgende ronde voorvertonen\" toe aan de pagina Paringen: terwijl de laatste partijen van een ronde nog bezig zijn, berekent het welke borden van de volgende ronde al vastliggen, wat het resultaat van die partijen ook wordt, zodat de naamkaartjes vroeg klaar kunnen staan. Kan afgedrukt worden."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1232
+#: lib/pairings_engine_web/live/user_live/settings.ex:1230
 #, elixir-autogen, elixir-format
 msgid "Extra tools for any federation, none of which changes how a tournament is paired or scored. Off until you switch them on."
 msgstr "Extra hulpmiddelen voor elke federatie; geen ervan verandert hoe een toernooi gepaard of geteld wordt. Uit tot je ze inschakelt."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1229
+#: lib/pairings_engine_web/live/user_live/settings.ex:1227
 #, elixir-autogen, elixir-format
 msgid "Optional tools"
 msgstr "Optionele hulpmiddelen"
@@ -17783,7 +17783,7 @@ msgstr "Wat te doen:"
 
 #: lib/pairings_engine_web/live/pairings_live.ex:3318
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1070
-#: lib/pairings_engine_web/live/user_live/settings.ex:1336
+#: lib/pairings_engine_web/live/user_live/settings.ex:1334
 #, elixir-autogen, elixir-format
 msgid "Withdraw"
 msgstr "Intrekken"
@@ -18035,7 +18035,7 @@ msgid "Round %{round} of the Berger table pairs %{a} and %{b}, who already met i
 msgstr "Ronde %{round} van de Berger-tabel paart %{a} en %{b}, die elkaar al ontmoetten in ronde %{met} van deze cyclus - de met de hand gepaarde rondes hebben de tabel verlaten. Paar ronde %{round} met de hand."
 
 #: lib/pairings_engine_web/components/layouts.ex:1112
-#: lib/pairings_engine_web/live/user_live/settings.ex:1674
+#: lib/pairings_engine_web/live/user_live/settings.ex:1672
 #, elixir-autogen, elixir-format
 msgid "Tom W"
 msgstr "Tom W"
@@ -19075,7 +19075,7 @@ msgstr "De evenementpagina openen"
 #: lib/pairings_engine_web/live/settings_results_live.ex:1473
 #: lib/pairings_engine_web/live/settings_support.ex:243
 #: lib/pairings_engine_web/live/user_live/settings.ex:730
-#: lib/pairings_engine_web/live/user_live/settings.ex:1298
+#: lib/pairings_engine_web/live/user_live/settings.ex:1296
 #, elixir-autogen, elixir-format
 msgid "Live boards"
 msgstr "Live borden"
@@ -19476,7 +19476,7 @@ msgstr[1] "rondes %{rounds} zijn afgelopen en hebben geen ontvangstbewijs."
 msgid "too late"
 msgstr "te laat"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:181
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:149
 #: lib/pairings_engine_web/live/mobile_results_live.ex:446
 #, elixir-autogen, elixir-format
 msgid "Not saved: board %{board} changed - the arbiter changed its players. Check who is on it now and enter the result again."
@@ -19681,7 +19681,7 @@ msgstr "Zetten"
 
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1044
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1161
-#: lib/pairings_engine_web/live/user_live/settings.ex:1729
+#: lib/pairings_engine_web/live/user_live/settings.ex:1727
 #, elixir-autogen, elixir-format
 msgid "Never used"
 msgstr "Nooit gebruikt"
@@ -20891,7 +20891,7 @@ msgid "%{box} asks to read your tournaments."
 msgstr "%{box} vraagt je toernooien te mogen lezen."
 
 #: lib/pairings_engine_web/live/settings_boards_live.ex:1133
-#: lib/pairings_engine_web/live/user_live/settings.ex:1314
+#: lib/pairings_engine_web/live/user_live/settings.ex:1312
 #, elixir-autogen, elixir-format
 msgid "A board box"
 msgstr "Een bordkastje"
@@ -20906,12 +20906,12 @@ msgstr "Een bordkastje vraagt je toernooien te mogen lezen."
 msgid "Allow"
 msgstr "Toestaan"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1301
+#: lib/pairings_engine_web/live/user_live/settings.ex:1299
 #, elixir-autogen, elixir-format
 msgid "Board boxes connected to your account, from the box's own \"Connect an OpenPairings account\". Each reads every tournament you may edit that is current - not finished, or finished within the last %{days} days - and reports what its boards see beside the pairings. A board never enters a result. A code for one tournament or one group is made on that tournament's Settings, Live boards, instead."
 msgstr "Bordkastjes die aan je account gekoppeld zijn, via \"Een OpenPairings-account koppelen\" op het kastje zelf. Elk leest elk toernooi dat je mag bewerken en dat actueel is - niet afgelopen, of afgelopen in de laatste %{days} dagen - en meldt wat zijn borden zien naast de paringen. Een bord vult nooit een uitslag in. Een code voor één toernooi of één groep maak je in plaats daarvan bij dat toernooi, Instellingen, Live borden."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1317
+#: lib/pairings_engine_web/live/user_live/settings.ex:1315
 #, elixir-autogen, elixir-format
 msgid "Code …%{hint}"
 msgstr "Code …%{hint}"
@@ -20944,22 +20944,22 @@ msgstr "Sta je het toe, dan word je doorgestuurd naar:"
 msgid "It sees every tournament you may edit that is current: not finished, or finished within the last %{days} days. One you lose access to, or archive, drops off at once."
 msgstr "Het ziet elk toernooi dat je mag bewerken en dat actueel is: niet afgelopen, of afgelopen in de laatste %{days} dagen. Een toernooi waar je geen toegang meer toe hebt, of dat je archiveert, valt meteen weg."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1736
+#: lib/pairings_engine_web/live/user_live/settings.ex:1734
 #, elixir-autogen, elixir-format
 msgid "Last contact %{n} days ago"
 msgstr "Laatste contact %{n} dagen geleden"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1735
+#: lib/pairings_engine_web/live/user_live/settings.ex:1733
 #, elixir-autogen, elixir-format
 msgid "Last contact %{n} h ago"
 msgstr "Laatste contact %{n} u geleden"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1734
+#: lib/pairings_engine_web/live/user_live/settings.ex:1732
 #, elixir-autogen, elixir-format
 msgid "Last contact %{n} min ago"
 msgstr "Laatste contact %{n} min geleden"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1342
+#: lib/pairings_engine_web/live/user_live/settings.ex:1340
 #, elixir-autogen, elixir-format
 msgid "No board box is connected to your account."
 msgstr "Er is geen bordkastje aan je account gekoppeld."
@@ -20979,13 +20979,13 @@ msgstr "Dit verzoek zegt niet waarheen terug te gaan, of noemt een adres dat gee
 msgid "What its boards see is shown beside the pairings. A board never enters a result; you still do."
 msgstr "Wat zijn borden zien, staat naast de paringen. Een bord vult nooit een uitslag in; dat doe jij nog altijd."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1331
+#: lib/pairings_engine_web/live/user_live/settings.ex:1329
 #, elixir-autogen, elixir-format
 msgid "Withdraw this box? It is refused from its next request on, and needs to be connected again."
 msgstr "Dit kastje intrekken? Het wordt vanaf zijn volgende verzoek geweigerd en moet opnieuw gekoppeld worden."
 
 #: lib/pairings_engine/federations/bel/swar_merge.ex:952
-#: lib/pairings_engine_web/live/user_live/settings.ex:1344
+#: lib/pairings_engine_web/live/user_live/settings.ex:1342
 #, elixir-autogen, elixir-format
 msgid "Withdrawn"
 msgstr "Ingetrokken"
@@ -21354,11 +21354,6 @@ msgstr "bezig"
 #, elixir-autogen, elixir-format
 msgid "setup"
 msgstr "opstart"
-
-#: lib/pairings_engine_web/components/phone_qr.ex:139
-#, elixir-autogen, elixir-format
-msgid "Enter results on a phone"
-msgstr "Resultaten invoeren op een telefoon"
 
 #: lib/pairings_engine_web/components/phone_qr.ex:56
 #, elixir-autogen, elixir-format
@@ -22384,73 +22379,73 @@ msgstr "Alles verstuurd"
 msgid "Arbiter call"
 msgstr "Arbiter geroepen"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:121
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:89
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: already had this result."
 msgstr "Bord %{board}: had deze uitslag al."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:124
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:92
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: incident logged."
 msgstr "Bord %{board}: incident gemeld."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:223
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:191
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - a helper phone can only call the arbiter."
 msgstr "Bord %{board}: niet gemeld - een helpertelefoon kan alleen de arbiter roepen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:249
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:217
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the note is too long."
 msgstr "Bord %{board}: niet gemeld - de opmerking is te lang."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:230
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:198
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - this phone has logged as many incidents as one code may. Ask the arbiter for a new code."
 msgstr "Bord %{board}: niet gemeld - deze telefoon heeft zoveel incidenten gemeld als één code mag. Vraag de arbiter om een nieuwe code."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:147
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:115
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - it was entered under an earlier code on this phone. Enter it again if it still stands."
 msgstr "Bord %{board}: niet opgeslagen - dit werd ingevoerd onder een eerdere code op deze telefoon. Voer het opnieuw in als het nog klopt."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:188
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:156
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that pairing no longer exists (the round was paired again). Check the board and enter it again."
 msgstr "Bord %{board}: niet opgeslagen - die partij bestaat niet meer (de ronde werd opnieuw ingedeeld). Controleer het bord en voer het opnieuw in."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:168
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:136
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that round is no longer the current round, and helpers can only enter the current one."
 msgstr "Bord %{board}: niet opgeslagen - die ronde is niet meer de huidige, en helpers kunnen alleen de huidige ronde invoeren."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:154
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:122
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the board now says %{current}, entered elsewhere while this phone was waiting. Check with the arbiter."
 msgstr "Bord %{board}: niet opgeslagen - op het bord staat nu %{current}, elders ingevoerd terwijl deze telefoon wachtte. Overleg met de arbiter."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:195
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:163
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the tournament is not taking results at the moment (archived, or handed to another machine)."
 msgstr "Bord %{board}: niet opgeslagen - het toernooi neemt nu geen uitslagen aan (gearchiveerd, of doorgegeven aan een andere computer)."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:140
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:108
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - this phone's access was ended by the arbiter, or ran out. Tell the arbiter this result."
 msgstr "Bord %{board}: niet opgeslagen - de toegang van deze telefoon werd door de arbiter beëindigd, of is verlopen. Geef deze uitslag door aan de arbiter."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:252
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:220
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved. Check with the arbiter."
 msgstr "Bord %{board}: niet opgeslagen. Overleg met de arbiter."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:127
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:95
 #: lib/pairings_engine_web/live/mobile_results_live.ex:616
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: saved."
 msgstr "Bord %{board}: opgeslagen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:131
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:99
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: the server is busy - this phone tries again shortly."
 msgstr "Bord %{board}: de server is bezig - deze telefoon probeert het zo opnieuw."
@@ -22534,11 +22529,6 @@ msgstr "Melden"
 msgid "Logged at the boards from phones (Manubrium). Times are the phone's clock when it was plausible."
 msgstr "Aan de borden gemeld vanaf telefoons (Manubrium). Tijden komen van de klok van de telefoon, als die geloofwaardig was."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:61
-#, elixir-autogen, elixir-format
-msgid "Manubrium is offline"
-msgstr "Manubrium is offline"
-
 #: lib/pairings_engine_web/live/mobile_results_live.ex:1003
 #, elixir-autogen, elixir-format
 msgid "No boards paired for this round yet."
@@ -22599,11 +22589,6 @@ msgstr "Telefoon \"%{label}\""
 msgid "Phone or electronic device"
 msgstr "Telefoon of elektronisch toestel"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:32
-#, elixir-autogen, elixir-format
-msgid "Results and incidents from the boards, for the arbiters of OpenPairings."
-msgstr "Uitslagen en incidenten vanaf de borden, voor de arbiters van OpenPairings."
-
 #: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:25
 #, elixir-autogen, elixir-format
 msgid "Scan the QR code your arbiter is showing, or type the code below. No account needed."
@@ -22623,11 +22608,6 @@ msgstr "De server nam de invoeringen van deze pagina niet aan (fout %{status}). 
 #, elixir-autogen, elixir-format
 msgid "This browser will not let the page keep entries if it closes. Keep it open until everything is sent."
 msgstr "Deze browser laat de pagina geen invoeringen bewaren als ze sluit. Houd ze open tot alles verstuurd is."
-
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:63
-#, elixir-autogen, elixir-format
-msgid "This phone has not opened the result page with a connection yet, so there is nothing to show. Connect to the hall wifi once, open Manubrium, and it keeps working when the wifi drops."
-msgstr "Deze telefoon heeft de uitslagenpagina nog niet met een verbinding geopend, dus er is niets om te tonen. Maak één keer verbinding met de wifi in de zaal, open Manubrium, en daarna blijft het werken als de wifi wegvalt."
 
 #: lib/pairings_engine_web/live/incidents_live.ex:125
 #, elixir-autogen, elixir-format
@@ -22695,17 +22675,17 @@ msgstr "%{owner} heeft je uitgenodigd als arbiter op \"%{tournament}\" in OpenPa
 msgid "Arbiter - results and incidents on a phone"
 msgstr "Arbiter - uitslagen en incidenten op een telefoon"
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:68
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:58
 #, elixir-autogen, elixir-format
 msgid "Arbiter with an account? Sign in instead"
 msgstr "Arbiter met een account? Log dan in"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:286
+#: lib/pairings_engine_web/components/phone_qr.ex:277
 #, elixir-autogen, elixir-format
 msgid "Arbiters sign in on their own phone at %{url}. The boards you give each one are what \"My boards\" shows them."
 msgstr "Arbiters loggen zelf in op hun telefoon via %{url}. De borden die je elk van hen geeft, zijn wat \"Mijn borden\" hun toont."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:283
+#: lib/pairings_engine_web/components/phone_qr.ex:274
 #, elixir-autogen, elixir-format
 msgid "Arbiters' boards"
 msgstr "Borden van de arbiters"
@@ -22715,12 +22695,12 @@ msgstr "Borden van de arbiters"
 msgid "Back to your tournaments"
 msgstr "Terug naar je toernooien"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:243
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:211
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo could not be read. Log it again without it."
 msgstr "Bord %{board}: niet gemeld - de foto was niet te lezen. Meld het opnieuw zonder foto."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:237
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:205
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo is too large. Log it again without it."
 msgstr "Bord %{board}: niet gemeld - de foto is te groot. Meld het opnieuw zonder foto."
@@ -22755,7 +22735,7 @@ msgstr "Bord: bezig"
 msgid "Boards saved."
 msgstr "Borden opgeslagen."
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:44
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:34
 #, elixir-autogen, elixir-format
 msgid "Code, or the link from the QR code"
 msgstr "Code, of de link uit de QR-code"
@@ -22765,12 +22745,12 @@ msgstr "Code, of de link uit de QR-code"
 msgid "Complaint"
 msgstr "Klacht"
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:110
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:100
 #, elixir-autogen, elixir-format
 msgid "Connect this phone"
 msgstr "Deze telefoon verbinden"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:380
+#: lib/pairings_engine_web/components/phone_qr.ex:371
 #, elixir-autogen, elixir-format
 msgid "Could not open the port. The log says why."
 msgstr "Kon de poort niet openen. Het logboek zegt waarom."
@@ -22801,7 +22781,7 @@ msgstr "Zoek een speler of een bord"
 msgid "Finished"
 msgstr "Afgelopen"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:308
+#: lib/pairings_engine_web/components/phone_qr.ex:299
 #, elixir-autogen, elixir-format
 msgid "First board"
 msgstr "Eerste bord"
@@ -22827,7 +22807,7 @@ msgstr "%{email} uitgenodigd als arbiter."
 msgid "Keep the screen on"
 msgstr "Scherm aan laten"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:318
+#: lib/pairings_engine_web/components/phone_qr.ex:309
 #, elixir-autogen, elixir-format
 msgid "Last board"
 msgstr "Laatste bord"
@@ -22838,7 +22818,6 @@ msgid "Let phones on this network connect"
 msgstr "Telefoons op dit netwerk laten verbinden"
 
 #: lib/pairings_engine_web/controllers/mobile_connect_html.ex:103
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:125
 #, elixir-autogen, elixir-format
 msgid "Link to paste into the app"
 msgstr "Link om in de app te plakken"
@@ -22888,12 +22867,12 @@ msgstr "Opmerking: %{note}"
 msgid "OK"
 msgstr "OK"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:382
+#: lib/pairings_engine_web/components/phone_qr.ex:373
 #, elixir-autogen, elixir-format
 msgid "Off. Phones cannot reach this computer."
 msgstr "Uit. Telefoons kunnen deze computer niet bereiken."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:365
+#: lib/pairings_engine_web/components/phone_qr.ex:356
 #, elixir-autogen, elixir-format
 msgid "On. It opens when you make the first code below."
 msgstr "Aan. Het gaat open zodra je hieronder de eerste code maakt."
@@ -22909,7 +22888,7 @@ msgstr "Met één hand"
 msgid "Owner"
 msgstr "Eigenaar"
 
-#: lib/pairings_engine_web/components/phone_qr.ex:362
+#: lib/pairings_engine_web/components/phone_qr.ex:353
 #, elixir-autogen, elixir-format
 msgid "Phones can connect at %{url}."
 msgstr "Telefoons kunnen verbinden via %{url}."
@@ -22949,7 +22928,7 @@ msgstr "Kies bewerker of arbiter."
 msgid "Playing"
 msgstr "Bezig"
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:94
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:84
 #, elixir-autogen, elixir-format
 msgid "Results and incidents as %{name}."
 msgstr "Uitslagen en incidenten als %{name}."
@@ -22959,7 +22938,7 @@ msgstr "Uitslagen en incidenten als %{name}."
 msgid "Results and incidents you enter from here are recorded under your own account."
 msgstr "Uitslagen en incidenten die je van hieruit invoert, worden onder je eigen account bewaard."
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:98
+#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:88
 #, elixir-autogen, elixir-format
 msgid "Results for this tournament, without an account."
 msgstr "Uitslagen voor dit toernooi, zonder account."
@@ -22999,7 +22978,7 @@ msgstr "Dat is geen adres van deze computer."
 msgid "That photo could not be read. Log it without one, or try again."
 msgstr "Die foto was niet te lezen. Meld het zonder foto, of probeer opnieuw."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:368
+#: lib/pairings_engine_web/components/phone_qr.ex:359
 #, elixir-autogen, elixir-format
 msgid "That port is in use by another program - pick another."
 msgstr "Die poort is in gebruik door een ander programma - kies een andere."
@@ -23009,17 +22988,12 @@ msgstr "Die poort is in gebruik door een ander programma - kies een andere."
 msgid "That tournament is not one you work in."
 msgstr "Op dat toernooi werk je niet mee."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:234
-#, elixir-autogen, elixir-format
-msgid "The phone can add Manubrium to its home screen: it then opens like an app and keeps results when the hall wifi drops, sending them when it is back. On an iPhone, add it first (Share, Add to Home Screen), then type the code - or paste the link the QR opened - in the app."
-msgstr "De telefoon kan Manubrium op het beginscherm zetten: dan opent het als een app, houdt het uitslagen bij als de wifi in de zaal wegvalt en verstuurt het ze zodra die terug is. Op een iPhone zet je het eerst op het beginscherm (Deel, Zet op beginscherm) en typ je daarna de code - of plak je de link die de QR opende - in de app."
-
-#: lib/pairings_engine_web/components/phone_qr.ex:377
+#: lib/pairings_engine_web/components/phone_qr.ex:368
 #, elixir-autogen, elixir-format
 msgid "This computer has no network address phones could reach."
 msgstr "Deze computer heeft geen netwerkadres dat telefoons kunnen bereiken."
 
-#: lib/pairings_engine_web/components/phone_qr.ex:372
+#: lib/pairings_engine_web/components/phone_qr.ex:363
 #, elixir-autogen, elixir-format
 msgid "This computer no longer has that address - it may have changed network. Pick its address again."
 msgstr "Deze computer heeft dat adres niet meer - misschien zit hij op een ander netwerk. Kies het adres opnieuw."
@@ -23038,11 +23012,6 @@ msgstr "Het adres van deze computer"
 #, elixir-autogen, elixir-format
 msgid "Time added"
 msgstr "Tijd bijgegeven"
-
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:34
-#, elixir-autogen, elixir-format
-msgid "Tip: add this page to your home screen to get Manubrium as an app that keeps working when the wifi drops. On an iPhone, do that first, then type the code - or paste the link the QR opened - in the app."
-msgstr "Tip: zet deze pagina op je beginscherm, dan krijg je Manubrium als app die blijft werken als de wifi wegvalt. Op een iPhone doe je dat eerst en typ je daarna de code - of plak je de link die de QR opende - in de app."
 
 #: lib/pairings_engine_web/live/audit_live.ex:1415
 #, elixir-autogen, elixir-format
@@ -23064,11 +23033,6 @@ msgstr "Dit adres gebruiken"
 msgid "Use this phone"
 msgstr "Deze telefoon gebruiken"
 
-#: lib/pairings_engine_web/controllers/mobile_enroll_html.ex:116
-#, elixir-autogen, elixir-format
-msgid "Using Manubrium from the home screen on an iPhone? Do not tap the button here: copy this link, open the app and paste it into the code box."
-msgstr "Gebruik je Manubrium vanaf het beginscherm op een iPhone? Tik dan niet op de knop hier: kopieer deze link, open de app en plak hem in het codevak."
-
 #: lib/pairings_engine_web/live/audit_live.ex:1439
 #, elixir-autogen, elixir-format
 msgid "With a photo."
@@ -23089,6 +23053,21 @@ msgstr "een telefoon te verbinden"
 msgid "the last"
 msgstr "het laatste"
 
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:29
+#, elixir-autogen, elixir-format
+msgid "Manubrium Lite is offline"
+msgstr "Manubrium Lite is offline"
+
+#: lib/pairings_engine_web/components/phone_qr.ex:139
+#, elixir-autogen, elixir-format
+msgid "Manubrium Lite: results on a phone"
+msgstr "Manubrium Lite: uitslagen op een telefoon"
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:31
+#, elixir-autogen, elixir-format
+msgid "This phone has not opened the result page with a connection yet, so there is nothing to show. Connect to the hall wifi once, open the result page, and it keeps working when the wifi drops."
+msgstr "Deze telefoon heeft de uitslagenpagina nog niet met een verbinding geopend, dus er is niets om te tonen. Maak één keer verbinding met de wifi in de zaal, open de uitslagenpagina, en daarna blijft het werken als de wifi wegvalt."
+
 #: lib/pairings_engine_web/controllers/manubrium_api/account_controller.ex:46
 #, elixir-autogen, elixir-format
 msgid "A connect code is needed."
@@ -23098,6 +23077,11 @@ msgstr "Er is een verbindingscode nodig."
 #, elixir-autogen, elixir-format
 msgid "A list of entries is needed."
 msgstr "Er is een lijst met invoer nodig."
+
+#: lib/pairings_engine_web/live/user_live/settings.ex:551
+#, elixir-autogen, elixir-format
+msgid "A phone cannot reach this computer yet. Switch on \"Let phones on this network connect\" in a tournament's Phone QR first, then make the code."
+msgstr "Een telefoon kan deze computer nog niet bereiken. Zet eerst \"Telefoons op dit netwerk laten verbinden\" aan in de Telefoon-QR van een toernooi en maak dan de code."
 
 #: lib/pairings_engine_web/controllers/manubrium_api/player_controller.ex:161
 #, elixir-autogen, elixir-format
@@ -23129,7 +23113,7 @@ msgstr "Als arbiter van dit toernooi voer je uitslagen in en noteer je incidente
 msgid "At most %{max} entries per request."
 msgstr "Hoogstens %{max} invoerregels per verzoek."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1392
+#: lib/pairings_engine_web/live/user_live/settings.ex:1390
 #, elixir-autogen, elixir-format
 msgid "Connect a phone"
 msgstr "Een telefoon verbinden"
@@ -23140,12 +23124,12 @@ msgid "Finish the tournament setup at the desk first (Settings)."
 msgstr "Werk eerst de toernooi-instellingen af op de computer (Instellingen)."
 
 #: lib/pairings_engine_web/live/user_live/settings.ex:734
-#: lib/pairings_engine_web/live/user_live/settings.ex:1350
+#: lib/pairings_engine_web/live/user_live/settings.ex:1348
 #, elixir-autogen, elixir-format
 msgid "Manubrium app"
 msgstr "Manubrium-app"
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1430
+#: lib/pairings_engine_web/live/user_live/settings.ex:1428
 #, elixir-autogen, elixir-format
 msgid "No phone is connected to your account."
 msgstr "Er is geen telefoon met je account verbonden."
@@ -23160,7 +23144,7 @@ msgstr "Die speler zit niet in dit toernooi."
 msgid "No such tournament on this account."
 msgstr "Dit account heeft zo'n toernooi niet."
 
-#: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:259
+#: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:262
 #, elixir-autogen, elixir-format
 msgid "Not a number."
 msgstr "Geen getal."
@@ -23185,7 +23169,7 @@ msgstr "Niet gevonden."
 msgid "Pairing this round would take the tournament out of FIDE mode. That is decided at the desk, not from a phone."
 msgstr "Deze ronde paren zou het toernooi uit de FIDE-modus halen. Dat beslis je op de computer, niet vanaf een telefoon."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1353
+#: lib/pairings_engine_web/live/user_live/settings.ex:1351
 #, elixir-autogen, elixir-format
 msgid "Phones running the Manubrium app on your account. A connected phone does what you may do here - pair, publish, enter results, edit players - in the tournaments you work in, and keeps entering results without a signal. To connect one, make a code and scan it with the app. The code works once, for %{minutes} minutes."
 msgstr "Telefoons met de Manubrium-app op je account. Een verbonden telefoon doet wat jij hier mag - paren, publiceren, uitslagen invoeren, spelers bewerken - in de toernooien waaraan je werkt, en blijft uitslagen invoeren zonder bereik. Om er een te verbinden, maak je een code en scan je die met de app. De code werkt één keer, %{minutes} minuten lang."
@@ -23200,17 +23184,17 @@ msgstr "Ronde %{n} heeft handmatige wijzigingen die niet afgewerkt zijn. Werk ze
 msgid "Round %{rounds} was already sent to FIDE. Confirm to change the absence anyway."
 msgstr "Ronde %{rounds} is al naar de FIDE gestuurd. Bevestig om de afwezigheid toch te wijzigen."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1367
+#: lib/pairings_engine_web/live/user_live/settings.ex:1365
 #, elixir-autogen, elixir-format
 msgid "Scan this with the app's \"Add a server\", or copy the link into it. It is shown once."
 msgstr "Scan dit met \"Een server toevoegen\" in de app, of kopieer de link erin. Hij wordt maar één keer getoond."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1419
+#: lib/pairings_engine_web/live/user_live/settings.ex:1417
 #, elixir-autogen, elixir-format
 msgid "Sign this phone out? It is refused from its next request on; results it has not sent yet stay on it."
 msgstr "Deze telefoon afmelden? Vanaf zijn volgende verzoek wordt hij geweigerd; uitslagen die hij nog niet verstuurd heeft, blijven erop staan."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1432
+#: lib/pairings_engine_web/live/user_live/settings.ex:1430
 #, elixir-autogen, elixir-format
 msgid "Signed out"
 msgstr "Afgemeld"
@@ -23220,7 +23204,7 @@ msgstr "Afgemeld"
 msgid "Signed out. That phone is refused from its next request on."
 msgstr "Afgemeld. Die telefoon wordt vanaf zijn volgende verzoek geweigerd."
 
-#: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:218
+#: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:219
 #, elixir-autogen, elixir-format
 msgid "Standings are published only after a round, and every round before it, is complete."
 msgstr "De stand wordt pas gepubliceerd als een ronde, en elke ronde ervoor, volledig is."
@@ -23255,7 +23239,7 @@ msgstr "Die ronde is niet gepaard."
 msgid "The bye exclusions leave no legal round. Decide at the desk whose exclusion to lift."
 msgstr "Met deze bye-uitsluitingen is er geen reglementaire ronde. Beslis op de computer wiens uitsluiting vervalt."
 
-#: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:266
+#: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:269
 #, elixir-autogen, elixir-format
 msgid "The level is 0, 1, 2 or 3."
 msgstr "Het niveau is 0, 1, 2 of 3."
@@ -23275,7 +23259,7 @@ msgstr "Deze computer laat geen telefoons binnen. Zet \"Telefoons op dit netwerk
 msgid "This needs confirming first: %{what}."
 msgstr "Dit moet eerst bevestigd worden: %{what}."
 
-#: lib/pairings_engine_web/live/user_live/settings.ex:1405
+#: lib/pairings_engine_web/live/user_live/settings.ex:1403
 #, elixir-autogen, elixir-format
 msgid "Token …%{hint}"
 msgstr "Token …%{hint}"
@@ -23284,8 +23268,3 @@ msgstr "Token …%{hint}"
 #, elixir-autogen, elixir-format
 msgid "Too many refused codes. Wait ten minutes."
 msgstr "Te veel geweigerde codes. Wacht tien minuten."
-
-#: lib/pairings_engine_web/live/user_live/settings.ex:551
-#, elixir-autogen, elixir-format
-msgid "A phone cannot reach this computer yet. Switch on \"Let phones on this network connect\" in a tournament's Phone QR first, then make the code."
-msgstr "Een telefoon kan deze computer nog niet bereiken. Zet eerst \"Telefoons op dit netwerk laten verbinden\" aan in de Telefoon-QR van een toernooi en maak dan de code."

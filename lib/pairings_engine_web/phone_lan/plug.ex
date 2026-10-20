@@ -65,7 +65,6 @@ defmodule PairingsEngineWeb.PhoneLan.Plug do
   def phone_route?("POST", ["m", "e", _token]), do: true
   def phone_route?("GET", ["m", "leave"]), do: true
   def phone_route?("GET", ["m", "results"]), do: true
-  def phone_route?("GET", ["m", "manifest.webmanifest"]), do: true
   def phone_route?("GET", ["m", "sw.js"]), do: true
   def phone_route?("POST", ["m", "sync"]), do: true
 

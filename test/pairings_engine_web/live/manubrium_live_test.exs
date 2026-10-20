@@ -248,7 +248,7 @@ defmodule PairingsEngineWeb.ManubriumLiveTest do
              )
     end
 
-    test "the phone code says Manubrium can be installed", %{conn: conn, scope: scope} do
+    test "the phone code is Manubrium Lite", %{conn: conn, scope: scope} do
       previous = Application.get_env(:pairings_engine, :local_mode)
       Application.put_env(:pairings_engine, :local_mode, false)
 
@@ -264,7 +264,8 @@ defmodule PairingsEngineWeb.ManubriumLiveTest do
       lv |> element("#phone-qr-link") |> render_click()
       lv |> form("#phone-qr-enroll-form", %{}) |> render_submit()
 
-      assert has_element?(lv, "#phone-qr-manubrium", "Manubrium")
+      assert has_element?(lv, "#phone-qr-enroll h3", "Manubrium Lite")
+      refute has_element?(lv, "#phone-qr-manubrium")
     end
   end
 end

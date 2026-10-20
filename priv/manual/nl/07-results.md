@@ -173,11 +173,11 @@ eigenaar en de bewerkers kunnen alles wat een arbiter kan.
   (waar de telefoon dat kan), en **Met één hand** zet de knoppen onderaan met
   grotere uitslagknoppen. Beide onthoudt de telefoon zelf.
 
-### Manubrium, de telefoonapp {#manubrium-the-phone-app}
+### Manubrium Lite, als de wifi wegvalt {#manubrium-lite-when-the-wifi-drops}
 
-Je kunt de telefoonpagina's als app op het beginscherm van de telefoon zetten,
-onder de naam **Manubrium**. Ze opent dan schermvullend zoals elke andere app,
-en blijft werken als de wifi in de zaal wegvalt:
+Deze telefoonpagina's zijn **Manubrium Lite**: een pagina in de browser van de
+telefoon, geleverd door het programma zelf, niets te installeren. Ze blijft
+werken als de wifi in de zaal wegvalt, zolang je de pagina openlaat:
 
 - Een aangetikt resultaat gaat eerst naar het postvak op de telefoon en wordt
   van daaruit verstuurd, in de volgorde waarin je het invoerde. Zonder
@@ -198,12 +198,8 @@ en blijft werken als de wifi in de zaal wegvalt:
 - **Verlaten** op een telefoon waar nog resultaten wachten, vraagt eerst
   bevestiging: wie weggaat, gooit ze weg.
 
-Om de app te installeren open je de codepagina of de resultatenpagina en kies je
-in de browser **Zet op beginscherm** (Android: het menu, **App installeren** of
-**Toevoegen aan startscherm**; iPhone: **Deel**, **Zet op beginscherm**). Op een
-iPhone deelt de app de aanmelding van Safari niet: zet ze dus eerst op het
-beginscherm en typ daarna de code in de app - of open de QR-code in Safari,
-kopieer de link die die pagina toont en plak hem in het codevak van de app.
+Het hele toernooi vanaf een telefoon leiden - koppelen, spelers, stand - doe je
+met de volledige Manubrium-app, die apart verbinding maakt met het programma.
 
 ### Incidenten aan de borden {#incidents-logged-at-the-boards}
 
