@@ -106,6 +106,8 @@ The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_linux_x86_
 | `openpairings_app_<target>.zip` (macOS only) | `OpenPairings.app`: the portable release in a bundle with a launcher | **on a Mac, this one** - see [`docs/macos.md`](macos.md) |
 | `SHA256SUMS` | the checksum of every file above (since 2026-10-14) | to check a download by hand |
 
+Every file above and `SHA256SUMS` itself also carry a GitHub artifact attestation (keyless, Sigstore) from the first release after this note. Check one with `gh attestation verify <file> --repo teapot-chess/openpairings`.
+
 Both are on the release page for a tagged version, and both are build
 artifacts on every push to `main`. The portable one used to be a CI artifact
 only, which was backwards: the release page offered exactly the download this

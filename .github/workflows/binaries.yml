@@ -992,6 +992,9 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: write
+      # Keyless attestation: the OIDC token and the right to store the result.
+      id-token: write
+      attestations: write
       # Read-only, and only so the test gate below can ask the API how the
       # "Elixir CI" run for this commit ended.
       actions: read
@@ -1140,6 +1143,23 @@ jobs:
           done
           mv SHA256SUMS release_assets/SHA256SUMS
           cat release_assets/SHA256SUMS
+
+      # Signed build provenance, keyless: GitHub's own OIDC token, recorded in
+      # the Sigstore transparency log, so there is no maintainer-held key to
+      # lose or leak. Covers every file attached below and SHA256SUMS itself.
+      # Check with: gh attestation verify <file> --repo teapot-chess/openpairings
+      - name: Attest the build provenance
+        if: steps.ver.outputs.publish == 'true'
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: |
+            release_assets/burrito_out/*
+            release_assets/_build/prod/rel/*.zip
+            release_assets/installer_out/*.exe
+            release_assets/installer_out/*.msi
+            release_assets/installer_out/releases.win.json
+            release_assets/installer_out/*.nupkg
+            release_assets/SHA256SUMS
 
       - uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         if: steps.ver.outputs.publish == 'true'

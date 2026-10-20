@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Change] **Releases carry signed build provenance.** Every file of a release, `SHA256SUMS` included, is now attested through GitHub and Sigstore, keyless, so `gh attestation verify <file> --repo teapot-chess/openpairings` can say who built it and from what. Until now the checksums vouched for a download only against the release they sat in, which is a witness who was hired by the defendant.
+
 ## [0.99.0] - 2026-10-20
 
 - [Security] **One account can no longer keep the whole server busy pairing.** On a hosted server every "Pair round" was its own engine run with nobody counting: the guard against a second click lived in one browser tab, so ten tabs on a 400-team Swiss were ten searches on a two-core machine, each carrying on after its tab was closed and none with any time limit. Pairing now goes through a small number of slots for the whole server (two by default, `PAIRINGS_ENGINE_SLOTS`), one per tournament however many tabs ask, and a run stops after three minutes (`PAIRINGS_PAIRING_TIMEOUT_S`) with nothing written. A team round that has to wait says it is queued instead of looking hung; an individual round that cannot start within a few seconds says the engine is busy; a round already being paired elsewhere is not paired again. The next-round preview runs one at a time and the explanation's background work two at a time, for the same reason. The desktop build keeps no count: the only person it could starve is the one who pressed the button.
