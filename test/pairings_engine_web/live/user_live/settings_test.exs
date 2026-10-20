@@ -74,6 +74,7 @@ defmodule PairingsEngineWeb.UserLive.SettingsTest do
     test "an address on the 02cloud domain has no address or password form", %{conn: conn} do
       {:ok, user} =
         Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
           sub: "sub-#{System.unique_integer([:positive])}",
           email: "someone#{System.unique_integer([:positive])}@zerotwo.cloud"
         })

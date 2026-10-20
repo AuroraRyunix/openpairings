@@ -56,6 +56,7 @@ defmodule PairingsEngine.AuthzTest do
   defp sso_user do
     {:ok, user} =
       Accounts.find_or_create_from_keycloak(%{
+        email_verified: true,
         sub: "sub-#{System.unique_integer()}",
         email: "sso-#{System.unique_integer()}@example.com"
       })

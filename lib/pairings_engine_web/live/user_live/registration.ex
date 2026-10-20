@@ -228,7 +228,9 @@ defmodule PairingsEngineWeb.UserLive.Registration do
 
   # Shares the `:login_email` bucket with the log-in form on purpose: both
   # send a magic link, so counting them together is what actually bounds how
-  # much mail one address (or one client) can trigger.
+  # much mail one address (or one client) can trigger. Password sign-in no
+  # longer reads it (see `UserSessionController`), so spending it costs the
+  # victim a quarter of an hour of mail, not their way in.
   defp rate_limits(socket, email) do
     recipient = email |> to_string() |> String.trim() |> String.downcase()
 

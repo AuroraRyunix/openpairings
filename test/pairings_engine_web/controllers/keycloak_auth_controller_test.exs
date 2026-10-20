@@ -57,6 +57,75 @@ defmodule PairingsEngineWeb.KeycloakAuthControllerTest do
       assert reloaded.keycloak_sub == "sub-existing"
     end
 
+    test "an UNVERIFIED email never couples to the existing account that has it", %{conn: conn} do
+      victim = user_fixture()
+
+      stub_token_and_userinfo(
+        sub: "sub-intruder",
+        email: victim.email,
+        email_verified: false,
+        preferred_username: "intruder"
+      )
+
+      conn = callback(conn)
+
+      # Signed in - but as the synthesized SSO-domain account, not the victim.
+      assert redirected_to(conn) == ~p"/"
+      assert Accounts.get_user!(victim.id).keycloak_sub == nil
+      intruder = Accounts.get_user_by_keycloak_sub("sub-intruder")
+      assert intruder.id != victim.id
+      assert intruder.email == "intruder@zerotwo.cloud"
+    end
+
+    test "an unverified email with no username to fall back on is refused", %{conn: conn} do
+      victim = user_fixture()
+      stub_token_and_userinfo(sub: "sub-nobody", email: victim.email, email_verified: false)
+
+      conn = callback(conn)
+
+      assert redirected_to(conn) == ~p"/users/log-in"
+      refute get_session(conn, :user_token)
+      assert Accounts.get_user!(victim.id).keycloak_sub == nil
+      refute Accounts.get_user_by_keycloak_sub("sub-nobody")
+    end
+
+    test "does not overwrite a DIFFERENT keycloak_sub already on the account", %{conn: conn} do
+      {:ok, owner} =
+        Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
+          sub: "sub-owner",
+          email: unique_user_email()
+        })
+
+      stub_token_and_userinfo(sub: "sub-second", email: owner.email)
+
+      {conn, log} =
+        ExUnit.CaptureLog.with_log(fn -> callback(conn) end)
+
+      assert redirected_to(conn) == ~p"/users/log-in"
+      refute get_session(conn, :user_token)
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "different single sign-on identity"
+      assert Accounts.get_user!(owner.id).keycloak_sub == "sub-owner"
+      assert log =~ "coupled to a different SSO identity"
+      refute log =~ owner.email
+    end
+
+    test "the same sub signs straight back in", %{conn: conn} do
+      {:ok, owner} =
+        Accounts.find_or_create_from_keycloak(%{
+          email_verified: true,
+          sub: "sub-same",
+          email: unique_user_email()
+        })
+
+      stub_token_and_userinfo(sub: "sub-same", email: owner.email)
+
+      conn = callback(conn)
+
+      assert redirected_to(conn) == ~p"/"
+      assert get_session(conn, :user_token)
+    end
+
     test "creates and logs in a brand-new account for a first-time identity", %{conn: conn} do
       stub_token_and_userinfo(sub: "sub-new", email: "new.person@zerotwo.cloud")
 
@@ -171,15 +240,33 @@ defmodule PairingsEngineWeb.KeycloakAuthControllerTest do
     end
   end
 
-  defp stub_token_and_userinfo(sub: sub, email: email) do
+  defp stub_token_and_userinfo(opts) do
+    sub = Keyword.fetch!(opts, :sub)
+
+    claims =
+      %{"sub" => sub, "email" => Keyword.fetch!(opts, :email)}
+      |> Map.put("email_verified", Keyword.get(opts, :email_verified, true))
+      |> then(fn claims ->
+        case Keyword.get(opts, :preferred_username) do
+          nil -> claims
+          username -> Map.put(claims, "preferred_username", username)
+        end
+      end)
+
     Req.Test.stub(PairingsEngine.KeycloakTest, fn conn ->
       case conn.request_path do
         "/realms/zerotwo/protocol/openid-connect/token" ->
           Req.Test.json(conn, %{"access_token" => "at-#{sub}"})
 
         "/realms/zerotwo/protocol/openid-connect/userinfo" ->
-          Req.Test.json(conn, %{"sub" => sub, "email" => email})
+          Req.Test.json(conn, claims)
       end
     end)
+  end
+
+  defp callback(conn) do
+    conn
+    |> init_test_session(%{keycloak_state: "known-state"})
+    |> get(~p"/auth/keycloak/callback", %{"code" => "the-code", "state" => "known-state"})
   end
 end

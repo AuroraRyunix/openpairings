@@ -189,5 +189,60 @@ defmodule PairingsEngineWeb.AdminLiveTest do
 
       assert html =~ admin.email
     end
+
+    test "tells the target's open tabs to reconnect, so they remount under the new role", %{
+      conn: conn
+    } do
+      colleague = user_fixture()
+      token = Accounts.generate_user_session_token(colleague)
+      PairingsEngineWeb.Endpoint.subscribe("users_sessions:#{Base.url_encode64(token)}")
+
+      {:ok, lv, _html} = live(conn, ~p"/admin")
+
+      lv
+      |> element("button[phx-value-id='#{colleague.id}'][phx-value-role='admin']")
+      |> render_click()
+
+      lv |> element("button", "Change the role") |> render_click()
+
+      assert_receive %Phoenix.Socket.Broadcast{event: "disconnect"}
+    end
+  end
+
+  describe "an administrator demoted while the page is open" do
+    # `RequireRole` only runs at mount; a tab left open outlives any role.
+    test "is shown the door on their next click", %{conn: conn, user: admin} do
+      colleague = user_fixture()
+      {:ok, lv, _html} = live(conn, ~p"/admin")
+
+      {:ok, _} = Accounts.set_role(admin.email, "owner")
+
+      assert {:error, {:redirect, %{to: "/"}}} =
+               lv
+               |> element("button[phx-value-id='#{colleague.id}'][phx-value-role='admin']")
+               |> render_click()
+
+      assert Accounts.get_user!(colleague.id) |> User.role() == :owner
+    end
+
+    test "cannot finish a change they started while still an administrator", %{
+      conn: conn,
+      user: admin
+    } do
+      colleague = user_fixture()
+      {:ok, lv, _html} = live(conn, ~p"/admin")
+
+      lv
+      |> element("button[phx-value-id='#{colleague.id}'][phx-value-role='admin']")
+      |> render_click()
+
+      {:ok, _} = Accounts.set_role(admin.email, "owner")
+
+      assert {:error, {:redirect, %{to: "/"}}} =
+               lv |> element("button", "Change the role") |> render_click()
+
+      assert Accounts.get_user!(colleague.id) |> User.role() == :owner
+      assert Audit.list_machine_wide() == []
+    end
   end
 end
