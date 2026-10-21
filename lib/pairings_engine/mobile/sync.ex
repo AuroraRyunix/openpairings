@@ -249,18 +249,27 @@ defmodule PairingsEngine.Mobile.Sync do
 
   @cid ~r/\A[A-Za-z0-9-]{8,64}\z/
 
+  # An entry with no board at all - the app's round-level "Log an incident"
+  # sent these before it asked which board - is refused by that name, so the
+  # phone can say what is missing instead of "Board ?: not saved". Every
+  # incident row has a board; there is nowhere to put one without.
   defp parse(%{"cid" => cid, "kind" => kind} = entry)
        when is_binary(cid) and kind in ["result", "incident"] do
     with true <- Regex.match?(@cid, cid),
+         :ok <- has_board(entry),
          {:ok, base} <- parse_base(entry, cid, kind),
          {:ok, parsed} <- parse_kind(kind, entry, base) do
       {:ok, parsed}
     else
+      {:refused, :no_board} -> {:refused, :no_board}
       _ -> {:refused, :invalid}
     end
   end
 
   defp parse(_entry), do: {:refused, :invalid}
+
+  defp has_board(%{"pairing" => pairing}) when pairing not in [nil, ""], do: :ok
+  defp has_board(_entry), do: {:refused, :no_board}
 
   defp parse_base(entry, cid, kind) do
     with {:ok, enrollment} <- int(entry["enrollment"]),

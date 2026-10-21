@@ -5480,13 +5480,13 @@ msgstr "%{range} · %{level}"
 msgid "Access level"
 msgstr "Toegangsniveau"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:130
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:194
 #: lib/pairings_engine_web/live/mobile_results_live.ex:586
 #, elixir-autogen, elixir-format
 msgid "Board %{board} already has a result - only the arbiter can change it."
 msgstr "Bord %{board} heeft al een resultaat - enkel de arbiter kan dit wijzigen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:143
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:207
 #: lib/pairings_engine_web/live/mobile_results_live.ex:592
 #, elixir-autogen, elixir-format
 msgid "Board %{board} is outside the boards this phone is allowed to enter."
@@ -11065,13 +11065,13 @@ msgstr "Bord %{board} van ronde %{round} was uitgesteld en telde als %{white} vo
 msgid "Board %{board} of round %{round} was postponed and has counted as a draw for pairing. %{result} is not a draw: the scores that later rounds were paired with change, and those pairings stay as they are."
 msgstr "Bord %{board} van ronde %{round} was uitgesteld en telde als remise voor de paring. %{result} is geen remise: de scores waarmee latere rondes gepaard werden veranderen, en die paringen blijven zoals ze zijn."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:184
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:248
 #: lib/pairings_engine_web/live/mobile_results_live.ex:500
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was already sent in a TRF finalised for sending. Changing it has to be done by the arbiter, on the Pairings page."
 msgstr "Bord %{board} werd al verstuurd in een TRF die vastgelegd werd om te versturen. Wijzigen doet de arbiter, op de pagina Paringen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:170
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:234
 #: lib/pairings_engine_web/live/mobile_results_live.ex:479
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was postponed and counted provisionally for pairing. A result that is not a draw has to be entered by the arbiter, on the Pairings page."
@@ -11431,8 +11431,8 @@ msgstr "als niet gespeeld in het verslag van haar ronde - klaar voor het bestand
 #: lib/pairings_engine_web/components/sent_receipt.ex:110
 #: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:138
 #: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:297
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:222
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:223
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:291
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:292
 #: lib/pairings_engine_web/live/history_live.ex:1023
 #: lib/pairings_engine_web/live/mobile_results_live.ex:776
 #: lib/pairings_engine_web/live/mobile_results_live.ex:777
@@ -15811,7 +15811,7 @@ msgstr "Een correctie enkel voor het ratingrapport geldt voor een ronde waarvan 
 msgid "A later round was already paired with the result being corrected."
 msgstr "Een latere ronde werd al gepaard met het resultaat dat wordt verbeterd."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:177
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:241
 #: lib/pairings_engine_web/live/mobile_results_live.ex:495
 #, elixir-autogen, elixir-format
 msgid "A later round was already paired with the result of board %{board}. Correcting it has to be done by the arbiter, on the Pairings page."
@@ -19499,7 +19499,7 @@ msgstr[1] "rondes %{rounds} zijn afgelopen en hebben geen ontvangstbewijs."
 msgid "too late"
 msgstr "te laat"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:149
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:213
 #: lib/pairings_engine_web/live/mobile_results_live.ex:446
 #, elixir-autogen, elixir-format
 msgid "Not saved: board %{board} changed - the arbiter changed its players. Check who is on it now and enter the result again."
@@ -22405,73 +22405,73 @@ msgstr "Alles verstuurd"
 msgid "Arbiter call"
 msgstr "Arbiter geroepen"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:89
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:153
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: already had this result."
 msgstr "Bord %{board}: had deze uitslag al."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:92
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:156
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: incident logged."
 msgstr "Bord %{board}: incident gemeld."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:191
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:255
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - a helper phone can only call the arbiter."
 msgstr "Bord %{board}: niet gemeld - een helpertelefoon kan alleen de arbiter roepen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:217
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:281
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the note is too long."
 msgstr "Bord %{board}: niet gemeld - de opmerking is te lang."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:198
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:262
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - this phone has logged as many incidents as one code may. Ask the arbiter for a new code."
 msgstr "Bord %{board}: niet gemeld - deze telefoon heeft zoveel incidenten gemeld als één code mag. Vraag de arbiter om een nieuwe code."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:115
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:179
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - it was entered under an earlier code on this phone. Enter it again if it still stands."
 msgstr "Bord %{board}: niet opgeslagen - dit werd ingevoerd onder een eerdere code op deze telefoon. Voer het opnieuw in als het nog klopt."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:156
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:220
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that pairing no longer exists (the round was paired again). Check the board and enter it again."
 msgstr "Bord %{board}: niet opgeslagen - die partij bestaat niet meer (de ronde werd opnieuw ingedeeld). Controleer het bord en voer het opnieuw in."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:136
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:200
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that round is no longer the current round, and helpers can only enter the current one."
 msgstr "Bord %{board}: niet opgeslagen - die ronde is niet meer de huidige, en helpers kunnen alleen de huidige ronde invoeren."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:122
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:186
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the board now says %{current}, entered elsewhere while this phone was waiting. Check with the arbiter."
 msgstr "Bord %{board}: niet opgeslagen - op het bord staat nu %{current}, elders ingevoerd terwijl deze telefoon wachtte. Overleg met de arbiter."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:163
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:227
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the tournament is not taking results at the moment (archived, or handed to another machine)."
 msgstr "Bord %{board}: niet opgeslagen - het toernooi neemt nu geen uitslagen aan (gearchiveerd, of doorgegeven aan een andere computer)."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:108
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:172
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - this phone's access was ended by the arbiter, or ran out. Tell the arbiter this result."
 msgstr "Bord %{board}: niet opgeslagen - de toegang van deze telefoon werd door de arbiter beëindigd, of is verlopen. Geef deze uitslag door aan de arbiter."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:220
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:289
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved. Check with the arbiter."
 msgstr "Bord %{board}: niet opgeslagen. Overleg met de arbiter."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:95
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:159
 #: lib/pairings_engine_web/live/mobile_results_live.ex:616
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: saved."
 msgstr "Bord %{board}: opgeslagen."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:99
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:163
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: the server is busy - this phone tries again shortly."
 msgstr "Bord %{board}: de server is bezig - deze telefoon probeert het zo opnieuw."
@@ -22721,12 +22721,12 @@ msgstr "Borden van de arbiters"
 msgid "Back to your tournaments"
 msgstr "Terug naar je toernooien"
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:211
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:275
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo could not be read. Log it again without it."
 msgstr "Bord %{board}: niet gemeld - de foto was niet te lezen. Meld het opnieuw zonder foto."
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:205
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:269
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo is too large. Log it again without it."
 msgstr "Bord %{board}: niet gemeld - de foto is te groot. Meld het opnieuw zonder foto."
@@ -23493,3 +23493,33 @@ msgstr "Het toernooi kan niet eindigen voor het begint."
 #, elixir-autogen, elixir-format
 msgid "Type at least %{n} characters to search."
 msgstr "Typ minstens %{n} tekens om te zoeken."
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:124
+#, elixir-autogen, elixir-format
+msgid "Board %{board}: not saved - the board now says %{current}, entered elsewhere while this phone was waiting. Look at the board, and enter yours again if it stands."
+msgstr "Bord %{board}: niet opgeslagen - op het bord staat nu %{current}, elders ingevoerd terwijl deze telefoon wachtte. Kijk het bord na en voer uw uitslag opnieuw in als die klopt."
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:142
+#, elixir-autogen, elixir-format
+msgid "Board %{board}: not saved - the server could not take it. Enter it again."
+msgstr "Bord %{board}: niet opgeslagen - de server kon het niet aannemen. Voer het opnieuw in."
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:132
+#, elixir-autogen, elixir-format
+msgid "Board %{board}: not saved - this phone was disconnected from the server after it was entered. Enter it again."
+msgstr "Bord %{board}: niet opgeslagen - deze telefoon werd van de server losgekoppeld nadat het werd ingevoerd. Voer het opnieuw in."
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:147
+#, elixir-autogen, elixir-format
+msgid "Not logged - an incident needs a board. Open the board and log it there."
+msgstr "Niet geregistreerd - een incident hoort bij een bord. Open het bord en registreer het daar."
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:138
+#, elixir-autogen, elixir-format
+msgid "Not saved - the server could not read this entry. Enter it again."
+msgstr "Niet opgeslagen - de server kon deze invoer niet lezen. Voer het opnieuw in."
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:286
+#, elixir-autogen, elixir-format
+msgid "Not saved - this phone sent an entry the server could not read. Tell the arbiter."
+msgstr "Niet opgeslagen - deze telefoon stuurde een invoer die de server niet kon lezen. Meld het aan de arbiter."
