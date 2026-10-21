@@ -564,7 +564,9 @@ reported for a game is in the round, beside the result: each board has
 `board_report`, null or `{status, result, mismatch, moves_count,
 updated_at}` (`BoardLink.summaries/1`). `mismatch` is
 `BoardLink.compare/2`'s red case: a board result that differs from the
-entered one, a forfeit compared by who got the point.
+entered one, a forfeit compared by who got the point. `status` is the
+box's `waiting`, `live` or `finished`; `moves_count` counts full moves,
+not plies.
 
 `GET /tournaments/:id/board-links` lists the codes that reach the tournament,
 its own and its group's: `{links: [{id, kind, label, hint, reach, created_at,

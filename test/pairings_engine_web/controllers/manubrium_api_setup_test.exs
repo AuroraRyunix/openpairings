@@ -652,7 +652,7 @@ defmodule PairingsEngineWeb.ManubriumApiSetupTest do
       report = round.()["board_report"]
       assert report["status"] == "finished"
       assert report["result"] == "1-0"
-      assert report["moves_count"] == 3
+      assert report["moves_count"] == 2
       assert report["mismatch"] == false
       assert report["updated_at"]
 

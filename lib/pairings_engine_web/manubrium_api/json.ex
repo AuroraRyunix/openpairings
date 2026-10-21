@@ -269,7 +269,7 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       status: report.status,
       result: report.result,
       mismatch: BoardLink.compare(p.result, report) == :mismatch,
-      moves_count: report.plies,
+      moves_count: div((report.plies || 0) + 1, 2),
       updated_at: report.reported_at
     }
   end
