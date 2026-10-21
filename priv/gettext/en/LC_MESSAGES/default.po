@@ -23584,7 +23584,7 @@ msgid "\"%{name}\": %{done} archived, %{failed} could not be. Archive those from
 msgstr ""
 
 #: lib/pairings_engine_web/live/tournaments_live.ex:3780
-#, elixir-autogen, elixir-format, fuzzy
+#, elixir-autogen, elixir-format
 msgid "Archive group"
 msgstr ""
 
