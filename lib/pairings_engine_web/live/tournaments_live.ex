@@ -2876,7 +2876,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   <span :if={invitation[:owner_name]} class="collab-name">
                     {invitation[:owner_name]}
                   </span>
-                   {owner_email}
+                  {owner_email}
                 </td>
 
                 <td style="text-align: right">
@@ -3169,7 +3169,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Import")}
           </button>
-           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
+          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
 
@@ -3215,7 +3215,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">{gettext("Cancel")}</button>
         </div>
       </div>
-       <.swar_merge_review :if={@swar_merge} review={@swar_merge} error={@error} />
+      <.swar_merge_review :if={@swar_merge} review={@swar_merge} error={@error} />
       <div
         :if={@swar_team}
         id="swar-team-warning"
@@ -3362,10 +3362,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Import")}
           </button>
-           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
+          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
-       <.trf_review :if={@trf_review} review={@trf_review} />
+      <.trf_review :if={@trf_review} review={@trf_review} />
       <form
         :if={@importing_backup}
         id="backup-import-form"
@@ -3426,7 +3426,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Import")}
           </button>
-           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
+          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
 
@@ -3494,7 +3494,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Take it in")}
           </button>
-           <button type="button" class="pe-btn tonal" phx-click="cancel">{gettext("Cancel")}</button>
+          <button type="button" class="pe-btn tonal" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
 
@@ -3522,7 +3522,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           <strong>
             {gettext("This replaces what is here with what comes back:")}
           </strong>
-           {gettext(
+          {gettext(
             "the rounds played on the other machine become this copy's, because this one has been read-only since it left and cannot have changed. What is here now is kept as a restore point under History, so you can look at it or go back."
           )}
         </p>
@@ -3760,7 +3760,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                       >
                         {gettext("Unarchive")}
                       </button>
-                       <hr />
+                      <hr />
                       <button
                         :if={owned?}
                         id={"archived-delete-#{t.id}"}
@@ -3835,7 +3835,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </table>
         </div>
       </div>
-       <.handoff_modal :if={@handoff_target} tournament={@handoff_target} />
+      <.handoff_modal :if={@handoff_target} tournament={@handoff_target} />
       <.delete_tournament_modal
         :if={@delete_target}
         tournament={@delete_target}
@@ -4086,7 +4086,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Delete tournament")}
           </button>
-           <button type="button" class="pe-btn" phx-click="delete_cancel">{gettext("Cancel")}</button>
+          <button type="button" class="pe-btn" phx-click="delete_cancel">{gettext("Cancel")}</button>
         </div>
       </div>
     </div>
@@ -4139,7 +4139,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Delete permanently")}
           </button>
-           <button type="button" class="pe-btn" phx-click="purge_cancel">{gettext("Cancel")}</button>
+          <button type="button" class="pe-btn" phx-click="purge_cancel">{gettext("Cancel")}</button>
         </div>
       </div>
     </div>
@@ -4286,7 +4286,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             >
               {gettext("Archive")}
             </button>
-             <hr />
+            <hr />
             <button
               :if={@owned?}
               id={"delete-#{@t.id}"}
