@@ -40,7 +40,7 @@ met haar borden en haar status:
 | *Klaar om te versturen* | Elk bord heeft een resultaat. |
 | *Verstuurd* | De ronde is verstuurd; de datum en een ontvangstcode worden getoond (bijvoorbeeld `R5·7F2A`). |
 
-![De pagina Exporteren, sectie TRF, met rondes in de statussen Wordt gespeeld, Klaar om te versturen en Verstuurd](screenshots/11-export-trf-rounds.png "Rondes en hun status op de pagina Exporteren")
+![De pagina Exporteren, sectie TRF, met rondes in de statussen Wordt gespeeld, Klaar om te versturen en Verstuurd](screenshots/10-export-trf-rounds.png "Rondes en hun status op de pagina Exporteren")
 
 Vink de rondes aan die je wilt en druk op:
 
@@ -86,7 +86,7 @@ Regels die hieruit volgen:
 Het bestand is TRF26. Naast de rijen van de spelers (de startrangorde, naam, FIDE-ID,
 rating, titel, federatie, geboortedatum, punten, rangschikking en het resultaat van elke
 ronde met de tegenstander en de kleur) bevat het de kopregels en de records van het
-toernooitype die vermeld staan in [Importeren en exporteren](10-import-export.md).
+toernooitype die vermeld staan in [Importeren en exporteren](12-import-export.md).
 Voor elke ronde zijn de resultaatcodes `1`, `=`, `0` voor gespeelde partijen, `+` en
 `-` voor forfaits, `U` voor de door de paring toegekende bye, `H` voor een halvepuntsbye, `F` voor een
 volpuntsbye, `Z` voor een nulpuntsbye of een afwezigheid. Een uitgestelde partij waarvan het resultaat
@@ -164,7 +164,7 @@ ze gespeeld is en het bestand waarin ze zit:
 - Voordat het bestand het programma verlaat, wordt elke resultaatcode en elk paar tegenstanders gevalideerd;
   een fout stopt de download met een melding.
 - Het bestand terug importeren in OpenPairings (of in een ander programma) is de beste
-  controle dat het zegt wat je denkt dat het zegt ([Importeren en exporteren](10-import-export.md)).
+  controle dat het zegt wat je denkt dat het zegt ([Importeren en exporteren](12-import-export.md)).
 - **Ontvangstbewijs (JSON)** op de pagina Exporteren downloadt het ontvangstbewijs van één verstuurd bestand: code en vingerafdruk, ronde of periode, wie het verstuurde en wanneer, de partijen zoals verstuurd, en de SHA-256 en naam van het bestand. Het ontvangstbewijs bewaart ook het exacte bestand; de ratinginbox downloadt en controleert dat bestand.
 
 ## De inbox per ratingperiode {#the-rating-period-inbox}
@@ -228,4 +228,4 @@ kopie aan, opnieuw opgebouwd uit het toernooi zoals het nu is, met het label
 ## Normrapporten {#norm-reports}
 
 Het IT3-toernooirapport en de formulieren voor arbiter- en spelersnormen zijn afzonderlijke Excel-bestanden;
-zie [Categorieën en normen](13-categories-and-norms.md).
+zie [Categorieën en normen](11-categories-and-norms.md).

@@ -344,4 +344,4 @@ accepted entry can be put back.
 Settings, **Export**, *Export players (CSV)*: the columns you choose, in the
 order you choose, with a separator (comma, semicolon, tab or pipe), ordered
 by starting rank or by name, optionally without absent players and with a
-marker for Excel. See [Import and export](10-import-export.md).
+marker for Excel. See [Import and export](12-import-export.md).

@@ -243,7 +243,7 @@ because the round no longer is what a FIDE-endorsed program would pair.
 
 ## Byes in the FIDE report
 
-The TRF report (see [Sending to FIDE](11-fide-report.md)) writes each kind
+The TRF report (see [Sending to FIDE](10-fide-report.md)) writes each kind
 with its own code: `U` for the pairing-allocated bye, `F` for a full-point
 bye, `H` for a half-point bye, `Z` for a zero-point bye or an absence, `-` for a
 forfeit loss and `+` for a forfeit win. A bye the arbiter has already granted for a round

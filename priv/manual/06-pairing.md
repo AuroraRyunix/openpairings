@@ -23,7 +23,7 @@ matter at that moment:
 | Not paired yet | **Pair round N** | **Absences** (the Players page, where you mark who sits the round out); in a round robin **Pair round N by hand…**; when it applies, **Record missing results as postponed and pair round N** |
 | Being played | None: entering the results is the work | **Print pairings**, and the control that decides what spectators see of the round ([Publishing](14-publishing.md)) |
 | Every result in | **On to round N**, which opens the next round with its **Pair round N** button | **Standings**, and what spectators see |
-| The last round, every result in | **Standings** | **Send for rating** (the Export page, see [Sending to FIDE](11-fide-report.md)), and what spectators see |
+| The last round, every result in | **Standings** | **Send for rating** (the Export page, see [Sending to FIDE](10-fide-report.md)), and what spectators see |
 
 In a Chess960 tournament **Draw Chess960 position** also sits there until the
 round's position is drawn.
@@ -268,7 +268,7 @@ expelled before ever being paired is simply not on the ladder.
 For Swiss and round robin team tournaments, **Pair round N** pairs team
 against team: each pairing is a match, shown in a table *Matches - round N*
 above the boards, and the boards of a match are played board against board
-(see [Teams](12-teams.md)). Team Swiss follows C.04.6 and is paired by the
+(see [Teams](13-teams.md)). Team Swiss follows C.04.6 and is paired by the
 Ainalrami team engine; a large field runs in the background and the page
 shows that it is working.
 
@@ -360,7 +360,7 @@ with the players it could involve and the games that decide it. The preview
 updates itself when a result is entered and can be printed (fixed boards
 and a list by name). It is available for individual Swiss tournaments, and only once it is
 switched on: it is part of the Belgian
-pack under Account, **Features** ([Accounts](15-accounts-and-handoff.md)).
+pack under Account, **Features** ([Accounts](16-accounts-and-handoff.md)).
 
 A result entered for one of the open games needs no new pairing: every
 combination already worked out is remembered, so the preview updates at once.
@@ -479,7 +479,7 @@ included but board order not:
   `### MPA @ Round r: <checker's boards> => <the round's boards>`. Finishing
   a session again replaces the line of that round, or removes it when the
   boards now agree with the engine. The file made by *Send…* contains records
-  only, so it has no such line ([Sending to FIDE](11-fide-report.md)).
+  only, so it has no such line ([Sending to FIDE](10-fide-report.md)).
 - **The checker cannot judge the round** (it is a Dutch-system check, so a
   team, round robin, Keizer, per-category or Swiss match format round is
   out of its reach): if the
@@ -535,14 +535,14 @@ the same way, and are judged the same.
   two rounds played can be changed ([FIDE mode](02-fide-mode.md)).
 - **A round that was already sent to the rating office.** Changing who played
   whom in a sent round needs the tick *I understand - change the sent round N
-  anyway* ([Sending to FIDE](11-fide-report.md)).
+  anyway* ([Sending to FIDE](10-fide-report.md)).
 
 ## Undoing a round
 
 > [!WARNING] Unpairing deletes results
 > **More**, **Unpair round** (shown on the last paired round only) deletes that
 > round and every result in it, after a confirmation. The program takes a
-> restore point first ([Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
+> restore point first ([Accounts, sharing and hand-off](16-accounts-and-handoff.md)).
 
 In a Swiss match format the two rounds of a match go together. A round that
 has been sent to the rating office cannot be unpaired.

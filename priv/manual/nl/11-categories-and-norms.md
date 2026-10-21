@@ -24,7 +24,7 @@ Twee schakelaars op de pagina:
 > apart toernooi, wat een afwijking is van de FIDE-modus
 > ([FIDE-modus](02-fide-mode.md)).
 
-![De instellingenpagina Categorieën met de categorieregels, prijzen en de twee schakelaars](screenshots/13-categories-settings.png "Categorieregels en schakelaars")
+![De instellingenpagina Categorieën met de categorieregels, prijzen en de twee schakelaars](screenshots/11-categories-settings.png "Categorieregels en schakelaars")
 
 ## Normen en FIDE-formulieren {#norms-and-fide-forms}
 
@@ -44,7 +44,7 @@ De formulieren worden ingevuld met de functionarissen en arbiters onder Instelli
 
 De formulieren gebruiken de FIDE-huisstijl voor namen (voornaam, ACHTERNAAM in hoofdletters).
 
-![De pagina Normen met de IT3-, FA1/IA1- en IT4-formulieren en de banner Nog niet klaar om bij FIDE in te dienen](screenshots/13-norms-forms.png "Geavanceerd, Normen")
+![De pagina Normen met de IT3-, FA1/IA1- en IT4-formulieren en de banner Nog niet klaar om bij FIDE in te dienen](screenshots/11-norms-forms.png "Geavanceerd, Normen")
 
 De pagina beoordeelt ook per speler of het evenement een titelnorm oplevert (FIDE
 B.01). Eén regel geldt alleen voor rondetoernooien: partijen tegen een **speler zonder

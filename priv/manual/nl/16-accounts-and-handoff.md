@@ -69,7 +69,7 @@ onderaan, in het rood):
 
 | Actie | Wat het doet |
 | --- | --- |
-| Exporteren | Het toernooi als JSON-bestand ([Importeren en exporteren](10-import-export.md)). |
+| Exporteren | Het toernooi als JSON-bestand ([Importeren en exporteren](12-import-export.md)). |
 | Kopiëren | Een heel nieuw toernooi met de naam *Kopie van …*, met alles erin (instellingen, spelers, ronden, resultaten), van jou als eigenaar. Het is niet gepubliceerd en heeft geen medewerkers. |
 | Archiveren | Maakt het toernooi alleen-lezen (er kunnen geen ronden meer gepaard worden en er verandert niets); *Dearchiveren* maakt dat ongedaan. De pagina zegt hoeveel uitgestelde partijen nog niet gespeeld zijn. |
 | Verwijderen | Verplaatst het toernooi naar de **Prullenbak** nadat je `DELETE` hebt getypt. |
@@ -100,11 +100,11 @@ Wat niet meereist: de herstelpunten, de telefoons die voor het invoeren van resu
 > [!WARNING]
 > Terwijl een toernooi is overgedragen, wordt **Versturen…** voor het ratingrapport geweigerd op de vergrendelde kopie, zodat maar één computer kan versturen.
 
-![De lijst met toernooien met de actie Overdragen en een overgedragen toernooi gemarkeerd als alleen-lezen](screenshots/15-handoff-list.png "De pagina Toernooien met een overdracht")
+![De lijst met toernooien met de actie Overdragen en een overgedragen toernooi gemarkeerd als alleen-lezen](screenshots/16-handoff-list.png "De pagina Toernooien met een overdracht")
 
 ## Back-ups en herstelpunten {#backups-and-restore-points}
 
-- **Herstelpunten** zijn kopieën van één toernooi, automatisch gemaakt vóór een actie die moeilijk ongedaan te maken is, en met de hand: Geavanceerd, **Geschiedenis** ([Categorieën, normen en de tools van Geavanceerd](13-categories-and-norms.md)).
+- **Herstelpunten** zijn kopieën van één toernooi, automatisch gemaakt vóór een actie die moeilijk ongedaan te maken is, en met de hand: Geavanceerd, **Geschiedenis** ([Categorieën, normen en de tools van Geavanceerd](11-categories-and-norms.md)).
 - **Back-ups van de hele database** worden ongeveer één keer per dag door het programma gemaakt (de eerste enkele minuten nadat het programma start, als de nieuwste ouder is dan een dag) en 30 dagen bewaard. Ze bevatten de toernooien, spelers, resultaten, snapshots en instellingen, niet de gedownloade ratinglijsten (die worden opnieuw opgehaald). **Verbindingen**, sectie *Back-ups* toont ze (*Gemaakt*, *Grootte*, **Downloaden**) en heeft **Nu back-up maken**. De naam van de map met de oudere back-ups wordt daar ook getoond.
 - Instellingen, **Exporteren** en de knop **Alles exporteren (JSON)** op de pagina Toernooien zijn back-ups die je bewaart waar je wilt.
 

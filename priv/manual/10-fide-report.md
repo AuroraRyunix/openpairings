@@ -43,7 +43,7 @@ paired round with its boards and its state:
 | *Ready to send* | Every board has a result. |
 | *Sent* | The round has been sent; the date and a receipt code are shown (for example `R5·7F2A`). |
 
-![The Export page, section TRF, with rounds in the states Being played, Ready to send and Sent](screenshots/11-export-trf-rounds.png "Rounds and their state on the Export page")
+![The Export page, section TRF, with rounds in the states Being played, Ready to send and Sent](screenshots/10-export-trf-rounds.png "Rounds and their state on the Export page")
 
 Tick the rounds you want and press:
 
@@ -90,7 +90,7 @@ Rules that follow from this:
 The file is TRF26. Besides the players' rows (the starting rank, name, FIDE ID,
 rating, title, federation, birth date, points, rank and the result of every
 round with the opponent and colour) it carries the header records and the
-tournament-type records listed in [Import and export](10-import-export.md).
+tournament-type records listed in [Import and export](12-import-export.md).
 For each round the result codes are `1`, `=`, `0` for played games, `+` and
 `-` for forfeits, `U` for the pairing-allocated bye, `H` for a half-point bye,
 `F` for a full-point bye, `Z` for a zero-point bye or an absence. A postponed
@@ -163,7 +163,7 @@ its state, the date it was played and the file it is in:
 - Before the file leaves the program, every result code and every pair of
   opponents is validated; an error stops the download with a message.
 - Importing the file back into OpenPairings (or any other program) is the
-  best check that it says what you think it says ([Import and export](10-import-export.md)).
+  best check that it says what you think it says ([Import and export](12-import-export.md)).
 - **Receipt (JSON)** on the Export page downloads the receipt of one sent file:
   its code and fingerprint, round or period, who sent it and when, the games as
   sent, and the file's SHA-256 and name. The receipt keeps the exact file too;
@@ -223,4 +223,4 @@ it is now, labelled *rebuilt copy*, which is not necessarily what was sent.
 ## Norm reports
 
 The IT3 tournament report and the arbiter and player norm forms are separate
-Excel files; see [Categories and norms](13-categories-and-norms.md).
+Excel files; see [Categories and norms](11-categories-and-norms.md).

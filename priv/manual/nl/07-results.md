@@ -304,4 +304,4 @@ voor de uitgestelde partijen, omdat een partij die in een andere ratingperiode
 is gespeeld, als apart toernooi wordt gerapporteerd. Buiten de FIDE-modus wordt
 een uitgestelde partij zonder vragen als `?` in de TRF-kopieën en als niet
 gespeeld in het bestand voor de rating geschreven. Zie
-[Versturen naar FIDE](11-fide-report.md).
+[Versturen naar FIDE](10-fide-report.md).

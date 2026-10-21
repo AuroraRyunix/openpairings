@@ -293,4 +293,4 @@ later after all, its real result goes to the FIDE in a separate file for the
 postponed games, because a game played in another rating period is reported
 as a separate tournament. Outside FIDE mode a postponed game is written `?` in
 the TRF copies and as not played in the file for rating, without asking. See
-[Sending to FIDE](11-fide-report.md).
+[Sending to FIDE](10-fide-report.md).

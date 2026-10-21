@@ -1479,6 +1479,69 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
 .manual-card-body { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .manual-card-title { font-weight: 650; font-size: 15.5px; line-height: 1.3; }
 .manual-card-summary { font-size: 13.5px; line-height: 1.5; color: var(--text-soft); }
+.manual-card-kicker { font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: 0.06em; color: var(--accent); }
+.manual-index-part-lede { max-width: 62ch; margin: -4px 0 16px; font-size: 14.5px; line-height: 1.55; color: var(--text-soft); }
+
+/* ---------- other programs ----------
+   Each program wears its own nine-squares mark in a board square, the way
+   a chapter wears its number: ink in the theme's text colour, the one
+   accent square in the theme's accent, the empty squares outlined. */
+
+.manual-mark { display: inline-grid; place-items: center; flex: none; color: var(--text); }
+.manual-mark-svg, .manual-mark-icon { display: block; width: 68%; height: 68%; }
+.manual-mark-ink { fill: currentColor; }
+.manual-mark-accent { fill: var(--accent); }
+.manual-mark-empty { fill: none; stroke: currentColor; stroke-width: 1.2; opacity: 0.55; }
+/* The chapter number fills with the accent when current or hovered; a mark
+   would lose its accent square in it, so the square only takes the edge. */
+.manual-toc-link.current .manual-mark,
+.manual-toc-link:hover .manual-mark,
+.manual-program-card:hover .manual-mark {
+  background: var(--surface); border-color: var(--accent); color: var(--text);
+}
+.manual-program-card .manual-card-number { width: 42px; height: 42px; border-radius: 8px; }
+
+.manual-program-head { padding-bottom: 24px; }
+.manual-program-id { display: flex; align-items: center; gap: 18px; }
+.manual-program-mark {
+  width: 64px; height: 64px;
+  border: 1px solid var(--border); border-radius: 14px;
+  background: var(--surface); box-shadow: var(--shadow);
+}
+.manual-program-heading { min-width: 0; }
+.page .manual-program-heading .manual-title { margin-bottom: 2px; }
+.manual-program-tagline { margin: 0; font-family: var(--manual-serif); font-style: italic; font-size: 18px; line-height: 1.35; color: var(--text-soft); }
+.manual-program-intro {
+  margin-top: 22px; padding: 18px 20px;
+  border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 10px;
+  background: var(--surface);
+}
+.manual-prose.manual-program-intro > :first-child { margin-top: 0; }
+.manual-program-intro p:last-child { margin-bottom: 0; }
+.manual-program-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.manual-program-actions .pe-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+.manual-program-actions .pe-btn:hover { transform: translateY(-1px); box-shadow: var(--shadow); }
+.manual-program-actions .pe-btn:not(.primary):hover { background: var(--surface); border-color: var(--accent); color: var(--accent); }
+.manual-program-pages { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 18px; }
+.manual-program-page {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 5px; border: 1px solid var(--border); border-radius: 999px;
+  background: var(--surface); color: var(--text); text-decoration: none;
+  font-size: 13.5px; line-height: 1.3;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+.manual-program-page:hover { border-color: var(--accent); color: var(--accent); }
+.manual-program-page.current { background: var(--accent-soft); border-color: var(--accent); color: var(--text); font-weight: 650; }
+.manual-program-page-number {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 999px;
+  background: var(--surface-alt); color: var(--text-soft);
+  font-size: 11px; font-weight: 650; font-variant-numeric: tabular-nums;
+}
+.manual-program-page.current .manual-program-page-number { background: var(--accent); color: var(--accent-ink); }
+.manual-program-head .manual-note-line { display: flex; align-items: center; gap: 6px; margin-top: 16px; }
 
 /* ---------- search results ---------- */
 
@@ -1572,12 +1635,16 @@ h1 .manual-help-link, h2 .manual-help-link { transform: translateY(-2px); }
   .manual-pager-link.next { grid-column: 1; }
   .manual-index-list { grid-template-columns: minmax(0, 1fr); }
   .manual-figure-placeholder { aspect-ratio: 4 / 3; }
+  .manual-program-id { gap: 14px; }
+  .manual-program-mark { width: 48px; height: 48px; border-radius: 10px; }
+  .manual-program-tagline { font-size: 16px; }
+  .manual-program-intro { padding: 14px 16px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
   .manual-shell *, .manual-shell *::before, .manual-shell *::after,
   .manual-help-link { transition: none !important; }
-  .manual-card:hover, .manual-pager-link:hover { transform: none; }
+  .manual-card:hover, .manual-pager-link:hover, .manual-program-actions .pe-btn:hover { transform: none; }
 }
 
 /* ---------- print: the chapter alone, as a handbook page ---------- */
@@ -1587,7 +1654,8 @@ h1 .manual-help-link, h2 .manual-help-link { transform: translateY(-2px); }
   body:has(#manual) .skip-link,
   body:has(#manual) #update-notice,
   .manual-sidebar, .manual-outline, .manual-pager, .manual-breadcrumb,
-  .manual-anchor, .manual-figure-zoom, .manual-toast, .manual-lightbox { display: none !important; }
+  .manual-anchor, .manual-figure-zoom, .manual-toast, .manual-lightbox,
+  .manual-program-actions, .manual-program-pages { display: none !important; }
   body:has(#manual) { background: #fff; color: #000; }
   body:has(#manual) .page { padding: 0; }
   .manual-shell { display: block; max-width: none; }

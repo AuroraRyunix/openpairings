@@ -443,7 +443,7 @@ over het bord, en maakt dan plaats voor de andere. In deze modus worden forfaits
 nooit getoond. Wanneer de laatste partij weg is, zegt het scherm dat en somt de
 resultaten op. Zonder de automatische modus blijven afgelopen partijen staan met hun
 resultaat. Het oudere paringenscherm op de uitslagensite is een aparte pagina en
-verandert niet. Zie [Het zaalscherm en de beamerweergave](16-openresults.md#the-hall-display-and-the-projector-view).
+verandert niet. Zie [Het zaalscherm en de beamerweergave](15-openresults.md#the-hall-display-and-the-projector-view).
 
 ### Stukkensets {#piece-sets}
 

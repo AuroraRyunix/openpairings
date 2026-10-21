@@ -428,7 +428,7 @@ mode. When the last game has gone, the screen says so and lists the results.
 Without the automatic mode, finished games stay where they are with their
 result. The older projector screen of pairings, on the results site, is a
 separate page and is not changed. See
-[The hall display](16-openresults.md#the-hall-display-and-the-projector-view).
+[The hall display](15-openresults.md#the-hall-display-and-the-projector-view).
 
 ### Piece sets {#piece-sets}
 

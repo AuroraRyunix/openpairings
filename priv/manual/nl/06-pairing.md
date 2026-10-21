@@ -23,7 +23,7 @@ moment tellen:
 | Nog niet gepaard | **Ronde N paren** | **Afwezigheden** (de pagina Spelers, waar je aanduidt wie de ronde niet speelt); in een round robin **Ronde N met de hand paren…**; als het van toepassing is, **Ontbrekende resultaten als uitgesteld noteren en ronde N paren** |
 | Wordt gespeeld | Geen: de resultaten invoeren is het werk | **Paringen afdrukken**, en de bediening die bepaalt wat toeschouwers van de ronde zien ([Publiceren](14-publishing.md)) |
 | Alle resultaten binnen | **Door naar ronde N**, die de volgende ronde opent met haar knop **Ronde N paren** | **Stand**, en wat toeschouwers zien |
-| De laatste ronde, alle resultaten binnen | **Stand** | **Insturen voor rating** (de pagina Exporteren, zie [Versturen naar FIDE](11-fide-report.md)), en wat toeschouwers zien |
+| De laatste ronde, alle resultaten binnen | **Stand** | **Insturen voor rating** (de pagina Exporteren, zie [Versturen naar FIDE](10-fide-report.md)), en wat toeschouwers zien |
 
 In een Chess960-toernooi staat daar ook **Chess960-stelling trekken**, tot de
 stelling van de ronde getrokken is.
@@ -286,7 +286,7 @@ gewoon niet op de ladder.
 Voor Zwitserse en rondetoernooien met ploegen paart **Ronde N paren** ploeg
 tegen ploeg: elke paring is een match, getoond in een tabel *Matches - ronde N*
 boven de borden. De borden van een match worden bord tegen bord gespeeld (zie
-[Ploegen](12-teams.md)). Zwitsers met ploegen volgt C.04.6 en wordt gepaard door
+[Ploegen](13-teams.md)). Zwitsers met ploegen volgt C.04.6 en wordt gepaard door
 de ploegenengine van Ainalrami. Bij een groot veld draait die op de achtergrond
 en toont de pagina dat ze bezig is.
 
@@ -385,7 +385,7 @@ De voorvertoning werkt zichzelf bij wanneer een resultaat wordt ingevoerd, en ka
 worden afgedrukt (vaste borden en een lijst op naam). Ze is beschikbaar voor
 afzonderlijke Zwitserse toernooien, en pas als ze is
 ingeschakeld: ze hoort bij het Belgische pakket onder Account, **Functies**
-([Accounts](15-accounts-and-handoff.md)).
+([Accounts](16-accounts-and-handoff.md)).
 
 Een resultaat voor een van de openstaande partijen vraagt geen nieuwe paring: elke
 al berekende combinatie wordt onthouden, dus de voorvertoning werkt meteen bij.
@@ -512,7 +512,7 @@ kleuren maar zonder de volgorde van de borden:
   `### MPA @ Round r: <checker's boards> => <the round's boards>`. Opnieuw afronden
   van een sessie vervangt de regel van die ronde, of verwijdert hem wanneer de
   borden nu met de engine overeenkomen. Het bestand dat *Versturen…* maakt,
-  bevat alleen records, dus het heeft geen zo'n regel ([Versturen naar FIDE](11-fide-report.md)).
+  bevat alleen records, dus het heeft geen zo'n regel ([Versturen naar FIDE](10-fide-report.md)).
 - **De controleur kan de ronde niet beoordelen** (het is een controle op het
   Nederlandse systeem, dus een ploegen-, rondetoernooi-, Keizer-, per-categorie- of
   Zwitsers-matchformaatronde valt buiten zijn bereik): als de borden verschillen van
@@ -572,14 +572,14 @@ en worden op dezelfde manier beoordeeld.
   alleen de laatste twee gespeelde rondes worden gewijzigd ([FIDE-modus](02-fide-mode.md)).
 - **Een ronde die al naar het ratingkantoor is verstuurd.** Het wijzigen van wie
   tegen wie speelde in een verstuurde ronde vraagt het vinkje *Ik begrijp het - wijzig
-  toch de verstuurde ronde N* ([Versturen naar FIDE](11-fide-report.md)).
+  toch de verstuurde ronde N* ([Versturen naar FIDE](10-fide-report.md)).
 
 ## Een ronde ongedaan maken {#undoing-a-round}
 
 > [!WARNING] Ontparen verwijdert resultaten
 > **Meer**, **Ronde ontparen** (alleen bij de laatste gepaarde ronde getoond)
 > verwijdert die ronde en elk resultaat erin, na een bevestiging. Het programma
-> maakt eerst een herstelpunt ([Accounts, delen en overdracht](15-accounts-and-handoff.md)).
+> maakt eerst een herstelpunt ([Accounts, delen en overdracht](16-accounts-and-handoff.md)).
 
 Bij een Zwitsers matchformaat horen de twee rondes van een match bij elkaar. Een
 ronde die naar het ratingkantoor is verstuurd, kan niet worden ontpaard.

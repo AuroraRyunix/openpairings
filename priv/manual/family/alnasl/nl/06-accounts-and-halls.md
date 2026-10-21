@@ -55,6 +55,10 @@ In elke zaal is een account eigenaar, arbiter of kijker. Dezelfde persoon kan in
 | Eigenaar | Dat alles, en bruggen toevoegen en verwijderen, en mensen uitnodigen |
 | Beheerder | Elke zaal zien en Alnasl zelf: zijn naam, updates, de tracker, de schakelaars op de pagina Resultaten |
 
+Eén ding is alleen van de eigenaar, wat een beheerder verder ook mag: [fair play](08-fair-play.md). Een beheerder die geen eigenaar van de zaal is, ziet er niets van.
+
+Een gewijzigde rol geldt meteen: als een eigenaar iemand terugzet of uit een zaal haalt (of de zaal wordt verwijderd), maken de open pagina's van die persoon vanzelf opnieuw verbinding en komen ze terug met wat die nu mag, in plaats van de oude rol te houden tot een herlaad.
+
 Voor een toernooi dat in meer dan één zaal gespeeld wordt, telt de hoogste rol die je in een van die zalen hebt - voor wat er in die zaal mee gebeurt. Voor de rest heb je de rol nodig waar het gebeurt:
 
 - **De zaal waar je staat.** Haar tafels aan een toernooi geven, een code toevoegen, haar bruggen: je rol in deze zaal, wat je ook bent in de andere zalen van het toernooi.

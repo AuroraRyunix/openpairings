@@ -101,7 +101,7 @@ players, dates and status. Each row has one **More** menu with these actions
 
 | Action | What it does |
 | --- | --- |
-| Export | The tournament as a JSON file ([Import and export](10-import-export.md)). |
+| Export | The tournament as a JSON file ([Import and export](12-import-export.md)). |
 | Copy | A whole new tournament named *Copy of …*, with everything in it (settings, players, rounds, results), owned by you. It is not published and has no collaborators. |
 | Archive | Makes the tournament read-only (no more rounds can be paired and nothing changed); *Unarchive* undoes it. The page says how many postponed games are still unplayed. |
 | Delete | Moves the tournament to the **Recycle bin** after you type `DELETE`. |
@@ -149,13 +149,13 @@ be opened as an ordinary backup.
 > While a tournament is handed off, **Send…** for the rating report is refused
 > on the locked copy, so that only one machine can send.
 
-![The tournament list with the Hand off action and a handed-off tournament marked read-only](screenshots/15-handoff-list.png "The Tournaments page with a hand-off")
+![The tournament list with the Hand off action and a handed-off tournament marked read-only](screenshots/16-handoff-list.png "The Tournaments page with a hand-off")
 
 ## Backups and restore points
 
 - **Restore points** are copies of one tournament, taken automatically before
   an action that is hard to undo and by hand: Advanced, **History**
-  ([Categories, norms and the Advanced tools](13-categories-and-norms.md)).
+  ([Categories, norms and the Advanced tools](11-categories-and-norms.md)).
 - **Backups of the whole database** are written by the program about once a day
   (the first a few minutes after the program starts, if the newest is older than a
   day) and kept for 30 days. They hold the tournaments, players, results,

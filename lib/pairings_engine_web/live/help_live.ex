@@ -18,7 +18,7 @@ defmodule PairingsEngineWeb.HelpLive do
 
   ## The page
 
-  Three columns on a wide screen: the chapters (grouped in three parts), the
+  Three columns on a wide screen: the chapters (grouped in parts, `@parts`), the
   chapter in a reading column, and its outline. The outline folds above the
   chapter on a narrower screen, and the chapter list folds behind a button on
   a phone. The colocated `.Manual` hook does what the server cannot: the
@@ -142,15 +142,39 @@ defmodule PairingsEngineWeb.HelpLive do
     )
   end
 
-  # The three parts of the manual, by chapter number.
+  # The parts of the manual: what an arbiter goes looking for, by chapter
+  # slug, so a renumbered file stays where it belongs. The files are
+  # numbered so that each part reads in order, but the number decides
+  # nothing here. A chapter nobody filed lands in the last part rather
+  # than vanishing from the contents (the HelpLive test complains first).
+  @parts [
+    {"part-preparing",
+     ~w(getting-started fide-mode tournament-setup players-and-ratings byes-and-absences)},
+    {"part-rounds", ~w(pairing results standings-and-tiebreaks)},
+    {"part-reports", ~w(printing fide-report categories-and-norms import-export)},
+    {"part-teams", ~w(teams)},
+    {"part-publishing", ~w(publishing openresults accounts-and-handoff)},
+    {"part-live-boards", ~w(live-boards setting-up-boards)},
+    {"part-manubrium", ~w(manubrium-app manubrium-privacy)}
+  ]
+
+  defp part_title("part-preparing"), do: gettext("Preparing the tournament")
+  defp part_title("part-rounds"), do: gettext("Round by round")
+  defp part_title("part-reports"), do: gettext("Reports and exports")
+  defp part_title("part-teams"), do: gettext("Team tournaments")
+  defp part_title("part-publishing"), do: gettext("Publishing and sharing")
+  defp part_title("part-live-boards"), do: gettext("Live boards")
+  defp part_title("part-manubrium"), do: gettext("Manubrium, the phone app")
+
   defp parts(chapters) do
-    [
-      {"part-preparing", gettext("Preparing the tournament"), 1..5},
-      {"part-rounds", gettext("Round by round"), 6..9},
-      {"part-reports", gettext("Reports, teams and sharing"), 10..99}
-    ]
-    |> Enum.map(fn {id, name, range} ->
-      {id, name, Enum.filter(chapters, &(&1.number in range))}
+    filed = @parts |> Enum.flat_map(&elem(&1, 1)) |> MapSet.new()
+    stray = Enum.reject(chapters, &MapSet.member?(filed, &1.slug))
+    last = @parts |> List.last() |> elem(0)
+
+    @parts
+    |> Enum.map(fn {id, slugs} ->
+      list = Enum.filter(chapters, &(&1.slug in slugs))
+      {id, part_title(id), if(id == last, do: list ++ stray, else: list)}
     end)
     |> Enum.reject(fn {_, _, list} -> list == [] end)
   end
@@ -196,6 +220,36 @@ defmodule PairingsEngineWeb.HelpLive do
 
   defp not_translated?(socket_locale, chapter),
     do: socket_locale != "en" and family?(chapter) and not chapter.translated?
+
+  attr :program, :map, required: true
+  attr :class, :string, default: nil
+
+  # A program's nine-squares mark, drawn from its rectangles in the theme's
+  # ink and accent (`PairingsEngine.Manual.Family`); OpenResults has no mark
+  # and gets a globe, which is roughly where its readers are.
+  defp program_mark(assigns) do
+    ~H"""
+    <span class={["manual-mark", @class]} aria-hidden="true">
+      <svg
+        :if={@program.mark}
+        viewBox="0 0 24 24"
+        class="manual-mark-svg"
+        aria-hidden="true"
+        focusable="false"
+      >
+        <rect
+          :for={r <- @program.mark}
+          x={r.x}
+          y={r.y}
+          width={r.width}
+          height={r.height}
+          class={"manual-mark-#{r.kind}"}
+        />
+      </svg>
+      <.icon :if={!@program.mark} name="hero-globe-alt" class="manual-mark-icon" />
+    </span>
+    """
+  end
 
   attr :parts, :list, required: true
 
@@ -323,6 +377,7 @@ defmodule PairingsEngineWeb.HelpLive do
                         @program && @program.slug == p.slug && @chapter.slug == nil && "current"
                       ]}
                     >
+                      <.program_mark program={p} class="manual-toc-number" />
                       <span class="manual-toc-text">{p.name}</span>
                     </.link>
 
@@ -415,7 +470,11 @@ defmodule PairingsEngineWeb.HelpLive do
                   <li><.link navigate={~p"/help"}>{gettext("Help")}</.link></li>
 
                   <%= if @program do %>
-                    <li>{gettext("Other programs")}</li>
+                    <li>
+                      <.link href={~p"/help" <> "#manual-index-other"}>
+                        {gettext("Other programs")}
+                      </.link>
+                    </li>
 
                     <li :if={@chapter.slug == nil} aria-current="page">{@program.name}</li>
                     <li :if={@chapter.slug != nil}>
@@ -431,10 +490,9 @@ defmodule PairingsEngineWeb.HelpLive do
                 </ol>
               </nav>
 
-              <header class="manual-chapter-head">
+              <header :if={!@program} class="manual-chapter-head">
                 <p class="manual-eyebrow">
-                  <span :if={@program} class="manual-chapter-number">{@program.name}</span>
-                  <span :if={!@program} class="manual-chapter-number">
+                  <span class="manual-chapter-number">
                     {gettext("Chapter %{n}", n: @chapter.number)}
                   </span>
 
@@ -446,24 +504,99 @@ defmodule PairingsEngineWeb.HelpLive do
                 <h1 id="manual-chapter-title" class="manual-title manual-chapter-title" lang="en">
                   {@chapter.title}
                 </h1>
+              </header>
+
+              <header
+                :if={@program}
+                id="manual-program-head"
+                class="manual-chapter-head manual-program-head"
+              >
+                <div class="manual-program-id">
+                  <.program_mark program={@program} class="manual-program-mark" />
+
+                  <div class="manual-program-heading">
+                    <p class="manual-eyebrow">
+                      <span class="manual-chapter-number">
+                        {if @chapter.slug == nil, do: gettext("Other programs"), else: @program.name}
+                      </span>
+
+                      <span class="manual-reading-time">
+                        {ngettext(
+                          "1 minute read",
+                          "%{count} minutes read",
+                          reading_minutes(@chapter)
+                        )}
+                      </span>
+                    </p>
+
+                    <h1 id="manual-chapter-title" class="manual-title manual-chapter-title">
+                      {if @chapter.slug == nil, do: @program.name, else: @chapter.title}
+                    </h1>
+
+                    <p :if={@program.tagline != ""} class="manual-program-tagline">
+                      {@program.tagline}
+                    </p>
+                  </div>
+                </div>
+
+                <div
+                  :if={@chapter.slug == nil && @program.intro}
+                  id="manual-program-intro"
+                  class="manual-program-intro manual-prose"
+                  lang={@manual_locale}
+                >
+                  {raw(@program.intro.html)}
+                </div>
+
+                <div class="manual-program-actions">
+                  <a
+                    :if={@program.releases_url}
+                    id="manual-program-releases"
+                    href={@program.releases_url}
+                    class="pe-btn primary"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <.icon name="hero-arrow-down-tray" class="size-4" /> {gettext("Latest release")}
+                  </a>
+                  <a
+                    id="manual-program-source"
+                    href={@program.github_url}
+                    class="pe-btn"
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    <.icon name="hero-code-bracket" class="size-4" /> {gettext("Source on GitHub")}
+                  </a>
+                </div>
+
+                <nav
+                  :if={length(@program.pages) > 1}
+                  id="manual-program-pages"
+                  class="manual-program-pages"
+                  aria-label={gettext("Pages about %{name}", name: @program.name)}
+                >
+                  <.link
+                    :for={{page, i} <- Enum.with_index(@program.pages, 1)}
+                    id={"manual-program-page-#{page.slug || "overview"}"}
+                    navigate={Family.path(page)}
+                    aria-current={@chapter.slug == page.slug && "page"}
+                    class={["manual-program-page", @chapter.slug == page.slug && "current"]}
+                  >
+                    <span class="manual-program-page-number" aria-hidden="true">{i}</span>
+                    <span>{page_label(page)}</span>
+                  </.link>
+                </nav>
 
                 <p
                   :if={not_translated?(@manual_locale, @chapter)}
                   id="manual-english-only"
                   class="manual-note-line"
                 >
-                  {gettext("This page is only available in English.")}
-                </p>
-
-                <p :if={@program} class="manual-note-line">
-                  <a
-                    id="manual-program-releases"
-                    href={@program.releases_url}
-                    rel="noopener noreferrer"
-                    target="_blank"
-                  >
-                    {gettext("Latest %{name} release on GitHub", name: @program.name)}
-                  </a>
+                  <.icon name="hero-language" class="size-4" />
+                  {if @chapter.slug == nil && @program.intro,
+                    do: gettext("The rest of this page is only available in English."),
+                    else: gettext("This page is only available in English.")}
                 </p>
               </header>
 
@@ -564,6 +697,7 @@ defmodule PairingsEngineWeb.HelpLive do
 
               <section
                 :for={{id, name, list} <- parts(@chapters)}
+                id={"#{id}-contents"}
                 class="manual-index-part"
                 aria-labelledby={"#{id}-index"}
               >
@@ -596,20 +730,28 @@ defmodule PairingsEngineWeb.HelpLive do
                   {gettext("Other programs")}
                 </h2>
 
-                <ol class="manual-index-list" lang="en">
+                <p class="manual-index-part-lede">
+                  {gettext(
+                    "The programs that work beside OpenPairings, from the engine inside it to the printer in the hall. Each page starts with what the program is and when you need it."
+                  )}
+                </p>
+
+                <ul class="manual-index-list">
                   <li :for={p <- @family}>
                     <.link
                       id={"manual-index-other-#{p.slug}"}
                       navigate={~p"/help/other/#{p.slug}"}
-                      class="manual-card"
+                      class="manual-card manual-program-card"
                     >
+                      <.program_mark program={p} class="manual-card-number" />
                       <span class="manual-card-body">
                         <span class="manual-card-title">{p.name}</span>
+                        <span :if={p.tagline != ""} class="manual-card-kicker">{p.tagline}</span>
                         <span class="manual-card-summary">{p.summary}</span>
                       </span>
                     </.link>
                   </li>
-                </ol>
+                </ul>
               </section>
             </section>
         <% end %>

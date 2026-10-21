@@ -2,8 +2,8 @@ defmodule Mix.Tasks.Help.SyncFamily do
   @shortdoc "Refreshes the vendored documentation of the other programs in the family"
 
   @moduledoc """
-  Copies the documentation of Alnasl, Arkab, Ascella, Polis, Nunki and
-  OpenResults from their sibling checkouts into `priv/manual/family/`, where
+  Copies the documentation of Ainalrami, OpenResults, Alnasl, Arkab, Polis,
+  Nunki and Ascella from their sibling checkouts into `priv/manual/family/`, where
   `PairingsEngine.Manual.Family` bakes it into the Help pages.
 
       mix help.sync_family
@@ -13,7 +13,8 @@ defmodule Mix.Tasks.Help.SyncFamily do
   sibling repositories, so the text is vendored: committed here, refreshed by
   whoever runs this task, then reviewed as a diff like any other change.
 
-  `--root` is the folder that holds the checkouts (`alnasl/`, `arkab/`, ...).
+  `--root` is the folder that holds the checkouts (`alnasl/`, `arkab/`, ...;
+  Ainalrami's is still called `openpair/`).
   Without it the task looks upwards from the current directory, which finds
   them from the main checkout and from a worktree of it alike. A program
   whose checkout is not found is reported and left as it was.
@@ -21,9 +22,14 @@ defmodule Mix.Tasks.Help.SyncFamily do
   Every document passes through `PairingsEngine.Manual.FamilyLinks.scrub/1`
   (pictures dropped, `DGT` in prose written as "electronic boards"). What
   is taken from each program is the one table below, `@programs`: the
-  README and the pages meant for the people who use the program. Plans,
-  briefs, release notes, audits, protocol contracts, deployment and launcher
-  internals are not on it, deliberately.
+  README and the pages meant for the people who use the program, minus the
+  README sections meant for its developers (`drop`, through
+  `FamilyLinks.drop_sections/3`). Plans, briefs, release notes, audits,
+  protocol contracts, deployment and launcher internals are not on it,
+  deliberately.
+
+  What OpenPairings says about each program itself (the introduction above
+  its pages) is not vendored: it is `priv/manual/programs/`, written here.
 
   The task prints what it added, changed and removed, and writes
   `priv/manual/family/manifest.json`: per program, the commit its checkout
@@ -33,49 +39,89 @@ defmodule Mix.Tasks.Help.SyncFamily do
 
   alias PairingsEngine.Manual.FamilyLinks
 
-  # THE selection. `files` and `nl` are globs inside the program's checkout;
-  # the Dutch files keep their names, so `nl` is only the folder to look in.
+  # THE selection, in the order the help lists the programs: roughly the
+  # order an arbiter meets them (the engine inside OpenPairings, the public
+  # site, then the hall). `files` and `nl` are globs inside the program's
+  # checkout; the Dutch files keep their names, so `nl` is only the folder to
+  # look in. `releases: false` is a program with nothing to download.
+  # `drop` names the sections (heading text) of those files that are
+  # for the program's developers, not for an arbiter: they stay on GitHub.
   @programs [
     %{
-      slug: "alnasl",
-      name: "Alnasl",
-      repo: "Alnasl",
-      dir: "alnasl",
-      files: ["priv/manual/[0-9]*.md"],
-      nl: ["priv/manual/nl/[0-9]*.md"]
-    },
-    %{slug: "arkab", name: "Arkab", repo: "Arkab", dir: "arkab", files: ["README.md"], nl: []},
-    %{
-      slug: "ascella",
-      name: "Ascella",
-      repo: "Ascella",
-      dir: "ascella",
+      slug: "ainalrami",
+      name: "Ainalrami",
+      repo: "Ainalrami",
+      # The checkout kept its name from before the rename.
+      dir: "openpair",
       files: ["README.md"],
-      nl: []
-    },
-    %{
-      slug: "polis",
-      name: "Polis",
-      repo: "Polis",
-      dir: "polis",
-      files: ["README.md", "docs/openpairings-integration.md"],
-      nl: []
-    },
-    %{
-      slug: "nunki",
-      name: "Nunki",
-      repo: "Nunki",
-      dir: "nunki",
-      files: ["README.md", "docs/openpairings-integration.md"],
-      nl: []
+      nl: [],
+      drop: [
+        "Install",
+        "Where it stands",
+        "Documentation",
+        "Development",
+        "Relationship to OpenPairings",
+        "Licence"
+      ]
     },
     %{
       slug: "openresults",
       name: "OpenResults",
       repo: "openresults",
       dir: "openresults",
+      # A server, not something to download: it publishes no releases, and
+      # a button to an empty releases page is worse than no button.
+      releases: false,
       files: ["README.md", "docs/public-extras.md"],
-      nl: []
+      nl: [],
+      drop: ["The contract", "The JavaScript", "Running it"]
+    },
+    %{
+      slug: "alnasl",
+      name: "Alnasl",
+      repo: "Alnasl",
+      dir: "alnasl",
+      files: ["priv/manual/[0-9]*.md"],
+      nl: ["priv/manual/nl/[0-9]*.md"],
+      drop: []
+    },
+    %{
+      slug: "arkab",
+      name: "Arkab",
+      repo: "Arkab",
+      dir: "arkab",
+      files: ["README.md"],
+      nl: [],
+      drop: ["As a dependency", "Tests"]
+    },
+    %{
+      slug: "polis",
+      name: "Polis",
+      repo: "Polis",
+      dir: "polis",
+      # `docs/openpairings-integration.md` is the plugin's wiring (routes,
+      # tables, sockets): for whoever builds OpenPairings, not for its users.
+      files: ["README.md"],
+      nl: [],
+      drop: ["Why Polis lays out its own pages", "Layout of the code", "Tests"]
+    },
+    %{
+      slug: "nunki",
+      name: "Nunki",
+      repo: "Nunki",
+      dir: "nunki",
+      files: ["README.md"],
+      nl: [],
+      drop: ["Building"]
+    },
+    %{
+      slug: "ascella",
+      name: "Ascella",
+      repo: "Ascella",
+      dir: "ascella",
+      files: ["README.md"],
+      nl: [],
+      drop: ["The catalogue", "Developing"]
     }
   ]
 
@@ -151,7 +197,14 @@ defmodule Mix.Tasks.Help.SyncFamily do
 
     changes =
       for {dest, source} <- wanted do
-        text = source |> File.read!() |> FamilyLinks.scrub()
+        url = FamilyLinks.github(program.repo) <> "/blob/main/" <> relative(checkout, source)
+
+        text =
+          source
+          |> File.read!()
+          |> FamilyLinks.scrub()
+          |> FamilyLinks.drop_sections(Map.get(program, :drop, []), url)
+
         write_if_changed(dest, text)
       end
 
@@ -163,6 +216,7 @@ defmodule Mix.Tasks.Help.SyncFamily do
       "slug" => program.slug,
       "name" => program.name,
       "repo" => program.repo,
+      "releases" => Map.get(program, :releases, true),
       "commit" => commit(checkout),
       "dirty" => dirty?(checkout, english ++ dutch),
       "files" =>

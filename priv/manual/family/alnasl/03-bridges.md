@@ -62,7 +62,7 @@ A bridge that is switched off by accident is the same: switch it on, and it carr
 
 "Remove" ends the bridge here and on the bridge itself, and its boards go with it. Removing this server on the bridge's page does the same from the other end, and either side ends the link for both.
 
-A bridge that was removed can join again with a new link. It comes back as the same bridge, with a new key. Losing a bridge is one Remove on the server.
+A bridge that was removed can join again with a new link. It comes back as the same bridge, with a new key. Losing a bridge is one Remove on the server. A bridge that is still in a hall is not taken by the link of another hall: the server refuses it, and the bridge's page says it is not a server it can join. Remove it from its hall first, or let an admin move it (below).
 
 ## Moving a bridge to another hall {#moving}
 

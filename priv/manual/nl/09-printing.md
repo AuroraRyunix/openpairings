@@ -104,7 +104,7 @@ matchpunten per ronde), **matchresultaatbladen** (één A4-pagina per match met 
 opstellingen, resultaatvakjes, de matchscore en handtekeningregels voor beide
 captains en de arbiter), **teamlijsten** en **bordprijzen** (per bordnummer, de
 spelers gerangschikt op percentage, punten en prestatie, met een optioneel minimum
-aantal partijen). Zie [Ploegen](12-teams.md).
+aantal partijen). Zie [Ploegen](13-teams.md).
 
 ## Accreditatiebadges {#accreditation-badges}
 
@@ -112,10 +112,10 @@ Badges van A6, twee op een A4-blad, worden gemaakt in een apart hulpmiddel: **Ge
 **Badges**. Een badge heeft een naam, foto, titel, federatie, FIDE-ID, een gekleurde
 rolbanner, tot twaalf genummerde ruimtes, logo's en een QR-code. Een evenement dat aan
 een toernooi is gekoppeld, importeert zijn spelers en officials; persbadges, VIP- en
-stafbadges worden met de hand toegevoegd. Zie [Categorieën en normen](13-categories-and-norms.md)
+stafbadges worden met de hand toegevoegd. Zie [Categorieën en normen](11-categories-and-norms.md)
 voor de andere hulpmiddelen onder Geavanceerd.
 
 ## De FIDE-formulieren afdrukken {#printing-the-fide-forms}
 
 De formulieren IT3, FA1, IA1 en IT4 zijn ingevulde Excel-bestanden uit **Geavanceerd**,
-**Normen**, geen afdrukpagina's ([Categorieën en normen](13-categories-and-norms.md)).
+**Normen**, geen afdrukpagina's ([Categorieën en normen](11-categories-and-norms.md)).
