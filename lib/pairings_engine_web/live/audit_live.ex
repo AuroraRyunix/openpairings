@@ -105,6 +105,7 @@ defmodule PairingsEngineWeb.AuditLive do
         team.absence_changed player.starting_numbers_set player.pairing_numbers_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
+        pairing.result_confirmed pairing.result_rejected
         pairing.tpn_order_accepted
         pairing.chess960_drawn pairing.rounds_swapped pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
@@ -121,7 +122,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
         pairing.rating_correction pibe.correction
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
-        pairing.announcement_compared pairing.announcement_acknowledged incident.logged)},
+        pairing.announcement_compared pairing.announcement_acknowledged incident.logged
+        incident.photo_added)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.late_entry_numbering_kept
         tournament.fide_compliance_lost
@@ -571,6 +573,33 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("pairing.result_entered", d),
     do: sentences([result_sentence(:entered, d), phone_sentence(d)])
+
+  # The arbiter's word on a result a Manubrium Lite phone entered
+  # (`PairingsEngine.Mobile.PhoneResults`): confirmed as seen, or rejected,
+  # which clears the board.
+  def describe("pairing.result_confirmed", d),
+    do:
+      gettext(
+        "Confirmed the result %{result} on board %{board} of round %{round} (%{white} - %{black}), entered from the phone \"%{phone}\".",
+        result: value(d, "to"),
+        board: value(d, "board"),
+        round: value(d, "round"),
+        white: value(d, "white"),
+        black: value(d, "black"),
+        phone: value(d, "phone")
+      )
+
+  def describe("pairing.result_rejected", d),
+    do:
+      gettext(
+        "Rejected the result %{result} on board %{board} of round %{round} (%{white} - %{black}), entered from the phone \"%{phone}\"; the board is blank again.",
+        result: value(d, "from"),
+        board: value(d, "board"),
+        round: value(d, "round"),
+        white: value(d, "white"),
+        black: value(d, "black"),
+        phone: value(d, "phone")
+      )
 
   # Before 2026-08-03 there was no `pairing.result_cleared`: blanking a board
   # was logged as a change TO nothing. Those rows are still in every older
@@ -1440,6 +1469,14 @@ defmodule PairingsEngineWeb.AuditLive do
 
     sentences([what, note, photo, phone_sentence(d)])
   end
+
+  def describe("incident.photo_added", d),
+    do:
+      gettext("Added a photo to the incident on board %{board} (round %{round}): %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
 
   def describe("collaborator.accepted", d),
     do: gettext("Accepted the collaboration invite (%{email}).", email: value(d, "email"))
@@ -2779,21 +2816,21 @@ defmodule PairingsEngineWeb.AuditLive do
       >
         {gettext("Norms")}
       </.link>
-
+      
       <.link
         navigate={~p"/t/#{@tournament.id}/history"}
         class={["pe-btn", "filter-picker", @active == :history && "active"]}
       >
         {gettext("History")}
       </.link>
-
+      
       <.link
         navigate={~p"/t/#{@tournament.id}/audit"}
         class={["pe-btn", "filter-picker", @active == :index && "active"]}
       >
         {gettext("Audit trail")}
       </.link>
-
+      
       <.link
         navigate={~p"/t/#{@tournament.id}/audit/explain"}
         class={["pe-btn", "filter-picker", @active == :explain && "active"]}
@@ -2820,17 +2857,17 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-
+          
           <p class="subtitle" style="margin: 0">
             {gettext("Pick a paired round to see its pairing rationale")}
           </p>
         </div>
       </div>
-      <.subnav tournament={@tournament} active={:explain} />
+       <.subnav tournament={@tournament} active={:explain} />
       <div :if={@paired_rounds == 0} class="card error-note" style="display: block; margin: 12px 0">
         {gettext("No rounds have been paired yet, so there is nothing to explain.")}
       </div>
-
+      
       <div :if={@paired_rounds > 0} class="round-picker">
         <.link
           :for={n <- 1..@paired_rounds}
@@ -2862,13 +2899,13 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-
+          
           <p class="subtitle" style="margin: 0">
             {gettext("Audit trail - every change, who made it, and when")}
           </p>
         </div>
       </div>
-      <.subnav tournament={@tournament} active={:index} />
+       <.subnav tournament={@tournament} active={:index} />
       <div class="round-picker" style="flex-wrap: wrap">
         <button
           :for={{key, _codes} <- categories()}
@@ -2879,7 +2916,7 @@ defmodule PairingsEngineWeb.AuditLive do
           {category_label(key)}
         </button>
       </div>
-
+      
       <p class="hint" style="margin: 8px 0">
         {if @category == "all",
           do: ngettext("%{count} event total.", "%{count} events total.", @total),
@@ -2890,19 +2927,19 @@ defmodule PairingsEngineWeb.AuditLive do
               @total
             )}
       </p>
-
+      
       <div class="card table-card">
         <table class="pe-table">
           <thead>
             <tr>
               <th style="width: 150px">{gettext("When")}</th>
-
+              
               <th style="width: 220px">{gettext("Who")}</th>
-
+              
               <th>{gettext("What")}</th>
             </tr>
           </thead>
-
+          
           <tbody>
             <tr :if={@entries == []}>
               <td colspan="3">
@@ -2911,18 +2948,18 @@ defmodule PairingsEngineWeb.AuditLive do
                 </div>
               </td>
             </tr>
-
+            
             <tr :for={entry <- @entries}>
               <td style="white-space: nowrap">{format_time(entry.inserted_at)}</td>
-
+              
               <td title={actor_title(entry)}>{actor(entry)}</td>
-
+              
               <td>{describe(entry)}</td>
             </tr>
           </tbody>
         </table>
       </div>
-
+      
       <div class="actions" style="margin-top: 12px; justify-content: space-between">
         <button
           class="pe-btn"
@@ -2932,7 +2969,7 @@ defmodule PairingsEngineWeb.AuditLive do
         >
           {gettext("← Newer")}
         </button>
-        <span class="hint">{gettext("Page %{n}", n: @page + 1)}</span>
+         <span class="hint">{gettext("Page %{n}", n: @page + 1)}</span>
         <button
           class="pe-btn"
           phx-click="page"

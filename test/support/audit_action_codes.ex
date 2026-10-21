@@ -46,6 +46,9 @@ defmodule PairingsEngine.AuditActionCodes do
     {"lib/pairings_engine_web/desk_actions.ex", "action"} =>
       ~w(pairing.pairings_published pairing.pairings_unpublished pairing.results_published
          pairing.results_unpublished standings.published standings.unpublished),
+    {"lib/pairings_engine_web/desk_actions.ex", "Map.fetch!(@hand_edit_audit, staged.kind)"} =>
+      ~w(pairing.players_swapped pairing.player_substituted pairing.seat_vacated
+         pairing.bye_awarded pairing.seat_filled pairing.pool_paired pairing.deleted),
     {"lib/pairings_engine/mobile.ex", "action"} =>
       ~w(pairing.result_cleared pairing.result_entered pairing.result_changed),
     {"lib/pairings_engine/tournaments.ex", "@forced_unlock_action"} =>

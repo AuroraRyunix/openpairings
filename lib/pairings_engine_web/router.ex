@@ -410,6 +410,24 @@ defmodule PairingsEngineWeb.Router do
          TournamentController,
          :clear
 
+    # A Lite phone's result: the arbiter's word on it.
+    post "/tournaments/:id/rounds/:number/boards/:pairing_id/confirm",
+         RoundEditController,
+         :confirm
+
+    post "/tournaments/:id/rounds/:number/boards/:pairing_id/reject",
+         RoundEditController,
+         :reject
+
+    # Hand edits to a paired round, and finishing them.
+    post "/tournaments/:id/rounds/:number/edits", RoundEditController, :edit
+    post "/tournaments/:id/rounds/:number/edits/finish", RoundEditController, :finish
+
+    patch "/tournaments/:id/settings", SettingsController, :update
+
+    post "/tournaments/:id/incidents/:incident_id/photo", IncidentController, :attach_photo
+    get "/tournaments/:id/incidents/:incident_id/photo", IncidentController, :photo
+
     get "/tournaments/:id/players", PlayerController, :index
     post "/tournaments/:id/players", PlayerController, :create
     patch "/tournaments/:id/players/:player_id", PlayerController, :update

@@ -557,6 +557,30 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"email" => "an@example.org", "from" => 11, "to" => nil},
       %{"email" => "an@example.org", "from" => nil, "to" => nil}
     ],
+    "incident.photo_added" => [
+      %{"kind" => "illegal_move", "round" => 3, "board" => 7, "via" => "mobile"}
+    ],
+    "pairing.result_confirmed" => [
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "to" => "1-0",
+        "phone" => "Zaal B"
+      }
+    ],
+    "pairing.result_rejected" => [
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "0-1",
+        "to" => "",
+        "phone" => "Zaal B"
+      }
+    ],
     "incident.logged" => [
       %{"kind" => "illegal_move", "round" => 3, "board" => 7},
       %{

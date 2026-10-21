@@ -562,6 +562,14 @@ defmodule PairingsEngine.Mobile do
         extra
       )
 
+    # A connected Manubrium app's code carries its device: the row says so,
+    # which is how `Mobile.PhoneResults` tells the arbiter's own taps from a
+    # Lite phone's entries that wait for the arbiter's word.
+    details =
+      if enrollment.device_id,
+        do: Map.put(details, :device_id, enrollment.device_id),
+        else: details
+
     # An account's own phone writes under that account; a no-account code
     # is "System", with the code in the details.
     PairingsEngine.Audit.log(enrollment.tournament_id, enrollment.user_id, action, details)

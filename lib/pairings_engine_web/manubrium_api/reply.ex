@@ -148,6 +148,8 @@ defmodule PairingsEngineWeb.ManubriumApi.Reply do
          "A player's bye preference cannot be honoured under FIDE rule C2. Change it at the desk, then pair."
        )}
 
+  def describe({:needs_acknowledgement, ids, _info}), do: describe({:needs_acknowledgement, ids})
+
   def describe({:needs_acknowledgement, ids}),
     do:
       {409, "needs_acknowledgement",
@@ -170,6 +172,80 @@ defmodule PairingsEngineWeb.ManubriumApi.Reply do
        gettext(
          "This computer does not let phones in. Switch on \"Let phones on this network connect\" at the desk."
        )}
+
+  def describe({:vacant, board}),
+    do:
+      {409, "vacant_seat",
+       gettext(
+         "Board %{board} has an empty seat. Fill it, give the remaining player a bye, or empty the board before finishing.",
+         board: board
+       )}
+
+  def describe(:no_boards),
+    do: {409, "no_boards", gettext("Pair at least one board before finishing.")}
+
+  def describe(:no_hand_edits),
+    do: {409, "no_hand_edits", gettext("This round has no hand edits open.")}
+
+  def describe(:not_in_round),
+    do: {422, "not_in_round", gettext("That player or board is not in this round.")}
+
+  def describe(:same_player),
+    do: {422, "same_player", gettext("Pick two different players.")}
+
+  def describe(:unknown_edit),
+    do: {400, "bad_request", gettext("Not an edit this app knows.")}
+
+  def describe(:unknown_bye_type),
+    do: {400, "bad_request", gettext("Not a bye type.")}
+
+  def describe(:bye_type_not_asked),
+    do:
+      {422, "bye_type_not_asked",
+       gettext("This tournament does not ask the bye type; a player is marked absent.")}
+
+  def describe(:already_bye),
+    do: {422, "already_bye", gettext("That board is already a bye.")}
+
+  def describe(:not_vacant),
+    do: {422, "not_vacant", gettext("That board has no empty seat to resolve.")}
+
+  def describe(:seat_taken),
+    do: {422, "seat_taken", gettext("Both seats on that board are taken.")}
+
+  def describe(:not_last_board),
+    do: {422, "not_last_board", gettext("Only the round's last board can be removed.")}
+
+  def describe(:board_taken),
+    do: {422, "board_taken", gettext("That board number was taken in the meantime.")}
+
+  def describe(:already_seated),
+    do: {422, "already_seated", gettext("That player was given a board in the meantime.")}
+
+  def describe(:invalid_player),
+    do: {422, "not_in_round", gettext("That player is not in this tournament.")}
+
+  def describe(:not_from_phone),
+    do:
+      {409, "not_from_phone",
+       gettext("That result did not come from a phone, or was dealt with already.")}
+
+  def describe(:not_clearable),
+    do: {409, "not_clearable", gettext("That result cannot be cleared from here.")}
+
+  def describe(:unknown_tiebreak),
+    do:
+      {422, "unknown_tiebreak",
+       gettext("Pick tie-breaks from the tournament's own list, each once.")}
+
+  def describe(:photo_exists),
+    do: {409, "photo_exists", gettext("That incident already has a photo.")}
+
+  def describe(:photo_too_large),
+    do: {413, "photo_too_large", gettext("The photo is too large.")}
+
+  def describe(:not_a_photo),
+    do: {415, "not_a_photo", gettext("That is not a JPEG photo.")}
 
   def describe(:not_found), do: {404, "not_found", gettext("Not found.")}
   def describe(:not_paired), do: {404, "not_paired", gettext("That round is not paired.")}

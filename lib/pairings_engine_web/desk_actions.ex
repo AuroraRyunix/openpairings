@@ -19,20 +19,27 @@ defmodule PairingsEngineWeb.DeskActions do
   answers a question on the arbiter's behalf.
   """
 
+  use Gettext, backend: PairingsEngineWeb.Gettext
+
   alias PairingsEngine.{
     Audit,
+    ByeTypes,
     EngineSlots,
+    HalfByes,
     ManualPairing,
+    ManualRoundRobin,
     PairingRationale,
     PostponedGames,
+    RoundRobin,
     Snapshots,
+    Tiebreaks,
     Tournaments,
     Tpn
   }
 
   alias PairingsEngine.Pairing, as: Engine
-  alias PairingsEngine.Tournaments.{Player, Tournament}
-  alias PairingsEngineWeb.ByePreferenceText
+  alias PairingsEngine.Tournaments.{Player, Round, Tournament}
+  alias PairingsEngineWeb.{ByePreferenceText, SettingsSupport}
 
   ## ---------- pairing a round ----------
 
@@ -397,4 +404,628 @@ defmodule PairingsEngineWeb.DeskActions do
       {to_string(field), [Map.get(before, field), Map.get(after_player, field)]}
     end
   end
+
+  ## ---------- hand edits ----------
+  #
+  # The Pairings page's hand edits (swap, substitute, mark absent, award a
+  # bye, fill a seat, pair two from the pool, delete an empty board), as the
+  # page applies them once its confirmation dialog is answered. The dialog's
+  # questions come back here as acknowledgement ids: a phone is told which
+  # ones the edit needs and sends them back ticked, which is the page's
+  # checkbox without the page.
+
+  # The audit action of each edit kind - `PairingsLive.audit_action/1`'s
+  # table, so the audit page describes a phone's edit and the desk's with
+  # one sentence.
+  @hand_edit_audit %{
+    swap: "pairing.players_swapped",
+    swap_pool: "pairing.player_substituted",
+    vacate: "pairing.seat_vacated",
+    bye: "pairing.bye_awarded",
+    fill: "pairing.seat_filled",
+    pool_pair: "pairing.pool_paired",
+    pool_bye: "pairing.bye_awarded",
+    delete_pairing: "pairing.deleted"
+  }
+
+  # The acknowledgements a hand edit can ask for. `:frozen_round` and
+  # `:pairing_rules` are the page's own ticks; the other two are the
+  # context's (`Tournaments.vacate_seat/4` and friends take them in `opts`).
+  @edit_acknowledgements [:frozen_round, :sent_round_changed, :pairing_rules, :second_half_bye]
+
+  @doc "The acknowledgement ids a hand edit may need (`hand_edit/5`)."
+  def edit_acknowledgement_ids, do: @edit_acknowledgements
+
+  @doc """
+  Applies one hand edit to `round` (pairings preloaded) of `t`, as the
+  Pairings page does after its confirmation: the context write, the implicit
+  start of the round's manual pairing alteration (Q65), the audit row.
+
+  `action` is one of
+
+    * `{:swap, a, b}` - two seated players trade seats (their own opponent:
+      a colour swap); one seated and one from the pool: a substitution;
+    * `{:vacate, player_id, bye_type}` - a seated player is marked absent,
+      `bye_type` nil/"absent" or, where the tournament asks the type
+      (`ByeTypes.applies?/1`), "requested-half", "requested-zero" or
+      "full-point";
+    * `{:bye, pairing_id}` - the player left alone on a board gets the
+      pairing-allocated bye;
+    * `{:fill, pairing_id, player_id}` - a pool player takes the empty seat;
+    * `{:pool_pair, a, b, board}` - two pool players on a new board (`board`
+      nil for the next free one);
+    * `{:pool_bye, player_id}` - a pool player gets the pairing-allocated
+      bye on a new board;
+    * `{:delete_pairing, pairing_id}` - an empty last board is removed.
+
+  `acknowledged` are the questions already answered, from
+  `edit_acknowledgement_ids/0`. The ones this edit needs and did not get
+  come back as `{:error, {:needs_acknowledgement, ids, info}}`, `info`
+  carrying the edit's `summary` and the pairing-rule `warnings` (sentences)
+  so the phone can show the same confirmation the desk shows.
+
+  `{:ok, result}` or `{:error, reason}`. Team events and rounds paired as
+  teams are the desk's (`:team_event`): their boards count for matches,
+  which a phone has no way to see.
+  """
+  def hand_edit(%Tournament{} = t, scope, %Round{} = round, action, acknowledged \\ []) do
+    with :ok <- editable_from_phone(t),
+         {:ok, staged} <- stage_edit(t, round, action),
+         :ok <- edit_gates(t, round, staged, acknowledged) do
+      apply_edit(t, scope, round, staged, acknowledged)
+    end
+  end
+
+  defp editable_from_phone(t) do
+    if Tournament.team?(t) or Tournament.paired_as_teams?(t),
+      do: {:error, :team_event},
+      else: :ok
+  end
+
+  defp stage_edit(_t, _round, {:swap, a, a}), do: {:error, :same_player}
+
+  defp stage_edit(t, round, {:swap, a, b}) do
+    cond do
+      seated?(round, a) and seated?(round, b) ->
+        {:ok, {pa, fa}} = locate_seat(round, a)
+        {:ok, {pb, fb}} = locate_seat(round, b)
+        same? = pa.id == pb.id
+
+        new_boards =
+          if same?,
+            do: new_board(pa, [{fa, b}, {fb, a}]),
+            else: new_board(pa, [{fa, b}]) ++ new_board(pb, [{fb, a}])
+
+        {:ok,
+         %{
+           kind: :swap,
+           summary: "#{name(t, a)}  ⇄  #{name(t, b)}",
+           new_boards: new_boards,
+           apply: &Tournaments.swap_players_in_round(round, a, b, &1)
+         }}
+
+      seated?(round, a) or seated?(round, b) ->
+        {seated, pooled} = if seated?(round, a), do: {a, b}, else: {b, a}
+
+        if pool_member?(t, round, pooled) do
+          {:ok, {pairing, field}} = locate_seat(round, seated)
+
+          {:ok,
+           %{
+             kind: :swap_pool,
+             summary: "#{name(t, pooled)} takes #{name(t, seated)}'s place",
+             new_boards: new_board(pairing, [{field, pooled}]),
+             apply: &Tournaments.swap_seated_with_pool_player(round, seated, pooled, &1)
+           }}
+        else
+          {:error, :not_in_round}
+        end
+
+      true ->
+        {:error, :not_in_round}
+    end
+  end
+
+  defp stage_edit(t, round, {:vacate, player_id, bye_type}) do
+    with {:ok, {_pairing, _field}} <- locate_seat(round, player_id),
+         {:ok, type, needs} <- vacate_type(t, round.number, player_id, bye_type) do
+      {:ok,
+       %{
+         kind: :vacate,
+         summary: "#{name(t, player_id)} is not playing round #{round.number}",
+         new_boards: [],
+         bye_type: type,
+         needs: needs,
+         apply: &Tournaments.vacate_seat(round, player_id, type, &1)
+       }}
+    end
+  end
+
+  defp stage_edit(t, round, {:bye, pairing_id}) do
+    with {:ok, pairing} <- fetch_pairing(round, pairing_id),
+         {:ok, remaining} <- lone_player(pairing) do
+      {:ok,
+       %{
+         kind: :bye,
+         summary: "#{name(t, remaining)} sits out round #{round.number}",
+         new_boards: [{remaining, :pab}],
+         apply: &Tournaments.award_bye_for_vacancy(round, pairing, &1)
+       }}
+    end
+  end
+
+  defp stage_edit(t, round, {:fill, pairing_id, player_id}) do
+    with {:ok, pairing} <- fetch_pairing(round, pairing_id),
+         {:ok, _remaining} <- lone_player(pairing),
+         true <- pool_member?(t, round, player_id) || {:error, :not_in_round} do
+      field = if is_nil(pairing.white_player_id), do: :white_player_id, else: :black_player_id
+
+      {:ok,
+       %{
+         kind: :fill,
+         summary: "#{name(t, player_id)} joins board #{pairing.board}",
+         new_boards: new_board(pairing, [{field, player_id}]),
+         apply: &Tournaments.fill_seat(round, pairing, player_id, &1)
+       }}
+    end
+  end
+
+  defp stage_edit(_t, _round, {:pool_pair, a, a, _board}), do: {:error, :same_player}
+
+  defp stage_edit(t, round, {:pool_pair, a, b, board}) do
+    if pool_member?(t, round, a) and pool_member?(t, round, b) do
+      board = board || Tournaments.next_free_board(round)
+
+      {:ok,
+       %{
+         kind: :pool_pair,
+         summary: "#{name(t, a)} - #{name(t, b)} on board #{board}",
+         new_boards: [{a, b}],
+         apply: &Tournaments.pair_from_pool(round, a, b, board, &1)
+       }}
+    else
+      {:error, :not_in_round}
+    end
+  end
+
+  defp stage_edit(t, round, {:pool_bye, player_id}) do
+    cond do
+      RoundRobin.by_hand?(t) ->
+        {:error, :round_robin}
+
+      not pool_member?(t, round, player_id) ->
+        {:error, :not_in_round}
+
+      true ->
+        board = Tournaments.next_free_board(round)
+
+        {:ok,
+         %{
+           kind: :pool_bye,
+           summary: "#{name(t, player_id)} sits out round #{round.number}",
+           new_boards: [{player_id, :pab}],
+           apply: &Tournaments.award_pool_bye(round, player_id, board, &1)
+         }}
+    end
+  end
+
+  defp stage_edit(_t, round, {:delete_pairing, pairing_id}) do
+    with {:ok, pairing} <- fetch_pairing(round, pairing_id) do
+      {:ok,
+       %{
+         kind: :delete_pairing,
+         summary: "Board #{pairing.board} is removed from round #{round.number}",
+         new_boards: [],
+         apply: fn _ack -> Tournaments.delete_pairing(round, pairing) end
+       }}
+    end
+  end
+
+  defp stage_edit(_t, _round, _action), do: {:error, :unknown_edit}
+
+  # The bye type a vacated seat files the player under, and the tick a
+  # second half-point bye needs (Q174). A picked type is only an option
+  # where the tournament asks for one.
+  defp vacate_type(_t, _n, _player_id, type) when type in [nil, "", "absent"],
+    do: {:ok, "absent", []}
+
+  defp vacate_type(t, n, player_id, type)
+       when type in ["requested-half", "requested-zero", "full-point"] do
+    with true <- ByeTypes.applies?(t) || {:error, :bye_type_not_asked},
+         %Player{} = player <- Tournaments.get_player(t.id, player_id) || {:error, :not_in_round} do
+      cond do
+        type == "requested-half" and player.no_half_bye == true ->
+          {:error, :half_bye_not_eligible}
+
+        type == "requested-half" and HalfByes.taken_rounds(t, player) -- [n] != [] ->
+          {:ok, type, [:second_half_bye]}
+
+        true ->
+          {:ok, type, []}
+      end
+    end
+  end
+
+  defp vacate_type(_t, _n, _player_id, _type), do: {:error, :unknown_bye_type}
+
+  # What this edit needs confirmed, against what was: a round that is not
+  # the latest paired one, a round already sent to the federation, boards
+  # that break the pairing rules (Q66, Q67), and the edit's own.
+  defp edit_gates(t, round, staged, acknowledged) do
+    paired = Engine.paired_rounds_count(t.id)
+    warnings = rule_warnings(t, round.number, staged.new_boards)
+
+    needed =
+      Enum.concat([
+        if(paired > 0 and round.number != paired, do: [:frozen_round], else: []),
+        if(PostponedGames.round_sent?(t.id, round.number), do: [:sent_round_changed], else: []),
+        if(warnings != [], do: [:pairing_rules], else: []),
+        Map.get(staged, :needs, [])
+      ])
+
+    case needed -- acknowledged do
+      [] ->
+        :ok
+
+      missing ->
+        {:error,
+         {:needs_acknowledgement, missing, %{summary: staged.summary, warnings: warnings}}}
+    end
+  end
+
+  defp apply_edit(t, scope, round, staged, acknowledged) do
+    ack = [
+      acknowledged: Enum.filter(acknowledged, &(&1 in [:sent_round_changed, :second_half_bye]))
+    ]
+
+    case staged.apply.(ack) do
+      {:ok, _} = ok ->
+        implicit_mpa_start(t, scope, round)
+
+        details =
+          %{round: round.number, summary: staged.summary}
+          |> Map.merge(
+            if(
+              :sent_round_changed in acknowledged and
+                PostponedGames.round_sent?(t.id, round.number),
+              do: %{confirmed: "sent_round_changed"},
+              else: %{}
+            )
+          )
+          |> Map.merge(if(staged[:bye_type], do: %{bye_type: staged.bye_type}, else: %{}))
+          |> Map.merge(
+            if(:second_half_bye in Map.get(staged, :needs, []),
+              do: %{confirmed_second_half_bye: true},
+              else: %{}
+            )
+          )
+          |> Map.put(:via, "mobile")
+
+        Audit.log(t.id, scope, Map.fetch!(@hand_edit_audit, staged.kind), details)
+        ok
+
+      {:error, _reason} = error ->
+        error
+    end
+  end
+
+  # The first hand edit of a round opens its manual pairing alteration, from
+  # the boards as they were before it (Q65) - `PairingsLive`'s own rule.
+  defp implicit_mpa_start(t, scope, round) do
+    if not ManualPairing.open?(round) do
+      case ManualPairing.start(round, ManualPairing.boards(round)) do
+        {:ok, true} ->
+          Audit.log(t.id, scope, "pairing.mpa_started", %{round: round.number, implicit: true})
+
+        _ ->
+          :ok
+      end
+    end
+
+    :ok
+  end
+
+  @doc """
+  Finishes the hand edits of `round` (pairings preloaded) the way the
+  Pairings page's "Finish hand edits" does: the pairing checker judges the
+  round (`ManualPairing.assess/2`); boards that are not the checker's are
+  kept only with `:mpa_pibe` in `acknowledged`, and recorded as the round's
+  MPA PIBE.
+
+  `{:ok, pibe_line | nil}`, `{:error, {:needs_acknowledgement, [:mpa_pibe],
+  info}}` with the checker's verdict for the phone to show (`checked`,
+  `line`, `missing`, `added`, `warnings`, all as sentences), or
+  `{:error, reason}`: `:no_hand_edits` when none are open, `{:vacant, board}`
+  and `:no_boards` as the page says them.
+  """
+  def finish_hand_edits(%Tournament{} = t, scope, %Round{} = round, acknowledged \\ []) do
+    if ManualPairing.open?(round) do
+      case ManualPairing.assess(t, round) do
+        {:error, _reason} = error ->
+          error
+
+        :unchanged ->
+          finish_mpa(t, scope, round, :keep)
+
+        {:matches, _info} ->
+          finish_mpa(t, scope, round, :clear)
+
+        {kind, info} when kind in [:differs, :unchecked] ->
+          if :mpa_pibe in acknowledged do
+            finish_mpa(t, scope, round, {:set, info.line})
+          else
+            {:error,
+             {:needs_acknowledgement, [:mpa_pibe],
+              %{
+                checked: kind == :differs,
+                line: info.line,
+                missing: info |> Map.get(:missing, []) |> Enum.map(&pair_text(t, &1)),
+                added: info |> Map.get(:added, []) |> Enum.map(&pair_text(t, &1)),
+                warnings:
+                  info
+                  |> Map.get(:warnings, [])
+                  |> Enum.map(&rule_warning_text(&1, fn id -> name(t, id) end))
+              }}}
+          end
+      end
+    else
+      {:error, :no_hand_edits}
+    end
+  end
+
+  defp finish_mpa(t, scope, round, pibe) do
+    with :ok <- ManualPairing.finish(round, pibe) do
+      line =
+        case pibe do
+          {:set, line} -> line
+          :keep -> round.mpa_pibe
+          :clear -> nil
+        end
+
+      Audit.log(t.id, scope, "pairing.mpa_finished", %{round: round.number, pibe: line})
+      {:ok, line}
+    end
+  end
+
+  @doc """
+  What the boards a hand edit creates break (Q66, Q67), as sentences - only
+  for a tournament the checker can judge, and only when the edit creates
+  any. `new_boards` as `ManualPairing.warnings/4` takes them.
+  """
+  def rule_warnings(_t, _n, []), do: []
+
+  def rule_warnings(%Tournament{} = t, n, boards) do
+    names = &name(t, &1)
+
+    case RoundRobin.by_hand?(t) || ManualPairing.field(t, n) do
+      true ->
+        boards =
+          Enum.map(boards, fn
+            {w, :pab} -> {w, nil}
+            board -> board
+          end)
+
+        t |> ManualRoundRobin.warnings(n, boards) |> Enum.map(&rule_warning_text(&1, names))
+
+      {:ok, field} ->
+        field |> ManualPairing.warnings(t, n, boards) |> Enum.map(&rule_warning_text(&1, names))
+
+      :error ->
+        []
+    end
+  end
+
+  @doc "One absolute-criteria breach (`ManualPairing.warnings/4`), in words; `name` turns a player id into a name."
+  def rule_warning_text(%{kind: :rematch, players: [a, b], round: met}, name),
+    do:
+      gettext("%{a} and %{b} already played each other, in round %{round}.",
+        a: name.(a),
+        b: name.(b),
+        round: met
+      )
+
+  def rule_warning_text(%{kind: :forbidden, players: [a, b]}, name),
+    do: gettext("%{a} and %{b} are a prohibited pairing.", a: name.(a), b: name.(b))
+
+  def rule_warning_text(%{kind: :bye, players: [a], reason: :pairing_bye}, name),
+    do: gettext("%{name} already had a pairing-allocated bye.", name: name.(a))
+
+  def rule_warning_text(%{kind: :bye, players: [a], reason: :forfeit_win}, name),
+    do:
+      gettext(
+        "%{name} already won a game by forfeit, so may not get the pairing-allocated bye.",
+        name: name.(a)
+      )
+
+  def rule_warning_text(%{kind: :bye, players: [a]}, name),
+    do:
+      gettext(
+        "%{name} already had a full-point bye, so may not get the pairing-allocated bye.",
+        name: name.(a)
+      )
+
+  def rule_warning_text(%{kind: :colour_three, players: [a], colour: colour}, name),
+    do:
+      gettext("%{name} gets %{colour} for the third game running, before the last round.",
+        name: name.(a),
+        colour: colour_word(colour)
+      )
+
+  def rule_warning_text(%{kind: :colour_imbalance, players: [a]}, name),
+    do:
+      gettext(
+        "%{name} gets a colour difference of more than two, before the last round.",
+        name: name.(a)
+      )
+
+  def rule_warning_text(%{kind: :wrong_colours, players: [a, b]}, name),
+    do:
+      gettext(
+        "%{a} and %{b} both get the colour opposite to the one they are due.",
+        a: name.(a),
+        b: name.(b)
+      )
+
+  def rule_warning_text(%{kind: :rr_repeat, players: [a, b], round: met}, name),
+    do:
+      gettext("%{a} and %{b} already meet in round %{round}, in the same cycle.",
+        a: name.(a),
+        b: name.(b),
+        round: met
+      )
+
+  def rule_warning_text(%{kind: :rr_colour_three, players: [a], colour: colour}, name),
+    do:
+      gettext("%{name} gets %{colour} for the third round running.",
+        name: name.(a),
+        colour: colour_word(colour)
+      )
+
+  def rule_warning_text(%{kind: :rr_outside, players: [a]}, name),
+    do:
+      gettext("%{name} is not in the round robin's table, so plays nobody else in it.",
+        name: name.(a)
+      )
+
+  def rule_warning_text(%{kind: :rr_incomplete, players: [], cycle: cycle}, _name),
+    do:
+      gettext(
+        "The rounds left in cycle %{cycle} can no longer pair everyone who has not met yet exactly once.",
+        cycle: cycle
+      )
+
+  def rule_warning_text(%{kind: :rr_incomplete, players: players, cycle: cycle}, name),
+    do:
+      gettext(
+        "The rounds left in cycle %{cycle} do not match the opponents still to meet for: %{names}. Not everyone can meet everyone exactly once in this cycle.",
+        cycle: cycle,
+        names: Enum.map_join(players, ", ", name)
+      )
+
+  def rule_warning_text(%{players: players}, name),
+    do: Enum.map_join(players, ", ", name)
+
+  defp colour_word("w"), do: gettext("White")
+  defp colour_word(_b), do: gettext("Black")
+
+  defp pair_text(t, {w, nil}), do: gettext("%{name} - bye", name: name(t, w))
+  defp pair_text(t, {w, b}), do: "#{name(t, w)} - #{name(t, b)}"
+
+  # The board `pairing` becomes with `substitutions` (`{field, player_id}`)
+  # applied, as `ManualPairing.warnings/4` takes it.
+  defp new_board(pairing, substitutions) do
+    {w, b} =
+      Enum.reduce(substitutions, {pairing.white_player_id, pairing.black_player_id}, fn
+        {:white_player_id, id}, {_w, b} -> {id, b}
+        {:black_player_id, id}, {w, _b} -> {w, id}
+      end)
+
+    cond do
+      pairing.result == "bye" and is_nil(b) and not is_nil(w) -> [{w, :pab}]
+      not is_nil(w) and not is_nil(b) -> [{w, b}]
+      true -> []
+    end
+  end
+
+  defp seated?(round, player_id),
+    do:
+      Enum.any?(
+        round.pairings,
+        &(&1.white_player_id == player_id or &1.black_player_id == player_id)
+      )
+
+  defp locate_seat(round, player_id) do
+    Enum.find_value(round.pairings, {:error, :not_in_round}, fn pairing ->
+      cond do
+        pairing.white_player_id == player_id -> {:ok, {pairing, :white_player_id}}
+        pairing.black_player_id == player_id -> {:ok, {pairing, :black_player_id}}
+        true -> nil
+      end
+    end)
+  end
+
+  defp fetch_pairing(round, id) do
+    case Enum.find(round.pairings, &(&1.id == id)) do
+      nil -> {:error, :not_in_round}
+      pairing -> {:ok, pairing}
+    end
+  end
+
+  # The one player on a board with exactly one empty seat and no bye.
+  defp lone_player(%{result: "bye"}), do: {:error, :already_bye}
+
+  defp lone_player(pairing) do
+    case {pairing.white_player_id, pairing.black_player_id} do
+      {nil, nil} -> {:error, :not_vacant}
+      {w, nil} -> {:ok, w}
+      {nil, b} -> {:ok, b}
+      _both -> {:error, :seat_taken}
+    end
+  end
+
+  defp pool_member?(t, round, player_id) do
+    t.id
+    |> Tournaments.list_round_pool(round.number)
+    |> Enum.any?(&(&1.player.id == player_id))
+  end
+
+  defp name(t, id), do: player_name(t.id, id) || "?"
+
+  ## ---------- settings ----------
+
+  # The settings an arbiter changes mid-event, and nothing structural: the
+  # round count, the tie-breaks, the time control, the officials, the venue,
+  # and the bye policy. Everything else is a desk page with a reason.
+  @phone_settings ~w(rounds_count tiebreaks time_control chief_arbiter deputy_arbiter venue city
+                     bye_value ask_bye_type shared_places)
+
+  @doc "The settings fields a phone may change (`update_settings/3`), as strings."
+  def phone_settings_fields, do: @phone_settings
+
+  @doc """
+  The settings fields of `phone_settings_fields/0` that `t` can change now:
+  the locked ones (`Tournaments.locked_fields/1`) are left out.
+  """
+  def editable_settings(%Tournament{} = t) do
+    locked = t |> Tournaments.locked_fields() |> Enum.map(&Atom.to_string/1)
+    @phone_settings -- locked
+  end
+
+  @doc """
+  Changes the settings of `t` as the Settings pages do
+  (`Tournaments.update_tournament/2`, with its locks) and audits the
+  difference. Only `phone_settings_fields/0` are taken from `params`; a
+  tie-break list is checked against the tournament's own catalogue first.
+  `{:ok, tournament}` or `{:error, reason}`.
+  """
+  def update_settings(%Tournament{} = t, scope, params) when is_map(params) do
+    params = Map.take(params, @phone_settings)
+
+    with :ok <- check_tiebreaks(t, params["tiebreaks"]),
+         {:ok, updated} <- Tournaments.update_tournament(t, params) do
+      changed = SettingsSupport.tournament_diff(t, updated)
+
+      if changed != %{} do
+        Audit.log(t.id, scope, "tournament.settings_updated", %{
+          changed_fields: changed,
+          via: "mobile"
+        })
+      end
+
+      {:ok, updated}
+    end
+  end
+
+  defp check_tiebreaks(_t, nil), do: :ok
+
+  defp check_tiebreaks(t, codes) when is_list(codes) do
+    known = t.type |> Tiebreaks.selectable() |> Enum.map(& &1.code)
+
+    if codes != [] and Enum.all?(codes, &(is_binary(&1) and &1 in known)) and
+         codes == Enum.uniq(codes),
+       do: :ok,
+       else: {:error, :unknown_tiebreak}
+  end
+
+  defp check_tiebreaks(_t, _codes), do: {:error, :unknown_tiebreak}
 end

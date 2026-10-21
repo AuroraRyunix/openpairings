@@ -10,9 +10,20 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
   """
   use Gettext, backend: PairingsEngineWeb.Gettext
 
-  alias PairingsEngine.{Incidents, PostponedGames, Results, Standings, Tournaments}
+  alias PairingsEngine.{
+    Incidents,
+    ManualPairing,
+    PostponedGames,
+    Results,
+    Standings,
+    Tiebreaks,
+    Tournaments
+  }
+
+  alias PairingsEngine.Mobile.PhoneResults
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
+  alias PairingsEngineWeb.DeskActions
 
   @doc "What a role may do from the app, as the list the app switches its screens on."
   def capabilities(role) when role in [:owner, :editor],
@@ -69,7 +80,7 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
           }
         end),
       next_round: if(desk?, do: next_round(t, paired)),
-      settings: settings(t)
+      settings: settings(t, role)
     }
   end
 
@@ -111,8 +122,13 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
     %{number: number, blocker: blocker, warnings: warnings}
   end
 
-  defp settings(%Tournament{} = t) do
-    %{
+  @doc """
+  The settings worth reading from a phone, and - for the desk's roles - the
+  ones it may change now (`DeskActions.editable_settings/1`) with the
+  tie-break catalogue to pick from.
+  """
+  def settings(%Tournament{} = t, role) do
+    base = %{
       type: t.type,
       venue: blank_nil(t.venue),
       city: blank_nil(t.city),
@@ -120,15 +136,34 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       start_date: blank_nil(t.start_date),
       end_date: blank_nil(t.end_date),
       chief_arbiter: blank_nil(t.chief_arbiter),
+      deputy_arbiter: blank_nil(t.deputy_arbiter),
       time_control: blank_nil(t.time_control),
+      rounds_count: t.rounds_count,
       round_dates: t.round_dates || [],
       tiebreaks: Standings.effective_tiebreaks(t),
       fide_rated: t.fide_homologated == true,
       postponed_games: t.postponed_games == true,
       ask_bye_type: t.ask_bye_type == true,
+      shared_places: t.shared_places == true,
+      bye_value: t.bye_value,
       publish_mode: t.publish_mode,
       points: %{win: t.points_win, draw: t.points_draw, loss: t.points_loss}
     }
+
+    if role in [:owner, :editor] do
+      Map.merge(base, %{
+        editable: DeskActions.editable_settings(t),
+        # What the tie-break editor starts from: the list as configured,
+        # before `effective_tiebreaks/1` drops what does not apply.
+        configured_tiebreaks: t.tiebreaks || [],
+        tiebreak_options:
+          t.type
+          |> Tiebreaks.selectable()
+          |> Enum.map(&%{code: &1.code, name: &1.name})
+      })
+    else
+      base
+    end
   end
 
   @doc """
@@ -143,11 +178,13 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       |> Standings.standings(through_round: round.number - 1)
       |> Map.new(&{&1.player.id, &1.points})
 
+    phones = PhoneResults.by_pairing(t.id, round.number)
+
     boards =
       round.pairings
       |> Enum.reject(& &1.hidden)
       |> Enum.sort_by(& &1.board)
-      |> Enum.map(&board(&1, scores))
+      |> Enum.map(&board(&1, scores, Map.get(phones, &1.id)))
 
     %{
       number: round.number,
@@ -158,22 +195,35 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
         t.id
         |> Tournaments.list_byes_for_round(round.number)
         |> Enum.map(fn b -> %{player: player(b.player, scores), type: b.type} end),
+      # Everyone not on a board, with why - what a seat is filled from and
+      # who a bye or a new board is given to.
+      pool:
+        t.id
+        |> Tournaments.list_round_pool(round.number)
+        |> Enum.map(fn e ->
+          %{player: player(e.player, scores), type: e.type, absent: e.absent? == true}
+        end),
+      hand_edits: %{open: ManualPairing.open?(round), pibe: round.mpa_pibe},
       results: Results.entry_codes() -- [""]
     }
   end
 
-  defp board(%Pairing{} = p, scores) do
-    bye? = is_nil(p.black_player_id)
+  defp board(%Pairing{} = p, scores, phone) do
+    bye? = p.result == "bye"
 
     %{
       id: p.id,
       board: p.board,
       label: p.display_board || Integer.to_string(p.board || 0),
       white: player(p.white_player, scores),
-      black: if(bye?, do: nil, else: player(p.black_player, scores)),
+      black: player(p.black_player, scores),
       bye: bye?,
+      # One empty seat and no bye: the board waits for a player or a bye.
+      vacant: not bye? and is_nil(p.white_player_id) != is_nil(p.black_player_id),
+      empty: is_nil(p.white_player_id) and is_nil(p.black_player_id),
       result: p.result || "",
-      clearable: not bye? and p.result not in [nil, ""] and Tournaments.result_clearable?(p)
+      clearable: not bye? and p.result not in [nil, ""] and Tournaments.result_clearable?(p),
+      phone: phone && %{by: phone.label, state: phone.state, at: phone.at}
     }
   end
 

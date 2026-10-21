@@ -232,6 +232,45 @@ defmodule PairingsEngine.Incidents do
   end
 
   @doc """
+  Attaches `data` (JPEG bytes) to incident `incident_id` of `tournament_id`
+  after the fact - a photo taken once the incident was already logged. The
+  same checks a photo in a queued entry meets (`check_photo/1`), one photo
+  per incident (`:photo_exists`), and an audit row under `scope`.
+  `{:ok, incident}` or `{:error, :not_found | :photo_exists |
+  :photo_too_large | :not_a_photo}`.
+  """
+  def attach_photo(tournament_id, incident_id, data, scope) do
+    with %Incident{} = incident <-
+           Repo.get_by(Incident, id: incident_id, tournament_id: tournament_id) ||
+             {:error, :not_found},
+         :ok <- if(incident.has_photo, do: {:error, :photo_exists}, else: :ok),
+         :ok <- check_photo(data) do
+      {:ok, updated} =
+        Repo.transaction(fn ->
+          insert_photo!(incident, data)
+          Repo.update!(Ecto.Changeset.change(incident, has_photo: true))
+        end)
+
+      Audit.log(tournament_id, scope, "incident.photo_added", %{
+        incident_id: incident.id,
+        kind: incident.kind,
+        round: incident.round_number,
+        board: incident.board,
+        via: "mobile"
+      })
+
+      # The desk's incidents page shows the camera mark as soon as it lands.
+      Phoenix.PubSub.broadcast(
+        PairingsEngine.PubSub,
+        topic(tournament_id),
+        {:incident_logged, tournament_id, incident.round_number}
+      )
+
+      {:ok, updated}
+    end
+  end
+
+  @doc """
   The photo of incident `incident_id` in `tournament_id`, or nil. The
   caller decides who may see it; this only makes sure the two ids belong
   together.
