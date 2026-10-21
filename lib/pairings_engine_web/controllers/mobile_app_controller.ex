@@ -67,20 +67,84 @@ defmodule PairingsEngineWeb.MobileAppController do
     conn |> put_status(400) |> json(%{error: "bad_request"})
   end
 
+  # Refusals with a sentence of their own below; anything else is the
+  # catch-all "not saved".
+  @worded [
+    :revoked,
+    :other_code,
+    :conflict,
+    :already_set,
+    :earlier_round,
+    :board_out_of_range,
+    :board_changed,
+    :board_gone,
+    :archived,
+    :handed_off,
+    :postponed_decisive,
+    :correction_after_pairing,
+    :sent_in_trf,
+    :kind_not_allowed,
+    :incident_cap,
+    :photo_too_large,
+    :not_a_photo,
+    :note_too_long,
+    :no_board
+  ]
+
   @doc """
   One answer of `Mobile.Sync.submit/2` as the phone reads it, sentence
   included. Shared with the Manubrium app's API
   (`PairingsEngineWeb.ManubriumApi.TournamentController`), whose queue is
-  this queue.
+  this queue. `audience` is `:phone` for a code's phone (Lite), `:account`
+  for the app signed in to an account (see `message/2`).
   """
-  def wire(answer) do
+  def wire(answer, audience \\ :phone) do
     %{
       cid: answer.cid,
       status: answer.status,
       reason: answer.reason,
-      message: message(answer)
+      message: message(answer, audience)
     }
   end
+
+  # `:account` is the full app, signed in as the organiser, an editor or an
+  # arbiter: the person holding the phone IS the arbiter, so "check with the
+  # arbiter" sends them to look for themselves. They get told what to do
+  # instead. Every refusal is still a refusal - only the sentence changes.
+  defp message(%{status: :refused, reason: reason, board: board} = answer, :account)
+       when reason in [:conflict, :revoked, :no_board] or reason not in @worded,
+       do: account_refusal(reason, board, answer.current)
+
+  defp message(answer, _audience), do: message(answer)
+
+  defp account_refusal(:no_board, _board, _current), do: no_board()
+
+  defp account_refusal(:conflict, board, current),
+    do:
+      gettext(
+        "Board %{board}: not saved - the board now says %{current}, entered elsewhere while this phone was waiting. Look at the board, and enter yours again if it stands.",
+        board: board || "?",
+        current: blank_label(current)
+      )
+
+  defp account_refusal(:revoked, board, _current),
+    do:
+      gettext(
+        "Board %{board}: not saved - this phone was disconnected from the server after it was entered. Enter it again.",
+        board: board || "?"
+      )
+
+  defp account_refusal(_reason, nil, _current),
+    do: gettext("Not saved - the server could not read this entry. Enter it again.")
+
+  defp account_refusal(_reason, board, _current),
+    do:
+      gettext("Board %{board}: not saved - the server could not take it. Enter it again.",
+        board: board
+      )
+
+  defp no_board,
+    do: gettext("Not logged - an incident needs a board. Open the board and log it there.")
 
   # The sentence the phone shows beside the board. Always with the board in
   # it: a refusal that does not say which board is a refusal nobody can act
@@ -215,6 +279,12 @@ defmodule PairingsEngineWeb.MobileAppController do
 
   defp refusal(:note_too_long, board, _),
     do: gettext("Board %{board}: not logged - the note is too long.", board: board)
+
+  defp refusal(:no_board, _board, _), do: no_board()
+
+  defp refusal(_reason, "?", _),
+    do:
+      gettext("Not saved - this phone sent an entry the server could not read. Tell the arbiter.")
 
   defp refusal(_reason, board, _),
     do: gettext("Board %{board}: not saved. Check with the arbiter.", board: board)

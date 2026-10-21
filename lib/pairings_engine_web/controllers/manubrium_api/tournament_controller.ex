@@ -248,7 +248,7 @@ defmodule PairingsEngineWeb.ManubriumApi.TournamentController do
 
           case Sync.submit(enrollment.id, entries) do
             {:ok, answers} ->
-              json(conn, %{results: Enum.map(answers, &MobileAppController.wire/1)})
+              json(conn, %{results: Enum.map(answers, &MobileAppController.wire(&1, :account))})
 
             {:error, :too_many} ->
               Reply.error(

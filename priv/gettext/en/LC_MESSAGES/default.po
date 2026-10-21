@@ -3388,7 +3388,7 @@ msgstr ""
 msgid "Press \"Pair round %{n}\" to generate the %{engine}."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:643
+#: lib/pairings_engine_web/live/help_live.ex:649
 #: lib/pairings_engine_web/live/players_live.ex:5418
 #, elixir-autogen, elixir-format
 msgid "Previous"
@@ -5488,13 +5488,13 @@ msgstr ""
 msgid "Access level"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:130
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:194
 #: lib/pairings_engine_web/live/mobile_results_live.ex:586
 #, elixir-autogen, elixir-format
 msgid "Board %{board} already has a result - only the arbiter can change it."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:143
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:207
 #: lib/pairings_engine_web/live/mobile_results_live.ex:592
 #, elixir-autogen, elixir-format
 msgid "Board %{board} is outside the boards this phone is allowed to enter."
@@ -7195,7 +7195,7 @@ msgid "Asking the results site who runs it..."
 msgstr ""
 
 #: lib/pairings_engine_web/components/phone_qr.ex:318
-#: lib/pairings_engine_web/live/help_live.ex:771
+#: lib/pairings_engine_web/live/help_live.ex:778
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:360
 #: lib/pairings_engine_web/live/players_live.ex:4009
 #: lib/pairings_engine_web/live/players_live.ex:4143
@@ -11073,13 +11073,13 @@ msgstr ""
 msgid "Board %{board} of round %{round} was postponed and has counted as a draw for pairing. %{result} is not a draw: the scores that later rounds were paired with change, and those pairings stay as they are."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:184
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:248
 #: lib/pairings_engine_web/live/mobile_results_live.ex:500
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was already sent in a TRF finalised for sending. Changing it has to be done by the arbiter, on the Pairings page."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:170
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:234
 #: lib/pairings_engine_web/live/mobile_results_live.ex:479
 #, elixir-autogen, elixir-format
 msgid "Board %{board} was postponed and counted provisionally for pairing. A result that is not a draw has to be entered by the arbiter, on the Pairings page."
@@ -11439,8 +11439,8 @@ msgstr ""
 #: lib/pairings_engine_web/components/sent_receipt.ex:110
 #: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:138
 #: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:297
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:222
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:223
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:292
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:293
 #: lib/pairings_engine_web/live/history_live.ex:1023
 #: lib/pairings_engine_web/live/mobile_results_live.ex:776
 #: lib/pairings_engine_web/live/mobile_results_live.ex:777
@@ -15819,7 +15819,7 @@ msgstr ""
 msgid "A later round was already paired with the result being corrected."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:177
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:241
 #: lib/pairings_engine_web/live/mobile_results_live.ex:495
 #, elixir-autogen, elixir-format
 msgid "A later round was already paired with the result of board %{board}. Correcting it has to be done by the arbiter, on the Pairings page."
@@ -16314,9 +16314,9 @@ msgstr ""
 #: lib/pairings_engine_web/live/help_live.ex:82
 #: lib/pairings_engine_web/live/help_live.ex:106
 #: lib/pairings_engine_web/live/help_live.ex:117
-#: lib/pairings_engine_web/live/help_live.ex:410
-#: lib/pairings_engine_web/live/help_live.ex:464
-#: lib/pairings_engine_web/live/help_live.ex:669
+#: lib/pairings_engine_web/live/help_live.ex:416
+#: lib/pairings_engine_web/live/help_live.ex:470
+#: lib/pairings_engine_web/live/help_live.ex:675
 #, elixir-autogen, elixir-format
 msgid "Help"
 msgstr ""
@@ -16459,7 +16459,7 @@ msgstr ""
 msgid "Lowest rating in the field"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:339
+#: lib/pairings_engine_web/live/help_live.ex:345
 #, elixir-autogen, elixir-format
 msgid "Manual contents"
 msgstr ""
@@ -16581,9 +16581,9 @@ msgstr ""
 msgid "Oldest first"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:601
-#: lib/pairings_engine_web/live/help_live.ex:614
-#: lib/pairings_engine_web/live/help_live.ex:617
+#: lib/pairings_engine_web/live/help_live.ex:607
+#: lib/pairings_engine_web/live/help_live.ex:620
+#: lib/pairings_engine_web/live/help_live.ex:623
 #, elixir-autogen, elixir-format
 msgid "On this page"
 msgstr ""
@@ -17467,66 +17467,66 @@ msgstr ""
 msgid "Warning"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:494
-#: lib/pairings_engine_web/live/help_live.ex:518
+#: lib/pairings_engine_web/live/help_live.ex:500
+#: lib/pairings_engine_web/live/help_live.ex:524
 #, elixir-autogen, elixir-format
 msgid "1 minute read"
 msgid_plural "%{count} minutes read"
 msgstr[0] ""
 msgstr[1] ""
 
-#: lib/pairings_engine_web/live/help_live.ex:626
+#: lib/pairings_engine_web/live/help_live.ex:632
 #, elixir-autogen, elixir-format
 msgid "Back to top"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:408
-#: lib/pairings_engine_web/live/help_live.ex:462
+#: lib/pairings_engine_web/live/help_live.ex:414
+#: lib/pairings_engine_web/live/help_live.ex:468
 #, elixir-autogen, elixir-format
 msgid "Breadcrumb"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:490
+#: lib/pairings_engine_web/live/help_live.ex:496
 #, elixir-autogen, elixir-format
 msgid "Chapter %{n}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:330
+#: lib/pairings_engine_web/live/help_live.ex:336
 #, elixir-autogen, elixir-format
 msgid "Chapter %{n}: %{title}"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:333
+#: lib/pairings_engine_web/live/help_live.ex:339
 #, elixir-autogen, elixir-format
 msgid "Chapters"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:676
+#: lib/pairings_engine_web/live/help_live.ex:682
 #, elixir-autogen, elixir-format
 msgid "Everything the program does, from the first player to the FIDE report, written for the arbiter at the board. New here? Start with Getting started."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:683
+#: lib/pairings_engine_web/live/help_live.ex:689
 #, elixir-autogen, elixir-format
 msgid "Getting started"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:274
+#: lib/pairings_engine_web/live/help_live.ex:280
 #, elixir-autogen, elixir-format
 msgid "Link copied"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:656
+#: lib/pairings_engine_web/live/help_live.ex:662
 #, elixir-autogen, elixir-format
 msgid "Next"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:450
+#: lib/pairings_engine_web/live/help_live.ex:456
 #, elixir-autogen, elixir-format
 msgid "Nothing in the manual matches every word. Try fewer or shorter words, or browse the chapters."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:421
+#: lib/pairings_engine_web/live/help_live.ex:427
 #, elixir-autogen, elixir-format
 msgid "One section matches \"%{query}\"."
 msgid_plural "%{count} sections match \"%{query}\"."
@@ -17544,12 +17544,12 @@ msgstr ""
 msgid "Preparing the tournament"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:687
+#: lib/pairings_engine_web/live/help_live.ex:693
 #, elixir-autogen, elixir-format
 msgid "Press"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:634
+#: lib/pairings_engine_web/live/help_live.ex:640
 #, elixir-autogen, elixir-format
 msgid "Previous and next chapter"
 msgstr ""
@@ -17559,39 +17559,39 @@ msgstr ""
 msgid "Round by round"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:764
+#: lib/pairings_engine_web/live/help_live.ex:771
 #, elixir-autogen, elixir-format
 msgid "Screenshot"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:412
+#: lib/pairings_engine_web/live/help_live.ex:418
 #, elixir-autogen, elixir-format
 msgid "Search"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:417
+#: lib/pairings_engine_web/live/help_live.ex:423
 #, elixir-autogen, elixir-format
 msgid "Search results"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:305
-#: lib/pairings_engine_web/live/help_live.ex:306
+#: lib/pairings_engine_web/live/help_live.ex:311
+#: lib/pairings_engine_web/live/help_live.ex:312
 #, elixir-autogen, elixir-format
 msgid "Search the manual"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:672
+#: lib/pairings_engine_web/live/help_live.ex:678
 #, elixir-autogen, elixir-format
 msgid "The OpenPairings user manual"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:276
-#: lib/pairings_engine_web/live/help_live.ex:284
+#: lib/pairings_engine_web/live/help_live.ex:282
+#: lib/pairings_engine_web/live/help_live.ex:290
 #, elixir-autogen, elixir-format
 msgid "User manual"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:687
+#: lib/pairings_engine_web/live/help_live.ex:693
 #, elixir-autogen, elixir-format
 msgid "to search"
 msgstr ""
@@ -19504,7 +19504,7 @@ msgstr[1] ""
 msgid "too late"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:149
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:213
 #: lib/pairings_engine_web/live/mobile_results_live.ex:446
 #, elixir-autogen, elixir-format
 msgid "Not saved: board %{board} changed - the arbiter changed its players. Check who is on it now and enter the result again."
@@ -21422,10 +21422,10 @@ msgstr ""
 msgid "Settings - Group"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:359
-#: lib/pairings_engine_web/live/help_live.ex:469
-#: lib/pairings_engine_web/live/help_live.ex:514
-#: lib/pairings_engine_web/live/help_live.ex:723
+#: lib/pairings_engine_web/live/help_live.ex:365
+#: lib/pairings_engine_web/live/help_live.ex:475
+#: lib/pairings_engine_web/live/help_live.ex:520
+#: lib/pairings_engine_web/live/help_live.ex:730
 #, elixir-autogen, elixir-format
 msgid "Other programs"
 msgstr ""
@@ -21435,7 +21435,7 @@ msgstr ""
 msgid "Overview"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:593
+#: lib/pairings_engine_web/live/help_live.ex:599
 #, elixir-autogen, elixir-format
 msgid "This page is only available in English."
 msgstr ""
@@ -22406,73 +22406,73 @@ msgstr ""
 msgid "Arbiter call"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:89
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:153
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: already had this result."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:92
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:156
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: incident logged."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:191
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:255
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - a helper phone can only call the arbiter."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:217
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:281
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the note is too long."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:198
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:262
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - this phone has logged as many incidents as one code may. Ask the arbiter for a new code."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:115
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:179
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - it was entered under an earlier code on this phone. Enter it again if it still stands."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:156
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:220
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that pairing no longer exists (the round was paired again). Check the board and enter it again."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:136
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:200
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - that round is no longer the current round, and helpers can only enter the current one."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:122
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:186
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the board now says %{current}, entered elsewhere while this phone was waiting. Check with the arbiter."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:163
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:227
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - the tournament is not taking results at the moment (archived, or handed to another machine)."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:108
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:172
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved - this phone's access was ended by the arbiter, or ran out. Tell the arbiter this result."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:220
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:290
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not saved. Check with the arbiter."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:95
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:159
 #: lib/pairings_engine_web/live/mobile_results_live.ex:616
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: saved."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:99
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:163
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: the server is busy - this phone tries again shortly."
 msgstr ""
@@ -22722,12 +22722,12 @@ msgstr ""
 msgid "Back to your tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:211
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:275
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo could not be read. Log it again without it."
 msgstr ""
 
-#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:205
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:269
 #, elixir-autogen, elixir-format
 msgid "Board %{board}: not logged - the photo is too large. Log it again without it."
 msgstr ""
@@ -23495,7 +23495,7 @@ msgstr ""
 msgid "Type at least %{n} characters to search."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:554
+#: lib/pairings_engine_web/live/help_live.ex:560
 #, elixir-autogen, elixir-format
 msgid "Latest release"
 msgstr ""
@@ -23505,7 +23505,7 @@ msgstr ""
 msgid "Manubrium, the phone app"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:571
+#: lib/pairings_engine_web/live/help_live.ex:577
 #, elixir-autogen, elixir-format
 msgid "Pages about %{name}"
 msgstr ""
@@ -23520,7 +23520,7 @@ msgstr ""
 msgid "Reports and exports"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:563
+#: lib/pairings_engine_web/live/help_live.ex:569
 #, elixir-autogen, elixir-format
 msgid "Source on GitHub"
 msgstr ""
@@ -23530,12 +23530,42 @@ msgstr ""
 msgid "Team tournaments"
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:727
+#: lib/pairings_engine_web/live/help_live.ex:734
 #, elixir-autogen, elixir-format
 msgid "The programs that work beside OpenPairings, from the engine inside it to the printer in the hall. Each page starts with what the program is and when you need it."
 msgstr ""
 
-#: lib/pairings_engine_web/live/help_live.ex:592
+#: lib/pairings_engine_web/live/help_live.ex:598
 #, elixir-autogen, elixir-format
 msgid "The rest of this page is only available in English."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:124
+#, elixir-autogen, elixir-format
+msgid "Board %{board}: not saved - the board now says %{current}, entered elsewhere while this phone was waiting. Look at the board, and enter yours again if it stands."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:142
+#, elixir-autogen, elixir-format
+msgid "Board %{board}: not saved - the server could not take it. Enter it again."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:132
+#, elixir-autogen, elixir-format
+msgid "Board %{board}: not saved - this phone was disconnected from the server after it was entered. Enter it again."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:147
+#, elixir-autogen, elixir-format
+msgid "Not logged - an incident needs a board. Open the board and log it there."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:138
+#, elixir-autogen, elixir-format
+msgid "Not saved - the server could not read this entry. Enter it again."
+msgstr ""
+
+#: lib/pairings_engine_web/controllers/mobile_app_controller.ex:287
+#, elixir-autogen, elixir-format
+msgid "Not saved - this phone sent an entry the server could not read. Tell the arbiter."
 msgstr ""

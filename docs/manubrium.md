@@ -676,7 +676,7 @@ All under `/api/manubrium/v1`, JSON, errors as
 | `POST /tournaments/:id/rounds` | desk | `{acknowledged: [warning ids]}` | `201 {round}`; `409` for every desk question |
 | `DELETE /tournaments/:id/rounds/:n` | desk | | `204`; `422` unless it is the latest |
 | `PUT /tournaments/:id/rounds/:n/publish` | desk | `{level: 0..3}` | `{round, publish_level}` |
-| `GET /tournaments/:id/standings` | desk | | `{standings: {tiebreaks: [{code, name}], rows: [{rank, player, points, tiebreaks}]}}` |
+| `GET /tournaments/:id/standings` | desk | | `{standings: {tiebreaks: [{code, name}], tiebreaks_through, rounds_paired, rows: [{rank, player, points, tiebreaks}]}}` - points count every result entered, tie-breaks only rounds 1..`tiebreaks_through` (the complete ones), as on the Standings page |
 | `GET /tournaments/:id/incidents` | desk | `?round=n` | `{incidents: [...]}` (no photos) |
 | `GET /tournaments/:id/players` | desk | | `{players: [{..., present, absent_rounds, byes: [{round, kind}]}]}` |
 | `GET /tournaments/:id/player-search` | desk | `?q=&source=fide\|bel` | `{results: [...]}`; `422 query_too_short`, `422 unknown_source` |
@@ -689,8 +689,12 @@ All under `/api/manubrium/v1`, JSON, errors as
 
 A sync entry is Lite's entry without the `enrollment` field (the server
 fills in the device's own): `{cid, kind: "result", round, pairing, board,
-white, black, result, expected}` or `{cid, kind: "incident", round, pairing?,
-board?, type, note, at?, photo?}`. The `cid` makes a resend harmless.
+white, black, result, expected}` or `{cid, kind: "incident", round, pairing,
+board, type, note, at?, photo?}`. The `cid` makes a resend harmless. An entry
+without a `pairing` is refused as `no_board`: every incident belongs to a
+board. The app's sentences are worded for an account that is itself the
+arbiter (`MobileAppController.wire/2`, `:account`): a refusal never tells the
+organiser to check with the arbiter.
 
 For the app's web bundle on a developer's screen, `config/dev.exs` lists the
 Vite dev server's origins (`:manubrium_dev_origins`) and
