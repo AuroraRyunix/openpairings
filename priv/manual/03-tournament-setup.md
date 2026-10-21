@@ -2,8 +2,8 @@
 
 This chapter covers the New tournament form and every Settings page except
 the publishing page ([Publishing](14-publishing.md)), the Export page
-([Import and export](10-import-export.md), [Sending to FIDE](11-fide-report.md))
-and Categories ([Categories and norms](13-categories-and-norms.md)).
+([Import and export](12-import-export.md), [Sending to FIDE](10-fide-report.md))
+and Categories ([Categories and norms](11-categories-and-norms.md)).
 
 ## Creating a tournament
 
@@ -15,7 +15,7 @@ Tournaments, **New tournament**.
 | Pairing system | **Swiss - FIDE Dutch**, **Round robin (Berger)** or **Keizer**. It cannot be changed after the first round is paired. |
 | Rounds | 1 to 99. A round robin works out its own number of rounds from the players and the cycles. |
 | Cycles | (round robin only) how many times everyone plays everyone: 1 to 10. |
-| Team tournament | Makes it a team event: Swiss teams (FIDE C.04.6) or round robin teams. Keizer cannot be a team event. See [Teams](12-teams.md). |
+| Team tournament | Makes it a team event: Swiss teams (FIDE C.04.6) or round robin teams. Keizer cannot be a team event. See [Teams](13-teams.md). |
 | Place | The city. |
 | Date from | Seeds every round with this date; refine it on the Dates page. |
 | Rate of play | A list of the usual time controls for the chosen format, or *none*. |
@@ -29,8 +29,8 @@ tournament is created in FIDE mode ([FIDE mode](02-fide-mode.md)).
 
 Other ways to start a tournament: **Import** a `.swar` file, a `.trf` file, a
 JSON backup, or **Receive a hand-off** (see
-[Import and export](10-import-export.md) and
-[Accounts, sharing and hand-off](15-accounts-and-handoff.md)); or **Copy** an
+[Import and export](12-import-export.md) and
+[Accounts, sharing and hand-off](16-accounts-and-handoff.md)); or **Copy** an
 existing tournament on the list (a copy contains everything in the original,
 rounds and results included, and is named *Copy of …*).
 
@@ -92,14 +92,14 @@ Two more things keep the pages short:
 | Scoring | points, match points, postponed games | the whole *Byes and absences* card (points for a round sat out and its limits, voluntary unplayed rounds, late entrants' absences, asking the bye type); a team's bye, forfeit and withdrawal rules |
 | Dates | one date per round | - |
 | Rooms | the rooms of the hall and their boards | - |
-| Categories | see [Categories and norms](13-categories-and-norms.md) | - |
+| Categories | see [Categories and norms](11-categories-and-norms.md) | - |
 | Extra points | bonus or handicap points by rating band | - |
 | Forbidden pairings | the effect on the next round, the rules, players who must not meet | how hard to try the wishes |
 | OpenResults | publishing to the results site and each round ([Publishing](14-publishing.md)) | what the public page shows, the hall display, the entry form |
 | Live boards | the boxes and the games they reported ([Live boards](17-live-boards.md)) | - |
 | FIDE | FIDE mode, the homologated tick, the report identifiers, the rating-list sequence ([FIDE mode](02-fide-mode.md), [Players and rating lists](04-players-and-ratings.md)) | per-round FIDE-ID ranges, consistency checks of the ratings |
 | Officials & norms | the officials and arbiters the FIDE forms name; the event type for title norms; whether the big open Swiss clause applies | - |
-| Export | TRF, backups, the players' CSV download ([Import and export](10-import-export.md)) | the CSV's columns, separator, order and options |
+| Export | TRF, backups, the players' CSV download ([Import and export](12-import-export.md)) | the CSV's columns, separator, order and options |
 | About | version and the pairing engine this tournament uses | - |
 
 A form saves with its own **Save** button, and the answer appears beside it.
@@ -131,7 +131,7 @@ more than 30 days* lets a player hold more than one rating during the event;
 once it is on, the two settings for the rating-based tie-breaks appear under
 it ([Standings and tie-breaks](08-standings-and-tiebreaks.md)), and so does
 *Reporting to FIDE*: monthly reports or one report at the end ([Postponed
-games](11-fide-report.md#postponed-games) explains both). A **?** beside
+games](10-fide-report.md#postponed-games) explains both). A **?** beside
 the tick explains it. In such an event *Refresh ratings* adds a new list's
 ratings as later ratings from a round instead of replacing the starting rating
 ([Refreshing ratings](04-players-and-ratings.md#refreshing-ratings)), and the
@@ -139,7 +139,7 @@ pairing numbers never change because of them. When the round dates span more
 than 30 days and the tick is off, the card says so.
 
 **Share / Team.** The owner can invite other arbiters by e-mail address (see
-[Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
+[Accounts, sharing and hand-off](16-accounts-and-handoff.md)).
 
 **Logo** (advanced until a logo is set). A PNG, JPEG, GIF or WebP image of at
 most 2 MB, stored with the tournament and printed on the documents.
@@ -149,7 +149,7 @@ most 2 MB, stored with the tournament and printed on the documents.
 One event is often several separate tournaments: the Open, a youth section, a
 rapid on the side. Each has its own players, rounds and pairings - that is
 what makes them separate tournaments rather than
-[categories](13-categories-and-norms.md) of one. A **group** strings them
+[categories](11-categories-and-norms.md) of one. A **group** strings them
 together.
 
 On **Settings → Group** (its own page in the Set-up list):
@@ -307,7 +307,7 @@ is two rounds).
 
 **Teams** (team tournaments): whether line-ups are required, and (advanced)
 the way a team's rating is worked out for the order of the teams, and the
-rating counted for an unrated player. See [Teams](12-teams.md).
+rating counted for an unrated player. See [Teams](13-teams.md).
 
 **Type and rate of play.** The type (Standard, Rapid, Blitz) and the time
 control from a list, or (advanced) typed in under *Other rate of play*. The
@@ -383,7 +383,7 @@ the **pairing-allocated bye** (default: a win).
 **Match points** (team events): 2 for a won match, 1 for a drawn match, 0 for
 a lost match by default; and, advanced, the match points and game points of a
 pairing-allocated bye; what a match forfeited as a whole pays in game points
-([Teams](12-teams.md)); and the treatment of a team that withdraws.
+([Teams](13-teams.md)); and the treatment of a team that withdraws.
 
 **Byes and absences.** (advanced) *Points for a round sat out* is the value of a round a
 player was absent for (blank: absences score nothing). Two optional limits go
@@ -483,7 +483,7 @@ special remarks for the IT3. Type a name or a FIDE ID and pick the matching
 player: every official needs a FIDE ID, and a save with a named official
 without one is refused, because FIDE bounces such a report. The IT3, FA1, IA1
 and IT4 forms on the Norms page are filled in from these
-([Categories and norms](13-categories-and-norms.md)).
+([Categories and norms](11-categories-and-norms.md)).
 
 **Title norms.** *Event type for title norms* tells the norm judgment what
 kind of event the FIDE Title Regulations (B.01) see this one as. Only the

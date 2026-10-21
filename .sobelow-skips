@@ -99,7 +99,8 @@ XSS.Raw: XSS,lib/pairings_engine_web/components/phone_qr.ex:346,71E04D
 XSS.Raw: XSS,lib/pairings_engine_web/controllers/badge_print_html.ex:65,53E0166
 XSS.Raw: XSS,lib/pairings_engine_web/controllers/mobile_connect_html.ex:90,CFBF4F
 XSS.Raw: XSS,lib/pairings_engine_web/live/changelog_live.ex:42,6D9B74E
-XSS.Raw: XSS,lib/pairings_engine_web/live/help_live.ex:504,759F10E
+XSS.Raw: XSS,lib/pairings_engine_web/live/help_live.ex:548,5D4D660
+XSS.Raw: XSS,lib/pairings_engine_web/live/help_live.ex:637,E1533
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6611,1A1B1F
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6619,631918A
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6640,687C8C4

@@ -146,7 +146,7 @@ doet:
   TRF26-kopieën van het rapport zeggen dat in een commentaarregel (`FIDE mode
   exited @ Round N`), zodat wie het bestand controleert weet waar hij nauwkeuriger
   moet kijken. (Het bestand dat *Versturen…* maakt, bevat alleen records, geen
-  commentaarregels; zie [Versturen naar FIDE](11-fide-report.md).)
+  commentaarregels; zie [Versturen naar FIDE](10-fide-report.md).)
 - De vergrendelde instellingen en de afgesloten rondes kunnen daarna worden
   gewijzigd, en het programma stopt niet langer een wijziging die de FIDE-regels
   verbieden.
@@ -168,6 +168,6 @@ worden door de organisator ingestelde byevoorkeuren niet toegepast (het zijn
 geen FIDE-regels), en wordt het toernooi-ID een verplicht veld. De
 functionarissen (hoofdarbiter, hulparbiters) en het type evenement voor
 titelnormen worden ingevoerd onder **Functionarissen & normen**; zie [Een toernooi instellen](03-tournament-setup.md) en
-[Versturen naar FIDE](11-fide-report.md).
+[Versturen naar FIDE](10-fide-report.md).
 
 ![De FIDE-pagina van de instellingen met het toernooi-ID, de evenementcode en het vakje voor homologatie](screenshots/02-settings-fide-page.png "Instellingen, FIDE")

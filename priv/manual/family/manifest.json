@@ -1,7 +1,42 @@
 {
   "programs": [
     {
-      "commit": "9b297a123993f41ff1e56b168e967289452d19ec",
+      "commit": "e129db00ea114616c125637722964d72262ade3a",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        }
+      ],
+      "name": "Ainalrami",
+      "releases": true,
+      "repo": "Ainalrami",
+      "slug": "ainalrami"
+    },
+    {
+      "commit": "f32fc706a81228380cefaf4640bee2f25af025c1",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        },
+        {
+          "file": "public-extras.md",
+          "nl": false,
+          "source": "docs/public-extras.md"
+        }
+      ],
+      "name": "OpenResults",
+      "releases": false,
+      "repo": "openresults",
+      "slug": "openresults"
+    },
+    {
+      "commit": "afe69acae88934679f8a0af8885220b50c3fed15",
       "dirty": false,
       "files": [
         {
@@ -38,14 +73,20 @@
           "file": "07-recording-and-troubleshooting.md",
           "nl": true,
           "source": "priv/manual/07-recording-and-troubleshooting.md"
+        },
+        {
+          "file": "08-fair-play.md",
+          "nl": true,
+          "source": "priv/manual/08-fair-play.md"
         }
       ],
       "name": "Alnasl",
+      "releases": true,
       "repo": "Alnasl",
       "slug": "alnasl"
     },
     {
-      "commit": "acc73ec9cf5f4481fa3b2004db2bcd5fe9a5b330",
+      "commit": "0d044f09dc9bcb94674d0dbc082dced1addf8a2b",
       "dirty": false,
       "files": [
         {
@@ -55,11 +96,42 @@
         }
       ],
       "name": "Arkab",
+      "releases": true,
       "repo": "Arkab",
       "slug": "arkab"
     },
     {
-      "commit": "e0b22bbf1b31d0833b60103606486055b0e8efc3",
+      "commit": "505a5cf78f1136bb71f29d77d88fa55eddba225e",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        }
+      ],
+      "name": "Polis",
+      "releases": true,
+      "repo": "Polis",
+      "slug": "polis"
+    },
+    {
+      "commit": "1eb2878112f5def8a9421978f46660387f2d2d2c",
+      "dirty": false,
+      "files": [
+        {
+          "file": "README.md",
+          "nl": false,
+          "source": "README.md"
+        }
+      ],
+      "name": "Nunki",
+      "releases": true,
+      "repo": "Nunki",
+      "slug": "nunki"
+    },
+    {
+      "commit": "667bd77b2bff6d3285fe82abf082f983ce4ef5ba",
       "dirty": false,
       "files": [
         {
@@ -69,65 +141,9 @@
         }
       ],
       "name": "Ascella",
+      "releases": true,
       "repo": "Ascella",
       "slug": "ascella"
-    },
-    {
-      "commit": "4c0f1539467bc274d0e277f70d18a8b64a57f837",
-      "dirty": false,
-      "files": [
-        {
-          "file": "README.md",
-          "nl": false,
-          "source": "README.md"
-        },
-        {
-          "file": "openpairings-integration.md",
-          "nl": false,
-          "source": "docs/openpairings-integration.md"
-        }
-      ],
-      "name": "Polis",
-      "repo": "Polis",
-      "slug": "polis"
-    },
-    {
-      "commit": "d64c845db3a6a00cf936000e78411cb34fd237cb",
-      "dirty": false,
-      "files": [
-        {
-          "file": "README.md",
-          "nl": false,
-          "source": "README.md"
-        },
-        {
-          "file": "openpairings-integration.md",
-          "nl": false,
-          "source": "docs/openpairings-integration.md"
-        }
-      ],
-      "name": "Nunki",
-      "repo": "Nunki",
-      "slug": "nunki"
-    },
-    {
-      "commit": "6e218f47ebd33a6fd5db5918b1158bc776611291",
-      "dirty": false,
-      "files": [
-        {
-          "file": "README.md",
-          "nl": false,
-          "source": "README.md"
-        },
-        {
-          "file": "public-extras.md",
-          "nl": false,
-          "source": "docs/public-extras.md"
-        }
-      ],
-      "name": "OpenResults",
-      "repo": "openresults",
-      "slug": "openresults"
     }
   ]
 }

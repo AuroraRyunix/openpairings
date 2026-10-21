@@ -25,6 +25,8 @@ Versturen gebeurt vanzelf: naar OpenPairings vanaf het moment dat een toernooi g
 
 Druk op "Verbinding testen": het vraagt echt na en legt mislukkingen in woorden uit (een foute code, een ingetrokken code, niemand thuis, een toernooi dat niet gepubliceerd is).
 
+Het adres waarmee je verbindt wordt per zaal onthouden, en pas als een account echt verbonden is. Op de gehoste server wordt een adres dat naar het eigen netwerk van de server wijst (loopback, privébereiken, link-local) geweigerd; een kastje neemt elk adres aan, want een bureaublad-OpenPairings staat op 127.0.0.1.
+
 ### Al je toernooien in één keer {#whole-account}
 
 In plaats van een code per toernooi koppel je een heel OpenPairings-account:

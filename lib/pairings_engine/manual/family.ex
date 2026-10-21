@@ -1,9 +1,22 @@
 defmodule PairingsEngine.Manual.Family do
   @moduledoc """
-  The documentation of the other programs in the family - Alnasl, Arkab,
-  Ascella, Polis, Nunki and OpenResults - shown in the Help under "Other
-  programs". Duplicating their text here is intended: one place to read, for
-  an arbiter who has all of them running in the same hall.
+  The documentation of the other programs in the family - Ainalrami,
+  OpenResults, Alnasl, Arkab, Polis, Nunki and Ascella - shown in the Help
+  under "Other programs". Duplicating their text here is intended: one place
+  to read, for an arbiter who has all of them running in the same hall.
+
+  ## What OpenPairings says about them
+
+  Every program opens with an introduction written here, not vendored:
+  `priv/manual/programs/<slug>.md` (Dutch in `.../nl/`), a `#` line that is
+  the program's role in a few words (`tagline`) and three paragraphs in a
+  fixed order - what it is, **When you need it.**, **Where it fits.** (the
+  links to the chapters and the other programs it works with). A README
+  says what its authors find interesting; this says why an arbiter would
+  care, in the same shape for every program, in both languages. The mark
+  beside the name is `priv/manual/programs/marks/<slug>.svg`, the program's
+  own nine-squares logo, read as rectangles so the page draws it in the
+  theme's colours; a program without one gets an icon.
 
   ## Where the text comes from
 
@@ -24,14 +37,16 @@ defmodule PairingsEngine.Manual.Family do
   else (the licence, a document that is not vendored) opens the program's
   GitHub.
 
-  Only Alnasl has a Dutch manual; every other page is shown in English on
-  the Dutch side, which `translated?` says (the page tells the reader).
+  Only Alnasl has a Dutch manual; every other vendored page is shown in
+  English on the Dutch side, which `translated?` says (the page tells the
+  reader). The introductions exist in both.
   """
 
   alias PairingsEngine.Manual.{FamilyLinks, Markup}
 
   @family_dir Path.expand("../../../priv/manual/family", __DIR__)
   @manifest_file Path.join(@family_dir, "manifest.json")
+  @intro_dir Path.expand("../../../priv/manual/programs", __DIR__)
   @screenshot_dir Path.expand("../../../priv/static/images/manual", __DIR__)
 
   @external_resource @manifest_file
@@ -41,17 +56,76 @@ defmodule PairingsEngine.Manual.Family do
                {:error, _} -> %{"programs" => []}
              end)
 
-  # A change in the set of vendored files is noticed, as for the chapters.
+  # A change in the set of vendored files (or of introductions and marks)
+  # is noticed, as for the chapters.
   @files_hash :erlang.md5(
-                :erlang.term_to_binary(Path.wildcard(Path.join(@family_dir, "**/*.md")))
+                :erlang.term_to_binary(
+                  Path.wildcard(Path.join(@family_dir, "**/*.md")) ++
+                    Path.wildcard(Path.join(@intro_dir, "**/*.{md,svg}"))
+                )
               )
 
-  for file <- Path.wildcard(Path.join(@family_dir, "**/*.md")), do: @external_resource(file)
+  for file <-
+        Path.wildcard(Path.join(@family_dir, "**/*.md")) ++
+          Path.wildcard(Path.join(@intro_dir, "**/*.{md,svg}")),
+      do: @external_resource(file)
 
   @doc false
   def __mix_recompile__? do
-    :erlang.md5(:erlang.term_to_binary(Path.wildcard(Path.join(@family_dir, "**/*.md")))) !=
-      @files_hash
+    files =
+      Path.wildcard(Path.join(@family_dir, "**/*.md")) ++
+        Path.wildcard(Path.join(@intro_dir, "**/*.{md,svg}"))
+
+    :erlang.md5(:erlang.term_to_binary(files)) != @files_hash
+  end
+
+  # The introduction in `locale`, the English one where there is no
+  # translation, `nil` where there is none at all.
+  intro = fn slug, locale ->
+    candidates =
+      if locale == "en",
+        do: [Path.join(@intro_dir, slug <> ".md")],
+        else: [
+          Path.join([@intro_dir, locale, slug <> ".md"]),
+          Path.join(@intro_dir, slug <> ".md")
+        ]
+
+    case Enum.find(candidates, &File.regular?/1) do
+      nil -> nil
+      file -> file |> File.read!() |> Markup.chapter(0)
+    end
+  end
+
+  # The mark's rectangles: ink, an outlined empty square, or the accent.
+  attr = fn attrs, name ->
+    case Regex.run(~r/(?:^|\s)#{name}="([^"]*)"/, attrs) do
+      [_, value] -> value
+      nil -> nil
+    end
+  end
+
+  mark = fn slug ->
+    file = Path.join([@intro_dir, "marks", slug <> ".svg"])
+
+    if File.regular?(file) do
+      for [attrs] <-
+            Regex.scan(~r/<rect\s([^>]*?)\/?>/, File.read!(file), capture: :all_but_first) do
+        kind =
+          cond do
+            String.contains?(attrs, "var(--accent") -> "accent"
+            attr.(attrs, "fill") == "none" -> "empty"
+            true -> "ink"
+          end
+
+        %{
+          x: attr.(attrs, "x"),
+          y: attr.(attrs, "y"),
+          width: attr.(attrs, "width"),
+          height: attr.(attrs, "height"),
+          kind: kind
+        }
+      end
+    end
   end
 
   slug_of = fn file ->
@@ -118,27 +192,65 @@ defmodule PairingsEngine.Manual.Family do
                  name: program["name"],
                  repo: program["repo"],
                  commit: program["commit"],
-                 releases_url: FamilyLinks.releases(program["repo"]),
+                 releases_url:
+                   if(program["releases"] != false, do: FamilyLinks.releases(program["repo"])),
                  github_url: FamilyLinks.github(program["repo"]),
+                 mark: mark.(program["slug"]),
+                 intro: %{
+                   "en" => intro.(program["slug"], "en"),
+                   "nl" => intro.(program["slug"], "nl")
+                 },
                  pages: %{"en" => pages_for.("en"), "nl" => pages_for.("nl")}
                }
              end)
 
   @doc """
   The programs, in the order of the manifest, as `%{slug:, name:, repo:,
-  commit:, releases_url:, github_url:, pages:, summary:}`. `pages` are
-  chapter-like maps (`title`, `html`, `toc`, `sections`, `summary`, `slug`,
-  `program`, `translated?`, ...), the program's own page first.
+  commit:, releases_url:, github_url:, mark:, tagline:, intro:, pages:,
+  summary:}`. `pages` are chapter-like maps (`title`, `html`, `toc`,
+  `sections`, `summary`, `slug`, `program`, `translated?`, ...), the
+  program's own page first. `intro` is the introduction (`html`, `summary`,
+  ...) or `nil`; `releases_url` is `nil` for a program that publishes
+  nothing to download; `mark` is a list of rectangles or `nil`.
   """
   def programs(locale \\ "en") do
     Enum.map(@programs, fn program ->
-      pages = Map.get(program.pages, locale, program.pages["en"])
-      program |> Map.put(:pages, pages) |> Map.put(:summary, summary(pages))
+      intro = Map.get(program.intro, locale) || program.intro["en"]
+      pages = program.pages |> Map.get(locale, program.pages["en"]) |> with_intro(intro)
+
+      program
+      |> Map.put(:pages, pages)
+      |> Map.put(:intro, intro)
+      |> Map.put(:tagline, if(intro, do: intro.title, else: ""))
+      |> Map.put(:summary, if(intro, do: first_sentence(intro), else: summary(pages)))
     end)
   end
 
+  # The card on the contents page says what the program does in one
+  # sentence: the introduction is written so that its first one does.
+  defp first_sentence(%{sections: [%{text: text} | _]}),
+    do: text |> String.split(~r/(?<=\.)\s/, parts: 2) |> hd()
+
+  defp first_sentence(intro), do: intro.summary
+
   defp summary([first | _]), do: first.summary
   defp summary([]), do: ""
+
+  # The search reads the introduction as the start of the program's own page.
+  defp with_intro(pages, nil), do: pages
+  defp with_intro([], _intro), do: []
+
+  defp with_intro([first | rest], intro) do
+    text = Enum.map_join(intro.sections, " ", & &1.text)
+
+    sections =
+      case first.sections do
+        [%{id: nil} = lead | more] -> [%{lead | text: text <> " " <> lead.text} | more]
+        sections -> [%{id: nil, heading: nil, text: text} | sections]
+      end
+
+    [%{first | sections: sections} | rest]
+  end
 
   @doc "The program with this slug, or `nil`."
   def program(slug, locale \\ "en"), do: Enum.find(programs(locale), &(&1.slug == slug))

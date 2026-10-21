@@ -25,6 +25,8 @@ Sending is automatic: to OpenPairings from the moment a tournament is linked, to
 
 Press "Test connection": it really asks, and explains failures in words (a wrong code, a withdrawn one, nobody home, a tournament that is not published).
 
+The address you connect to is remembered per hall, and only once an account really connected. On the hosted server, an address that points at the server's own network (loopback, private ranges, link-local) is refused; a box takes any address, because a desktop copy of OpenPairings is at 127.0.0.1.
+
 ### All your tournaments at once {#whole-account}
 
 Instead of a code per tournament, connect a whole OpenPairings account:

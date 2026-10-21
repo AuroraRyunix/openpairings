@@ -3380,7 +3380,7 @@ msgstr "Voorinstelling"
 msgid "Press \"Pair round %{n}\" to generate the %{engine}."
 msgstr "Druk op \"Ronde %{n} paren\" om de %{engine} te genereren."
 
-#: lib/pairings_engine_web/live/help_live.ex:516
+#: lib/pairings_engine_web/live/help_live.ex:643
 #: lib/pairings_engine_web/live/players_live.ex:5418
 #, elixir-autogen, elixir-format
 msgid "Previous"
@@ -7187,7 +7187,7 @@ msgid "Asking the results site who runs it..."
 msgstr "Navragen wie de uitslagensite beheert..."
 
 #: lib/pairings_engine_web/components/phone_qr.ex:318
-#: lib/pairings_engine_web/live/help_live.ex:636
+#: lib/pairings_engine_web/live/help_live.ex:771
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:360
 #: lib/pairings_engine_web/live/players_live.ex:4009
 #: lib/pairings_engine_web/live/players_live.ex:4143
@@ -16306,9 +16306,9 @@ msgstr "Handmatige aanpassingen aan ronde %{n} staan open."
 #: lib/pairings_engine_web/live/help_live.ex:82
 #: lib/pairings_engine_web/live/help_live.ex:106
 #: lib/pairings_engine_web/live/help_live.ex:117
-#: lib/pairings_engine_web/live/help_live.ex:361
-#: lib/pairings_engine_web/live/help_live.ex:415
-#: lib/pairings_engine_web/live/help_live.ex:542
+#: lib/pairings_engine_web/live/help_live.ex:410
+#: lib/pairings_engine_web/live/help_live.ex:464
+#: lib/pairings_engine_web/live/help_live.ex:669
 #, elixir-autogen, elixir-format
 msgid "Help"
 msgstr "Help"
@@ -16451,7 +16451,7 @@ msgstr "Voor dit toernooi kan niet geloot worden."
 msgid "Lowest rating in the field"
 msgstr "Laagste rating van het veld"
 
-#: lib/pairings_engine_web/live/help_live.ex:291
+#: lib/pairings_engine_web/live/help_live.ex:339
 #, elixir-autogen, elixir-format
 msgid "Manual contents"
 msgstr "Inhoud van de handleiding"
@@ -16573,9 +16573,9 @@ msgstr "Oud"
 msgid "Oldest first"
 msgstr "Oudste eerst"
 
-#: lib/pairings_engine_web/live/help_live.ex:474
-#: lib/pairings_engine_web/live/help_live.ex:487
-#: lib/pairings_engine_web/live/help_live.ex:490
+#: lib/pairings_engine_web/live/help_live.ex:601
+#: lib/pairings_engine_web/live/help_live.ex:614
+#: lib/pairings_engine_web/live/help_live.ex:617
 #, elixir-autogen, elixir-format
 msgid "On this page"
 msgstr "Op deze pagina"
@@ -17459,65 +17459,66 @@ msgstr "Overtreding"
 msgid "Warning"
 msgstr "Waarschuwing"
 
-#: lib/pairings_engine_web/live/help_live.ex:442
+#: lib/pairings_engine_web/live/help_live.ex:494
+#: lib/pairings_engine_web/live/help_live.ex:518
 #, elixir-autogen, elixir-format
 msgid "1 minute read"
 msgid_plural "%{count} minutes read"
 msgstr[0] "1 minuut lezen"
 msgstr[1] "%{count} minuten lezen"
 
-#: lib/pairings_engine_web/live/help_live.ex:499
+#: lib/pairings_engine_web/live/help_live.ex:626
 #, elixir-autogen, elixir-format
 msgid "Back to top"
 msgstr "Terug naar boven"
 
-#: lib/pairings_engine_web/live/help_live.ex:359
-#: lib/pairings_engine_web/live/help_live.ex:413
+#: lib/pairings_engine_web/live/help_live.ex:408
+#: lib/pairings_engine_web/live/help_live.ex:462
 #, elixir-autogen, elixir-format
 msgid "Breadcrumb"
 msgstr "Kruimelpad"
 
-#: lib/pairings_engine_web/live/help_live.ex:438
+#: lib/pairings_engine_web/live/help_live.ex:490
 #, elixir-autogen, elixir-format
 msgid "Chapter %{n}"
 msgstr "Hoofdstuk %{n}"
 
-#: lib/pairings_engine_web/live/help_live.ex:282
+#: lib/pairings_engine_web/live/help_live.ex:330
 #, elixir-autogen, elixir-format
 msgid "Chapter %{n}: %{title}"
 msgstr "Hoofdstuk %{n}: %{title}"
 
-#: lib/pairings_engine_web/live/help_live.ex:285
+#: lib/pairings_engine_web/live/help_live.ex:333
 #, elixir-autogen, elixir-format
 msgid "Chapters"
 msgstr "Hoofdstukken"
 
-#: lib/pairings_engine_web/live/help_live.ex:549
+#: lib/pairings_engine_web/live/help_live.ex:676
 #, elixir-autogen, elixir-format
 msgid "Everything the program does, from the first player to the FIDE report, written for the arbiter at the board. New here? Start with Getting started."
 msgstr "Alles wat het programma doet, van de eerste speler tot het FIDE-rapport, geschreven voor de arbiter aan het bord. Nieuw? Begin met Aan de slag."
 
-#: lib/pairings_engine_web/live/help_live.ex:556
+#: lib/pairings_engine_web/live/help_live.ex:683
 #, elixir-autogen, elixir-format
 msgid "Getting started"
 msgstr "Aan de slag"
 
-#: lib/pairings_engine_web/live/help_live.ex:226
+#: lib/pairings_engine_web/live/help_live.ex:274
 #, elixir-autogen, elixir-format
 msgid "Link copied"
 msgstr "Link gekopieerd"
 
-#: lib/pairings_engine_web/live/help_live.ex:529
+#: lib/pairings_engine_web/live/help_live.ex:656
 #, elixir-autogen, elixir-format
 msgid "Next"
 msgstr "Volgende"
 
-#: lib/pairings_engine_web/live/help_live.ex:401
+#: lib/pairings_engine_web/live/help_live.ex:450
 #, elixir-autogen, elixir-format
 msgid "Nothing in the manual matches every word. Try fewer or shorter words, or browse the chapters."
 msgstr "Niets in de handleiding bevat alle woorden. Probeer minder of kortere woorden, of blader door de hoofdstukken."
 
-#: lib/pairings_engine_web/live/help_live.ex:372
+#: lib/pairings_engine_web/live/help_live.ex:421
 #, elixir-autogen, elixir-format
 msgid "One section matches \"%{query}\"."
 msgid_plural "%{count} sections match \"%{query}\"."
@@ -17530,64 +17531,59 @@ msgstr[1] "%{count} secties bevatten \"%{query}\"."
 msgid "Open the manual for this page"
 msgstr "Open de handleiding bij deze pagina"
 
-#: lib/pairings_engine_web/live/help_live.ex:148
+#: lib/pairings_engine_web/live/help_live.ex:161
 #, elixir-autogen, elixir-format
 msgid "Preparing the tournament"
 msgstr "Het toernooi voorbereiden"
 
-#: lib/pairings_engine_web/live/help_live.ex:560
+#: lib/pairings_engine_web/live/help_live.ex:687
 #, elixir-autogen, elixir-format
 msgid "Press"
 msgstr "Druk op"
 
-#: lib/pairings_engine_web/live/help_live.ex:507
+#: lib/pairings_engine_web/live/help_live.ex:634
 #, elixir-autogen, elixir-format
 msgid "Previous and next chapter"
 msgstr "Vorig en volgend hoofdstuk"
 
-#: lib/pairings_engine_web/live/help_live.ex:150
-#, elixir-autogen, elixir-format
-msgid "Reports, teams and sharing"
-msgstr "Rapporten, ploegen en delen"
-
-#: lib/pairings_engine_web/live/help_live.ex:149
+#: lib/pairings_engine_web/live/help_live.ex:162
 #, elixir-autogen, elixir-format
 msgid "Round by round"
 msgstr "Ronde na ronde"
 
-#: lib/pairings_engine_web/live/help_live.ex:629
+#: lib/pairings_engine_web/live/help_live.ex:764
 #, elixir-autogen, elixir-format
 msgid "Screenshot"
 msgstr "Schermafbeelding"
 
-#: lib/pairings_engine_web/live/help_live.ex:363
+#: lib/pairings_engine_web/live/help_live.ex:412
 #, elixir-autogen, elixir-format
 msgid "Search"
 msgstr "Zoeken"
 
-#: lib/pairings_engine_web/live/help_live.ex:368
+#: lib/pairings_engine_web/live/help_live.ex:417
 #, elixir-autogen, elixir-format
 msgid "Search results"
 msgstr "Zoekresultaten"
 
-#: lib/pairings_engine_web/live/help_live.ex:257
-#: lib/pairings_engine_web/live/help_live.ex:258
+#: lib/pairings_engine_web/live/help_live.ex:305
+#: lib/pairings_engine_web/live/help_live.ex:306
 #, elixir-autogen, elixir-format
 msgid "Search the manual"
 msgstr "Zoek in de handleiding"
 
-#: lib/pairings_engine_web/live/help_live.ex:545
+#: lib/pairings_engine_web/live/help_live.ex:672
 #, elixir-autogen, elixir-format
 msgid "The OpenPairings user manual"
 msgstr "De gebruikershandleiding van OpenPairings"
 
-#: lib/pairings_engine_web/live/help_live.ex:228
-#: lib/pairings_engine_web/live/help_live.ex:236
+#: lib/pairings_engine_web/live/help_live.ex:276
+#: lib/pairings_engine_web/live/help_live.ex:284
 #, elixir-autogen, elixir-format
 msgid "User manual"
 msgstr "Handleiding"
 
-#: lib/pairings_engine_web/live/help_live.ex:560
+#: lib/pairings_engine_web/live/help_live.ex:687
 #, elixir-autogen, elixir-format
 msgid "to search"
 msgstr "om te zoeken"
@@ -19094,6 +19090,7 @@ msgstr "Op de uitslagensite vormen de gepubliceerde toernooien van een groep Ã©Ã
 msgid "Open the event page"
 msgstr "De evenementpagina openen"
 
+#: lib/pairings_engine_web/live/help_live.ex:166
 #: lib/pairings_engine_web/live/settings_boards_live.ex:476
 #: lib/pairings_engine_web/live/settings_results_live.ex:1473
 #: lib/pairings_engine_web/live/settings_support.ex:243
@@ -21417,24 +21414,20 @@ msgstr "Resultatenpagina"
 msgid "Settings - Group"
 msgstr "Instellingen - Groep"
 
-#: lib/pairings_engine_web/live/help_live.ex:465
-#, elixir-autogen, elixir-format
-msgid "Latest %{name} release on GitHub"
-msgstr "Laatste %{name}-release op GitHub"
-
-#: lib/pairings_engine_web/live/help_live.ex:311
-#: lib/pairings_engine_web/live/help_live.ex:418
-#: lib/pairings_engine_web/live/help_live.ex:596
+#: lib/pairings_engine_web/live/help_live.ex:359
+#: lib/pairings_engine_web/live/help_live.ex:469
+#: lib/pairings_engine_web/live/help_live.ex:514
+#: lib/pairings_engine_web/live/help_live.ex:723
 #, elixir-autogen, elixir-format
 msgid "Other programs"
 msgstr "Andere programma's"
 
-#: lib/pairings_engine_web/live/help_live.ex:191
+#: lib/pairings_engine_web/live/help_live.ex:215
 #, elixir-autogen, elixir-format
 msgid "Overview"
 msgstr "Overzicht"
 
-#: lib/pairings_engine_web/live/help_live.ex:455
+#: lib/pairings_engine_web/live/help_live.ex:593
 #, elixir-autogen, elixir-format
 msgid "This page is only available in English."
 msgstr "Deze pagina bestaat alleen in het Engels."
@@ -23493,3 +23486,48 @@ msgstr "Het toernooi kan niet eindigen voor het begint."
 #, elixir-autogen, elixir-format
 msgid "Type at least %{n} characters to search."
 msgstr "Typ minstens %{n} tekens om te zoeken."
+
+#: lib/pairings_engine_web/live/help_live.ex:554
+#, elixir-autogen, elixir-format
+msgid "Latest release"
+msgstr "Nieuwste release"
+
+#: lib/pairings_engine_web/live/help_live.ex:167
+#, elixir-autogen, elixir-format
+msgid "Manubrium, the phone app"
+msgstr "Manubrium, de telefoonapp"
+
+#: lib/pairings_engine_web/live/help_live.ex:571
+#, elixir-autogen, elixir-format
+msgid "Pages about %{name}"
+msgstr "Pagina's over %{name}"
+
+#: lib/pairings_engine_web/live/help_live.ex:165
+#, elixir-autogen, elixir-format
+msgid "Publishing and sharing"
+msgstr "Publiceren en delen"
+
+#: lib/pairings_engine_web/live/help_live.ex:163
+#, elixir-autogen, elixir-format
+msgid "Reports and exports"
+msgstr "Rapporten en export"
+
+#: lib/pairings_engine_web/live/help_live.ex:563
+#, elixir-autogen, elixir-format
+msgid "Source on GitHub"
+msgstr "Broncode op GitHub"
+
+#: lib/pairings_engine_web/live/help_live.ex:164
+#, elixir-autogen, elixir-format
+msgid "Team tournaments"
+msgstr "Ploegentoernooien"
+
+#: lib/pairings_engine_web/live/help_live.ex:727
+#, elixir-autogen, elixir-format
+msgid "The programs that work beside OpenPairings, from the engine inside it to the printer in the hall. Each page starts with what the program is and when you need it."
+msgstr "De programma's die naast OpenPairings werken, van de engine erin tot de printer in de zaal. Elke pagina begint met wat het programma is en wanneer je het nodig hebt."
+
+#: lib/pairings_engine_web/live/help_live.ex:592
+#, elixir-autogen, elixir-format
+msgid "The rest of this page is only available in English."
+msgstr "De rest van deze pagina is alleen in het Engels beschikbaar."

@@ -5,10 +5,10 @@ defmodule PairingsEngine.Manual.FamilyTest do
   alias PairingsEngine.Manual
   alias PairingsEngine.Manual.{Family, FamilyLinks}
 
-  @slugs ~w(alnasl arkab ascella polis nunki openresults)
+  @slugs ~w(ainalrami openresults alnasl arkab polis nunki ascella)
 
   describe "the vendored programs" do
-    test "all six are there, in the documented order" do
+    test "all seven are there, in the documented order" do
       assert Enum.map(Family.programs(), & &1.slug) == @slugs
     end
 
@@ -20,11 +20,68 @@ defmodule PairingsEngine.Manual.FamilyTest do
         assert first.title != ""
         assert program.summary != ""
 
-        assert program.releases_url ==
-                 "https://github.com/teapot-chess/#{program.repo}/releases/latest"
+        if program.slug == "openresults",
+          do: assert(program.releases_url == nil),
+          else:
+            assert(
+              program.releases_url ==
+                "https://github.com/teapot-chess/#{program.repo}/releases/latest"
+            )
       end
 
       assert Enum.find(Family.programs(), &(&1.slug == "openresults")).repo == "openresults"
+    end
+
+    test "each has an introduction in both languages, in the same three parts" do
+      for locale <- ["en", "nl"], program <- Family.programs(locale) do
+        assert %{title: tagline, html: html} = program.intro, "#{locale} #{program.slug}"
+        assert tagline != "" and program.tagline == tagline
+        assert String.ends_with?(program.summary, "."), "#{locale} #{program.slug}"
+
+        leads =
+          if locale == "nl",
+            do: ["Wanneer je het nodig hebt.", "Waar het past."],
+            else: ["When you need it.", "Where it fits."]
+
+        for lead <- leads, do: assert(html =~ "<strong>#{lead}</strong>", program.slug)
+      end
+
+      en = Family.programs("en") |> Enum.map(& &1.intro.html)
+      nl = Family.programs("nl") |> Enum.map(& &1.intro.html)
+      assert Enum.zip(en, nl) |> Enum.all?(fn {a, b} -> a != b end)
+    end
+
+    test "every link in an introduction lands on a chapter, a section or a program" do
+      for locale <- ["en", "nl"], program <- Family.programs(locale) do
+        hrefs = Regex.scan(~r/href="([^"]*)"/, program.intro.html, capture: :all_but_first)
+        assert hrefs != [], program.slug
+
+        for [href] <- hrefs do
+          case String.split(href, ["/", "#"]) do
+            ["", "help", "other", slug] ->
+              assert Family.program(slug), "#{program.slug}: #{href}"
+
+            ["", "help", slug | anchor] ->
+              chapter = Manual.get(slug, locale)
+              assert chapter, "#{program.slug}: #{href}"
+
+              for id <- anchor,
+                  do: assert(Enum.any?(chapter.toc, &(&1.id == id)), "#{program.slug}: #{href}")
+          end
+        end
+      end
+    end
+
+    test "every program has its mark but OpenResults, which has none to have" do
+      for program <- Family.programs() do
+        if program.slug == "openresults" do
+          assert program.mark == nil
+        else
+          assert [_ | _] = program.mark
+          assert Enum.all?(program.mark, &(&1.kind in ~w(ink empty accent)))
+          assert Enum.count(program.mark, &(&1.kind == "accent")) == 1
+        end
+      end
     end
 
     test "only Alnasl has a Dutch manual" do
@@ -139,6 +196,58 @@ defmodule PairingsEngine.Manual.FamilyTest do
       refute out =~ "a.png"
       refute out =~ "Some Person"
       assert out =~ "same licence"
+
+      assert FamilyLinks.scrub("Apache-2.0 (see the file), © 2026 Some Person.") ==
+               "Apache-2.0 (see the file)."
+    end
+  end
+
+  describe "FamilyLinks.drop_sections/3" do
+    @readme """
+    # Demo
+
+    See [the tests](#tests) and [running](#running-it).
+
+    ## Using it
+
+    Use it.
+
+    ## Tests
+
+    ```sh
+    ## not a heading
+    mix test
+    ```
+
+    ### Running it {#running-it}
+
+    Slowly.
+
+    ## Licence
+
+    Free.
+    """
+
+    test "a dropped section goes with its subsections and its code, and nothing else" do
+      out = FamilyLinks.drop_sections(@readme, ["Tests"], "https://x/README.md")
+
+      refute out =~ "## Tests"
+      refute out =~ "not a heading"
+      refute out =~ "Slowly"
+      assert out =~ "## Using it"
+      assert out =~ "## Licence\n\nFree."
+    end
+
+    test "links to what went point at the document on GitHub instead" do
+      out = FamilyLinks.drop_sections(@readme, ["Tests"], "https://x/README.md")
+
+      assert out =~ "[the tests](https://x/README.md#tests)"
+      assert out =~ "[running](https://x/README.md#running-it)"
+    end
+
+    test "nothing to drop changes nothing, and a heading in a code block is code" do
+      assert FamilyLinks.drop_sections(@readme, [], "u") == @readme
+      assert FamilyLinks.drop_sections(@readme, ["not a heading"], "u") == @readme
     end
   end
 
@@ -176,7 +285,12 @@ defmodule PairingsEngine.Manual.FamilyTest do
       root: root,
       target: target
     } do
-      put(root, "nunki/README.md", "# Nunki\r\n\r\nSpeaks for a DGT hall.\r\n")
+      put(
+        root,
+        "nunki/README.md",
+        "# Nunki\r\n\r\nSpeaks for a DGT hall.\r\n\r\n## Building\r\n\r\nmix setup\r\n"
+      )
+
       put(root, "nunki/docs/openpairings-integration.md", "# Integration\n\nHow.\n")
       put(root, "nunki/docs/releasing.md", "# Releasing\n")
       put(root, "alnasl/priv/manual/01-getting-started.md", "# Start\n\nEnglish.\n")
@@ -190,7 +304,9 @@ defmodule PairingsEngine.Manual.FamilyTest do
       assert File.read!(Path.join(target, "nunki/README.md")) ==
                "# Nunki\n\nSpeaks for a electronic boards hall.\n"
 
-      assert File.exists?(Path.join(target, "nunki/openpairings-integration.md"))
+      # The plugin's wiring and the release notes are for developers, and so
+      # is the README's Building.
+      refute File.exists?(Path.join(target, "nunki/openpairings-integration.md"))
       refute File.exists?(Path.join(target, "nunki/releasing.md"))
       assert File.exists?(Path.join(target, "alnasl/nl/01-getting-started.md"))
       # A Dutch file without an English original is not taken.
@@ -200,10 +316,8 @@ defmodule PairingsEngine.Manual.FamilyTest do
       assert nunki["commit"] == "unknown"
       assert nunki["repo"] == "Nunki"
 
-      assert Enum.map(nunki["files"], & &1["source"]) == [
-               "README.md",
-               "docs/openpairings-integration.md"
-             ]
+      assert Enum.map(nunki["files"], & &1["source"]) == ["README.md"]
+      assert nunki["releases"] == true
 
       alnasl = Enum.find(manifest["programs"], &(&1["slug"] == "alnasl"))
       assert [%{"nl" => true}] = alnasl["files"]
@@ -246,7 +360,7 @@ defmodule PairingsEngine.Manual.FamilyTest do
       assert File.exists?(Path.join(target, "arkab/README.md"))
     end
 
-    test "the selection table names the six programs" do
+    test "the selection table names the seven programs" do
       assert Enum.map(SyncFamily.programs(), & &1.slug) == @slugs
     end
   end

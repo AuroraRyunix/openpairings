@@ -12,7 +12,7 @@ setting *Players still level share a place* (Settings, Tournament, advanced) say
 ![The Standings page of a Swiss tournament with the tie-break columns](screenshots/08-standings-swiss.png "Standings after round 5")
 
 - The **Category** filter above the table shows one category at a time
-  ([Categories and norms](13-categories-and-norms.md)).
+  ([Categories and norms](11-categories-and-norms.md)).
 - The column *Rds* (rounds present) and the extra-points columns appear
   when they are switched on (Players page, *Display*).
 - **W-We** and **We** (FIDE's expected score and the difference with the
@@ -147,7 +147,7 @@ the program applies*.
 | RTNG/R | Tournament rating, reversed | The lower the better. |
 
 Team events have their own list: MP (match points), GP (game points), EMGSB,
-EGMSB, EGGSB, BH:GP, EDE, TBR, BBE, SSSC, BB (see [Teams](12-teams.md)). They
+EGMSB, EGGSB, BH:GP, EDE, TBR, BBE, SSSC, BB (see [Teams](13-teams.md)). They
 are the last group of the list.
 
 ### Rules the program applies
@@ -213,7 +213,7 @@ are the last group of the list.
   FIDE's and does not ask where the tournament came from: a round robin
   imported from a SWAR file with a player marked *forfait général* is read
   the same way. The public results site marks the row too
-  ([OpenResults](16-openresults.md#the-standings-page)).
+  ([OpenResults](15-openresults.md#the-standings-page)).
 
 A tie-break that cannot be calculated for a tournament is not shown as a column
 of zeros: it is dropped, with a note.

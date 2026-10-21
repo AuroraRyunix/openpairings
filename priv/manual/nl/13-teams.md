@@ -37,7 +37,7 @@ Keizer kan geen ploegentoernooi zijn.
 7. **Tiebreaks** (Instellingen, Toernooi): een ploegentoernooi krijgt de ploegtiebreaks aangeboden. De
    FIDE-standaard is MP, GP, DE, BB, SB.
 
-![De pagina Ploegen met ploegkaarten, opstellingen in bordvolgorde en de instelling Borden per wedstrijd](screenshots/12-teams-page.png "De pagina Ploegen: opstellingen in bordvolgorde")
+![De pagina Ploegen met ploegkaarten, opstellingen in bordvolgorde en de instelling Borden per wedstrijd](screenshots/13-teams-page.png "De pagina Ploegen: opstellingen in bordvolgorde")
 
 Elke actie op de pagina Ploegen is een gewone knop met een gesproken naam, en het
 resultaat wordt aangekondigd.
@@ -132,7 +132,7 @@ ploegtiebreaks, elk met zijn berekening (voor elke ronde de tegenstander en wat 
 een bye). De pagina toont ook **bordstatistieken**: per boordnummer de spelers die daar zaten, met
 partijen, punten, percentage en prestatie.
 
-![De ploegenrangschikking met wedstrijdpunten, partijpunten en de berekening van een ploegtiebreak](screenshots/12-team-standings.png "Ploegenrangschikking met de berekening van de tiebreak")
+![De ploegenrangschikking met wedstrijdpunten, partijpunten en de berekening van een ploegtiebreak](screenshots/13-team-standings.png "Ploegenrangschikking met de berekening van de tiebreak")
 
 ### Ploegtiebreaks {#team-tie-breaks}
 

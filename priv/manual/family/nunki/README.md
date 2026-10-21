@@ -76,8 +76,18 @@ Every release carries the same files under the same names:
 | Windows, no install | [nunki-windows-x86_64-portable.zip](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-windows-x86_64-portable.zip) |
 | Linux, PC | [nunki-linux-x86_64.tar.gz](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-linux-x86_64.tar.gz) |
 | Linux, Raspberry Pi (64-bit) and other arm64 | [nunki-linux-aarch64.tar.gz](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-linux-aarch64.tar.gz) |
-| Mac, Apple Silicon | [nunki-macos-aarch64.zip](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-macos-aarch64.zip) |
+| Mac, Apple Silicon (macOS 11 and newer) | [nunki-macos-aarch64.zip](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-macos-aarch64.zip) |
+| Mac, Intel (macOS 10.13 and newer) | [nunki-macos-x86_64.zip](https://github.com/teapot-chess/Nunki/releases/latest/download/nunki-macos-x86_64.zip) |
 | Checksums | [SHA256SUMS](https://github.com/teapot-chess/Nunki/releases/latest/download/SHA256SUMS) |
+
+**Checking a download.** From the next release on, every file in a release, `SHA256SUMS` included, carries signed build provenance: a GitHub artifact attestation, signed keylessly through Sigstore, so there is no key of ours to lose. With the [GitHub CLI](https://cli.github.com/):
+
+```sh
+gh attestation verify <file> --repo teapot-chess/Nunki
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+The first line says this exact file was built by this repository's release workflow. `SHA256SUMS` is attested too, so the second line is as trustworthy as the first.
 
 **Windows.** The installer is per user, one click, no administrator; Windows
 says it does not know the program, as it does of any unsigned installer:
@@ -96,8 +106,9 @@ sudo apt install espeak-ng
 A systemd service, user `nunki` in the `audio` group, data in
 `/var/lib/nunki`, the control page on http://localhost:4062.
 
-**macOS** (Apple Silicon): `nunki-macos-aarch64.zip`, unzip, open
-`Nunki.app`, "Open Anyway" once ([docs/macos.md](docs/macos.md)).
+**macOS** (Apple Silicon, or Intel from macOS 10.13): `nunki-macos-aarch64.zip` or
+`nunki-macos-x86_64.zip`, unzip, open
+`Nunki.app` (signed and notarised, so no question; [docs/macos.md](docs/macos.md)).
 
 **Updates.** An installed copy looks for a newer release now and then (one
 small request to GitHub, switched off by a checkbox) and says so at the top
@@ -110,6 +121,10 @@ our version numbers.
 Nunki listens on this machine only (port 4062). `NUNKI_LISTEN=lan` opens
 the pages to the hall's network - there is no PIN, so anybody on that
 network can then start a countdown or stop a reading. That is the trade.
+Either way Nunki answers only to its own names: `localhost`, `127.0.0.1`,
+`PHX_HOST` and, with `lan`, the machine's host name and addresses. A request
+for any other host (a web page that pointed its own name at this machine, or
+a reverse proxy that forwards one) gets a 403.
 
 ## Sound on Linux: an open question
 
@@ -166,24 +181,6 @@ so.
   latest pairings; at the bottom, the line being said. `?t=<id>` picks a
   tournament.
 - **`/help`**, the manual, English and Dutch.
-
-## Building
-
-Elixir 1.17 or newer, OTP 27 or newer.
-
-```
-mix setup
-mix phx.server          # http://localhost:4062, with a fake voice
-NUNKI_VOICE=os mix phx.server   # the machine's own voice
-mix test
-```
-
-Development and the tests use `Nunki.Voice.Fake`, which writes down what
-it was asked to say and makes no sound. A program that speaks while
-somebody edits a template is a program that gets switched off.
-
-Releases: [docs/releasing.md](docs/releasing.md). The launcher's Details
-panel: [docs/launcher-details.md](docs/launcher-details.md).
 
 ## Licence
 

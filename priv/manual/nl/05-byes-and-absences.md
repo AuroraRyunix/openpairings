@@ -240,7 +240,7 @@ onderschreven programma zou paren.
 
 ## Byes in het FIDE-rapport {#byes-in-the-fide-report}
 
-Het TRF-rapport (zie [Versturen naar FIDE](11-fide-report.md)) schrijft elke soort
+Het TRF-rapport (zie [Versturen naar FIDE](10-fide-report.md)) schrijft elke soort
 met de eigen code: `U` voor de door de paring toegekende bye, `F` voor een bye van
 een vol punt, `H` voor een halvepuntsbye, `Z` voor een nulpuntsbye of een afwezigheid,
 `-` voor een forfaitverlies en `+` voor een forfaitwinst. Een bye die de arbiter al

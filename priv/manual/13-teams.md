@@ -39,7 +39,7 @@ Keizer cannot be a team tournament.
 7. **Tie-breaks** (Settings, Tournament): a team tournament is offered the team
    tie-breaks. The FIDE default is MP, GP, DE, BB, SB.
 
-![The Teams page with team cards, rosters in board order and the Boards per match setting](screenshots/12-teams-page.png "The Teams page: rosters in board order")
+![The Teams page with team cards, rosters in board order and the Boards per match setting](screenshots/13-teams-page.png "The Teams page: rosters in board order")
 
 Every action on the Teams page is an ordinary button with a spoken name, and the
 result is announced.
@@ -140,7 +140,7 @@ tie-breaks, each with its working (for each round the opponent and what it was
 worth, a forfeit, a bye). The page also shows **board statistics**: per board
 number, the players who sat there, with games, points, percentage and performance.
 
-![The team standings with match points, game points and the working of a team tie-break](screenshots/12-team-standings.png "Team standings with tie-break working")
+![The team standings with match points, game points and the working of a team tie-break](screenshots/13-team-standings.png "Team standings with tie-break working")
 
 ### Team tie-breaks
 

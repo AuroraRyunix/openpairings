@@ -2,9 +2,9 @@
 
 Dit hoofdstuk behandelt het formulier Nieuw toernooi en elke instellingenpagina,
 behalve de publicatiepagina ([Publiceren](14-publishing.md)), de exportpagina
-([Importeren en exporteren](10-import-export.md),
-[Versturen naar FIDE](11-fide-report.md)) en Categorieën
-([Categorieën en normen](13-categories-and-norms.md)).
+([Importeren en exporteren](12-import-export.md),
+[Versturen naar FIDE](10-fide-report.md)) en Categorieën
+([Categorieën en normen](11-categories-and-norms.md)).
 
 ## Een toernooi aanmaken {#creating-a-tournament}
 
@@ -16,7 +16,7 @@ Toernooien, **Nieuw toernooi**.
 | Paringssysteem | **Zwitsers - FIDE Dutch**, **Rondetoernooi (Berger)** of **Keizer**. Het kan niet worden veranderd nadat de eerste ronde is gepaard. |
 | Rondes | 1 tot 99. Een rondetoernooi berekent zelf het aantal rondes uit de spelers en de cycli. |
 | Aantal keer dat iedereen tegen iedereen speelt | (alleen rondetoernooi) 1 tot 10. |
-| Ploegentoernooi | Maakt er een ploegenevenement van: Zwitserse ploegen (FIDE C.04.6) of rondetoernooi-ploegen. Keizer kan geen ploegentoernooi zijn. Zie [Ploegen](12-teams.md). |
+| Ploegentoernooi | Maakt er een ploegenevenement van: Zwitserse ploegen (FIDE C.04.6) of rondetoernooi-ploegen. Keizer kan geen ploegentoernooi zijn. Zie [Ploegen](13-teams.md). |
 | Plaats | De stad. |
 | Datum vanaf | Vult elke ronde met deze datum; verfijn dit op de pagina Data. |
 | Speeltempo | Een lijst met de gebruikelijke bedenktijden voor het gekozen formaat, of *geen*. |
@@ -31,8 +31,8 @@ publicatiemodus). Het toernooi wordt aangemaakt in de FIDE-modus
 
 Andere manieren om een toernooi te starten: **Importeren** van een `.swar`-
 bestand, een `.trf`-bestand of een JSON-back-up, of **Een overdracht
-ontvangen** (zie [Importeren en exporteren](10-import-export.md) en
-[Accounts, delen en overdracht](15-accounts-and-handoff.md)); of **Kopiëren**
+ontvangen** (zie [Importeren en exporteren](12-import-export.md) en
+[Accounts, delen en overdracht](16-accounts-and-handoff.md)); of **Kopiëren**
 van een bestaand toernooi in de lijst (een kopie bevat alles van het origineel,
 ronden en resultaten inbegrepen, en heet *Kopie van …*).
 
@@ -95,14 +95,14 @@ Nog twee dingen houden de pagina's kort:
 | Puntentelling | punten, matchpunten, uitgestelde partijen | de hele kaart *Byes en afwezigheden* (punten voor een overgeslagen ronde en de grenzen ervan, vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen); bye, forfait en terugtrekking van een ploeg |
 | Data | één datum per ronde | - |
 | Ruimtes | de ruimtes van de zaal en hun borden | - |
-| Categorieën | zie [Categorieën en normen](13-categories-and-norms.md) | - |
+| Categorieën | zie [Categorieën en normen](11-categories-and-norms.md) | - |
 | Extra punten | bonus- of handicappunten per ratingband | - |
 | Verboden paringen | het effect op de volgende ronde, de regels, spelers die elkaar niet mogen treffen | hoe zwaar de wensen wegen |
 | OpenResults | publiceren naar de uitslagensite en per ronde ([Publiceren](14-publishing.md)) | wat de publieke pagina toont, het zaalscherm, het inschrijvingsformulier |
 | Live borden | de boxen en de partijen die ze meldden ([Live borden](17-live-boards.md)) | - |
 | FIDE | de FIDE-modus, het vinkje gehomologeerd, de rapportidentificaties, de volgorde van de ratinglijsten ([FIDE-modus](02-fide-mode.md), [Spelers en ratinglijsten](04-players-and-ratings.md)) | FIDE-ID-bereiken per ronde, consistentiecontroles van de ratings |
 | Functionarissen & normen | de functionarissen en arbiters die de FIDE-formulieren noemen; het type evenement voor titelnormen; of de regel voor het grote open Zwitserse toernooi geldt | - |
-| Exporteren | TRF, back-ups, de CSV-download van de spelers ([Importeren en exporteren](10-import-export.md)) | de kolommen, het scheidingsteken, de volgorde en de opties van de CSV |
+| Exporteren | TRF, back-ups, de CSV-download van de spelers ([Importeren en exporteren](12-import-export.md)) | de kolommen, het scheidingsteken, de volgorde en de opties van de CSV |
 | Over | versie en de paringsengine die dit toernooi gebruikt | - |
 
 Elk formulier wordt opgeslagen met zijn eigen knop **Opslaan**, en het antwoord
@@ -135,7 +135,7 @@ rating hebben; staat het aan, dan verschijnen eronder de twee instellingen voor
 de tiebreaks op basis van rating ([Rangschikking en
 tiebreaks](08-standings-and-tiebreaks.md)), en ook *Rapporteren aan FIDE*:
 maandelijkse rapporten of één rapport op het einde ([Uitgestelde
-partijen](11-fide-report.md#postponed-games) legt beide uit). Een **?** naast het vinkje legt het
+partijen](10-fide-report.md#postponed-games) legt beide uit). Een **?** naast het vinkje legt het
 uit. In zo'n toernooi voegt *Ratings vernieuwen* de ratings van een nieuwe lijst
 toe als latere ratings vanaf een ronde, in plaats van de startrating te
 vervangen ([Ratings vernieuwen](04-players-and-ratings.md#refreshing-ratings)),
@@ -143,7 +143,7 @@ en de paringsnummers veranderen er nooit door. Beslaan de rondedata meer dan 30
 dagen en staat het vinkje uit, dan zegt de kaart dat.
 
 **Delen / Team.** De eigenaar kan andere arbiters uitnodigen via hun
-e-mailadres (zie [Accounts, delen en overdracht](15-accounts-and-handoff.md)).
+e-mailadres (zie [Accounts, delen en overdracht](16-accounts-and-handoff.md)).
 
 **Logo** (geavanceerd tot er een logo is). Een PNG-, JPEG-, GIF- of WebP-afbeelding van maximaal 2 MB, die bij het
 toernooi wordt opgeslagen en op de documenten wordt afgedrukt.
@@ -153,7 +153,7 @@ toernooi wordt opgeslagen en op de documenten wordt afgedrukt.
 Eén evenement bestaat vaak uit meerdere afzonderlijke toernooien: de open reeks, een
 jeugdreeks, een rapidtoernooi ernaast. Elk heeft zijn eigen spelers, rondes en
 paringen - daarom zijn het afzonderlijke toernooien en geen
-[categorieën](13-categories-and-norms.md) van één toernooi. Een **groep** brengt ze
+[categorieën](11-categories-and-norms.md) van één toernooi. Een **groep** brengt ze
 samen.
 
 Op **Instellingen → Groep** (een eigen pagina in de lijst Opzet):
@@ -318,7 +318,7 @@ match telt twee rondes).
 **Ploegen** (ploegentoernooien): of opstellingen verplicht zijn, en
 (geavanceerd) de manier waarop de rating van een ploeg wordt berekend voor de
 volgorde van de ploegen, en de rating die wordt geteld voor een ongerate speler.
-Zie [Ploegen](12-teams.md).
+Zie [Ploegen](13-teams.md).
 
 **Type en speeltempo.** Het type (Standaard, Rapid, Blitz) en de bedenktijd uit
 een lijst, of (geavanceerd) ingetypt bij *Ander speeltempo*. Het speeltempo wordt
@@ -397,7 +397,7 @@ waarde van de **door de paring toegekende bye** (standaard: een winst).
 **Matchpunten** (ploegentoernooien): 2 voor een gewonnen match, 1 voor een
 gelijkgespeelde match en 0 voor een verloren match, standaard; en, geavanceerd,
 de matchpunten en partijpunten van een door de paring toegekende bye; wat een wedstrijd die als
-geheel forfait is aan partijpunten oplevert ([Ploegen](12-teams.md)); en de
+geheel forfait is aan partijpunten oplevert ([Ploegen](13-teams.md)); en de
 behandeling van een ploeg die zich terugtrekt.
 
 **Byes en afwezigheden.** (geavanceerd) *Punten voor een overgeslagen ronde* is de waarde van
@@ -502,7 +502,7 @@ paringswebpagina, en vier bijzondere opmerkingen voor het IT3. Typ een naam of
 een FIDE-ID en kies de juiste speler: elke functionaris heeft een FIDE-ID nodig,
 en opslaan met een functionaris zonder ID wordt geweigerd, want FIDE stuurt zo'n
 rapport terug. De formulieren IT3, FA1, IA1 en IT4 op de pagina Normen worden
-hiermee ingevuld ([Categorieën en normen](13-categories-and-norms.md)).
+hiermee ingevuld ([Categorieën en normen](11-categories-and-norms.md)).
 
 **Titelnormen.** *Type evenement voor titelnormen* zegt de normbeoordeling als
 wat voor evenement de FIDE Title Regulations (B.01) dit toernooi zien. Enkel de

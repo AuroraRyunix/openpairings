@@ -20,7 +20,7 @@ Wat er gebeurd is, in zinnen, met filters: bord aangesloten, zetten hersteld, ni
 
 ## De pagina Resultaten {#the-outbox}
 
-De verbindingen, eerlijk: voor de uitslagensite en voor elke andere bestemming, verbonden of niet, laatste succes, hoeveel er wacht en waarom het niet weggaat, in woorden. Elk heeft zijn eigen schakelaar en zijn eigen "Nu versturen". Wat wacht, wat de server weigerde en wat weggegaan is. Alles, de tellers en het getal in de omlijsting inbegrepen, gaat over de toernooien die gespeeld worden in de zaal waar je naar kijkt.
+De verbindingen, eerlijk: voor de uitslagensite en voor elke andere bestemming, verbonden of niet, laatste succes, hoeveel er wacht en waarom het niet weggaat, in woorden, per toernooi. Zetten van een toernooi dat weg is, of nog geen uitslagenpagina heeft, kunnen nergens heen: de pagina zegt dat ("Er kan niets verstuurd worden") en biedt "Deze zetten weggooien" voor dat toernooi, na een bevestiging. Er wordt nooit iets uit zichzelf weggegooid. Elk heeft zijn eigen schakelaar en zijn eigen "Nu versturen". Wat wacht, wat de server weigerde en wat weggegaan is. Alles, de tellers en het getal in de omlijsting inbegrepen, gaat over de toernooien die gespeeld worden in de zaal waar je naar kijkt.
 
 ## PGN {#pgn}
 

@@ -364,4 +364,4 @@ kan worden teruggezet.
 Instellingen, **Exporteren**, *Spelers exporteren (CSV)*: de kolommen die je kiest,
 in de volgorde die je kiest, met een scheidingsteken (komma, puntkomma, tab of
 pipe), gesorteerd op startrang of op naam, eventueel zonder afwezige spelers en
-met een markering voor Excel. Zie [Importeren en exporteren](10-import-export.md).
+met een markering voor Excel. Zie [Importeren en exporteren](12-import-export.md).

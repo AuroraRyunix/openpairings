@@ -38,7 +38,7 @@ is alleen bereikbaar vanaf die computer, nooit via het netwerk.
 **Op een server (de onlineversie).** Het programma draait op een server en je
 bereikt het via een webadres. Iedereen heeft een account, elk toernooi behoort
 toe aan de eigenaar, en de eigenaar kan andere arbiters uitnodigen om het te
-delen (zie [Accounts, delen en overdracht](15-accounts-and-handoff.md)).
+delen (zie [Accounts, delen en overdracht](16-accounts-and-handoff.md)).
 
 Alles wat in deze handleiding staat, werkt in beide. De verschillen worden
 vermeld waar ze ertoe doen: aanmelden en accounts bestaan alleen online; de
@@ -99,7 +99,7 @@ De toernooien staan in één databasebestand in een map van je gebruikersaccount
 > Het verwijderen van het programma laat deze gegevens staan.
 
 Het programma maakt ongeveer één keer per dag een back-up van zijn gegevens
-(zie "Back-ups" in [Accounts, delen en overdracht](15-accounts-and-handoff.md)).
+(zie "Back-ups" in [Accounts, delen en overdracht](16-accounts-and-handoff.md)).
 
 ### Updates {#updates}
 
@@ -184,7 +184,7 @@ desktopversie bent dat altijd jij.
    heeft, opent **Door naar ronde N** de volgende ronde: die paar je dan.
 7. **Stand**, **Afdrukken** wanneer nodig.
 8. Na de laatste ronde: Instellingen, **Exporteren**, stuur het TRF-bestand naar
-   het rating-bureau (zie [Versturen naar FIDE](11-fide-report.md)).
+   het rating-bureau (zie [Versturen naar FIDE](10-fide-report.md)).
 
 De volgende hoofdstukken leggen elke stap volledig uit.
 

@@ -1,13 +1,15 @@
 defmodule PairingsEngine.Manual.FamilyLinks do
   @moduledoc """
-  The two small text jobs of the family pages (`PairingsEngine.Manual.Family`):
+  The small text jobs of the family pages (`PairingsEngine.Manual.Family`):
 
     * `rewrite/4` decides where a link in a vendored document goes: another
       vendored page of the same program becomes an in-help link, anything
       else points at the program's GitHub;
     * `scrub/1` is what `mix help.sync_family` does to a document on its way
       in: pictures it cannot vendor are dropped, and the brand name of the
-      electronic boards is written the way this manual writes it.
+      electronic boards is written the way this manual writes it;
+    * `drop_sections/3` leaves a README's developer sections (tests,
+      building, code layout) on GitHub, where the people who want them look.
   """
 
   @github "https://github.com/teapot-chess"
@@ -78,10 +80,13 @@ defmodule PairingsEngine.Manual.FamilyLinks do
     |> map_prose(&Regex.replace(~r/\bDGT\b/, &1, "electronic boards"))
   end
 
-  # `(c) 2026 Some Person - the same licence` -> `the same licence`: the
-  # manual names no people.
-  defp drop_copyright_holder(text),
-    do: Regex.replace(~r/\(c\) \d{4} [^\n-]+ - /, text, "")
+  # `(c) 2026 Some Person - the same licence` -> `the same licence`, and
+  # `, © 2026 Some Person.` -> `.`: the manual names no people.
+  defp drop_copyright_holder(text) do
+    text
+    |> then(&Regex.replace(~r/\(c\) \d{4} [^\n-]+ - /, &1, ""))
+    |> then(&Regex.replace(~r/,? ?(?:©|\([cC]\)) \d{4} [^\n.,;()-]+/u, &1, ""))
+  end
 
   defp drop_images(text) do
     text
@@ -89,6 +94,77 @@ defmodule PairingsEngine.Manual.FamilyLinks do
     # A link that only wrapped a picture is now `[](...)`.
     |> then(&Regex.replace(~r/\[\s*\]\([^)]*\)/, &1, ""))
     |> then(&Regex.replace(~r/\n{3,}/, &1, "\n\n"))
+  end
+
+  @doc """
+  Leaves out the sections of `text` whose heading is one of `headings`
+  (the heading's text as written, without `#` marks or a `{#id}`): from
+  that heading to the next one of the same or a higher level. This is how
+  a README's "Tests" and "Building" stay on GitHub, where developers look,
+  instead of in a manual for arbiters.
+
+  A link elsewhere in the document to a section that went (`(#where)`)
+  would land nowhere in the help, so it is pointed at `source_url`, the
+  document on GitHub, instead. Headings inside code blocks are code.
+  """
+  def drop_sections(text, [], _source_url) when is_binary(text), do: text
+
+  def drop_sections(text, headings, source_url) when is_binary(text) do
+    wanted = MapSet.new(headings)
+
+    {kept, dropped_ids, _} =
+      text
+      |> String.split("\n")
+      |> Enum.reduce({[], [], %{fence?: false, dropping: nil}}, fn line, {kept, ids, st} ->
+        heading = if st.fence?, do: nil, else: heading(line)
+        st = if fence?(line), do: %{st | fence?: not st.fence?}, else: st
+
+        # A heading at or above the level being dropped ends the drop; it
+        # may start the next one.
+        st =
+          if heading && st.dropping && elem(heading, 0) <= st.dropping,
+            do: %{st | dropping: nil},
+            else: st
+
+        cond do
+          heading && st.dropping == nil && MapSet.member?(wanted, elem(heading, 1)) ->
+            {kept, [elem(heading, 2) | ids], %{st | dropping: elem(heading, 0)}}
+
+          heading && st.dropping ->
+            {kept, [elem(heading, 2) | ids], st}
+
+          st.dropping ->
+            {kept, ids, st}
+
+          true ->
+            {[line | kept], ids, st}
+        end
+      end)
+
+    text = kept |> Enum.reverse() |> Enum.join("\n")
+
+    Enum.reduce(dropped_ids, text, fn id, acc ->
+      String.replace(acc, "](##{id})", "](#{source_url}##{id})")
+    end)
+  end
+
+  defp fence?(line), do: Regex.match?(~r/\A\s*(```|~~~)/, line)
+
+  # `{level, text, id}` of a `##`-style heading line, or nil.
+  defp heading(line) do
+    case Regex.run(~r/\A(\#{1,6})\s+(.*?)\s*\#*\s*\z/, line) do
+      [_, hashes, rest] ->
+        {text, id} =
+          case Regex.run(~r/\A(.*?)\s*\{#([A-Za-z0-9_-]+)\}\z/, rest) do
+            [_, text, id] -> {text, id}
+            nil -> {rest, PairingsEngine.Manual.Markup.heading_id(rest)}
+          end
+
+        {String.length(hashes), text, id}
+
+      nil ->
+        nil
+    end
   end
 
   # Applies `fun` to the prose only: fenced blocks and inline code are kept.

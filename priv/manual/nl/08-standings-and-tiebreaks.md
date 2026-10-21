@@ -12,7 +12,7 @@ instelling *Spelers die nog gelijk staan delen een plaats* (Instellingen, Toerno
 ![De pagina Stand van een Zwitsers toernooi met de tiebreakkolommen](screenshots/08-standings-swiss.png "Stand na ronde 5")
 
 - Het filter **Categorie** boven de tabel toont één categorie tegelijk
-  ([Categorieën en normen](13-categories-and-norms.md)).
+  ([Categorieën en normen](11-categories-and-norms.md)).
 - De kolom *Rds* (aanwezige rondes) en de kolommen voor extra punten verschijnen
   als ze aan staan (pagina Spelers, *Weergave*).
 - **W-We** en **We** (de verwachte score van FIDE en het verschil met de werkelijke
@@ -151,7 +151,7 @@ onder *Regels die het programma toepast*.
 | RTNG/R | Toernooirating, omgekeerd | Hoe lager, hoe beter. |
 
 Teamevenementen hebben een eigen lijst: MP (matchpunten), GP (partijpunten), EMGSB,
-EGMSB, EGGSB, BH:GP, EDE, TBR, BBE, SSSC, BB (zie [Ploegen](12-teams.md)). Zij
+EGMSB, EGGSB, BH:GP, EDE, TBR, BBE, SSSC, BB (zie [Ploegen](13-teams.md)). Zij
 vormen de laatste groep van de lijst.
 
 ### Regels die het programma toepast {#rules-the-program-applies}
@@ -219,7 +219,7 @@ vormen de laatste groep van de lijst.
   vraagt niet waar het toernooi vandaan komt: een rondetoernooi dat uit een
   SWAR-bestand is geïmporteerd met een speler die als *forfait général* is gemarkeerd,
   wordt op dezelfde manier gelezen. De publieke resultatensite markeert de rij ook
-  ([OpenResults](16-openresults.md#the-standings-page)).
+  ([OpenResults](15-openresults.md#the-standings-page)).
 
 Een tiebreak die voor een toernooi niet kan worden berekend, wordt niet getoond als
 kolom met nullen: hij valt weg, met een opmerking.

@@ -135,7 +135,7 @@ the round is not paired. The second question lists what leaving does:
   TRF26 copies of the report say so in a comment line (`FIDE mode exited @
   Round N`), so whoever checks the file knows where to look more closely. (The
   file made by *Send…* contains records only, no comment lines; see
-  [Sending to FIDE](11-fide-report.md).)
+  [Sending to FIDE](10-fide-report.md).)
 - The locked settings and the closed rounds can be changed afterwards, and the
   program no longer stops a change that FIDE rules forbid.
 - Every page of the tournament shows a line, *Not in FIDE mode*, with a link
@@ -155,6 +155,6 @@ ranges of rounds), the event code, and the box *This tournament is FIDE-homologa
 preferences are not applied (they are not FIDE rules), and the tournament ID
 becomes a required field. The officials (chief arbiter, deputies) and the
 event type for title norms are entered under **Officials & norms**; see
-[Tournament set-up](03-tournament-setup.md) and [Sending to FIDE](11-fide-report.md).
+[Tournament set-up](03-tournament-setup.md) and [Sending to FIDE](10-fide-report.md).
 
 ![The FIDE page of the settings with the tournament ID, event code and the homologated tick box](screenshots/02-settings-fide-page.png "Settings, FIDE")

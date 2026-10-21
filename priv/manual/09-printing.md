@@ -104,7 +104,7 @@ points per round), **match result sheets** (one A4 page per match with both
 line-ups, result boxes, the match score and signature lines for both
 captains and the arbiter), **team rosters** and **board prizes** (per board
 number, the players ranked by percentage, points and performance, with an
-optional minimum number of games). See [Teams](12-teams.md).
+optional minimum number of games). See [Teams](13-teams.md).
 
 ## Accreditation badges
 
@@ -112,11 +112,11 @@ A6 badges, two to an A4 sheet, are made in a separate tool: **Advanced**,
 **Badges**. A badge has a name, photo, title, federation, FIDE ID, a coloured
 role banner, up to twelve numbered rooms, logos and a QR code. An event
 linked to a tournament imports its players and officials; press, VIP and staff
-badges are added by hand. See [Categories and norms](13-categories-and-norms.md)
+badges are added by hand. See [Categories and norms](11-categories-and-norms.md)
 for the other tools under Advanced.
 
 
 ## Printing the FIDE forms
 
 The IT3, FA1, IA1 and IT4 forms are filled-in Excel files from **Advanced**,
-**Norms**, not print pages ([Categories and norms](13-categories-and-norms.md)).
+**Norms**, not print pages ([Categories and norms](11-categories-and-norms.md)).

@@ -4,7 +4,7 @@ Alles om de borden herkend te krijgen: aansluiten, meerdere borden op één kabe
 
 ## Wat de pagina Borden toont {#the-boards-page}
 
-Eén rij per bord: zijn live plaatje, het signaal, zijn serienummer en firmware, de controle van de beginstelling, zijn tafelnummer en zijn bord van de ronde. Bovenaan: "Klaar voor ronde N?", het adres en de QR-code voor een telefoon, en een vel etiketten om af te drukken. Een bord dat niet aangesloten is, houdt zijn rij en zegt "Geen signaal" en waarom.
+Eén rij per bord: zijn live plaatje, het signaal, zijn serienummer en firmware, de klok ernaast (beide tijden, de lopende donker; "Geen klok gemeld" als er nog geen klok iets gezegd heeft), de controle van de beginstelling, zijn tafelnummer en zijn bord van de ronde. Bovenaan: "Klaar voor ronde N?", het adres en de QR-code voor een telefoon, en een vel etiketten om af te drukken. Een bord dat niet aangesloten is, houdt zijn rij en zegt "Geen signaal" en waarom.
 
 ## Een bord toevoegen {#adding-a-board}
 
@@ -61,6 +61,8 @@ Met een telefoon in je hand langs de tafels lopen is makkelijker dan heen en wee
 
 > [!WARNING] Nooit zonder pincode
 > Iedereen op het netwerk van de zaal die het adres vindt, kan je borden hernummeren.
+
+Een pincode heeft minstens zes tekens; een kortere van voor die regel blijft werken, en Instellingen, Toegang vraagt je haar te vervangen. Gokken wordt afgeremd: vanaf de vijfde foute pincode moet een adres wachten, eerst vijf seconden en bij elke volgende mislukking dubbel zo lang (hoogstens een kwartier), ook als de volgende poging juist is, en het hele kastje neemt hoogstens veertig foute pincodes per minuut aan.
 
 Doe dit voor de ronde, met de stukken opgesteld en niemand aan de borden. De ronde stopt vanzelf als elk bord een nummer heeft, of na een kwartier zonder aanraking.
 

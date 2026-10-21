@@ -37,11 +37,11 @@ for the convention.
 | `07-result-entry.png` | 7 Results | Pairings page mid-round, focus in a result field and the result list open on one board | 1280x800 |
 | `08-standings-swiss.png` | 8 Standings | Standings page (`/t/:id/standings`) of a Swiss after round 5, tie-break columns visible | 1280x800 |
 | `09-print-tab.png` | 9 Printing | The Print tab (`/t/:id/print`), a round paired, the list of documents with their *Print…* buttons | 1280x800 |
-| `10-trf-import-review.png` | 10 Import and export | Tournaments page, TRF import review step for a file whose rounds break the FIDE pairing rules, with *Import anyway* | 1280x800 |
-| `11-export-trf-rounds.png` | 11 FIDE report | Settings, Export (`/t/:id/settings/export`), TRF section with three rounds: one being played, one ready to send, one sent (receipt code shown) | 1280x800 |
-| `12-teams-page.png` | 12 Teams | Teams page (`/t/:id/teams`) of a team tournament: four or more team cards with rosters in board order, and the *Boards per match* setting | 1280x800 |
-| `12-team-standings.png` | 12 Teams | Standings of a team tournament after a few rounds, one team's tie-break working opened | 1280x800 |
-| `13-categories-settings.png` | 13 Categories and norms | Categories (`/t/:id/categories`) with a few rule-based categories (rating band, age, women), prizes and the two switches | 1280x800 |
-| `13-norms-forms.png` | 13 Categories and norms | Advanced, Norms (`/t/:id/norms`) with the IT3 / FA1 / IA1 / IT4 forms and the *Not ready to submit to FIDE* banner | 1280x800 |
+| `10-export-trf-rounds.png` | 10 FIDE report | Settings, Export (`/t/:id/settings/export`), TRF section with three rounds: one being played, one ready to send, one sent (receipt code shown) | 1280x800 |
+| `11-categories-settings.png` | 11 Categories and norms | Categories (`/t/:id/categories`) with a few rule-based categories (rating band, age, women), prizes and the two switches | 1280x800 |
+| `11-norms-forms.png` | 11 Categories and norms | Advanced, Norms (`/t/:id/norms`) with the IT3 / FA1 / IA1 / IT4 forms and the *Not ready to submit to FIDE* banner | 1280x800 |
+| `12-trf-import-review.png` | 12 Import and export | Tournaments page, TRF import review step for a file whose rounds break the FIDE pairing rules, with *Import anyway* | 1280x800 |
+| `13-teams-page.png` | 13 Teams | Teams page (`/t/:id/teams`) of a team tournament: four or more team cards with rosters in board order, and the *Boards per match* setting | 1280x800 |
+| `13-team-standings.png` | 13 Teams | Standings of a team tournament after a few rounds, one team's tie-break working opened | 1280x800 |
 | `14-openresults-settings.png` | 14 Publishing | Settings, OpenResults of a published tournament: the Off / Link only / Listed choice, *Automatically*, and a round's *Spectators see* level | 1280x900 |
-| `15-handoff-list.png` | 15 Accounts and hand-off | Tournaments page with the *Hand off* action, and a handed-off tournament showing its read-only state and *Bring it back* | 1280x800 |
+| `16-handoff-list.png` | 16 Accounts and hand-off | Tournaments page with the *Hand off* action, and a handed-off tournament showing its read-only state and *Bring it back* | 1280x800 |

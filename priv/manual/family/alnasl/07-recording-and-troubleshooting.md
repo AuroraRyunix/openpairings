@@ -20,7 +20,7 @@ What happened, in sentences, with filters: board connected, moves recovered, out
 
 ## The Results page {#the-outbox}
 
-The connections, honestly: for the results site and for every other destination, connected or not, last success, how much is waiting and why it is not going, in words. Each has its own switch and its own "Send now". What waits, what the server refused, and what went out. All of it, the counts and the number in the frame included, is about the tournaments played in the hall you are looking at.
+The connections, honestly: for the results site and for every other destination, connected or not, last success, how much is waiting and why it is not going, in words, tournament by tournament. Moves of a tournament that is gone, or has no results page, can go nowhere: the page says so ("Nothing can be sent") and offers "Discard these moves" for that tournament, after a confirmation. Nothing is ever discarded by itself. Each has its own switch and its own "Send now". What waits, what the server refused, and what went out. All of it, the counts and the number in the frame included, is about the tournaments played in the hall you are looking at.
 
 ## PGN {#pgn}
 

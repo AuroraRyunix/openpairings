@@ -106,7 +106,7 @@ follows the choice of the file:
   **Import anyway**; otherwise it reads **Import**. **Cancel** imports
   nothing.
 
-![The TRF import review with the heading about rounds that break the FIDE pairing rules and the Import anyway button](screenshots/10-trf-import-review.png "The review step of a TRF import")
+![The TRF import review with the heading about rounds that break the FIDE pairing rules and the Import anyway button](screenshots/12-trf-import-review.png "The review step of a TRF import")
 
 A confirmed import creates the tournament with the rounds exactly as the file
 records them. What the import adjusted and every rule it found broken are kept
@@ -186,7 +186,7 @@ On the Pairings page, **More**, **Import results (CSV)**. See
 ### Receive a hand-off
 
 **Receive a hand-off** takes in a tournament that another copy of the program
-handed over. See [Accounts, sharing and hand-off](15-accounts-and-handoff.md).
+handed over. See [Accounts, sharing and hand-off](16-accounts-and-handoff.md).
 
 ## Exporting
 
@@ -199,7 +199,7 @@ its state (being played, ready to send, sent) and a tick; **Download a copy
 (not for rating)** and **All rounds (TRF copy, not for rating)** give copies,
 and **Send…** gives the file for the rating office and marks the games as
 sent. This is a part of the reporting procedure and is explained in
-[Sending to FIDE](11-fide-report.md).
+[Sending to FIDE](10-fide-report.md).
 
 The file written is TRF26, the 2026 report format. It has the player rows in
 the TRF16 layout, and the tournament records: number of rounds (142), initial
@@ -278,11 +278,11 @@ their moves: see [Games and PGN](17-live-boards.md#games-and-pgn), and
 
 ### The FIDE forms
 
-**Advanced**, **Norms** ([Categories and norms](13-categories-and-norms.md)).
+**Advanced**, **Norms** ([Categories and norms](11-categories-and-norms.md)).
 
 ## Backups made by the program
 
 A tournament database backup is written automatically about once a day (see
-[Accounts, sharing and hand-off](15-accounts-and-handoff.md)), and a restore
+[Accounts, sharing and hand-off](16-accounts-and-handoff.md)), and a restore
 point is saved before every action that is hard to undo. These are separate
 from the files above.

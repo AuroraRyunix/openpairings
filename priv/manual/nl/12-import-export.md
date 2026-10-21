@@ -108,7 +108,7 @@ op de keuze van het bestand:
   dan **Toch importeren**; anders luidt hij **Importeren**. **Annuleren** importeert
   niets.
 
-![De controle van de TRF-import met de kop over rondes die de FIDE-paringsregels breken en de knop Toch importeren](screenshots/10-trf-import-review.png "De controlestap van een TRF-import")
+![De controle van de TRF-import met de kop over rondes die de FIDE-paringsregels breken en de knop Toch importeren](screenshots/12-trf-import-review.png "De controlestap van een TRF-import")
 
 Een bevestigde import maakt het toernooi met de rondes precies zoals het bestand ze
 vastlegt. Wat de import heeft aangepast en elke regel die is gebroken, wordt bij het
@@ -190,7 +190,7 @@ Op de pagina Paringen, **Meer**, **Resultaten importeren (CSV)**. Zie
 ### Een overdracht ontvangen {#receive-a-hand-off}
 
 **Een overdracht ontvangen** neemt een toernooi op dat een andere kopie van het programma
-heeft overgedragen. Zie [Accounts, delen en overdracht](15-accounts-and-handoff.md).
+heeft overgedragen. Zie [Accounts, delen en overdracht](16-accounts-and-handoff.md).
 
 ## Exporteren {#exporting}
 
@@ -203,7 +203,7 @@ stand (wordt gespeeld, klaar om te versturen, verstuurd) en een vinkje.
 **Een kopie downloaden (niet voor rating)** en **Alle rondes (TRF-kopie, niet voor
 rating)** maken kopieën, en **Versturen…** maakt het bestand voor het ratingkantoor en
 markeert de partijen als verstuurd. Dit maakt deel uit van de rapportageprocedure en
-wordt uitgelegd in [Versturen naar FIDE](11-fide-report.md).
+wordt uitgelegd in [Versturen naar FIDE](10-fide-report.md).
 
 Het geschreven bestand is TRF26, het rapportformaat van 2026. Het heeft de spelerregels
 in de TRF16-indeling, en de toernooirecords: het aantal rondes (142), de startkleur
@@ -281,11 +281,11 @@ zie [Partijen en PGN](17-live-boards.md#games-and-pgn), en
 
 ### De FIDE-formulieren {#the-fide-forms}
 
-**Geavanceerd**, **Normen** ([Categorieën en normen](13-categories-and-norms.md)).
+**Geavanceerd**, **Normen** ([Categorieën en normen](11-categories-and-norms.md)).
 
 ## Back-ups die het programma maakt {#backups-made-by-the-program}
 
 Een back-up van de toernooidatabase wordt automatisch ongeveer eens per dag geschreven
-(zie [Accounts, delen en overdracht](15-accounts-and-handoff.md)), en vóór elke
+(zie [Accounts, delen en overdracht](16-accounts-and-handoff.md)), en vóór elke
 handeling die moeilijk ongedaan te maken is, wordt een herstelpunt opgeslagen. Deze zijn
 los van de bestanden hierboven.

@@ -38,7 +38,7 @@ only be reached from that computer, never from the network.
 **On a server (the online build).** The program runs on a server and you reach it
 through a web address. Everyone has an account, every tournament belongs to
 its owner, and the owner can invite other arbiters to share it (see
-[Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
+[Accounts, sharing and hand-off](16-accounts-and-handoff.md)).
 
 Everything described in this manual works in both. The differences are
 mentioned where they matter: log-in and accounts exist only online;
@@ -96,7 +96,7 @@ The tournaments are one database file in a folder of your user account:
 
 The program writes a
 backup of its data about once a day (see "Backups" in
-[Accounts, sharing and hand-off](15-accounts-and-handoff.md)).
+[Accounts, sharing and hand-off](16-accounts-and-handoff.md)).
 
 ### Updates
 
@@ -181,7 +181,7 @@ desktop build that is always you.
    **On to round N** opens the next round: pair it.
 7. **Standings**, **Print** whenever needed.
 8. After the last round: Settings, **Export**, send the TRF file to the
-   rating office (see [Sending to FIDE](11-fide-report.md)).
+   rating office (see [Sending to FIDE](10-fide-report.md)).
 
 The following chapters explain each step in full.
 

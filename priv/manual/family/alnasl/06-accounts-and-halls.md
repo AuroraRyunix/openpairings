@@ -55,6 +55,10 @@ In each hall an account is an owner, an arbiter or a viewer. The same person can
 | Owner | All that, and add and remove bridges, and invite people |
 | Admin | See every hall and Alnasl itself: its name, updates, the tracker, the switches on the Results page |
 
+One thing is the owner's alone, whatever an admin may otherwise do: [fair play](08-fair-play.md). An admin who is not an owner of the hall sees nothing of it.
+
+A changed role counts at once: when an owner demotes someone or takes them out of a hall (or the hall is deleted), that person's open pages reconnect by themselves and come back with what they may do now, instead of keeping the old role until they reload.
+
 For a tournament played in more than one hall, the highest role you have in any of them counts - for what happens to it in that hall. The rest needs the role where it happens:
 
 - **The hall you are standing in.** Giving its tables to a tournament, adding a code, its bridges: your role in this hall, whatever you are in the tournament's other halls.

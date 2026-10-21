@@ -20,7 +20,17 @@ addresses are the same for every release.
 | Linux, Raspberry Pi (64-bit) and other arm64 | [arkab-linux-aarch64.tar.gz](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-linux-aarch64.tar.gz) |
 | Linux, PC | [arkab-linux-x86_64.tar.gz](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-linux-x86_64.tar.gz) |
 | Mac, Apple Silicon (macOS 11 and newer) | [arkab-macos-aarch64.zip](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-macos-aarch64.zip) |
+| Mac, Intel (macOS 10.13 and newer) | [arkab-macos-x86_64.zip](https://github.com/teapot-chess/Arkab/releases/latest/download/arkab-macos-x86_64.zip) |
 | Checksums | [SHA256SUMS](https://github.com/teapot-chess/Arkab/releases/latest/download/SHA256SUMS) |
+
+**Checking a download.** From the next release on, every file in a release, `SHA256SUMS` included, carries signed build provenance: a GitHub artifact attestation, signed keylessly through Sigstore, so there is no key of ours to lose. With the [GitHub CLI](https://cli.github.com/):
+
+```sh
+gh attestation verify <file> --repo teapot-chess/Arkab
+sha256sum --check --ignore-missing SHA256SUMS
+```
+
+The first line says this exact file was built by this repository's release workflow. `SHA256SUMS` is attested too, so the second line is as trustworthy as the first.
 
 **Linux and the Raspberry Pi**, one line, as a service that starts with the
 machine (Debian 12, Ubuntu 22.04, Raspberry Pi OS "Bookworm" 64-bit, or
@@ -37,9 +47,8 @@ curl -fsSL https://github.com/teapot-chess/Arkab/releases/latest/download/instal
 
 **Windows**: Windows says it does not know the program, as it does of any
 unsigned installer: "More info", then "Run anyway". The data is in
-`%LOCALAPPDATA%\ArkabData`, never in the install folder. **macOS**: open
-`Arkab.app` the first time with *Open Anyway* in System Settings; see
-[docs/macos.md](docs/macos.md).
+`%LOCALAPPDATA%\ArkabData`, never in the install folder. **macOS**: signed and
+notarised; unzip and open `Arkab.app`, see [docs/macos.md](docs/macos.md).
 
 An installed copy looks for a newer release now and then (one small request
 to GitHub, switched off by a checkbox on the status page) and offers it; it
@@ -53,11 +62,17 @@ mix deps.get
 mix run --no-halt          # or: iex -S mix
 ```
 
-Open `http://<bridge>:4050`. Paste or scan the join link that Alnasl shows:
+Open `http://localhost:4050` on the bridge (or, from another computer, through
+an SSH port forward: `ssh -L 4050:localhost:4050 user@bridge`). Paste or scan the join link that Alnasl shows:
 Halls, your hall, Bridges, *Add a bridge* (Alnasl's Setup wizard leads
 there too). The link is good for fifteen minutes and one bridge. That is the
 whole setup: the bridge fetches its own key, and the server decides which
-table each board belongs to. The page speaks English and Dutch, the choice
+table each board belongs to. The page is open to the hall's network for
+looking, but from another computer it is a read-only view (servers, queue,
+ports, boards), marked as such: joining, removing a server, updating and the
+settings work from the bridge itself only (the peer address of the connection
+decides, never a header; an SSH port forward counts as the bridge itself). A
+request that asks for a host the bridge does not answer to gets a 403. The page speaks English and Dutch, the choice
 kept in a cookie; `/help` says what the page's parts mean.
 
 | variable | |
@@ -65,6 +80,7 @@ kept in a cookie; `/help` says what the page's parts mean.
 | `ARKAB_DATA` | where the queue, the servers, the settings and the captures live (default `./data` from a checkout; an installed copy keeps it where `Arkab.DataHome` says, never inside the install folder) |
 | `ARKAB_PORT` | the status page's port (default 4050; `PORT` is read too, as the installers set it) |
 | `ARKAB_LISTEN=local` | serve the page to this machine only |
+| `ARKAB_HOSTS` | extra host names the page answers to, comma-separated (a DNS name the hall's router gives the bridge); the machine's own name and addresses are always accepted unless `ARKAB_LISTEN=local` |
 | `ARKAB_UART=0` / `1` | build without or with the serial library (default: with it, except on Windows where it has to be asked for). When it is not set, `ALNASL_UART` decides, so a server built with `ALNASL_UART=0` builds Arkab without it too |
 
 What the bridge promises:
@@ -76,28 +92,6 @@ What the bridge promises:
 - Remove, on either side, ends the link for both.
 
 The link itself is described in [docs/protocol.md](docs/protocol.md).
-
-## As a dependency
-
-```elixir
-{:arkab, git: "https://github.com/teapot-chess/Arkab.git", tag: "v0.1.0"}
-```
-
-Add `Arkab.Drivers` to your supervision tree if you read loops: it holds
-the buses' registry and supervisor. Drivers send their owner
-`{:driver, id, event}` as described in `Arkab.Driver`. A board on a loop
-that nobody reads yet is reported to the function in
-`config :arkab, loop_stranger: {Module, :function}`.
-
-## Tests
-
-```sh
-mix test
-```
-
-The tests use the fake transport, the emulator and played-back captures,
-and never open a serial port. The bridge tests run stand-in servers on
-real sockets on free local ports.
 
 ## Licence
 
