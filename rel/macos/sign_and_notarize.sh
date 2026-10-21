@@ -3,18 +3,21 @@
 #
 #   rel/macos/sign_and_notarize.sh <path to OpenPairings.app>
 #
-# NOT USED YET: there is no Apple Developer account. The workflow runs this
-# only when the secrets below exist, and skips it otherwise - the app then
-# ships ad-hoc signed by build_app.sh, which macOS opens after the arbiter
-# says so once (docs/macos.md). Adding the account is adding these five
-# repository secrets; nothing in the workflow changes.
+# The workflow runs this only when the secrets below exist (an organisation
+# secret in teapot-chess; a fork has none) and skips it otherwise - the app
+# then ships ad-hoc signed by build_app.sh, which macOS opens after the arbiter
+# says so once (docs/macos.md).
 #
-#   APPLE_CERTIFICATE_P12_BASE64   the "Developer ID Application" certificate
-#                                  and its private key, exported as .p12, base64
-#   APPLE_CERTIFICATE_PASSWORD     the .p12's password
-#   APPLE_TEAM_ID                  the ten-character team id
-#   APPLE_ID                       the Apple ID that notarises
-#   APPLE_APP_PASSWORD             an app-specific password for that Apple ID
+#   MACOS_CERT_P12        the "Developer ID Application" certificate and its
+#                         private key, exported as .p12, base64
+#   MACOS_CERT_PASSWORD   the .p12's password
+#   APPLE_TEAM_ID         the ten-character team id
+#   ASC_KEY_ID            App Store Connect API key id
+#   ASC_ISSUER_ID         App Store Connect API issuer id
+#   ASC_KEY_P8            the API key's .p8 file, base64
+#
+# The notary service is asked with the API key, not with an Apple ID and an
+# app-specific password: a key can be revoked without touching an account.
 #
 # What it does: a throwaway keychain with the certificate in it; every
 # Mach-O file signed from the inside out with the hardened runtime and the
@@ -29,7 +32,7 @@ set -eu
 app=${1:?usage: sign_and_notarize.sh <path to OpenPairings.app>}
 here=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 
-for name in APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_TEAM_ID APPLE_ID APPLE_APP_PASSWORD; do
+for name in MACOS_CERT_P12 MACOS_CERT_PASSWORD APPLE_TEAM_ID ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8; do
   eval "value=\${$name:-}"
   [ -n "$value" ] || {
     echo "::error::$name is not set" >&2
@@ -38,7 +41,9 @@ for name in APPLE_CERTIFICATE_P12_BASE64 APPLE_CERTIFICATE_PASSWORD APPLE_TEAM_I
 done
 
 work=$(mktemp -d)
-keychain="$work/signing.keychain-db"
+# A fixed place, so that the workflow's `if: always()` step can delete the
+# keychain even when this script died before its own trap ran.
+keychain="${RUNNER_TEMP:-$work}/signing.keychain-db"
 keychain_password=$(openssl rand -hex 24)
 
 cleanup() {
@@ -47,11 +52,22 @@ cleanup() {
 }
 trap cleanup EXIT
 
-printf '%s' "$APPLE_CERTIFICATE_P12_BASE64" | base64 --decode >"$work/cert.p12"
+printf '%s' "$MACOS_CERT_P12" | base64 --decode >"$work/cert.p12"
+printf '%s' "$ASC_KEY_P8" | base64 --decode >"$work/asc.p8"
+# Word-split on purpose below: mktemp paths have no spaces.
+notary_auth="--key $work/asc.p8 --key-id $ASC_KEY_ID --issuer $ASC_ISSUER_ID"
+# Ask OpenSSL first: Apple's importer says "wrong password?" for any reason
+# at all, and a fingerprint of the file tells which certificate CI was given.
+if ! openssl pkcs12 -in "$work/cert.p12" -passin env:MACOS_CERT_PASSWORD -noout 2>"$work/openssl.err"; then
+  echo "::error::MACOS_CERT_PASSWORD does not open MACOS_CERT_P12 (p12 sha256 $(shasum -a 256 "$work/cert.p12" | cut -c1-16))" >&2
+  cat "$work/openssl.err" >&2
+  exit 1
+fi
+echo "p12 opens; sha256 $(shasum -a 256 "$work/cert.p12" | cut -c1-16)"
 security create-keychain -p "$keychain_password" "$keychain"
 security set-keychain-settings -lut 3600 "$keychain"
 security unlock-keychain -p "$keychain_password" "$keychain"
-security import "$work/cert.p12" -k "$keychain" -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+security import "$work/cert.p12" -k "$keychain" -P "$MACOS_CERT_PASSWORD" -T /usr/bin/codesign
 security set-key-partition-list -S apple-tool:,apple: -s -k "$keychain_password" "$keychain" >/dev/null
 # The search list gets this keychain added, not replaced: codesign looks
 # there, and the login keychain stays where it was.
@@ -77,7 +93,12 @@ sign() {
 # compiled Launcher.swift - is signed by the last `sign`, the one on the
 # bundle, with the same hardened runtime and entitlements: codesign signs a
 # bundle's main executable as part of signing the bundle.
-find "$app/Contents/Resources" -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 |
+# Contents/Frameworks exists only in the Intel build, where the Swift runtime
+# is copied in for old macOS; Apple signed those dylibs, the notary wants ours.
+inner="$app/Contents/Resources"
+[ -d "$app/Contents/Frameworks" ] && inner="$inner $app/Contents/Frameworks"
+# Unquoted on purpose: two directories, and the build path has no spaces.
+find $inner -type f -print0 | xargs -0 file | grep 'Mach-O' | cut -d: -f1 |
   while IFS= read -r binary; do
     sign "$binary"
   done
@@ -95,7 +116,7 @@ ditto -c -k --keepParent "$app" "$work/notarise.zip"
 # --wait returns when Apple has decided, and a refusal is a decision: the
 # status is what says whether it was a yes.
 result=$(xcrun notarytool submit "$work/notarise.zip" \
-  --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" \
+  $notary_auth \
   --wait --timeout 30m --output-format json)
 echo "$result"
 status=$(printf '%s' "$result" | plutil -extract status raw -o - -)
@@ -103,11 +124,23 @@ if [ "$status" != "Accepted" ]; then
   id=$(printf '%s' "$result" | plutil -extract id raw -o - -)
   echo "::error::notarisation said $status" >&2
   xcrun notarytool log "$id" \
-    --apple-id "$APPLE_ID" --team-id "$APPLE_TEAM_ID" --password "$APPLE_APP_PASSWORD" || true
+    $notary_auth || true
   exit 1
 fi
-xcrun stapler staple "$app"
-xcrun stapler validate "$app"
+# "Accepted" and "ticket published" are two different moments at Apple; the
+# stapler asks for the ticket and gets error 68 in between. Ask again.
+tries=0
+until xcrun stapler staple "$app"; do
+  tries=$((tries + 1))
+  [ "$tries" -lt 10 ] || exit 1
+  echo "No ticket yet; asking again in 30 s ($tries/10)"
+  sleep 30
+done
+# Apple's ticket server drops connections now and then, sometimes for
+# minutes. The stapled ticket is checked by Gatekeeper (spctl) anyway; this
+# is a second opinion, and a second opinion that will not pick up the phone
+# does not get to cancel the release.
+for i in 1 2 3 4 5; do xcrun stapler validate "$app" && break; [ "$i" -lt 5 ] || echo "::warning::stapler could not confirm the ticket online; Gatekeeper decides below"; sleep 20; done
 
-spctl --assess --type execute --verbose=2 "$app"
+spctl -a -vvv -t exec "$app"
 echo "Signed, notarised and stapled: $app"

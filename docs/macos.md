@@ -14,7 +14,7 @@ a Mac still has to confirm.
 | Intel | `openpairings_app_macos_x86_64.zip`, built on `macos-15-intel`, only for a release or a hand-started run |
 | Runtime | Erlang/OTP 29.0.5 compiled on the runner by `rel/macos/build_otp.sh`, for macOS 11, with OpenSSL 3.5 compiled the same way and linked into `crypto` statically; Elixir 1.20 from its own precompiled zip. Cached, so only the first run with a given set of versions pays. Linux and Windows use `erlef/setup-beam`; on macOS that would be `erlef/otp_builds`, which is built for macOS 15 and made the app refuse to open on 14 (see [Why the runtime is built here](#why-the-runtime-is-built-here)) |
 | Oldest macOS | Apple Silicon: 11 (Big Sur); Intel: 10.13 (High Sierra), see [Intel Macs](#intel-macs). Everything compiled on the runner is built for it (`MACOSX_DEPLOYMENT_TARGET` from the target's `macos_min` in the workflow, the SQLite NIF from source with `EXQLITE_FORCE_BUILD`), and `build_app.sh` fails the build, naming the files, if any binary asks for newer; what they accept goes into `Info.plist` |
-| Signed | ad-hoc only, for now - see [Unsigned, for now](#unsigned-for-now) |
+| Signed | Developer ID, hardened runtime, notarised and stapled - see [Signing](#signing) |
 
 The portable zip (`openpairings_portable_macos_aarch64.zip`, started with
 `openpairings.sh`) is built for macOS too, for people who want a terminal.
@@ -137,37 +137,31 @@ Velopack was considered and not used, for now:
   as root, so an in-app update needs an administrator - the same situation
   as the Windows per-machine install, which this project already declines
   to offer a button for.
-- Unsigned, a `.pkg` gets the same Gatekeeper refusal as an app, and an
-  update replacing an ad-hoc signed bundle has not been tried by anybody.
+- Nobody has tried an update replacing a signed bundle.
 
-Worth revisiting once the app is signed and somebody can test on a Mac. The
+Worth revisiting now that the app is signed and somebody can test on a Mac. The
 feed would be `releases.osx.json` beside `releases.win.json`, and nothing on
 the Windows side would change.
 
-## Unsigned, for now
+## Signing
 
-There is no Apple Developer account yet. The app is **ad-hoc signed** (every
-binary carries a signature, which Apple Silicon requires before it runs
-anything, but no identity), so Gatekeeper does not know who made it.
+Every Mach-O file in the app (the Erlang runtime, `beam.smp`, the NIF
+libraries) is signed with the Developer ID Application certificate, the
+hardened runtime and a timestamp, from the inside out, then the bundle. The
+BEAM's JIT needs entitlements the hardened runtime otherwise forbids
+(`rel/macos/entitlements.plist` says which). The bundle is then sent to
+Apple's notary service and the ticket is stapled to it, so a Mac with no
+network at the venue opens it without a question. The workflow asks
+Gatekeeper itself (`spctl -a -vvv -t exec`) and fails unless the answer is
+"Notarized Developer ID".
 
-**Opening it the first time** (once per download):
+So the first start is a double-click. Only a build from a fork, which has no
+signing secrets, is ad-hoc signed; macOS then refuses it once and *System
+Settings > Privacy & Security > Open Anyway* is the way in.
 
-- **macOS 15 Sequoia and newer**: double-click the app; macOS says it could
-  not verify it. Click *Done*. Open *System Settings > Privacy & Security*,
-  scroll down to "OpenPairings was blocked...", click **Open Anyway**,
-  confirm with your password or Touch ID, then *Open*. (Right-click > Open no
-  longer does this on Sequoia.)
-- **macOS 14 and older**: right-click (or Control-click) the app, choose
-  **Open**, then *Open* in the dialog.
-- **If macOS says the app "is damaged and can't be opened"**: it is not; that
-  is how some versions describe a quarantined app without a known developer.
-  In Terminal:
-
-  ```sh
-  xattr -dr com.apple.quarantine /Applications/OpenPairings.app
-  ```
-
-  then open it normally.
+To try the signing without a release: run the workflow by hand on any branch
+with **mac_only** ticked. It builds, signs, notarises and checks the Mac
+apps and publishes nothing.
 
 **What can still ask, signed or not:**
 
@@ -180,24 +174,22 @@ anything, but no identity), so Gatekeeper does not know who made it.
   talks to another machine in the hall, such as a board box. Allow it, or
   that connection fails.
 
-**When the account exists**, signing is five repository secrets and nothing
-else: the workflow already contains the step, and skips it while
-`APPLE_CERTIFICATE_P12_BASE64` is empty.
+**Signing** uses six secrets of the `teapot-chess` organisation (a fork has none, and
+ships ad-hoc signed); the step is in `binaries.yml`:
 
 | Secret | What |
 |---|---|
-| `APPLE_CERTIFICATE_P12_BASE64` | the *Developer ID Application* certificate with its private key, exported as `.p12`, then base64 |
-| `APPLE_CERTIFICATE_PASSWORD` | the `.p12`'s password |
+| `MACOS_CERT_P12` | the *Developer ID Application* certificate with its private key and the intermediate, exported as `.p12`, then base64 |
+| `MACOS_CERT_PASSWORD` | the `.p12`'s password |
 | `APPLE_TEAM_ID` | the ten-character team id |
-| `APPLE_ID` | the Apple ID used to notarise |
-| `APPLE_APP_PASSWORD` | an app-specific password for that Apple ID (appleid.apple.com) |
+| `ASC_KEY_ID` | the App Store Connect API key's id |
+| `ASC_ISSUER_ID` | the API key's issuer id |
+| `ASC_KEY_P8` | the API key's `.p8` file, base64 |
 
-`rel/macos/sign_and_notarize.sh` then signs every binary with the hardened
+`rel/macos/sign_and_notarize.sh` signs every binary with the hardened
 runtime and the BEAM's entitlements (`rel/macos/entitlements.plist`: JIT,
-executable memory, NIFs loaded with `dlopen`), notarises, staples, and asks
-Gatekeeper whether it agrees, all before the zip is made. The opening
-instructions above then become "double-click it". The first signed build
-needs a Mac test of its own: the entitlements are right on paper.
+executable memory, NIFs loaded with `dlopen`), notarises with the API key,
+staples, and asks Gatekeeper, all before the zip is made.
 
 ## Why the runtime is built here
 
@@ -236,7 +228,7 @@ checks of the portable release:
    `/System` - since a Homebrew library would work on the runner and nowhere
    else; none asks for a macOS newer than 11.0 (the build fails and names
    the files); the oldest macOS all of them accept goes into `Info.plist`;
-   the ad-hoc signature verifies.
+   the signature verifies.
 2. The zip is unpacked as an arbiter would and the bundle made read-only.
    `Info.plist` must have no `LSUIElement`, `LSMinimumSystemVersion` must
    be the target's `macos_min`, and `CFBundleExecutable` must be a Mach-O
@@ -272,9 +264,8 @@ For the owner's M1 Pro, before anything is released. About twenty minutes.
 
 **First start**
 
-5. Double-click it in Applications. Expect macOS to refuse ("could not
-   verify..."). Follow [Opening it the first time](#unsigned-for-now) for
-   your macOS version. Write down which message you saw.
+5. Double-click it in Applications. Expect it to open with no refusal (it is
+   notarised). If macOS does refuse, write down which message you saw.
 6. Expect, within about ten seconds: an OpenPairings icon in the **Dock**
    with a running dot, a small window **"OpenPairings is running at
    http://localhost:4000"** with *Stop OpenPairings* and *Open in browser*,

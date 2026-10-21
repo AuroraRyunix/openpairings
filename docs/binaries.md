@@ -23,9 +23,8 @@ later) gets that one on every push; **Intel Macs** get
 `openpairings_app_macos_x86_64.zip`, built for macOS 10.13 and newer, but only
 when a release is about to be published or the workflow is started by hand
 (the Intel runner is slow; the `plan` job in `binaries.yml` decides).
-Unsigned for now (ad-hoc), with
-Developer ID signing and notarisation written and waiting for the Apple
-account's secrets. Everything macOS - the bundle, its launcher, the data
+Signed with a Developer ID and notarised (the organisation's Apple
+secrets; a fork without them ships ad-hoc signed). Everything macOS - the bundle, its launcher, the data
 folder, updates, signing, and the test list for a real Mac - is in
 [`docs/macos.md`](macos.md).
 
@@ -105,6 +104,8 @@ The binary lands in `burrito_out/` (e.g. `burrito_out/pairings_engine_linux_x86_
 | `openpairings_portable_<target>.zip` | a folder you unzip, runtime inside | **antivirus ate the other one** |
 | `openpairings_app_<target>.zip` (macOS only) | `OpenPairings.app`: the portable release in a bundle with a launcher | **on a Mac, this one** - see [`docs/macos.md`](macos.md) |
 | `SHA256SUMS` | the checksum of every file above (since 2026-10-14) | to check a download by hand |
+
+Every file above and `SHA256SUMS` itself also carry a GitHub artifact attestation (keyless, Sigstore) from the first release after this note. Check one with `gh attestation verify <file> --repo teapot-chess/openpairings`.
 
 Both are on the release page for a tagged version, and both are build
 artifacts on every push to `main`. The portable one used to be a CI artifact
