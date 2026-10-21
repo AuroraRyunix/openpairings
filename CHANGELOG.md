@@ -19,7 +19,7 @@ Each entry is tagged so a version can be skimmed:
 
 ## [0.101.1] - 2026-10-21
 
-- [Docs] **Manubrium's privacy policy has an address**, `/help/manubrium-privacy`, in English and Dutch. The App Store wanted a URL, and a Markdown file in a repository did not count. The short version: the app talks only to the servers you add, keeps a token and an outbox, and has nobody else to tell.
+- [Feature] **Manubrium's privacy policy has an address**, `/help/manubrium-privacy`, in English and Dutch. The App Store wanted a URL, and a Markdown file in a repository did not count. The short version: the app talks only to the servers you add, keeps a token and an outbox, and has nobody else to tell.
 
 ## [0.101.0] - 2026-10-21
 
