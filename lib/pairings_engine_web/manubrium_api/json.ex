@@ -332,6 +332,17 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       |> Standings.apply_manual_ranking(t)
 
     %{
+      # Points count every result entered; tie-breaks only the rounds that
+      # are complete (`Standings`' `completed_rounds`), exactly as the
+      # Standings page computes them. Mid-round the two disagree on purpose,
+      # and a leader on 2 points with a Buchholz of 0 looks like a bug unless
+      # the phone can say which round the tie-breaks stopped at.
+      tiebreaks_through:
+        case entries do
+          [first | _] -> Map.get(first, :completed_rounds, 0)
+          [] -> 0
+        end,
+      rounds_paired: Standings.rounds_paired(t.id),
       tiebreaks:
         Enum.map(codes, fn code ->
           %{code: code, name: (PairingsEngine.Tiebreaks.get(code) || %{name: code}).name}
