@@ -374,8 +374,9 @@ phone app, built with Capacitor from its own repository
 ([teapot-chess/Manubrium](https://github.com/teapot-chess/Manubrium),
 Apache-2.0, kept apart from this one). It runs a tournament from a phone against one or
 more OpenPairings servers at once: the round as its home screen, results
-entered offline, and, for the organiser and editors, pairing, publishing,
-standings and players.
+entered offline, Lite phones' results confirmed or rejected, incidents with
+a photo, and, for the organiser and editors, pairing, hand edits,
+publishing, standings, players and the mid-event settings.
 
 ### Architecture
 
@@ -389,7 +390,10 @@ server list (one token per server)
 round screen  ---- GET round ------------>   ManubriumApi.Json  (read-only presenters)
 result taps   ---- POST sync (queued) --->   Mobile.Sync.submit  (the hall's queue)
 pair/publish  ---- POST/PUT (online) ---->   PairingsEngineWeb.DeskActions
-players       ---- POST/PATCH (online) -->     (also called by PairingsLive / PlayersLive)
+hand edits    ---- POST edits (online) -->     (also called by PairingsLive / PlayersLive)
+players, settings - POST/PATCH (online) ->
+Lite results  ---- POST confirm/reject -->   Mobile.PhoneResults (reads the audit trail)
+photos        ---- POST photo (online) -->   Incidents.attach_photo/4
 ```
 
 Nothing in the API decides a rule. Every write is a function the desk or
@@ -403,15 +407,91 @@ the hall pages already call:
 | unpairing the latest round | `DeskActions.delete_round/3` | the Pairings page |
 | a round's public level | `DeskActions.set_publish_level/4` | the Pairings page |
 | late entry, player edits | `DeskActions.create_player/3`, `update_player/5` | the Players page |
+| hand edits | `DeskActions.hand_edit/5`, `finish_hand_edits/4` | the Pairings page's swap, absent, bye, fill, pool and delete, and its "Finish hand edits" |
+| mid-event settings | `DeskActions.update_settings/3` (`Tournaments.update_tournament/2`, locks included) | the Settings pages |
+| a Lite phone's result | `Mobile.PhoneResults.confirm/5`, `reject/5` | the hall's clear, for the rejection |
+| an incident's photo afterwards | `Incidents.attach_photo/4` (`check_photo/1`) | Lite's photo in the queue |
 
 Where the desk would open a dialog and ask - the pairing-number question,
 the FIDE departure guard, bye exclusions, a round of hand edits in
 progress, a round robin's whole schedule, a team event - the API refuses
 with `409` and a sentence saying to do it at the desk. It never answers the
-question on the arbiter's behalf. The two confirmations a phone can sensibly
+question on the arbiter's behalf. The confirmations a phone can sensibly
 give are asked instead: postponed-game warnings before pairing
-(`next_round.warnings`, sent back as `acknowledged`) and the player-edit
-confirmations (`409 needs_acknowledgement` with `confirm` ids).
+(`next_round.warnings`, sent back as `acknowledged`), the player-edit
+confirmations, and the hand-edit dialog's questions (all three as
+`409 needs_acknowledgement` with `confirm` ids).
+
+### Hand edits
+
+`POST /rounds/:n/edits` takes one edit, the Pairings page's own:
+
+| `kind` | Fields | What |
+|---|---|---|
+| `swap` | `a`, `b` (player ids) | two seated players trade seats (the same board: a colour swap); one seated and one from the pool: a substitution |
+| `vacate` | `player`, `bye_type?` | a seated player is not playing; `bye_type` (`requested-half`, `requested-zero`, `full-point`) only where the tournament asks the type, else `absent` |
+| `bye` | `pairing` | the player left alone on a board gets the pairing-allocated bye |
+| `fill` | `pairing`, `player` | a pool player takes the empty seat |
+| `pool_pair` | `a`, `b`, `board?` | two pool players on a new board |
+| `pool_bye` | `player` | a pool player gets the pairing-allocated bye on a new board |
+| `delete` | `pairing` | an empty last board is removed |
+
+The first edit of a round opens its manual pairing alteration from the
+boards as they were (Q65), as the page does. The questions the desk's
+confirmation dialog asks come back as `409 needs_acknowledgement` with
+`confirm` ids, the edit's `summary` and the pairing-rule `warnings` as
+sentences: `frozen_round` (not the latest round), `sent_round_changed`
+(already sent for rating), `pairing_rules` (the boards break Q66/Q67),
+`second_half_bye` (Q174). The app shows them and sends the same edit with
+`acknowledged`. `POST /rounds/:n/edits/finish` is "Finish hand edits": a
+vacant seat or no boards is `409`; boards the pairing checker would not pair
+need `mpa_pibe` acknowledged (the `409` carries the checker's verdict as
+`checker: {checked, line, missing, added, warnings}`), and the line is
+recorded as the round's MPA PIBE. Team events stay at the desk
+(`409 desk_only`): their boards count for matches.
+
+### A Lite phone's result
+
+The desk has one notion of a phone's result, and it is the audit row
+`Mobile.log_result/6` writes (`via: "mobile"`, the code's label). There is
+no column for it and the API adds none. `Mobile.PhoneResults.by_pairing/2`
+reads the round's result rows: a board whose last write came from a phone
+code that is not a connected Manubrium app's (the app's rows carry
+`device_id`: those are the arbiter's own taps), and still holds that result,
+is `phone: {by, state: "unconfirmed", at}` in the round. Confirming writes
+`pairing.result_confirmed` and nothing else (`state: "confirmed"`);
+rejecting clears the board as the hall's clear does and writes
+`pairing.result_rejected`. Both take `expected` and answer `409 conflict`
+with `current` when the board changed meanwhile. A result the desk changes
+afterwards is no longer a phone's.
+
+### Settings
+
+`GET /tournaments/:id` gives the desk's roles `settings.editable` (the
+fields of `DeskActions.phone_settings_fields/0` not locked now:
+`Tournaments.locked_fields/1`), `configured_tiebreaks` and
+`tiebreak_options` (`Tiebreaks.selectable/1`). The phone's fields are
+`rounds_count tiebreaks time_control chief_arbiter deputy_arbiter venue city
+bye_value ask_bye_type shared_places`: what an arbiter changes mid-event,
+nothing structural. `PATCH /settings` ignores any other field and writes
+through `Tournaments.update_tournament/2`, so FIDE mode's locks answer
+`422 locked_in_fide_mode` exactly as the Settings page would. Tie-breaks
+must come from the tournament's own catalogue, each once. Audited as
+`tournament.settings_updated` with `via: "mobile"`.
+
+### Incident photos
+
+A photo taken while logging travels inside the incident's sync entry
+(`photo`, base64), as Lite's does. One taken afterwards is
+`POST /incidents/:iid/photo` (`{photo: base64}`). Both go through
+`Incidents.check_photo/1` - a JPEG by its first bytes, never by what the
+sender called it, at most `Incidents.photo_max/0` (2 MB) - and are kept in
+the incident's photo row in the tournament's own database, one per incident
+(`409 photo_exists`; `413 photo_too_large`; `415 not_a_photo`). `GET
+/incidents/:iid/photo` sends it back as `image/jpeg` with `nosniff` and
+`private, no-store`, to the organiser and editors only - the people the
+desk's incidents page shows it to. An arbiter's phone can send a photo; it
+cannot read one back.
 
 ### Token model
 
@@ -448,7 +528,7 @@ minutes), `:manubrium_api` (requests per device, 600 a minute).
 | Role | `can` | Routes |
 |---|---|---|
 | owner, editor | `results incidents pair publish players standings settings` | all |
-| arbiter | `results incidents` | the list, a tournament, a round, sync, clear |
+| arbiter | `results incidents` | the list, a tournament, a round, sync, clear, confirm and reject a Lite phone's result |
 
 Anything else answers `403 arbiter_role` for an arbiter and
 `404 tournament_not_found` for an account with no role on the tournament
@@ -479,9 +559,16 @@ All under `/api/manubrium/v1`, JSON, errors as
 | `DELETE /me` | device | | `204`, token withdrawn |
 | `GET /tournaments` | device | | `{tournaments: [{id, name, role, status, rounds_count, paired_rounds, ...}]}` |
 | `GET /tournaments/:id` | hall | | `{tournament: {can, rounds: [{number, publish_level, missing_results}], next_round: {number, blocker, warnings}, settings, ...}}` |
-| `GET /tournaments/:id/rounds/:n` | hall | | `{round: {number, latest, publish_level, boards: [{id, board, label, white, black, bye, result, clearable}], byes, results}}` |
+| `GET /tournaments/:id/rounds/:n` | hall | | `{round: {number, latest, publish_level, boards: [{id, board, label, white, black, bye, vacant, empty, result, clearable, phone}], byes, pool: [{player, type, absent}], hand_edits: {open, pibe}, results}}` |
 | `POST /tournaments/:id/sync` | hall | `{entries: [...]}` (at most 25) | `{results: [{cid, status, reason, message}]}` |
 | `POST /tournaments/:id/rounds/:n/boards/:pairing/clear` | hall | `{expected}` | `{status: "cleared"}`; `409 conflict` with `current` |
+| `POST /tournaments/:id/rounds/:n/boards/:pairing/confirm` | hall | `{expected}` | `{status: "confirmed"}`; `409 not_from_phone`, `409 conflict` |
+| `POST /tournaments/:id/rounds/:n/boards/:pairing/reject` | hall | `{expected}` | `{status: "rejected"}`, board cleared; as above |
+| `POST /tournaments/:id/rounds/:n/edits` | desk | `{edit: {kind, ...}, acknowledged}` | `{round}`; `409 needs_acknowledgement` with `confirm`, `summary`, `warnings`; `422` for an edit that does not fit |
+| `POST /tournaments/:id/rounds/:n/edits/finish` | desk | `{acknowledged}` | `{pibe, round}`; `409 needs_acknowledgement` with `checker`, `409 vacant_seat`, `409 no_hand_edits` |
+| `PATCH /tournaments/:id/settings` | desk | `{settings: {field: value}}` | `{settings}`; `422` for a locked field or an unknown tie-break |
+| `POST /tournaments/:id/incidents/:iid/photo` | desk | `{photo: base64 JPEG}` | `201 {incident}`; `409`, `413`, `415` |
+| `GET /tournaments/:id/incidents/:iid/photo` | desk | | the JPEG; `404` |
 | `POST /tournaments/:id/rounds` | desk | `{acknowledged: [warning ids]}` | `201 {round}`; `409` for every desk question |
 | `DELETE /tournaments/:id/rounds/:n` | desk | | `204`; `422` unless it is the latest |
 | `PUT /tournaments/:id/rounds/:n/publish` | desk | `{level: 0..3}` | `{round, publish_level}` |
@@ -503,9 +590,8 @@ other config sets it; the installed app needs no CORS at all.
 
 ### Not built yet
 
-- Manual pairing changes (hand edits): the desk's staging, freezing and
-  checker are not yet behind a function both can call.
-- Writing settings: the app reads them; changing them is the desk's.
+- Hand edits of team events, and the desk's own questions before pairing
+  (above), stay at the desk.
 - Results Lite refuses for the desk (a decisive postponed game, a correction
   after the next round is paired, a round already sent to FIDE) are refused
   in the app too, with the same sentence. Acknowledging them from a phone is
