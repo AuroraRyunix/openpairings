@@ -17,6 +17,10 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.101.1] - 2026-10-21
+
+- [Docs] **Manubrium's privacy policy has an address**, `/help/manubrium-privacy`, in English and Dutch. The App Store wanted a URL, and a Markdown file in a repository did not count. The short version: the app talks only to the servers you add, keeps a token and an outbox, and has nobody else to tell.
+
 ## [0.101.0] - 2026-10-21
 
 - [Feature] **Manubrium can start a tournament, not just run one.** *New tournament* on the phone offers the systems the desk's form offers and starts from the account's own defaults, then creates through the very function the form calls: same derived type, same seeded round dates, same hosted limit, same audit row. Team events are still made at the desk, which has room for the line-ups.
