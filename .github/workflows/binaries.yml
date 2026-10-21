@@ -709,7 +709,7 @@ jobs:
             echo "::error::Gatekeeper did not say 'source=Notarized Developer ID'"
             exit 1
           }
-          xcrun stapler validate _build/prod/rel/OpenPairings.app
+          for i in 1 2 3 4 5; do xcrun stapler validate _build/prod/rel/OpenPairings.app && break; [ "$i" -lt 5 ] || exit 1; sleep 20; done
 
       # No version in the name, like the other downloads: a link to
       # releases/latest/download/openpairings_app_macos_aarch64.zip stays

@@ -136,7 +136,8 @@ until xcrun stapler staple "$app"; do
   echo "No ticket yet; asking again in 30 s ($tries/10)"
   sleep 30
 done
-xcrun stapler validate "$app"
+# Apple's ticket server drops connections now and then; the ticket is fine.
+for i in 1 2 3 4 5; do xcrun stapler validate "$app" && break; [ "$i" -lt 5 ] || exit 1; sleep 20; done
 
 spctl -a -vvv -t exec "$app"
 echo "Signed, notarised and stapled: $app"
