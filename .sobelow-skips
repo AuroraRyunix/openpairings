@@ -51,6 +51,7 @@ Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_we
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2605,3098428
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2618,7D904E8
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2622,97A8CD
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2705,4CE7F77
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/backup.ex:167,592C3DF
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/backup.ex:663,33444C3
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/federations/bel/swar_import.ex:645,4005D4C
