@@ -1998,32 +1998,32 @@ defmodule PairingsEngineWeb.TournamentsLive do
       aria-labelledby="swar-merge-title"
     >
       <h2 id="swar-merge-title">{gettext("Compare the file with %{name}", name: @name)}</h2>
-      
+
       <p class="hint" style="margin-top: 0">
         {gettext(
           "Below is everything that differs between the file and the tournament here. Choose what to take from the file; anything you do not pick stays as it is here. Nothing changes until you press Merge, and the tournament as it is now is saved as a restore point first."
         )}
       </p>
-      
+
       <p :if={@identical?} id="swar-merge-identical">
         <strong>{gettext("The file and the tournament agree on everything compared.")}</strong>
       </p>
-      
+
       <section :if={@review.settings != []} id="swar-merge-settings">
         <h3>{gettext("Tournament settings")}</h3>
-        
+
         <div class="swar-merge-scroll">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>{gettext("Setting")}</th>
-                
+
                 <th>{gettext("Here")}</th>
-                
+
                 <th>{gettext("In the file")}</th>
               </tr>
             </thead>
-            
+
             <tbody>
               <tr :for={row <- @review.settings}>
                 <td>
@@ -2034,22 +2034,22 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     )}
                   </span>
                 </td>
-                
+
                 <td>{SwarMerge.format_value(row.field, row.here)}</td>
-                
+
                 <td>{SwarMerge.format_value(row.field, row.file)}</td>
               </tr>
             </tbody>
           </table>
         </div>
-        
+
         <div :if={@takeable_settings?} class="swar-merge-choice">
           <label class="opt-row">
             <input type="radio" name="merge[settings]" value="keep" checked /> {gettext(
               "Keep the settings here"
             )}
           </label>
-          
+
           <label class="opt-row">
             <input type="radio" name="merge[settings]" value="file" /> {gettext(
               "Take the file's settings"
@@ -2057,47 +2057,47 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
         </div>
       </section>
-      
+
       <section :if={@review.player_changes != []} id="swar-merge-players">
         <h3>{gettext("Player details")}</h3>
-        
+
         <div class="swar-merge-scroll">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>{gettext("Player")}</th>
-                
+
                 <th>{gettext("Detail")}</th>
-                
+
                 <th>{gettext("Here")}</th>
-                
+
                 <th>{gettext("In the file")}</th>
               </tr>
             </thead>
-            
+
             <tbody>
               <%= for player <- @review.player_changes, {change, i} <- Enum.with_index(player.changes) do %>
                 <tr>
                   <td>{if i == 0, do: player.name}</td>
-                  
+
                   <td>{SwarMerge.field_label(change.field)}</td>
-                  
+
                   <td>{SwarMerge.format_value(change.field, change.here)}</td>
-                  
+
                   <td>{SwarMerge.format_value(change.field, change.file)}</td>
                 </tr>
               <% end %>
             </tbody>
           </table>
         </div>
-        
+
         <div class="swar-merge-choice">
           <label class="opt-row">
             <input type="radio" name="merge[players]" value="keep" checked /> {gettext(
               "Keep the player details here"
             )}
           </label>
-          
+
           <label class="opt-row">
             <input type="radio" name="merge[players]" value="file" /> {gettext(
               "Take the file's player details"
@@ -2105,68 +2105,68 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </label>
         </div>
       </section>
-      
+
       <section :if={@review.new_players != []} id="swar-merge-new-players">
         <h3>{gettext("Players only in the file")}</h3>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Added with the next free pairing numbers, joining after the last round here. Nobody already here is renumbered."
           )}
         </p>
-        
+
         <ul class="trf-review-list">
           <li :for={p <- @review.new_players}>{p.name}</li>
         </ul>
-        
+
         <div class="swar-merge-choice">
           <label class="opt-row">
             <input type="radio" name="merge[new_players]" value="add" checked /> {gettext("Add them")}
           </label>
-          
+
           <label class="opt-row">
             <input type="radio" name="merge[new_players]" value="skip" /> {gettext("Do not add them")}
           </label>
         </div>
       </section>
-      
+
       <section :if={@review.only_here_players != []} id="swar-merge-only-here-players">
         <h3>{gettext("Players only here")}</h3>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext("The file does not have them. They stay in the tournament.")}
         </p>
-        
+
         <ul class="trf-review-list">
           <li :for={p <- @review.only_here_players}>{p.name}</li>
         </ul>
       </section>
-      
+
       <section :if={@review.results != []} id="swar-merge-results">
         <h3>{gettext("Results and byes")}</h3>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "A result the file has where there is none here is taken unless you say otherwise. A result that differs from one entered here is a conflict: it is kept as it is here unless you pick the file's."
           )}
         </p>
-        
+
         <div class="swar-merge-scroll">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>{gettext("Round")}</th>
-                
+
                 <th>{gettext("Game")}</th>
-                
+
                 <th>{gettext("Here")}</th>
-                
+
                 <th>{gettext("In the file")}</th>
-                
+
                 <th>{gettext("Use")}</th>
               </tr>
             </thead>
-            
+
             <tbody>
               <tr
                 :for={row <- @review.results}
@@ -2174,21 +2174,21 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 class={[!row.added? && "swar-merge-conflict"]}
               >
                 <td>{row.round}</td>
-                
+
                 <%= if row.kind == :result do %>
                   <td>{swar_merge_board_text(row)}</td>
-                  
+
                   <td>{SwarMerge.format_result(row.here)}</td>
-                  
+
                   <td>{SwarMerge.format_result(row.file)}</td>
                 <% else %>
                   <td>{row.player}</td>
-                  
+
                   <td>{SwarMerge.format_bye(row.here)}</td>
-                  
+
                   <td>{SwarMerge.format_bye(row.file)}</td>
                 <% end %>
-                
+
                 <td>
                   <label class="opt-row">
                     <input
@@ -2198,7 +2198,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                       checked={SwarMerge.default_row_choice(row) == :keep}
                     /> {gettext("Here")}
                   </label>
-                  
+
                   <label class="opt-row">
                     <input
                       type="radio"
@@ -2213,36 +2213,36 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </table>
         </div>
       </section>
-      
+
       <section :if={@review.pairing_differences != []} id="swar-merge-pairings">
         <h3>{gettext("Pairings that differ")}</h3>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "These rounds are paired differently in the file. A round paired here is never re-paired from a file, so the pairings here stay. To use the file's, delete the round here and merge again."
           )}
         </p>
-        
+
         <div class="swar-merge-scroll">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>{gettext("Round")}</th>
-                
+
                 <th>{gettext("Here")}</th>
-                
+
                 <th>{gettext("In the file")}</th>
               </tr>
             </thead>
-            
+
             <tbody>
               <tr :for={diff <- @review.pairing_differences}>
                 <td>{diff.round}</td>
-                
+
                 <td>
                   <div :for={b <- diff.here}>{swar_merge_board_text(b)}</div>
                 </td>
-                
+
                 <td>
                   <div :for={b <- diff.file}>{swar_merge_board_text(b)}</div>
                 </td>
@@ -2251,10 +2251,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </table>
         </div>
       </section>
-      
+
       <section :if={@review.new_rounds != []} id="swar-merge-new-rounds">
         <h3>{gettext("Rounds only in the file")}</h3>
-        
+
         <ul class="trf-review-list">
           <li :for={r <- @review.new_rounds}>
             {ngettext(
@@ -2266,23 +2266,23 @@ defmodule PairingsEngineWeb.TournamentsLive do
             )}
           </li>
         </ul>
-        
+
         <div class="swar-merge-choice">
           <label class="opt-row">
             <input type="radio" name="merge[rounds]" value="add" checked /> {gettext(
               "Add these rounds"
             )}
           </label>
-          
+
           <label class="opt-row">
             <input type="radio" name="merge[rounds]" value="skip" /> {gettext("Do not add them")}
           </label>
         </div>
       </section>
-      
+
       <section :if={@review.skipped_rounds != []} id="swar-merge-skipped-rounds">
         <h3>{gettext("Rounds that cannot be added")}</h3>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Rounds %{rounds} of the file come after a round neither has, so they are left out.",
@@ -2290,19 +2290,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
           )}
         </p>
       </section>
-      
+
       <section :if={@review.only_here_rounds != []} id="swar-merge-only-here-rounds">
         <h3>{gettext("Rounds only here")}</h3>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext("Rounds %{rounds} are not in the file. They stay as they are.",
             rounds: Enum.join(@review.only_here_rounds, ", ")
           )}
         </p>
       </section>
-      
+
       <p :if={@error} class="error-note">{@error}</p>
-      
+
       <div class="actions">
         <button
           :if={!@identical?}
@@ -2313,7 +2313,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {gettext("Merge into %{name}", name: @name)}
         </button>
-        
+
         <button type="button" id="swar-merge-cancel" class="pe-btn" phx-click="cancel_swar_merge">
           {if @identical?, do: gettext("Close"), else: gettext("Cancel")}
         </button>
@@ -2386,37 +2386,37 @@ defmodule PairingsEngineWeb.TournamentsLive do
           {gettext("Before importing: what this file needs adjusted")}
         <% end %>
       </h2>
-      
+
       <p id="trf-review-version" class="hint" style="margin-top: 0">{@version}</p>
-      
+
       <div :if={@pibe?} id="trf-review-pibe">
         <p>
           {gettext(
             "Importing it is not compliant with the pairing rules (an Import PIBE). The rounds are imported exactly as the file records them; the finding is kept with the tournament, in its audit log and as a ### line in its TRF reports. Import only if you accept this."
           )}
         </p>
-        
+
         <ul class="trf-review-list">
           <li :for={line <- @sections.rule_breaks}>{line}</li>
         </ul>
       </div>
-      
+
       <ul :if={@sections.unchecked != []} id="trf-review-unchecked" class="trf-review-list">
         <li :for={line <- @sections.unchecked}>{line}</li>
       </ul>
-      
+
       <ul :if={@sections.assumed != []} id="trf-review-assumed" class="trf-review-list">
         <li :for={line <- @sections.assumed}>{line}</li>
       </ul>
-      
+
       <div :if={@sections.adjustments != []} id="trf-review-adjustments">
         <h3>{gettext("Adjustments")}</h3>
-        
+
         <ul class="trf-review-list">
           <li :for={line <- @sections.adjustments}>{line}</li>
         </ul>
       </div>
-      
+
       <%!-- A TRF cannot say "withdrew". The file is read for what a
             withdrawal looks like, and the arbiter decides per player. --%>
       <div :if={@looks_withdrawn != []} id="trf-review-withdrawn">
@@ -2425,13 +2425,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
             "Looks withdrawn - will be paired in the next round unless you mark them withdrawn"
           )}
         </h3>
-        
+
         <p class="hint">
           {gettext(
             "A TRF file cannot say that a player withdrew. These players played earlier and have no game and no bye in the last round or rounds of the file. Ticked, a player is imported as withdrawn; unticked, as active, and the next round pairs them. A player with nothing in the last two rounds or more is ticked for you; one missed round is not. You can change it afterwards in the player list."
           )}
         </p>
-        
+
         <ul class="trf-review-list trf-review-withdrawn">
           <li :for={w <- @looks_withdrawn} id={"trf-review-withdrawn-#{w.rank}"}>
             <label>
@@ -2443,7 +2443,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 checked={MapSet.member?(@review.withdraw, w.rank)}
               /> {gettext("Import as withdrawn")}:
             </label>
-            
+
             <strong>{w.name}</strong> {gettext("(no. %{rank})", rank: w.rank)} - {ngettext(
               "nothing in the last round; last seen in round %{last}",
               "nothing in the last %{count} rounds; last seen in round %{last}",
@@ -2453,7 +2453,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </li>
         </ul>
       </div>
-      
+
       <div class="actions">
         <button
           type="button"
@@ -2464,7 +2464,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {if @pibe?, do: gettext("Import anyway"), else: gettext("Import")}
         </button>
-        
+
         <button type="button" id="trf-review-cancel" class="pe-btn" phx-click="cancel_trf_import">
           {gettext("Cancel")}
         </button>
@@ -2744,9 +2744,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
       <div class="page-header">
         <div>
           <h1>{gettext("Tournaments")}</h1>
-          
+
           <p class="subtitle">{gettext("Everything you are organising, most recent first.")}</p>
-          
+
           <%!-- Shown only when a backup would actually carry a publishing key,
                 rather than as a standing warning on every list. A caution that
                 is true of one export in fifty and printed above all of them
@@ -2758,7 +2758,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             )}
           </p>
         </div>
-        
+
         <%!-- Three things where there were six buttons: the one primary
               action, an Import menu holding the four ways in, and the export
               of everything. The imports keep their buttons, texts and
@@ -2777,7 +2777,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <summary id="import-menu-toggle" class="pe-btn" aria-haspopup="menu">
               {gettext("Import")}
             </summary>
-            
+
             <div class="pe-dropdown-panel" role="menu" aria-label={gettext("Import")}>
               <button
                 :if={!@importing_backup}
@@ -2788,7 +2788,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               >
                 {gettext("Import backup (JSON)")}
               </button>
-              
+
               <%!-- Beside the other imports rather than hidden behind them: a
                     hand-off file looks exactly like a backup in a downloads
                     folder, and the two do completely different things. Naming
@@ -2804,7 +2804,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               >
                 {gettext("Receive a hand-off")}
               </button>
-              
+
               <%!-- Absent, not disabled, when the pack's SWAR import is off. A
                     greyed-out button that explains itself is worse than a
                     button that was never in the menu. --%>
@@ -2817,7 +2817,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               >
                 {gettext("Import SWAR file")}
               </button>
-              
+
               <button
                 :if={!@importing_trf}
                 id="import-trf-button"
@@ -2829,7 +2829,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               </button>
             </div>
           </details>
-          
+
           <a
             id="export-all-link"
             class="pe-btn"
@@ -2843,42 +2843,42 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >{gettext("Export all (JSON)")}</a>
         </div>
       </div>
-      
+
       <div :if={@pending_invitations != []} class="card">
         <h2>{gettext("Pending invitations")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Someone has invited you to collaborate on these tournaments. Accepting gives you full editing access; declining removes the invitation."
           )}
         </p>
-        
+
         <div class="card-table-wrap">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>{gettext("Tournament")}</th>
-                
+
                 <th>{gettext("Invited by")}</th>
-                
+
                 <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
-            
+
             <tbody>
               <tr :for={
                 %{collaborator: c, tournament: t, owner_email: owner_email} = invitation <-
                   @pending_invitations
               }>
                 <td><strong>{t.name}</strong></td>
-                
+
                 <td>
                   <span :if={invitation[:owner_name]} class="collab-name">
                     {invitation[:owner_name]}
                   </span>
                    {owner_email}
                 </td>
-                
+
                 <td style="text-align: right">
                   <button
                     class="pe-btn primary"
@@ -2887,7 +2887,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   >
                     {gettext("Accept")}
                   </button>
-                  
+
                   <button
                     class="pe-btn danger-link"
                     phx-click="decline_invite"
@@ -2901,7 +2901,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </table>
         </div>
       </div>
-      
+
       <form
         :if={@creating}
         id="new-tournament-form"
@@ -2910,7 +2910,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-change="pairing_system_picked"
       >
         <h2>{gettext("New tournament")}</h2>
-        
+
         <p :if={@new_from_defaults?} class="hint" id="new-tournament-defaults-note">
           <.rich_text text={
             gettext(
@@ -2924,7 +2924,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </:part>
           </.rich_text>
         </p>
-        
+
         <%!-- Three grids, not one, with prose BETWEEN them rather than
               inside them.
 
@@ -2950,7 +2950,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               placeholder={gettext("e.g. Summer Open 2026")}
             />
           </label>
-          
+
           <label class="field">
             <span>{gettext("Pairing system")}</span>
             <select name="tournament[pairing_system]">
@@ -2964,7 +2964,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </select>
           </label>
         </div>
-        
+
         <%!-- Named here rather than only in Settings because this is where
               the choice is actually made, and because "Swiss" alone stopped
               identifying anything once the system label and the engine name
@@ -2979,7 +2979,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <:part name="engine"><strong>Ainalrami</strong></:part>
           </.rich_text>
         </p>
-        
+
         <div class="form-grid">
           <label class="field">
             <span>{gettext("Rounds")}</span>
@@ -2991,7 +2991,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               max={Tournament.max_rounds()}
             />
           </label>
-          
+
           <label :if={@new_pairing_system == "round_robin"} class="field">
             <span>{gettext("Cycles (how many times everyone plays everyone)")}</span>
             <input
@@ -3004,7 +3004,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               step="1"
             />
           </label>
-          
+
           <%!-- The checkbox makes this a team event. With "Round robin" it
                 pairs team against team (`PairingsEngine.TeamRoundRobin`), with
                 Swiss by FIDE's team Swiss, C.04.6 (`PairingsEngine.TeamSwiss`,
@@ -3021,7 +3021,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             /> <span>{gettext("Team tournament")}</span>
           </label>
         </div>
-        
+
         <p
           :if={@new_team? and Map.get(@new_params, "pairing_system", "swiss") == "round_robin"}
           class="hint"
@@ -3030,7 +3030,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             "A team round robin: add the teams and their board orders on the Teams page, and every round pairs team against team, board by board."
           )}
         </p>
-        
+
         <p
           :if={@new_team? and Map.get(@new_params, "pairing_system", "swiss") == "swiss"}
           id="new-team-swiss-hint"
@@ -3040,7 +3040,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             "A team Swiss (FIDE C.04.6): add the teams and their board orders on the Teams page, and every round pairs team against team by match points, board by board."
           )}
         </p>
-        
+
         <p
           :if={@new_team? and Map.get(@new_params, "pairing_system", "swiss") == "keizer"}
           id="new-team-keizer-hint"
@@ -3051,7 +3051,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             "Keizer cannot pair team against team, so a team tournament cannot use it. Choose Swiss (FIDE's team Swiss, C.04.6) or Round robin."
           )}
         </p>
-        
+
         <div class="form-grid">
           <label class="field">
             <span>{gettext("Place")}</span>
@@ -3061,7 +3061,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               placeholder={gettext("e.g. Gent")}
             />
           </label>
-          
+
           <label class="field">
             <span>{gettext("Date from")}</span>
             <input
@@ -3075,7 +3075,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               )}
             </span>
           </label>
-          
+
           <label class="field">
             <span>{gettext("Rate of play")}</span>
             <select name="tournament[rate_of_play]">
@@ -3089,7 +3089,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </select>
           </label>
         </div>
-        
+
         <%!-- Its own row: a radio group is as wide as its options, and in a
               grid cell it either overflows or wraps into a column of
               one. --%>
@@ -3106,15 +3106,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </label>
           </div>
         </div>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button type="submit" class="pe-btn primary">{gettext("Create tournament")}</button>
           <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
-      
+
       <form
         :if={@bel_swar_import? && @importing}
         id="swar-import-form"
@@ -3123,7 +3123,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-change="validate_swar"
       >
         <h2>{gettext("Import a SWAR tournament")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
@@ -3133,7 +3133,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <:part name="ext"><code>.swar</code></:part>
           </.rich_text>
         </p>
-        
+
         <div
           class={["dropzone", @uploads.swar.entries != [] && "has-file"]}
           phx-drop-target={@uploads.swar.ref}
@@ -3155,11 +3155,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% end %>
           </div>
         </div>
-        
+
         <p :for={msg <- UploadGuard.error_messages(@uploads.swar)} class="error-note">{msg}</p>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button
             type="submit"
@@ -3172,10 +3172,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
            <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
-      
+
       <div :if={@swar_duplicate} id="swar-duplicate-warning" class="card">
         <h2>{gettext("This looks like a tournament you already have")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
@@ -3185,15 +3185,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <:part name="name"><strong>{@swar_duplicate.existing.name}</strong></:part>
           </.rich_text>
         </p>
-        
+
         <p class="hint">
           {gettext(
             "Compare shows what the file would change - settings, players, results and rounds - and lets you choose what to take from it."
           )}
         </p>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button
             type="button"
@@ -3203,15 +3203,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Compare and merge into %{name}", name: @swar_duplicate.existing.name)}
           </button>
-          
+
           <button type="button" class="pe-btn" phx-click="swar_duplicate_open_existing">
             {gettext("Open %{name}", name: @swar_duplicate.existing.name)}
           </button>
-          
+
           <button type="button" class="pe-btn" phx-click="swar_duplicate_import_anyway">
             {gettext("Import as a new tournament anyway")}
           </button>
-          
+
           <button type="button" class="pe-btn" phx-click="cancel_swar_duplicate">{gettext("Cancel")}</button>
         </div>
       </div>
@@ -3224,15 +3224,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
         aria-labelledby="swar-team-warning-title"
       >
         <h2 id="swar-team-warning-title">{gettext("This is a team competition")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">{SwarImport.team_marked_message()}</p>
-        
+
         <p class="hint">
           {gettext(
             "As an individual tournament, every game is kept - results, colours, player records and the rating report - but there are no teams, matches or team standings."
           )}
         </p>
-        
+
         <div class="actions">
           <button
             type="button"
@@ -3242,16 +3242,16 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Import the games as an individual tournament")}
           </button>
-          
+
           <button type="button" id="swar-team-cancel" class="pe-btn" phx-click="cancel_swar_team">
             {gettext("Cancel")}
           </button>
         </div>
       </div>
-      
+
       <form :if={@swar_pending} id="swar-resolve-form" class="card" phx-submit="resolve_swar">
         <h2>{gettext("Resolve FIDE ids")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {ngettext(
             "SWAR has no FIDE id on file for %{count} player. Pick a match below if one of these is the right person, or import them without a FIDE id - nothing is saved until you confirm.",
@@ -3259,7 +3259,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             length(@swar_pending.unresolved)
           )}
         </p>
-        
+
         <div
           :for={entry <- @swar_pending.unresolved}
           class="card"
@@ -3275,7 +3275,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               )}
             </span>
           </h3>
-          
+
           <div style="display: flex; flex-direction: column; gap: .4rem">
             <label :for={c <- entry.candidates} class="opt-row opt-baseline">
               <input type="radio" name={"resolution[#{entry.ni}]"} value={c.fide_id} />
@@ -3288,7 +3288,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   do: ", #{c.standard_rating}"}
               </span>
             </label>
-            
+
             <label class="opt-row opt-baseline">
               <input type="radio" name={"resolution[#{entry.ni}]"} value="skip" checked /> {gettext(
                 "Import without a FIDE id"
@@ -3296,15 +3296,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </label>
           </div>
         </div>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button type="submit" class="pe-btn primary">{gettext("Confirm and import")}</button>
           <button type="button" class="pe-btn" phx-click="cancel_swar_resolve">{gettext("Back")}</button>
         </div>
       </form>
-      
+
       <form
         :if={@importing_trf}
         id="trf-import-form"
@@ -3316,7 +3316,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           {gettext("Import a TRF tournament")}
           <PairingsEngineWeb.Components.ManualLink.manual_link topic={:trf_import} />
         </h2>
-        
+
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
@@ -3326,7 +3326,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <:part name="ext"><code>.trf</code></:part>
           </.rich_text>
         </p>
-        
+
         <div
           class={["dropzone", @uploads.trf.entries != [] && "has-file"]}
           phx-drop-target={@uploads.trf.ref}
@@ -3348,11 +3348,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% end %>
           </div>
         </div>
-        
+
         <p :for={msg <- UploadGuard.error_messages(@uploads.trf)} class="error-note">{msg}</p>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button
             type="submit"
@@ -3374,7 +3374,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-change="validate_backup"
       >
         <h2>{gettext("Import an OpenPairings backup")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           <.rich_text text={
             gettext(
@@ -3382,15 +3382,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
             )
           }>
             <:part name="ext"><code>.json</code></:part>
-            
+
             <:part name="settings_export">
               <em>{gettext("Settings → Export / backup")}</em>
             </:part>
-            
+
             <:part name="export_all"><em>{gettext("Export all (JSON)")}</em></:part>
           </.rich_text>
         </p>
-        
+
         <div
           class={["dropzone", @uploads.backup.entries != [] && "has-file"]}
           phx-drop-target={@uploads.backup.ref}
@@ -3412,11 +3412,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% end %>
           </div>
         </div>
-        
+
         <p :for={msg <- UploadGuard.error_messages(@uploads.backup)} class="error-note">{msg}</p>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button
             type="submit"
@@ -3429,7 +3429,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
            <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
-      
+
       <form
         :if={@receiving_handoff}
         id="handoff-receive-form"
@@ -3438,27 +3438,27 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-change="validate_handoff"
       >
         <h2>{gettext("Receive a hand-off")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "A hand-off file makes a tournament LIVE on this machine, and the copy it came from stays locked until you give it back. This is not the same as importing a backup: a backup is a separate copy of an event that is still running somewhere else, and this is the event itself moving here."
           )}
         </p>
-        
+
         <ul class="hint" style="margin-top: 0">
           <li>
             {gettext(
               "Helpers entering results on their phones have to enrol again here - access codes never travel."
             )}
           </li>
-          
+
           <li>
             {gettext(
               "Anyone the tournament was shared with arrives as a pending invitation and has to accept it again."
             )}
           </li>
         </ul>
-        
+
         <div
           class={["dropzone", @uploads.handoff.entries != [] && "has-file"]}
           phx-drop-target={@uploads.handoff.ref}
@@ -3480,11 +3480,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% end %>
           </div>
         </div>
-        
+
         <p :for={msg <- UploadGuard.error_messages(@uploads.handoff)} class="error-note">{msg}</p>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button
             type="submit"
@@ -3497,7 +3497,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
            <button type="button" class="pe-btn tonal" phx-click="cancel">{gettext("Cancel")}</button>
         </div>
       </form>
-      
+
       <form
         :if={@return_target}
         id="handoff-return-form"
@@ -3506,14 +3506,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
         phx-change="validate_handoff"
       >
         <h2>{gettext("Bring back \"%{name}\"", name: @return_target.name)}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "This tournament is checked out to %{place}. Whoever has been running it there produces a returning file with \"Give back\"; that file carries the key that unlocks this copy.",
             place: @return_target.handed_off_to || gettext("another copy")
           )}
         </p>
-        
+
         <%!-- Said before the button rather than after it. This is a wholesale
               replacement, and an arbiter who expects a merge - or expects the
               file to be ignored - should find out here rather than by
@@ -3526,7 +3526,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             "the rounds played on the other machine become this copy's, because this one has been read-only since it left and cannot have changed. What is here now is kept as a restore point under History, so you can look at it or go back."
           )}
         </p>
-        
+
         <div
           class={["dropzone", @uploads.handoff_return.entries != [] && "has-file"]}
           phx-drop-target={@uploads.handoff_return.ref}
@@ -3548,13 +3548,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <% end %>
           </div>
         </div>
-        
+
         <p :for={msg <- UploadGuard.error_messages(@uploads.handoff_return)} class="error-note">
           {msg}
         </p>
-        
+
         <p :if={@error} class="error-note">{@error}</p>
-        
+
         <div class="actions">
           <button
             type="submit"
@@ -3564,13 +3564,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("Unlock this copy")}
           </button>
-          
+
           <button type="button" class="pe-btn tonal" phx-click="return_cancel">
             {gettext("Cancel")}
           </button>
         </div>
       </form>
-      
+
       <%!-- The way back when the returning file cannot be produced at all -
             the laptop was stolen, wiped, or is at the bottom of a canal.
             Without it the lock is permanent and this copy stays read-only
@@ -3594,38 +3594,38 @@ defmodule PairingsEngineWeb.TournamentsLive do
         class="card empty"
       >
         <p><strong>{gettext("No tournaments yet.")}</strong></p>
-        
+
         <%!-- The empty state lists the ways in, so it must not name a way in
               that is not on this page. --%>
         <p :if={@bel_swar_import?}>
           {gettext("Create your first tournament, or import one from SWAR, TRF, or a backup.")}
         </p>
-        
+
         <p :if={!@bel_swar_import?}>
           {gettext("Create your first tournament, or import one from TRF or a backup.")}
         </p>
       </div>
-      
+
       <div :if={@tournaments != []} class="card table-card menu-card" id="tournaments-card">
         <table class="pe-table" id="tournaments-table">
           <thead>
             <tr>
               <th>{gettext("Name")}</th>
-              
+
               <th>{gettext("System")}</th>
-              
+
               <th class="num">{gettext("Rounds")}</th>
-              
+
               <th class="num">{gettext("Players")}</th>
-              
+
               <th>{gettext("Dates")}</th>
-              
+
               <th>{gettext("Status")}</th>
-              
+
               <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
-          
+
           <tbody>
             <%= for block <- @list_blocks do %>
               <%= case block do %>
@@ -3665,7 +3665,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                       </button>
                     </td>
                   </tr>
-                  
+
                   <%= unless MapSet.member?(@collapsed_groups, group.id) do %>
                     <.tournament_row
                       :for={{t, player_count, owned?} <- group.rows}
@@ -3681,30 +3681,30 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </tbody>
         </table>
       </div>
-      
+
       <div :if={@archived_tournaments != []} class="card">
         <h2>{gettext("Archived")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Archived tournaments are kept indefinitely and stay fully readable - their pages, public link, prints and exports all keep working. They just refuse every change until you unarchive them. This is not the Recycle bin: nothing here is ever purged automatically."
           )}
         </p>
-        
+
         <div class="card-table-wrap">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>{gettext("Name")}</th>
-                
+
                 <th>{gettext("Archived")}</th>
-                
+
                 <th>{gettext("Status")}</th>
-                
+
                 <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
-            
+
             <tbody>
               <tr :for={{t, owned?} <- @archived_tournaments}>
                 <td>
@@ -3715,11 +3715,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     title={gettext("Shared with you by its owner")}
                   >{gettext("shared")}</span>
                 </td>
-                
+
                 <td>{t.archived_at}</td>
-                
+
                 <td><span class="badge archived">{gettext("archived")}</span></td>
-                
+
                 <td style="text-align: right">
                   <%!-- The same More menu as the active rows above: arrow only,
                         every action kept with its event, the destructive one
@@ -3738,7 +3738,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     >
                       {gettext("More")}
                     </summary>
-                    
+
                     <div
                       class="pe-dropdown-panel"
                       role="menu"
@@ -3772,7 +3772,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                       >
                         {gettext("Delete")}
                       </button>
-                      
+
                       <button
                         :if={!owned?}
                         id={"archived-leave-#{t.id}"}
@@ -3793,39 +3793,39 @@ defmodule PairingsEngineWeb.TournamentsLive do
           </table>
         </div>
       </div>
-      
+
       <div :if={@deleted_tournaments != []} class="card">
         <h2>{gettext("Recycle bin")}</h2>
-        
+
         <p class="hint" style="margin-top: 0">
           {gettext(
             "Deleted tournaments stay here for 3 months, after which they are purged automatically. Restore one to bring it back, or delete it permanently right away."
           )}
         </p>
-        
+
         <div class="card-table-wrap">
           <table class="pe-table">
             <thead>
               <tr>
                 <th>{gettext("Name")}</th>
-                
+
                 <th>{gettext("Deleted")}</th>
-                
+
                 <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
             </thead>
-            
+
             <tbody>
               <tr :for={t <- @deleted_tournaments}>
                 <td><strong>{t.name}</strong></td>
-                
+
                 <td>{t.deleted_at}</td>
-                
+
                 <td style="text-align: right">
                   <button class="pe-btn" phx-click="restore_tournament" phx-value-id={t.id}>
                     {gettext("Restore")}
                   </button>
-                  
+
                   <button class="pe-btn danger-link" phx-click="purge_start" phx-value-id={t.id}>
                     {gettext("Delete permanently")}
                   </button>
@@ -3932,7 +3932,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             do: gettext("Give this tournament back"),
             else: gettext("Hand this tournament over")}
         </h2>
-        
+
         <p>
           <.rich_text text={
             gettext(
@@ -3942,31 +3942,31 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <:part name="name"><strong>{@tournament.name}</strong></:part>
           </.rich_text>
         </p>
-        
+
         <p class="hint"><strong>{gettext("What does not travel with it:")}</strong></p>
-        
+
         <ul class="hint">
           <li>
             {gettext(
               "Helper phones. Every enrolment code stays on this machine, so whoever runs the event next has to hand out new ones."
             )}
           </li>
-          
+
           <li>
             {gettext(
               "Collaborator access. Everyone the tournament is shared with arrives there as an invitation they have to accept again."
             )}
           </li>
-          
+
           <li>
             {gettext("Restore points. The other machine starts with no history behind it.")}
           </li>
         </ul>
-        
+
         <p :if={export_key_warning(@tournament)} class="hint">
           {export_key_warning(@tournament)}
         </p>
-        
+
         <%!-- The return path first when there is one, and without a
               destination field: giving it back goes where it came from, and
               asking would invite somebody to type somewhere else. --%>
@@ -3980,20 +3980,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <button type="submit" class="pe-btn primary">
               {gettext("Give it back to %{place}", place: Handoff.origin_label(@tournament))}
             </button>
-            
+
             <button type="button" class="pe-btn tonal" phx-click="handoff_cancel">
               {gettext("Cancel")}
             </button>
           </div>
         </.form>
-        
+
         <p :if={Handoff.received?(@tournament)} class="hint">
           {gettext(
             "Or send it on to a third machine instead - the key for %{place} travels with it and stays usable.",
             place: Handoff.origin_label(@tournament)
           )}
         </p>
-        
+
         <.form for={%{}} action={~p"/t/#{@tournament.id}/export/handoff"} method="post">
           <label class="field">
             <span>{gettext("Where is it going?")}</span>
@@ -4004,13 +4004,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
               placeholder={gettext("e.g. the club laptop")}
             />
           </label>
-          
+
           <p class="hint">
             {gettext(
               "Free text - this is what the banner on this copy will say, so write whatever you will recognise later."
             )}
           </p>
-          
+
           <div class="actions">
             <button
               type="submit"
@@ -4018,7 +4018,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             >
               {gettext("Hand off and download the file")}
             </button>
-            
+
             <button
               :if={!Handoff.received?(@tournament)}
               type="button"
@@ -4029,7 +4029,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             </button>
           </div>
         </.form>
-        
+
         <p class="hint">
           {gettext(
             "Keep the file safe. Whoever holds it can make this tournament live on their own machine."
@@ -4059,7 +4059,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         data-dialog
       >
         <h2 id="delete-dialog-title">{gettext("Delete tournament")}</h2>
-        
+
         <p>
           <.rich_text text={
             gettext(
@@ -4069,14 +4069,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <:part name="name"><strong>{@tournament.name}</strong></:part>
           </.rich_text>
         </p>
-        
+
         <form id="delete-confirm-form" phx-change="delete_confirm_input">
           <label class="field">
             <span>{gettext("Type DELETE to confirm")}</span>
             <input name="confirm" value={@confirm_text} autocomplete="off" phx-mounted={JS.focus()} />
           </label>
         </form>
-        
+
         <div class="actions">
           <button
             type="button"
@@ -4112,7 +4112,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         data-dialog
       >
         <h2 id="purge-dialog-title">{gettext("Delete permanently")}</h2>
-        
+
         <p>
           <.rich_text text={
             gettext(
@@ -4122,14 +4122,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
             <:part name="name"><strong>{@tournament.name}</strong></:part>
           </.rich_text>
         </p>
-        
+
         <form id="purge-confirm-form" phx-change="purge_confirm_input">
           <label class="field">
             <span>{gettext("Type DELETE to confirm")}</span>
             <input name="confirm" value={@confirm_text} autocomplete="off" phx-mounted={JS.focus()} />
           </label>
         </form>
-        
+
         <div class="actions">
           <button
             type="button"
@@ -4166,15 +4166,15 @@ defmodule PairingsEngineWeb.TournamentsLive do
           title={gettext("Shared with you by its owner")}
         >{gettext("shared")}</span>
       </td>
-      
+
       <td>{Tournament.type_label(@t.type)}</td>
-      
+
       <td class="num">{@t.rounds_count}</td>
-      
+
       <td class="num">{@player_count}</td>
-      
+
       <td>{date_range(@t.start_date, @t.end_date)}</td>
-      
+
       <td>
         <span class={["badge", status_class(@t.status)]}>{status_label(@t.status)}</span>
         <.link
@@ -4186,7 +4186,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >
           {PairingsEngineWeb.Postponed.pending_text(Map.get(@postponed_counts, @t.id))}
         </.link>
-        
+
         <%!-- Two badges, never one that has to mean either. A copy can
               be both at once: received from A, and since handed on to
               C. See `PairingsEngine.Handoff`. --%>
@@ -4205,7 +4205,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           title={gettext("Handed to this machine by %{place}", place: Handoff.origin_label(@t))}
         >{gettext("on loan")}</span>
       </td>
-      
+
       <td style="text-align: right">
         <%!-- One More menu per row, as on the Pairings and Players pages.
               Every action is still here with its event; the destructive one
@@ -4226,7 +4226,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
           >
             {gettext("More")}
           </summary>
-          
+
           <div
             class="pe-dropdown-panel"
             role="menu"
@@ -4248,7 +4248,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             >
               {gettext("Copy")}
             </button>
-            
+
             <%!-- Exactly one of these renders, because they are the two
                   directions of the same lock. A row that offered both
                   would be offering to hand off a tournament that is
@@ -4263,7 +4263,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             >
               {if Handoff.received?(@t), do: gettext("Give back"), else: gettext("Hand off")}
             </button>
-            
+
             <button
               :if={Handoff.handed_away?(@t)}
               id={"return-#{@t.id}"}
@@ -4274,7 +4274,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             >
               {gettext("Bring it back")}
             </button>
-            
+
             <button
               :if={!Handoff.handed_away?(@t)}
               type="button"
@@ -4298,7 +4298,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
             >
               {gettext("Delete")}
             </button>
-            
+
             <button
               :if={!@owned?}
               id={"leave-#{@t.id}"}
