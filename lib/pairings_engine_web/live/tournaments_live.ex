@@ -284,6 +284,38 @@ defmodule PairingsEngineWeb.TournamentsLive do
     end
   end
 
+  # The members "Archive group" would archive: the ones on this list that are
+  # not checked out to another copy of the app (`archive_tournament/1`
+  # refuses those, and saying "archived" about a tournament being played in
+  # another room is the one thing the single Archive already will not do).
+  defp archivable_rows(%{rows: rows}) do
+    Enum.reject(rows, fn {t, _count, _owner?} -> Handoff.handed_away?(t) end)
+  end
+
+  defp archive_group_confirm(group, postponed_counts) do
+    rows = archivable_rows(group)
+
+    base =
+      ngettext(
+        "Archive the %{count} tournament of \"%{name}\"? It stays fully readable and keeps its public link, but nothing can be changed until you unarchive it.",
+        "Archive all %{count} tournaments of \"%{name}\"? They stay fully readable and keep their public links, but nothing can be changed until you unarchive them.",
+        length(rows),
+        name: group.name
+      )
+
+    case Enum.sum(Enum.map(rows, fn {t, _, _} -> Map.get(postponed_counts, t.id, 0) end)) do
+      0 ->
+        base
+
+      n ->
+        ngettext(
+          "%{count} postponed game is still unplayed: its result cannot be entered while the tournament is archived, and the standings stay provisional.",
+          "%{count} postponed games are still unplayed: their results cannot be entered while the tournament is archived, and the standings stay provisional.",
+          n
+        ) <> " " <> base
+    end
+  end
+
   # Whether "Export all" would put a publishing key in the file. Read off the
   # list that is already loaded rather than asked of the database again - the
   # same rows `TournamentExport.export_all/1` would walk.
@@ -1042,6 +1074,74 @@ defmodule PairingsEngineWeb.TournamentsLive do
           {:error, reason} ->
             {:noreply, put_flash(socket, :error, SettingsSupport.error_text(reason))}
         end
+    end
+  end
+
+  # The group's members are taken from the list this user already has, never
+  # from the group itself: the group has no owner, and a sibling that is not
+  # on this list is one this user may not touch.
+  def handle_event("archive_group", %{"id" => id}, socket) do
+    scope = socket.assigns.current_scope
+
+    group =
+      Enum.find_value(socket.assigns.list_blocks, fn
+        {:group, %{id: group_id} = group} -> if to_string(group_id) == id, do: group
+        _single -> nil
+      end)
+
+    case group do
+      nil ->
+        {:noreply, put_flash(socket, :error, gettext("Group not found."))}
+
+      group ->
+        results =
+          for {t, _count, _owner?} <- archivable_rows(group),
+              tournament = Tournaments.get_authorized_tournament(scope, t.id),
+              tournament != nil,
+              not Tournaments.archived?(tournament) do
+            case Tournaments.archive_tournament(tournament) do
+              {:ok, _} ->
+                Audit.log(tournament.id, scope, "tournament.archived", %{
+                  name: tournament.name,
+                  group: group.name
+                })
+
+                :ok
+
+              {:error, _reason} ->
+                :error
+            end
+          end
+
+        done = Enum.count(results, &(&1 == :ok))
+        failed = length(results) - done
+
+        flash =
+          if failed == 0,
+            do:
+              {:info,
+               ngettext(
+                 "\"%{name}\": %{count} tournament archived - it's now read-only.",
+                 "\"%{name}\": %{count} tournaments archived - they're now read-only.",
+                 done,
+                 name: group.name
+               )},
+            else:
+              {:error,
+               gettext(
+                 "\"%{name}\": %{done} archived, %{failed} could not be. Archive those from their own menu to see why.",
+                 name: group.name,
+                 done: done,
+                 failed: failed
+               )}
+
+        {kind, msg} = flash
+
+        {:noreply,
+         socket
+         |> put_flash(kind, msg)
+         |> assign_tournaments()
+         |> assign_archived_tournaments()}
     end
   end
 
@@ -3662,6 +3762,22 @@ defmodule PairingsEngineWeb.TournamentsLive do
                         <span class="home-group-count">
                           {ngettext("%{count} tournament", "%{count} tournaments", length(group.rows))}
                         </span>
+                      </button>
+                      <%!-- A youth championship is five tournaments and one
+                            event; closing it took five trips through five
+                            menus. Only the members this list shows are
+                            archived, so a sibling run by somebody else stays
+                            theirs to close. --%>
+                      <button
+                        :if={archivable_rows(group) != []}
+                        type="button"
+                        id={"home-group-archive-#{group.id}"}
+                        class="home-group-archive"
+                        phx-click="archive_group"
+                        phx-value-id={group.id}
+                        data-confirm={archive_group_confirm(group, @postponed_counts)}
+                      >
+                        <.icon name="hero-archive-box" class="size-4" /> {gettext("Archive group")}
                       </button>
                     </td>
                   </tr>

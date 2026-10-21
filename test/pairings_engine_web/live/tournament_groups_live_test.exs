@@ -229,5 +229,32 @@ defmodule PairingsEngineWeb.TournamentGroupsLiveTest do
       lv |> element("#home-group-toggle-#{group.id}") |> render_click()
       assert has_element?(lv, "#tournament-row-#{open.id}")
     end
+
+    test "archives every tournament of a group at once, and only the user's own", %{
+      conn: conn,
+      scope: scope
+    } do
+      %{open: open, u20: u20, group: group} = grouped(scope)
+
+      # A sibling somebody else runs: in the group, not on this user's list.
+      {_other_conn, other_scope} = other_user_conn()
+      theirs = tournament(other_scope, "Spring U12")
+
+      Repo.insert!(%PairingsEngine.TournamentGroups.Member{
+        group_id: group.id,
+        tournament_id: theirs.id,
+        position: 9
+      })
+
+      {:ok, lv, _html} = live(conn, ~p"/")
+      assert has_element?(lv, "#home-group-archive-#{group.id}[data-confirm]")
+
+      lv |> element("#home-group-archive-#{group.id}") |> render_click()
+
+      assert Tournaments.archived?(Tournaments.get_tournament!(open.id))
+      assert Tournaments.archived?(Tournaments.get_tournament!(u20.id))
+      refute Tournaments.archived?(Tournaments.get_tournament!(theirs.id))
+      refute has_element?(lv, "#home-group-#{group.id}")
+    end
   end
 end

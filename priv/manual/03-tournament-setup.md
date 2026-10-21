@@ -180,7 +180,12 @@ reveal the rest of the event.
 
 On the **Tournaments** page the tournaments of a group are listed together
 under the group's name, in the group's order. The arrow before the name folds
-the group away. Archived and handed-off tournaments are read-only here too:
+the group away. **Archive group**, at the end of the group's row, archives
+all its tournaments in one go once the event is over (after asking, and
+naming any postponed games still unplayed). It archives only the
+tournaments on your own list; one handed off to another copy of the app is
+left alone. *Unarchive* still works per tournament. Archived and handed-off
+tournaments are read-only here too:
 unarchive or take back first. A tournament in the recycle bin drops out of
 the switcher and returns to its group when restored; deleting it for good
 takes it out.

@@ -185,6 +185,11 @@ evenement niet.
 
 Op de pagina **Toernooien** staan de toernooien van een groep samen onder de naam van
 de groep, in de volgorde van de groep. De pijl voor de naam klapt de groep dicht.
+**Groep archiveren**, achteraan op de rij van de groep, archiveert al haar toernooien
+in één keer zodra het evenement voorbij is (na een vraag, die ook nog niet gespeelde
+uitgestelde partijen noemt). Het archiveert alleen de toernooien in je eigen lijst;
+een toernooi dat aan een andere kopie van de app is overgedragen, blijft ongemoeid.
+*Dearchiveren* gaat nog per toernooi.
 Gearchiveerde en overgedragen toernooien zijn ook hier alleen-lezen: dearchiveer of
 haal eerst terug. Een toernooi in de prullenbak verdwijnt uit de keuzestrook en keert
 bij herstel terug in zijn groep; definitief verwijderen haalt het eruit.

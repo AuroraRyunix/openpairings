@@ -3702,6 +3702,14 @@ a.pending-chip:hover {
 }
 .home-group-toggle:hover { background: var(--surface-hover); color: var(--text); }
 .home-group-count { font-size: 12.5px; color: var(--text-soft); }
+.home-group-row > td { position: relative; }
+.home-group-archive {
+  float: right; display: inline-flex; align-items: center; gap: 6px;
+  margin: 1px 0; padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px;
+  background: var(--surface); color: var(--text-soft); font: inherit; font-size: 13px;
+  cursor: pointer; transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.home-group-archive:hover { background: var(--surface-hover); color: var(--text); border-color: var(--text-soft); }
 .home-group-member > td:first-child { padding-left: 30px; }
 
 /* The Group card on Settings: a field and its button on one line. */
