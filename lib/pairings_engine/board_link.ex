@@ -1144,7 +1144,8 @@ defmodule PairingsEngine.BoardLink do
 
   @doc """
   The same without the moves, for a page that shows a column and not a game:
-  `%{game_uid => %{status, result, plies, reconstructed, guessed, rewritten}}`.
+  `%{game_uid => %{status, result, plies, reconstructed, guessed, rewritten,
+  reported_at}}`.
   """
   def summaries(tournament_id) do
     Repo.all(
@@ -1157,7 +1158,8 @@ defmodule PairingsEngine.BoardLink do
           moves: g.moves,
           reconstructed: g.reconstructed,
           guessed: g.guessed,
-          rewritten: g.rewritten
+          rewritten: g.rewritten,
+          reported_at: g.reported_at
         }
     )
     |> Map.new(fn g ->

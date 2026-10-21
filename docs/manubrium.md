@@ -375,8 +375,9 @@ phone app, built with Capacitor from its own repository
 Apache-2.0, kept apart from this one). It runs a tournament from a phone against one or
 more OpenPairings servers at once: the round as its home screen, results
 entered offline, Lite phones' results confirmed or rejected, incidents with
-a photo, and, for the organiser and editors, pairing, hand edits,
-publishing, standings, players and the mid-event settings.
+a photo, and, for the organiser and editors, a new tournament, pairing,
+hand edits, publishing, standings, players (from the rating lists too),
+check-in, requested byes, the mid-event settings and the hall boxes' codes.
 
 ### Architecture
 
@@ -406,7 +407,10 @@ the hall pages already call:
 | pairing the next round | `DeskActions.pair_next_round/3` | the Pairings page |
 | unpairing the latest round | `DeskActions.delete_round/3` | the Pairings page |
 | a round's public level | `DeskActions.set_publish_level/4` | the Pairings page |
-| late entry, player edits | `DeskActions.create_player/3`, `update_player/5` | the Players page |
+| a new tournament | `DeskActions.create_tournament/2` (the account's defaults, the derived type, seeded round dates, `Quotas`) | the "New tournament" form |
+| player search, adding from a list | `PlayerLookup.search/3`, `fide_values/4`, `bel_values/2`, then `DeskActions.create_player/3` | the Players page's add form |
+| late entry, player edits, check-in, requested byes | `DeskActions.create_player/3`, `update_player/5` | the Players page |
+| hall boxes' codes | `BoardLink.list_links/1`, `create_link/3`, `revoke_link/3`, `BoardLinkAddress.connect_code/2` | the Boards settings page |
 | hand edits | `DeskActions.hand_edit/5`, `finish_hand_edits/4` | the Pairings page's swap, absent, bye, fill, pool and delete, and its "Finish hand edits" |
 | mid-event settings | `DeskActions.update_settings/3` (`Tournaments.update_tournament/2`, locks included) | the Settings pages |
 | a Lite phone's result | `Mobile.PhoneResults.confirm/5`, `reject/5` | the hall's clear, for the rejection |
@@ -478,6 +482,102 @@ through `Tournaments.update_tournament/2`, so FIDE mode's locks answer
 `422 locked_in_fide_mode` exactly as the Settings page would. Tie-breaks
 must come from the tournament's own catalogue, each once. Audited as
 `tournament.settings_updated` with `via: "mobile"`.
+
+### A new tournament
+
+`GET /tournament-options` is what the "New tournament" screen offers:
+`systems` (`Tournament.pairing_systems/0`, the form's own list, with its
+labels), `player_sources` (`fide` always; `bel` only when the account has the
+Belgian player lookup on AND this installation has a member list:
+`PlayerLookup.bel_available?/1`) and `defaults` (the form's starting values
+with the account's own defaults over them: `system`, `rounds_count`,
+`time_control`, `city`, `venue`, `federation`, `rated`).
+
+`POST /tournaments` takes `{tournament: {name, start_date, end_date, city,
+venue, system, rounds_count, time_control, federation, rated}}` and creates
+through `DeskActions.create_tournament/2`, the function the web form calls,
+with the phone's account as owner. The app's names map onto the form's:
+`system` is `pairing_system`, `time_control` is `rate_of_play` (the field
+every report reads; the old free-text `time_control` column is left alone),
+`rated` is `fide_homologated`. Start and end dates are not stored as such
+(the tournament derives them from its round dates): every round is dated to
+`start_date` as the form does, and a different `end_date` dates the last
+round. Dates are `YYYY-MM-DD`; an end before the start is `422 bad_date`.
+Always an individual event: team events are made at the desk. The hosted
+edition's limit answers `409 tournament_quota`. The answer is `201
+{tournament}`, a line of `GET /tournaments`.
+
+### Players from the lists, and check-in
+
+`GET /tournaments/:id/player-search?q=&source=fide|bel` is the Players page's
+add-form search (`PlayerLookup.search/3`): at least three characters
+(`422 query_too_short`), at most 25 results, `source=bel` only where
+`bel` is offered (`422 unknown_source`). Each result is
+`{source, fide_id, national_id, name, federation, title, sex, birth_year,
+fide_rating, national_rating, club, already_in}`, the values picking it
+would fill in: the main rating list's rating (`RatingLists.main_values/2`),
+and with the Belgian lookup on, a FIDE hit's member details. `already_in` is
+a player with that FIDE id or national id in the tournament.
+
+`POST /players` with `{player: {from: {source: "fide", fide_id}}}` or
+`{from: {source: "bel", national_id}}` (and `start_round` beside `from` if
+wanted) adds the player exactly as that pick and Save would. One already in
+the tournament is `422 duplicate_player`; an id the list does not have is
+`404 not_in_list`.
+
+There is no separate check-in field. The desk marks a player who has not
+turned up with the Players page's "Pr." column, which is `absent` (the whole
+event: not paired at all). The player JSON has `present` (its opposite), and
+`PATCH /players/:pid` takes `{player: {present: true|false}}`.
+
+### Requested byes
+
+The player JSON carries `byes: [{round, kind}]`: the rounds in
+`absent_rounds`, each with its typed bye (`ByeTypes`, the `byes` table) or
+`absent` where there is none. `GET /tournaments/:id` carries
+`bye_kinds: [{id, label, points}]`: where the tournament asks the bye type
+(`ByeTypes.applies?/1`: `ask_bye_type`, an individual Swiss) the dialog's
+three, `requested-half`, `requested-zero`, `full-point`; otherwise only
+`absent`, worth what the tournament pays an absence (`points` is before any
+limit).
+
+`PUT /players/:pid/byes` takes `{byes: [{round, kind}], acknowledged?}` and
+replaces what the player asked for the rounds not yet paired; the paired
+rounds' absences stay as they are. It writes `absent_rounds` and
+`bye_types` through `DeskActions.update_player/5`, as the player dialog
+does, so its confirmations come back the same way (`409
+needs_acknowledgement`: `second_half_bye`, `sent_round_changed`). A paired
+round is `422 round_paired`; a kind the tournament does not offer is `422
+unknown_bye_kind`; a round outside the tournament or named twice is `400`.
+The organiser and editors only, as on the Players page.
+
+### Sharing
+
+`GET /tournaments/:id` carries `openresults_url`: the results site's page
+(`PublicLink.url/1`, what every desk page links to), or null when the
+tournament is not on the results site. The app writes its own share text.
+
+### Hall boxes (Alnasl)
+
+A board never enters a result (`PairingsEngine.BoardLink`). What a box
+reported for a game is in the round, beside the result: each board has
+`board_report`, null or `{status, result, mismatch, moves_count,
+updated_at}` (`BoardLink.summaries/1`). `mismatch` is
+`BoardLink.compare/2`'s red case: a board result that differs from the
+entered one, a forfeit compared by who got the point.
+
+`GET /tournaments/:id/board-links` lists the codes that reach the tournament,
+its own and its group's: `{links: [{id, kind, label, hint, reach, created_at,
+last_seen_at}]}`, `kind` `tournament` or `group`, `reach` `lan` (a desktop
+copy's code for a box on its network) or `server`, `label` what the box
+called itself or else the code's last four characters (`hint`). Account
+codes are the account's business and are not listed. `POST` makes a code
+for this tournament (`{where: "lan"}` asks for a network code on a desktop
+copy, as the Boards page does; `409 lan_unusable` when the listener cannot
+take one) and answers `201 {link, code}`, `code` the full connect code the
+box scans or types (`<address>/api/boards/v1#oplt_...`), shown this once.
+Eight at most (`409 too_many_codes`). `DELETE /board-links/:lid` withdraws
+one (`204`; `404 link_not_found`). The organiser and editors only.
 
 ### Incident photos
 
@@ -557,9 +657,11 @@ All under `/api/manubrium/v1`, JSON, errors as
 | `POST /connect` | anyone with a code | `{secret, name?, platform?}` | `201 {token, device, user, server}`; `401 invalid_code`, `429` |
 | `GET /me` | device | | `{device, user, server}` |
 | `DELETE /me` | device | | `204`, token withdrawn |
+| `GET /tournament-options` | device | | `{systems: [{id, label}], player_sources: [{id, label}], defaults}` |
 | `GET /tournaments` | device | | `{tournaments: [{id, name, role, status, rounds_count, paired_rounds, ...}]}` |
-| `GET /tournaments/:id` | hall | | `{tournament: {can, rounds: [{number, publish_level, missing_results}], next_round: {number, blocker, warnings}, settings, ...}}` |
-| `GET /tournaments/:id/rounds/:n` | hall | | `{round: {number, latest, publish_level, boards: [{id, board, label, white, black, bye, vacant, empty, result, clearable, phone}], byes, pool: [{player, type, absent}], hand_edits: {open, pibe}, results}}` |
+| `POST /tournaments` | device | `{tournament: {name, start_date, end_date, city, venue, system, rounds_count, time_control, federation, rated}}` | `201 {tournament}`; `422 invalid`, `422 bad_date`, `409 tournament_quota` |
+| `GET /tournaments/:id` | hall | | `{tournament: {can, rounds: [{number, publish_level, missing_results}], next_round: {number, blocker, warnings}, settings, bye_kinds, openresults_url, ...}}` |
+| `GET /tournaments/:id/rounds/:n` | hall | | `{round: {number, latest, publish_level, boards: [{id, board, label, white, black, bye, vacant, empty, result, clearable, phone, board_report}], byes, pool: [{player, type, absent}], hand_edits: {open, pibe}, results}}` |
 | `POST /tournaments/:id/sync` | hall | `{entries: [...]}` (at most 25) | `{results: [{cid, status, reason, message}]}` |
 | `POST /tournaments/:id/rounds/:n/boards/:pairing/clear` | hall | `{expected}` | `{status: "cleared"}`; `409 conflict` with `current` |
 | `POST /tournaments/:id/rounds/:n/boards/:pairing/confirm` | hall | `{expected}` | `{status: "confirmed"}`; `409 not_from_phone`, `409 conflict` |
@@ -574,9 +676,14 @@ All under `/api/manubrium/v1`, JSON, errors as
 | `PUT /tournaments/:id/rounds/:n/publish` | desk | `{level: 0..3}` | `{round, publish_level}` |
 | `GET /tournaments/:id/standings` | desk | | `{standings: {tiebreaks: [{code, name}], rows: [{rank, player, points, tiebreaks}]}}` |
 | `GET /tournaments/:id/incidents` | desk | `?round=n` | `{incidents: [...]}` (no photos) |
-| `GET /tournaments/:id/players` | desk | | `{players: [...]}` |
-| `POST /tournaments/:id/players` | desk | `{player: {name, title, sex, fide_id, ratings, federation, club, birth_year, start_round}}` | `201 {player}`; `422 duplicate_fide_id` |
-| `PATCH /tournaments/:id/players/:pid` | desk | `{player: {basic fields, withdrawn, absent, absent_rounds: [n], bye_types}, acknowledged}` | `{player}`; `409 needs_acknowledgement` |
+| `GET /tournaments/:id/players` | desk | | `{players: [{..., present, absent_rounds, byes: [{round, kind}]}]}` |
+| `GET /tournaments/:id/player-search` | desk | `?q=&source=fide\|bel` | `{results: [...]}`; `422 query_too_short`, `422 unknown_source` |
+| `POST /tournaments/:id/players` | desk | `{player: {name, title, sex, fide_id, ratings, federation, club, birth_year, start_round}}` or `{player: {from: {source, fide_id \| national_id}, start_round?}}` | `201 {player}`; `422 duplicate_fide_id`, `422 duplicate_player`, `404 not_in_list` |
+| `PATCH /tournaments/:id/players/:pid` | desk | `{player: {basic fields, withdrawn, present, absent, absent_rounds: [n], bye_types}, acknowledged}` | `{player}`; `409 needs_acknowledgement` |
+| `PUT /tournaments/:id/players/:pid/byes` | desk | `{byes: [{round, kind}], acknowledged}` | `{player}`; `422 round_paired`, `422 unknown_bye_kind`, `409 needs_acknowledgement` |
+| `GET /tournaments/:id/board-links` | desk | | `{links: [{id, kind, label, hint, reach, created_at, last_seen_at}]}` |
+| `POST /tournaments/:id/board-links` | desk | `{where?: "lan"}` | `201 {link, code}`; `409 too_many_codes`, `409 lan_unusable` |
+| `DELETE /tournaments/:id/board-links/:lid` | desk | | `204`; `404 link_not_found` |
 
 A sync entry is Lite's entry without the `enrollment` field (the server
 fills in the device's own): `{cid, kind: "result", round, pairing, board,

@@ -396,7 +396,9 @@ defmodule PairingsEngineWeb.Router do
     get "/me", AccountController, :me
     delete "/me", AccountController, :sign_out
 
+    get "/tournament-options", TournamentController, :options
     get "/tournaments", TournamentController, :index
+    post "/tournaments", TournamentController, :create
     get "/tournaments/:id", TournamentController, :show
     get "/tournaments/:id/standings", TournamentController, :standings
     get "/tournaments/:id/incidents", TournamentController, :incidents
@@ -429,8 +431,15 @@ defmodule PairingsEngineWeb.Router do
     get "/tournaments/:id/incidents/:incident_id/photo", IncidentController, :photo
 
     get "/tournaments/:id/players", PlayerController, :index
+    get "/tournaments/:id/player-search", PlayerController, :search
     post "/tournaments/:id/players", PlayerController, :create
     patch "/tournaments/:id/players/:player_id", PlayerController, :update
+    put "/tournaments/:id/players/:player_id/byes", PlayerController, :byes
+
+    # The hall boxes' connect codes (Alnasl).
+    get "/tournaments/:id/board-links", BoardLinkController, :index
+    post "/tournaments/:id/board-links", BoardLinkController, :create
+    delete "/tournaments/:id/board-links/:link_id", BoardLinkController, :delete
   end
 
   # Trading a grant for an account code (`BoardConnectController.grant/2`).

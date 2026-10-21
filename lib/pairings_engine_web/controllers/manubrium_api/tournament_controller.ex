@@ -14,16 +14,21 @@ defmodule PairingsEngineWeb.ManubriumApi.TournamentController do
     * pairing, unpairing, the public level - `PairingsEngineWeb.DeskActions`,
       which the Pairings page calls too.
 
+  A new tournament is `DeskActions.create_tournament/2`, the very function
+  the "New tournament" form calls: the account's defaults, the derived
+  type, the seeded round dates, the hosted edition's limit, the audit row.
+
   Who may: `Reply.tournament/3` - `:hall` (owner, editor, arbiter) for the
   round and the queue, `:desk` (owner, editor:
   `Tournaments.get_authorized_tournament/2`, the desk pages' own gate) for
-  everything else.
+  everything else. Anyone signed in may make a tournament of their own.
   """
   use PairingsEngineWeb, :controller
 
-  alias PairingsEngine.{Incidents, Manubrium, PostponedGames, Tournaments}
+  alias PairingsEngine.{Accounts, Incidents, Manubrium, PostponedGames, Tournaments}
   alias PairingsEngine.Mobile.Sync
-  alias PairingsEngineWeb.{DeskActions, MobileAppController}
+  alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngineWeb.{DeskActions, MobileAppController, PlayerLookup}
   alias PairingsEngineWeb.ManubriumApi.{Json, Reply}
 
   ## ---------- reading ----------
@@ -37,6 +42,152 @@ defmodule PairingsEngineWeb.ManubriumApi.TournamentController do
 
     json(conn, %{tournaments: rows})
   end
+
+  @doc """
+  GET /tournament-options - what the "New tournament" screen offers: the
+  pairing systems the desk's form offers, where players can be looked up,
+  and what a new tournament starts from for this account.
+  """
+  def options(conn, _params) do
+    scope = conn.assigns.current_scope
+    defaults = DeskActions.new_tournament_params(account_defaults(scope))
+    hidden = Accounts.TournamentDefaults.hidden_params(account_defaults(scope))
+
+    sources =
+      [%{id: "fide", label: gettext("FIDE rating list")}] ++
+        if PlayerLookup.bel_available?(scope),
+          do: [%{id: "bel", label: gettext("Belgian member list")}],
+          else: []
+
+    json(conn, %{
+      systems:
+        Enum.map(
+          Tournament.pairing_systems(),
+          &%{id: &1, label: Tournament.pairing_system_label(&1)}
+        ),
+      player_sources: sources,
+      defaults: %{
+        system: defaults["pairing_system"],
+        rounds_count: to_int(defaults["rounds_count"]),
+        time_control: blank_nil(defaults["rate_of_play"]),
+        city: blank_nil(defaults["city"]),
+        venue: nil,
+        federation: blank_nil(hidden["federation"]),
+        rated: false
+      }
+    })
+  end
+
+  @doc """
+  POST /tournaments - `{tournament: {name, start_date, end_date, city,
+  venue, system, rounds_count, time_control, federation, rated}}`: a new
+  individual tournament owned by this account, made exactly as the desk's
+  "New tournament" form makes one (`DeskActions.create_tournament/2`).
+  """
+  def create(conn, %{"tournament" => attrs}) when is_map(attrs) do
+    scope = conn.assigns.current_scope
+
+    with {:ok, params} <- create_params(conn, attrs),
+         params = Map.merge(DeskActions.new_tournament_params(account_defaults(scope)), params),
+         {:ok, t} <- created(conn, DeskActions.create_tournament(scope, params)) do
+      conn |> put_status(201) |> json(%{tournament: Json.tournament_line(t, :owner)})
+    else
+      {:halt, conn} -> conn
+    end
+  end
+
+  def create(conn, _params),
+    do: Reply.error(conn, 400, "bad_request", gettext("A tournament is needed."))
+
+  defp created(_conn, {:ok, t}), do: {:ok, t}
+  defp created(conn, {:error, reason}), do: {:halt, Reply.refuse(conn, reason)}
+
+  defp account_defaults(scope), do: Accounts.get_user!(scope.user.id).tournament_defaults
+
+  # The app's names for the form's fields: `system` is the pairing system,
+  # `time_control` the rate of play (the field every report reads), `rated`
+  # the FIDE-rated tick. The end date dates the last round; every other
+  # round is dated to the start, as the form does, and the Dates page
+  # refines them.
+  defp create_params(conn, attrs) do
+    start_date = attrs |> Map.get("start_date") |> text()
+    end_date = attrs |> Map.get("end_date") |> text()
+    rounds = to_int(attrs["rounds_count"])
+
+    with :ok <- check_date(conn, start_date),
+         :ok <- check_date(conn, end_date),
+         :ok <- check_order(conn, start_date, end_date) do
+      params =
+        %{
+          "name" => text(attrs["name"]),
+          "city" => text(attrs["city"]),
+          "venue" => text(attrs["venue"]),
+          "federation" => attrs["federation"] |> text() |> String.upcase(),
+          "rate_of_play" => text(attrs["time_control"]),
+          "pairing_system" => text(attrs["system"]),
+          "rounds_count" =>
+            if(rounds, do: Integer.to_string(rounds), else: text(attrs["rounds_count"])),
+          "start_date" => start_date,
+          "fide_homologated" => attrs["rated"] in [true, "true"]
+        }
+        |> Map.reject(fn {key, value} ->
+          value == "" and key != "name"
+        end)
+        |> put_round_dates(start_date, end_date, rounds)
+
+      {:ok, params}
+    end
+  end
+
+  defp put_round_dates(params, start_date, end_date, rounds)
+       when start_date != "" and end_date not in ["", start_date] and is_integer(rounds) and
+              rounds > 1,
+       do: Map.put(params, "round_dates", List.duplicate(start_date, rounds - 1) ++ [end_date])
+
+  defp put_round_dates(params, _start_date, _end_date, _rounds), do: params
+
+  defp check_date(_conn, ""), do: :ok
+
+  defp check_date(conn, date) do
+    case Date.from_iso8601(date) do
+      {:ok, _date} ->
+        :ok
+
+      {:error, _reason} ->
+        {:halt, Reply.error(conn, 422, "bad_date", gettext("Dates are written as YYYY-MM-DD."))}
+    end
+  end
+
+  defp check_order(conn, start_date, end_date)
+       when start_date != "" and end_date != "" and end_date < start_date,
+       do:
+         {:halt,
+          Reply.error(
+            conn,
+            422,
+            "bad_date",
+            gettext("The tournament cannot end before it starts.")
+          )}
+
+  defp check_order(_conn, _start_date, _end_date), do: :ok
+
+  defp text(value) when is_binary(value), do: String.trim(value)
+  defp text(value) when is_integer(value), do: Integer.to_string(value)
+  defp text(_value), do: ""
+
+  defp to_int(value) when is_integer(value), do: value
+
+  defp to_int(value) when is_binary(value) do
+    case Integer.parse(String.trim(value)) do
+      {n, ""} -> n
+      _ -> nil
+    end
+  end
+
+  defp to_int(_value), do: nil
+
+  defp blank_nil(value) when value in [nil, ""], do: nil
+  defp blank_nil(value), do: value
 
   @doc "GET /tournaments/:id"
   def show(conn, %{"id" => id}) do

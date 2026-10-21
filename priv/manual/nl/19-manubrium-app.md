@@ -70,7 +70,12 @@ schakelaar weigert de accountpagina een code te maken en zegt ze waarom.
 | Een ronde publiceren (paringen, uitslagen, stand) | ja | nee |
 | Stand, met de tiebreaks van het toernooi | ja | nee |
 | Late inschrijvingen, terugtrekken en terugkeren, vrije rondes, basisgegevens van spelers | ja | nee |
+| Spelers toevoegen uit de FIDE-lijst (en de Belgische lijst waar die aanstaat) | ja | nee |
+| Spelers inchecken, gevraagde byes | ja | nee |
 | Instellingen tijdens het toernooi | wijzigen | nee |
+| Een nieuw toernooi starten | ja, als eigenaar | ja, als eigenaar |
+| De link naar de uitslagensite delen | ja | ja |
+| Codes voor zaalkastjes (live borden) | ja | nee |
 
 Uitslagen die je zonder bereik invoert, wachten op de telefoon en gaan weg
 zodra het kan. Heeft iemand anders intussen hetzelfde bord gewijzigd, dan
@@ -83,6 +88,48 @@ over de paringsnummers, de FIDE-modus verlaten, bye-uitsluitingen, paren
 terwijl de handmatige wijzigingen van een ronde nog openstaan, het schema van
 een round robin en teamtoernooien. De app zegt welke en laat de ronde
 ongepaard.
+
+## Een nieuw toernooi {#new-tournament}
+
+De app kan een eigen toernooi starten: naam, data, plaats en speelzaal,
+paringssysteem, aantal rondes, tempo, federatie en of het FIDE-gerated is. Het
+wordt precies zo gemaakt als **Nieuw toernooi** op de server het maakt, vanuit
+je eigen standaarden voor nieuwe toernooien (**Account**, **Nieuwe
+toernooien**), en elke ronde krijgt de eerste dag als datum, met de laatste
+ronde op de einddatum als dat een andere dag is. Verfijn de data later op de
+pagina **Data**. Teamtoernooien start je op de server.
+
+## Spelers, inchecken en byes {#players}
+
+**Toevoegen uit een lijst.** Zoek in de FIDE-lijst op naam of FIDE-ID; staat
+de Belgische spelersopzoeking aan (**Functies**) en is de Belgische lijst
+gedownload, dan kun je ook in de Belgische lijst zoeken. Typ minstens drie
+tekens. Een speler kiezen vult hem in precies zoals kiezen in het
+toevoegformulier van de pagina Spelers dat zou doen, met de rating uit de
+hoofdlijst van het toernooi. Wie al in het toernooi zit, wordt zo gemarkeerd
+en kun je geen twee keer toevoegen.
+
+**Inchecken.** De schakelaar *aanwezig* van een speler is de kolom **Pr.** van
+de pagina Spelers: een speler die niet aanwezig is, staat afwezig voor het hele
+toernooi en wordt niet gepaard tot je hem terugzet.
+
+**Gevraagde byes.** De rondes waarin een speler wil overslaan, staan erbij met
+hun soort: waar het toernooi de soort bye vraagt, een bye van een half punt,
+nul punten of een vol punt, anders gewoon *afwezig*. De app kan ze wijzigen
+voor de rondes die nog niet gepaard zijn, met dezelfde vragen als het
+spelersvenster (een tweede bye van een half punt, een ronde die al verstuurd
+is voor rating). Een ronde die al gepaard is, wijzig je in de ronde zelf.
+
+## Delen en zaalkastjes {#sharing}
+
+Een toernooi op de uitslagensite heeft zijn OpenResults-link in de app, om te
+delen zoals je wilt. Met live borden in de zaal toont elk bord in de ronde wat
+het kastje zag (bezig of klaar, het aantal zetten, de uitslag van het bord) en
+markeert het dat als het verschilt van de ingevoerde uitslag. Het kastje voert
+nooit een uitslag in; jij doet dat. De organisator en bewerkers kunnen de codes
+van de kastjes bekijken, een nieuwe maken - de volledige code wordt één keer
+getoond, om in het kastje te scannen of te typen - en er een intrekken, zoals
+op de instellingenpagina **Borden**.
 
 ## De paringen met de hand wijzigen {#hand-edits}
 

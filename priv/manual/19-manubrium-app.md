@@ -68,7 +68,12 @@ switch, the account page refuses to make a code and says why.
 | Publish a round (pairings, results, standings) | yes | no |
 | Standings, with the tournament's tie-breaks | yes | no |
 | Late entries, withdraw and re-enter, rounds off, basic player fields | yes | no |
+| Add players from the FIDE list (and the Belgian list where it is on) | yes | no |
+| Check players in, requested byes | yes | no |
 | Mid-event settings | change | no |
+| Start a new tournament | yes, as its owner | yes, as its owner |
+| Share the results-site link | yes | yes |
+| Codes for hall boxes (live boards) | yes | no |
 
 Results entered without a signal wait on the phone and go when it can. If
 somebody else changed the same board in the meantime, the app does not
@@ -80,6 +85,47 @@ Some questions are answered at the desk, never from a phone: the
 pairing-number question, leaving FIDE mode, bye exclusions, pairing while a
 round's hand edits are still open, a round robin's schedule, and team
 events. The app says which one and leaves the round unpaired.
+
+## A new tournament {#new-tournament}
+
+The app can start a tournament of your own: name, dates, place and venue,
+pairing system, number of rounds, time control, federation and whether it
+is FIDE-rated. It is made exactly as **New tournament** on the server makes
+it, from your own defaults for new tournaments (**Account**, **New
+tournaments**), and every round is dated to the first day, with the last
+round on the end date if that is a different day. Refine the dates on the
+**Dates** page later. Team tournaments are started on the server.
+
+## Players, check-in and byes {#players}
+
+**Adding from a list.** Search the FIDE list by name or FIDE ID; with the
+Belgian player lookup switched on (**Features**) and the Belgian list
+downloaded, the Belgian list can be searched as well. Type at least three
+characters. Picking a player fills them in exactly as picking them in the
+Players page's add form would, rating from the tournament's main list
+included. Someone already in the tournament is marked as such and cannot be
+added twice.
+
+**Check-in.** A player's *present* switch is the Players page's **Pr.**
+column: a player who is not present is marked absent for the whole event and
+not paired until you switch them back.
+
+**Requested byes.** The rounds a player asked to sit out are listed with
+their kind: where the tournament asks the bye type, a half-point,
+zero-point or full-point bye, otherwise simply *absent*. The app can change
+them for the rounds not yet paired, with the same questions the player
+dialog asks (a second half-point bye, a round already sent for rating). A
+round that is already paired is changed on the round itself.
+
+## Sharing and hall boxes {#sharing}
+
+A tournament on the results site has its OpenResults link in the app, to
+share however you like. With live boards in the hall, each board in the
+round shows what the box saw (playing or finished, the number of moves, the
+board's result) and marks it when that differs from the entered result. The
+box never enters a result; you do. The organiser and editors can list the
+boxes' codes, make a new one - the full code is shown once, to scan or type
+into the box - and withdraw one, as on the **Boards** settings page.
 
 ## Changing the pairings by hand {#hand-edits}
 

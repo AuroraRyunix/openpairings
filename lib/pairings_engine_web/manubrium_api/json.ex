@@ -11,6 +11,8 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
   use Gettext, backend: PairingsEngineWeb.Gettext
 
   alias PairingsEngine.{
+    BoardLink,
+    ByeTypes,
     Incidents,
     ManualPairing,
     PostponedGames,
@@ -23,7 +25,8 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
   alias PairingsEngine.Mobile.PhoneResults
   alias PairingsEngine.Pairing, as: Engine
   alias PairingsEngine.Tournaments.{Pairing, Player, Round, Tournament}
-  alias PairingsEngineWeb.DeskActions
+  alias PairingsEngine.BoardLink.Link
+  alias PairingsEngineWeb.{DeskActions, PublicLink}
 
   @doc "What a role may do from the app, as the list the app switches its screens on."
   def capabilities(role) when role in [:owner, :editor],
@@ -80,8 +83,31 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
           }
         end),
       next_round: if(desk?, do: next_round(t, paired)),
-      settings: settings(t, role)
+      settings: settings(t, role),
+      bye_kinds: bye_kinds(t),
+      # The results site's page, when there is one to hand a spectator
+      # (`PublicLink`, the one helper every desk page shows it with).
+      openresults_url: PublicLink.url(t)
     }
+  end
+
+  @doc """
+  The kinds of requested bye a player may be given ahead of a round here:
+  the three the player dialog asks between where the tournament asks the
+  bye type (`ByeTypes.applies?/1`), else the plain absence, worth what the
+  tournament pays an absence. `points` is the value before any limit.
+  """
+  def bye_kinds(%Tournament{} = t) do
+    if ByeTypes.applies?(t) do
+      [
+        {"requested-half", gettext("Half-point bye")},
+        {"requested-zero", gettext("Zero-point bye")},
+        {"full-point", gettext("Full-point bye")}
+      ]
+      |> Enum.map(fn {id, label} -> %{id: id, label: label, points: ByeTypes.points(t, id)} end)
+    else
+      [%{id: "absent", label: gettext("Absent"), points: Standings.bye_points("absent", t)}]
+    end
   end
 
   # `count_missing_results/2` counts every round through the one given; the
@@ -179,12 +205,13 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       |> Map.new(&{&1.player.id, &1.points})
 
     phones = PhoneResults.by_pairing(t.id, round.number)
+    reports = if BoardLink.connected?(t.id), do: BoardLink.summaries(t.id), else: %{}
 
     boards =
       round.pairings
       |> Enum.reject(& &1.hidden)
       |> Enum.sort_by(& &1.board)
-      |> Enum.map(&board(&1, scores, Map.get(phones, &1.id)))
+      |> Enum.map(&board(&1, scores, Map.get(phones, &1.id), report_for(reports, &1)))
 
     %{
       number: round.number,
@@ -208,7 +235,10 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
     }
   end
 
-  defp board(%Pairing{} = p, scores, phone) do
+  defp report_for(_reports, %Pairing{game_uid: nil}), do: nil
+  defp report_for(reports, %Pairing{game_uid: uid}), do: Map.get(reports, uid)
+
+  defp board(%Pairing{} = p, scores, phone, report) do
     bye? = p.result == "bye"
 
     %{
@@ -223,7 +253,43 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       empty: is_nil(p.white_player_id) and is_nil(p.black_player_id),
       result: p.result || "",
       clearable: not bye? and p.result not in [nil, ""] and Tournaments.result_clearable?(p),
-      phone: phone && %{by: phone.label, state: phone.state, at: phone.at}
+      phone: phone && %{by: phone.label, state: phone.state, at: phone.at},
+      board_report: board_report(p, report)
+    }
+  end
+
+  # What a sensor board in the hall saw of this game (`BoardLink`), beside
+  # the result and never instead of it: a board never enters a result.
+  # `mismatch` is `BoardLink.compare/2`'s red case, the one the Pairings
+  # page draws.
+  defp board_report(_pairing, nil), do: nil
+
+  defp board_report(%Pairing{} = p, report) do
+    %{
+      status: report.status,
+      result: report.result,
+      mismatch: BoardLink.compare(p.result, report) == :mismatch,
+      moves_count: report.plies,
+      updated_at: report.reported_at
+    }
+  end
+
+  @doc """
+  A hall-box connect code as the app lists it. Never the secret: that is
+  shown once, when the code is made. `kind` is `tournament` or `group`;
+  `reach` is `lan` for a code for a box on a desktop copy's network,
+  `server` otherwise; `label` is what the box called itself, else the
+  code's last four characters.
+  """
+  def board_link(%Link{} = link) do
+    %{
+      id: link.id,
+      kind: if(link.group_id, do: "group", else: "tournament"),
+      label: link.label || link.box_name || "…" <> (link.secret_hint || ""),
+      hint: link.secret_hint,
+      reach: if(link.reach == "lan", do: "lan", else: "server"),
+      created_at: link.inserted_at,
+      last_seen_at: link.last_seen_at
     }
   end
 
@@ -287,8 +353,18 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
 
   defp player_brief(_other), do: nil
 
-  @doc "A player as the app's player list and editor read it."
-  def player_full(%Player{} = p) do
+  @doc """
+  A player as the app's player list and editor read it.
+
+  `present` is the Players page's "Pr." column: a player marked absent
+  for the whole event (`absent`) is not present. `byes` are the rounds the
+  player asked to be left out of (`absent_rounds`), each with its kind: the
+  typed bye stored for that round (`ByeTypes`), else a plain `absent`.
+  `typed` is `ByeTypes.stored/2` for the player, read here when not given.
+  """
+  def player_full(%Player{} = p, typed \\ nil) do
+    typed = typed || ByeTypes.stored(p.tournament_id, p.id)
+
     %{
       id: p.id,
       name: p.name,
@@ -305,7 +381,13 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       start_round: p.start_round,
       status: status(p),
       absent: p.absent,
-      absent_rounds: Player.parse_absent_rounds(p.absent_rounds)
+      present: not p.absent,
+      absent_rounds: Player.parse_absent_rounds(p.absent_rounds),
+      byes:
+        p.absent_rounds
+        |> Player.parse_absent_rounds()
+        |> Enum.sort()
+        |> Enum.map(&%{round: &1, kind: Map.get(typed, &1, "absent")})
     }
   end
 
