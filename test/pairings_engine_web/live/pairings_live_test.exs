@@ -163,12 +163,17 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       lv
     end
 
-    test "a local run explains instead of offering a code", %{conn: conn, scope: scope} do
+    test "a local run offers the network switch, and no code while it is off", %{
+      conn: conn,
+      scope: scope
+    } do
       local_mode(true)
+      PairingsEngine.Meta.delete(PairingsEngine.Mobile.lan_key())
       lv = open_phone_qr(conn, fixture(scope))
 
       refute has_element?(lv, "#phone-qr-enroll-form")
-      assert has_element?(lv, "#phone-qr-enroll-unavailable")
+      assert has_element?(lv, "#phone-qr-lan")
+      assert has_element?(lv, "#phone-lan-switch[aria-pressed=false]")
     end
 
     test "the form creates an enrolment with the chosen level and board range", %{

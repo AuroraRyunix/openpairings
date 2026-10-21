@@ -121,6 +121,22 @@ defmodule PairingsEngine.Accounts.UserNotifierTest do
       end)
     end
 
+    test "an arbiter is told it is the hall, not the tournament" do
+      assert {:ok, _email} =
+               UserNotifier.deliver_invitation(
+                 "ref@example.com",
+                 "owner@example.com",
+                 "Autumn Open",
+                 @url,
+                 "arbiter"
+               )
+
+      assert_email_sent(fn email ->
+        email.text_body =~ ~s(invited you to be an arbiter at "Autumn Open") and
+          email.text_body =~ @url
+      end)
+    end
+
     test "renders in the INVITING ARBITER's locale (the invitee has none on file)" do
       # The invitee may not even have an OpenPairings account yet - see the
       # moduledoc. Using the calling process' locale means this follows

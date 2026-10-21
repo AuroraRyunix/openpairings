@@ -6255,6 +6255,33 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   cursor: pointer;
 }
 .mobile-btn:active { background: var(--accent-hover); }
+.mobile-btn--quiet { background: transparent; color: var(--accent); border: 2px solid var(--accent); }
+.mobile-btn--quiet:active { background: var(--accent-soft); }
+/* The QR link, shown to be copied into the installed app: an address, not
+   a code, so none of the code box's big spaced digits. */
+.mobile-link-input {
+  width: 100%;
+  font-size: 14px;
+  letter-spacing: 0;
+  text-align: left;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.connect-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.connect-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.connect-item .mobile-btn { width: 100%; }
+.connect-name { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+.connect-role { font-size: 12px; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.06em; }
+.phone-qr-lan-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+.phone-qr-arbiter { min-width: 10em; }
 
 .mobile-header {
   display: flex;
@@ -6443,8 +6470,6 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
   .hall-bar { display: none; }
 }
 
-.mobile-board-head { display: flex; justify-content: space-between; }
-.mobile-board-no { font-size: 12px; font-weight: 700; color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.05em; }
 .mobile-players {
   display: flex;
   align-items: baseline;
@@ -6503,6 +6528,315 @@ label.field.field-check { display: flex; flex-direction: row; align-items: cente
 }
 .mobile-results--extra { flex-wrap: wrap; margin-top: 8px; }
 .mobile-results--extra .mobile-result-btn { flex: 1 1 30%; padding: 10px 4px; font-size: 13px; }
+
+/* ---- Manubrium (docs/manubrium.md) ----------------------------------------
+   The phone app is these pages installed. Read in a dim hall at arm's
+   length, tapped with a thumb: every target here is at least 48px tall, the
+   board number is the largest thing on a board, and states are words as
+   well as colours. Light and dark come from the palette like everywhere
+   else; nothing below picks a colour of its own. */
+.mobile-brand { display: inline-flex; align-items: center; gap: 6px; }
+.mobile-mark { width: 18px; height: 18px; color: var(--text); flex: none; }
+.mobile-mark-open { fill: none; stroke: currentColor; stroke-width: 1.2; }
+.mobile-mark-fill { fill: currentColor; }
+.mobile-mark-accent { fill: var(--accent); }
+
+.mobile-board-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.mobile-board-no {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.mobile-incident-btn {
+  margin-left: auto;
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+.mobile-incident-btn:hover { color: var(--text); border-color: var(--text-soft); }
+.mobile-incident-btn:disabled { opacity: 0.5; cursor: default; }
+
+/* ---- Manubrium phase 2: the hall view's extras ---- */
+.mq-toggles { display: inline-flex; gap: 8px; }
+.mq-toggle[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.mobile-clock {
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-soft);
+  margin: 6px 0 0;
+}
+.mobile-search { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.mobile-search-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 12px;
+  font-size: 16px; /* under 16px and iOS zooms the page on focus */
+  border: 1px solid var(--text-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+.mobile-search-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.mobile-filter-btn.active { background: var(--accent-soft); color: var(--accent); border-color: var(--accent); }
+.mobile-status {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.mobile-status.playing { background: var(--warn-soft); color: var(--warn); }
+.mobile-status.finished { background: var(--success-soft); color: var(--success); }
+.mobile-report {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-soft);
+  margin: 0 0 6px;
+}
+.mobile-report.mismatch {
+  color: var(--danger);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+.mobile-report.pending { color: var(--warn); font-weight: 600; }
+.mobile-conflict {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 0 0 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 2px solid var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.mobile-conflict-ok {
+  margin-left: auto;
+  min-height: 36px;
+  padding: 4px 12px;
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--danger);
+  font-weight: 700;
+  cursor: pointer;
+}
+.mq-photo input[type="file"] { font-size: 14px; }
+
+/* One-handed: the phone's own setting (hook.js puts the class on <html>).
+   The header's buttons go to the bottom edge, where a thumb is, and the
+   result buttons grow to a size a thumb hits without looking. */
+html.mq-onehand .mobile-shell { padding-bottom: 84px; }
+html.mq-onehand .mobile-header-actions {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+  justify-content: space-around;
+  padding: 10px 16px calc(10px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+}
+html.mq-onehand .mobile-header-actions .mobile-lock-btn { width: 44px; height: 44px; }
+html.mq-onehand .mobile-result-btn { min-height: 56px; font-size: 18px; }
+
+.mobile-result-btn { min-height: 52px; }
+
+/* The board's own mark: what the phone still holds for it. */
+.mq-badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.mq-badge[data-state="refused"] {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+/* The header count: all sent / waiting / not accepted. */
+.mq-count {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  background: var(--success-soft);
+  color: var(--success);
+}
+.mq-count:empty { display: none; }
+.mq-count[data-state="waiting"] { background: var(--warn-soft); color: var(--warn); }
+.mq-count[data-state="refused"] {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+}
+
+.mq {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin: 0 0 12px;
+}
+.mq-offline, .mq-problem {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 14px;
+  background: var(--warn-soft);
+  color: var(--warn);
+}
+.mq-problem {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+.mq-list { list-style: none; margin: 0; padding: 0; }
+.mq-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+  font-size: 14px;
+}
+.mq-row:first-child { border-top: none; }
+.mq-what { font-weight: 650; color: var(--text); }
+.mq-state { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--text-soft); }
+.mq-row[data-state="waiting"] .mq-state,
+.mq-row[data-state="sending"] .mq-state { color: var(--warn); }
+.mq-row[data-state="sent"] .mq-state { color: var(--success); }
+.mq-row[data-state="refused"] .mq-state { color: var(--danger); }
+.mq-msg { flex-basis: 100%; margin: 0; color: var(--text-soft); line-height: 1.45; }
+.mq-dismiss {
+  min-height: 40px;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* The hall view's board range. */
+.mobile-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+.mobile-range .fieldset { margin: 0; }
+.mobile-range-input {
+  width: 76px;
+  min-height: 44px;
+  padding: 6px 10px;
+  font-size: 16px;
+  border: 1px solid var(--text-soft);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
+.mobile-range-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* The incident dialog: a sheet from the bottom on a phone. */
+.mq-dialog {
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  margin: auto auto 12px;
+  padding: 18px 16px 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+}
+.mq-dialog::backdrop { background: var(--scrim); }
+.mq-dialog-title { font-size: 20px; font-weight: 800; margin: 0 0 10px; }
+.mq-kinds { border: none; margin: 0 0 10px; padding: 0; display: grid; gap: 6px; }
+.mq-kinds legend { font-size: 13px; font-weight: 700; color: var(--text-soft); margin-bottom: 6px; }
+.mq-kind {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+}
+.mq-kind:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.mq-kind input { width: 20px; height: 20px; accent-color: var(--accent); }
+.mq-note { display: grid; gap: 6px; font-size: 13px; font-weight: 700; color: var(--text-soft); }
+.mq-note textarea {
+  font: inherit;
+  font-size: 16px;
+  font-weight: 400;
+  padding: 10px;
+  border: 1px solid var(--text-soft);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  resize: vertical;
+}
+.mq-hint { font-size: 13px; color: var(--text-soft); margin: 6px 0 12px; }
+.mq-dialog-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.mq-btn {
+  min-height: 48px;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mq-btn--primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.mq-btn--primary:active { background: var(--accent-hover); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .mq-badge, .mq-count, .mobile-incident-btn { transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease; }
+}
+
+/* The arbiter's side: incidents under the round, and the incidents page. */
+.round-incidents { margin: 8px 0 0; }
+.round-incidents a { font-weight: 650; }
+.incident-rounds { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
+.incident-call td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
 
 /* Arbiter-side "enrol a phone" panel (desktop tournament view). */
 .enroll-panel { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
@@ -8543,6 +8877,22 @@ select:not([multiple]):not([size]):disabled { cursor: not-allowed; opacity: 0.6;
 .acct-board-text { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .acct-board-name { font-weight: 600; }
 .acct-board-meta { font-size: 12.5px; opacity: 0.75; }
+
+/* Account page, Manubrium app: the connect code. Black on white whatever
+   the theme, because a camera reads contrast, not taste. */
+#manubrium-connect-button { margin: 4px 0 14px; transition: transform 120ms ease, box-shadow 120ms ease; }
+#manubrium-connect-button:hover { transform: translateY(-1px); }
+.acct-connect {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin: 4px 0 16px;
+  padding: 14px; border: 1px solid var(--border); border-radius: 12px;
+  animation: acct-connect-in 180ms ease-out;
+}
+.acct-connect-qr { background: #fff; padding: 10px; border-radius: 10px; line-height: 0; }
+.acct-connect-qr svg { width: 200px; height: 200px; }
+.acct-connect-text { display: flex; flex-direction: column; gap: 10px; flex: 1; min-width: 220px; align-items: flex-start; }
+.acct-connect-link { font-size: 12px; word-break: break-all; opacity: 0.8; user-select: all; }
+@keyframes acct-connect-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .acct-connect { animation: none; } }
 
 /* The Phone QR dialog: the codes are meant to be scanned from across a table,
    so they are far bigger than the old card's 180px. The QR stays black on

@@ -33,7 +33,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token label
              computer guid swar trf json csv fide id elo keizer support deputy helper pibe
-             chess960 chess rnbqkbnr javafo ainalrami live)
+             chess960 chess rnbqkbnr javafo ainalrami live incident)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list
@@ -548,7 +548,52 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 4, "board" => 3, "line" => "Correction @ Round 4: 6-17: 1-0 => 0-1"}
     ],
     "import.json" => [%{"name" => "Paasopen Brugge"}],
-    "collaborator.invited" => [%{"email" => "an@example.org"}],
+    "collaborator.invited" => [
+      %{"email" => "an@example.org"},
+      %{"email" => "an@example.org", "role" => "arbiter"}
+    ],
+    "collaborator.boards_assigned" => [
+      %{"email" => "an@example.org", "from" => 1, "to" => 10},
+      %{"email" => "an@example.org", "from" => 11, "to" => nil},
+      %{"email" => "an@example.org", "from" => nil, "to" => nil}
+    ],
+    "incident.photo_added" => [
+      %{"kind" => "illegal_move", "round" => 3, "board" => 7, "via" => "mobile"}
+    ],
+    "pairing.result_confirmed" => [
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "to" => "1-0",
+        "phone" => "Zaal B"
+      }
+    ],
+    "pairing.result_rejected" => [
+      %{
+        "round" => 2,
+        "board" => 4,
+        "white" => "Anna Peeters",
+        "black" => "Bram Claes",
+        "from" => "0-1",
+        "to" => "",
+        "phone" => "Zaal B"
+      }
+    ],
+    "incident.logged" => [
+      %{"kind" => "illegal_move", "round" => 3, "board" => 7},
+      %{
+        "kind" => "time_added",
+        "round" => 3,
+        "board" => 7,
+        "note" => "zwart kreeg twee minuten",
+        "photo" => true,
+        "via" => "mobile",
+        "enrollment_label" => "Zaal B",
+        "enrollment_level" => "deputy"
+      }
+    ],
     "collaborator.accepted" => [%{"email" => "an@example.org"}],
     "collaborator.declined" => [%{"email" => "an@example.org"}],
     "collaborator.removed" => [%{"email" => "an@example.org"}],

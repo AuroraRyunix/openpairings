@@ -16,7 +16,10 @@ config :pairings_engine, PairingsEngineWeb.Endpoint,
     rewrite_on: [:x_forwarded_proto],
     exclude: [
       # paths: ["/health"],
-      hosts: ["localhost", "127.0.0.1"]
+      hosts: ["localhost", "127.0.0.1"],
+      # A desktop copy's phone listener (`PairingsEngineWeb.PhoneLan`) is
+      # plain http on the hall network by design; nothing else is let off.
+      conn: {PairingsEngineWeb.PhoneLan, :lan_request?, []}
     ]
   ]
 

@@ -56,6 +56,7 @@ defmodule PairingsEngineWeb.UserLive.Settings do
     Authz,
     BoardLink,
     Features,
+    Manubrium,
     Publishing,
     RateLimit,
     RateOfPlay,
@@ -114,6 +115,8 @@ defmodule PairingsEngineWeb.UserLive.Settings do
      |> assign_sessions()
      |> assign_data_counts()
      |> assign_board_boxes()
+     |> assign_manubrium_devices()
+     |> assign(manubrium_connect: nil)
      |> assign(delete_form: to_form(%{"confirm" => ""}, as: :account))}
   end
 
@@ -126,6 +129,20 @@ defmodule PairingsEngineWeb.UserLive.Settings do
       now: DateTime.utc_now()
     )
   end
+
+  # The phones running the Manubrium app on this account
+  # (`Manubrium.redeem/3`), withdrawn ones left out.
+  defp assign_manubrium_devices(socket) do
+    assign(socket, manubrium_devices: Manubrium.list_devices(socket.assigns.current_scope))
+  end
+
+  # Where the app will reach this server: the public address on a hosted
+  # one, the phones' network listener on a desktop copy (nil while it is
+  # off - a phone cannot reach a loopback address).
+  defp manubrium_base_url(%{assigns: %{local?: true}}),
+    do: PairingsEngineWeb.PhoneLan.status().base_url
+
+  defp manubrium_base_url(_socket), do: PairingsEngineWeb.Endpoint.url()
 
   # Everything derived from the account row, re-run after every save so the
   # page never shows a form bound to the row as it was before.
@@ -502,6 +519,68 @@ defmodule PairingsEngineWeb.UserLive.Settings do
     end
   end
 
+  ## ---------- the Manubrium app ----------
+
+  # No recent sign-in asked, as for the board boxes: the code is good for
+  # ten minutes and one phone, and it is shown only on this screen. Giving
+  # a phone the account's rights is exactly what the button says it does.
+  def handle_event("manubrium_connect", _params, socket) do
+    case Manubrium.create_connect_code(
+           socket.assigns.current_scope,
+           manubrium_base_url(socket)
+         ) do
+      {:ok, code} ->
+        # A desktop copy's listener opens once something wants it; ask it
+        # to look now rather than on its next tick.
+        if socket.assigns.local?, do: PairingsEngineWeb.PhoneLan.status()
+
+        {:noreply,
+         assign(socket,
+           manubrium_connect: %{
+             link: code.link,
+             svg: PairingsEngine.Mobile.qr_svg(code.link),
+             expires_at: code.expires_at
+           }
+         )}
+
+      {:error, :no_address} ->
+        {:noreply,
+         put_flash(
+           socket,
+           :error,
+           gettext(
+             "A phone cannot reach this computer yet. Switch on \"Let phones on this network connect\" in a tournament's Phone QR first, then make the code."
+           )
+         )}
+
+      {:error, _too_many} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("That is enough codes for one hour. Try again later."))}
+    end
+  end
+
+  def handle_event("manubrium_connect_close", _params, socket) do
+    {:noreply, socket |> assign(manubrium_connect: nil) |> assign_manubrium_devices()}
+  end
+
+  # Taking access away from a phone needs no recent sign-in either.
+  def handle_event("revoke_manubrium_device", %{"id" => id}, socket) do
+    case Manubrium.revoke_device(socket.assigns.current_scope, id) do
+      {:ok, _device} ->
+        {:noreply,
+         socket
+         |> assign_manubrium_devices()
+         |> assign(saved: :manubrium)
+         |> put_flash(
+           :info,
+           gettext("Signed out. That phone is refused from its next request on.")
+         )}
+
+      {:error, :not_found} ->
+        {:noreply, assign_manubrium_devices(socket)}
+    end
+  end
+
   ## ---------- deleting the account ----------
 
   def handle_event("delete_input", %{"account" => %{"confirm" => confirm}}, socket) do
@@ -649,6 +728,10 @@ defmodule PairingsEngineWeb.UserLive.Settings do
 
             <a href="#live-boards">
               <.icon name="hero-signal-micro" class="size-4" /> {gettext("Live boards")}
+            </a>
+
+            <a href="#manubrium">
+              <.icon name="hero-device-phone-mobile-micro" class="size-4" /> {gettext("Manubrium app")}
             </a>
 
             <a href="#your-data">
@@ -1257,6 +1340,94 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                 {gettext("No board box is connected to your account.")}
               </p>
               <.saved :if={@saved == :board_boxes} id="board-boxes-saved" text={gettext("Withdrawn")} />
+            </section>
+            <%!-- ============ Manubrium app ============ --%>
+            <section id="manubrium" class="set-card acct-section" aria-labelledby="manubrium-title">
+              <div class="acct-section-head">
+                <div>
+                  <h2 id="manubrium-title">{gettext("Manubrium app")}</h2>
+
+                  <p class="hint">
+                    {gettext(
+                      "Phones running the Manubrium app on your account. A connected phone does what you may do here - pair, publish, enter results, edit players - in the tournaments you work in, and keeps entering results without a signal. To connect one, make a code and scan it with the app. The code works once, for %{minutes} minutes.",
+                      minutes: Manubrium.connect_ttl_minutes()
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <div :if={@manubrium_connect} class="acct-connect" id="manubrium-connect">
+                <div class="acct-connect-qr" id="manubrium-connect-qr">
+                  {Phoenix.HTML.raw(@manubrium_connect.svg)}
+                </div>
+                <div class="acct-connect-text">
+                  <p class="hint">
+                    {gettext(
+                      "Scan this with the app's \"Add a server\", or copy the link into it. It is shown once."
+                    )}
+                  </p>
+                  <code class="acct-connect-link" id="manubrium-connect-link">
+                    {@manubrium_connect.link}
+                  </code>
+                  <button
+                    type="button"
+                    class="pe-btn"
+                    id="manubrium-connect-close"
+                    phx-click="manubrium_connect_close"
+                  >
+                    {gettext("Done")}
+                  </button>
+                </div>
+              </div>
+
+              <button
+                :if={!@manubrium_connect}
+                type="button"
+                class="pe-btn primary"
+                id="manubrium-connect-button"
+                phx-click="manubrium_connect"
+              >
+                <.icon name="hero-qr-code" class="size-4" /> {gettext("Connect a phone")}
+              </button>
+
+              <ul :if={@manubrium_devices != []} class="acct-boards" id="manubrium-device-list">
+                <li
+                  :for={device <- @manubrium_devices}
+                  id={"manubrium-device-#{device.id}"}
+                  class="acct-board"
+                >
+                  <.icon name="hero-device-phone-mobile" class="size-5 acct-session-icon" />
+                  <div class="acct-board-text">
+                    <span class="acct-board-name">{device.name}</span>
+                    <span class="acct-board-meta" id={"manubrium-device-meta-#{device.id}"}>
+                      {gettext("Token …%{hint}", hint: device.token_hint)} · {board_box_seen(
+                        %{last_seen_at: device.last_used_at},
+                        @now
+                      )}
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    class="pe-btn danger-link"
+                    id={"manubrium-device-revoke-#{device.id}"}
+                    phx-click="revoke_manubrium_device"
+                    phx-value-id={device.id}
+                    data-confirm={
+                      gettext(
+                        "Sign this phone out? It is refused from its next request on; results it has not sent yet stay on it."
+                      )
+                    }
+                  >
+                    {gettext("Sign out")}
+                  </button>
+                </li>
+              </ul>
+
+              <p :if={@manubrium_devices == []} class="hint" id="manubrium-device-none">
+                {gettext("No phone is connected to your account.")}
+              </p>
+              <.saved :if={@saved == :manubrium} id="manubrium-saved" text={gettext("Signed out")} />
             </section>
             <%!-- ============ Your data ============ --%>
             <section id="your-data" class="set-card acct-section" aria-labelledby="your-data-title">

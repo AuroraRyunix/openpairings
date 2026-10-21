@@ -32,6 +32,49 @@ defmodule PairingsEngineWeb.Router do
     plug :accepts, ["json"]
   end
 
+  # Manubrium's queue (`MobileAppController.sync/2`): JSON in and out, but a
+  # write made from a page with a session, so it gets the session and the
+  # CSRF check a form post gets - not `:api`'s bare pipe. English, like the
+  # rest of `/m`: the answers are sentences the phone shows. The answer is
+  # JSON and never a document, so its policy allows nothing at all.
+  pipeline :mobile_sync do
+    plug :accepts, ["json"]
+    plug :fetch_session
+    plug :protect_from_forgery
+
+    plug :put_secure_browser_headers, %{
+      "content-security-policy" => "default-src 'none'; frame-ancestors 'none'"
+    }
+
+    plug PairingsEngineWeb.Plugs.English
+  end
+
+  # The Manubrium app's API (`/api/manubrium/v1`, docs/manubrium.md "Full
+  # app"): JSON in and out, a bearer token and nothing else - no session,
+  # no cookie, no CSRF token, because nothing here is a browser. English,
+  # like the hall pages: the refusals are sentences the phone shows.
+  pipeline :manubrium_api do
+    plug :accepts, ["json"]
+
+    plug :put_secure_browser_headers, %{
+      "content-security-policy" => "default-src 'none'; frame-ancestors 'none'"
+    }
+
+    plug PairingsEngineWeb.Plugs.English
+  end
+
+  # The bearer check, rate limits included. In its own pipeline so a route
+  # cannot be added to the scope below without it.
+  pipeline :manubrium_device do
+    plug PairingsEngineWeb.ManubriumApi.Auth
+  end
+
+  # Marks a response as one of Manubrium's pages, so the root layout links
+  # the manifest and registers the service worker there and nowhere else.
+  pipeline :manubrium do
+    plug :put_manubrium
+  end
+
   # Player-facing controller pages, after `:browser`: English for this request
   # whatever `Plugs.Locale` resolved, without touching the session it wrote.
   # The controller-side twin of `EnglishHook` - see `Plugs.English`.
@@ -92,6 +135,7 @@ defmodule PairingsEngineWeb.Router do
       live "/t/:id/registrations", RegistrationsLive
       live "/t/:id/pairings", PairingsLive
       live "/t/:id/postponed", PostponedLive
+      live "/t/:id/incidents", IncidentsLive
       live "/t/:id/pairings/:round/explain", PairingExplainLive
       live "/t/:id/pairings/:round/matches/:match", MatchLive
       live "/t/:id/standings", StandingsLive
@@ -334,6 +378,61 @@ defmodule PairingsEngineWeb.Router do
     post "/tournaments/:id/games", BoardLinkController, :games
   end
 
+  # Manubrium, the full app: a phone runs a tournament through these. The
+  # connect trade is the one route without a token - the one-time connect
+  # code it carries is the credential, and refused ones are rate limited by
+  # address in `PairingsEngine.Manubrium.redeem/3`. Everything else carries
+  # the device token (`:manubrium_device`). On a desktop copy the phones'
+  # network listener (`PairingsEngineWeb.PhoneLan`) serves these too.
+  scope "/api/manubrium/v1", PairingsEngineWeb.ManubriumApi do
+    pipe_through [:manubrium_api]
+
+    post "/connect", AccountController, :connect
+  end
+
+  scope "/api/manubrium/v1", PairingsEngineWeb.ManubriumApi do
+    pipe_through [:manubrium_api, :manubrium_device]
+
+    get "/me", AccountController, :me
+    delete "/me", AccountController, :sign_out
+
+    get "/tournaments", TournamentController, :index
+    get "/tournaments/:id", TournamentController, :show
+    get "/tournaments/:id/standings", TournamentController, :standings
+    get "/tournaments/:id/incidents", TournamentController, :incidents
+    post "/tournaments/:id/sync", TournamentController, :sync
+    post "/tournaments/:id/rounds", TournamentController, :pair
+    get "/tournaments/:id/rounds/:number", TournamentController, :round
+    delete "/tournaments/:id/rounds/:number", TournamentController, :unpair
+    put "/tournaments/:id/rounds/:number/publish", TournamentController, :publish
+
+    post "/tournaments/:id/rounds/:number/boards/:pairing_id/clear",
+         TournamentController,
+         :clear
+
+    # A Lite phone's result: the arbiter's word on it.
+    post "/tournaments/:id/rounds/:number/boards/:pairing_id/confirm",
+         RoundEditController,
+         :confirm
+
+    post "/tournaments/:id/rounds/:number/boards/:pairing_id/reject",
+         RoundEditController,
+         :reject
+
+    # Hand edits to a paired round, and finishing them.
+    post "/tournaments/:id/rounds/:number/edits", RoundEditController, :edit
+    post "/tournaments/:id/rounds/:number/edits/finish", RoundEditController, :finish
+
+    patch "/tournaments/:id/settings", SettingsController, :update
+
+    post "/tournaments/:id/incidents/:incident_id/photo", IncidentController, :attach_photo
+    get "/tournaments/:id/incidents/:incident_id/photo", IncidentController, :photo
+
+    get "/tournaments/:id/players", PlayerController, :index
+    post "/tournaments/:id/players", PlayerController, :create
+    patch "/tournaments/:id/players/:player_id", PlayerController, :update
+  end
+
   # Trading a grant for an account code (`BoardConnectController.grant/2`).
   # Its own scope, outside the four above: it is not a request a code makes
   # - the grant is the credential, and the controller checks it and rate
@@ -359,6 +458,15 @@ defmodule PairingsEngineWeb.Router do
 
     get "/connect", BoardConnectController, :new
     post "/connect", BoardConnectController, :create
+  end
+
+  # An incident's photo, for the desk's incidents page: signed in, and the
+  # controller asks `get_authorized_tournament/2` like every desk page -
+  # so not an arbiter, not a phone, and never a public page.
+  scope "/t", PairingsEngineWeb do
+    pipe_through [:browser, :require_authenticated_user]
+
+    get "/:id/incidents/:incident_id/photo", IncidentPhotoController, :show
   end
 
   # Installed theme packs' stylesheets and fonts (`PairingsEngine.ThemePacks`).
@@ -534,12 +642,28 @@ defmodule PairingsEngineWeb.Router do
   #
   # English throughout, like the result entry it leads to: `:english` pins the
   # controller routes, `EnglishHook` the live_session.
+  #
+  # Manubrium Lite, the same pages surviving a wifi drop (docs/manubrium.md):
+  # the service worker is the same for everybody and needs no session; the
+  # queue is a write and gets the session and CSRF check. No manifest: Lite
+  # is a browser page, not something to install.
   scope "/m", PairingsEngineWeb do
-    pipe_through [:browser, :english]
+    get "/sw.js", MobileAppController, :service_worker
+  end
+
+  scope "/m", PairingsEngineWeb do
+    pipe_through [:mobile_sync]
+
+    post "/sync", MobileAppController, :sync
+  end
+
+  scope "/m", PairingsEngineWeb do
+    pipe_through [:browser, :english, :manubrium]
 
     get "/", MobileEnrollController, :new
     post "/", MobileEnrollController, :submit
     get "/e/:token", MobileEnrollController, :enroll
+    post "/e/:token", MobileEnrollController, :redeem
     get "/leave", MobileEnrollController, :leave
 
     live_session :mobile_results,
@@ -551,4 +675,18 @@ defmodule PairingsEngineWeb.Router do
       live "/results", MobileResultsLive
     end
   end
+
+  # An arbiter's own phone, signed in to their account: `require_authenticated_user`
+  # because the code made here is bound to that account (what it enters is
+  # audited under it). Kept out of the phones' LAN listener's path list - a
+  # desktop copy has no accounts but its owner, who signs in on loopback only.
+  scope "/m", PairingsEngineWeb do
+    pipe_through [:browser, :english, :manubrium, :require_authenticated_user]
+
+    get "/connect", MobileConnectController, :index
+    post "/connect/:id", MobileConnectController, :here
+    post "/connect/:id/code", MobileConnectController, :code
+  end
+
+  defp put_manubrium(conn, _opts), do: Plug.Conn.assign(conn, :manubrium, true)
 end

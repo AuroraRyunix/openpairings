@@ -473,12 +473,19 @@ defmodule PairingsEngine.TournamentExport do
   #     is - it is a live offer, and the one created on import genuinely was
   #     created then. Carrying the source's timestamps would age an
   #     invitation nobody has seen yet.
+  #   board_from, board_to
+  #     An arbiter's boards for the day in this hall (Phone QR, "Arbiters'
+  #     boards"). They only change what that arbiter's phone shows first,
+  #     and the person they were given to has not even accepted on the other
+  #     side yet. The next hall assigns its own.
   @collaborator_excluded [
     :id,
     :tournament_id,
     :user_id,
     :invite_token,
     :status,
+    :board_from,
+    :board_to,
     :inserted_at,
     :updated_at
   ]
@@ -532,8 +539,26 @@ defmodule PairingsEngine.TournamentExport do
   #     arrived by file would make the box's old secret valid on a machine
   #     its arbiter never connected it to. The games those boxes reported DO
   #     travel (`"board_games"`).
+  #   mobile_submissions
+  #     The answers a phone's queue was given (`PairingsEngine.Mobile.Sync`),
+  #     keyed by an enrolment that does not travel either. Bookkeeping for
+  #     one phone talking to one machine.
+  #   incidents
+  #     Not yet, rather than never: what the phones logged at the boards
+  #     (`PairingsEngine.Incidents`) IS part of the event, and travels with
+  #     the printable incident report (docs/manubrium.md, phase 2). Until
+  #     then a hand-off leaves them on the machine they were logged on,
+  #     where the incidents page still lists them. A snapshot restore keeps
+  #     them, like the audit trail.
+  #   incident_photos
+  #     Goes with `incidents`, and when those travel, the photos should be
+  #     a decision of their own: a picture of a scoresheet is a heavier
+  #     thing to hand to another machine than a line of text.
   @excluded_tables [
     :board_links,
+    :incidents,
+    :incident_photos,
+    :mobile_submissions,
     :board_relay_requests,
     :mobile_enrollments,
     :tournament_snapshots,

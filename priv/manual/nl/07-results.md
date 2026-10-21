@@ -123,6 +123,106 @@ Het scherm van de telefoon toont de ratings en scores van de spelers, heeft een
 slot dat tegen per ongeluk aantikken beschermt, en een eigen wisselaar voor het
 thema. Een telefoon kan niets anders in het programma bereiken.
 
+**Op de desktopinstallatie** antwoordt het programma alleen deze computer tot
+je in hetzelfde venster **Telefoons op dit netwerk laten verbinden** aanzet en
+het adres van deze computer op het netwerk van de zaal kiest (en zo nodig een
+poort; 4748 tenzij je die wijzigt). Vanaf dan, zolang er minstens één
+telefooncode actief is, bereiken telefoons op hetzelfde netwerk de
+telefoonpagina's - resultaten en incidenten, verder niets - op het adres in de
+QR-code. Alle andere pagina's blijven alleen op deze computer. Zet het uit als
+de ronde gedaan is; de firewall van de computer kan één keer vragen of het mag.
+Het is gewone http op het netwerk van de zaal, net als de bordkoppeling.
+
+### Arbiters met een eigen account {#arbiters-with-their-own-account}
+
+Een arbiter op het gehoste programma kan onder zijn eigen naam werken in plaats
+van met een gedeelde code. De eigenaar nodigt hem uit in Instellingen,
+**Delen / Team**, met de rol **Arbiter - uitslagen en incidenten op een
+telefoon**. Na het aanvaarden opent de arbiter `/m/connect` op zijn telefoon
+(de codepagina linkt ernaar), kiest het toernooi en tikt **Deze telefoon
+gebruiken**; **Toon een code voor een andere telefoon** toont een QR-code voor
+een tweede telefoon of voor de geïnstalleerde app. Een arbiter:
+
+- voert resultaten in en corrigeert ze en meldt incidenten zoals een
+  deputy-telefoon, en alles wat hij invoert staat in het auditlogboek onder
+  zijn eigen account;
+- kan het toernooi niet aan de tafel openen, niet paren en verder niets
+  wijzigen;
+- verliest zijn telefoons zodra hij verwijderd wordt of vertrekt.
+
+In het venster Telefoon-QR geeft **Borden van de arbiters** elke arbiter een
+reeks borden; **Mijn borden** op zijn telefoon toont dan alleen die. De
+eigenaar en de bewerkers kunnen alles wat een arbiter kan.
+
+### Het zaaloverzicht {#the-hall-view}
+
+- Elk bord zegt of het nog **Bezig** of **Afgelopen** is.
+- Een regel onder de ronde zegt hoe lang ze al loopt: sinds de paringen
+  gepubliceerd zijn, of, als dat niet gebeurde, sinds het eerste live bord
+  meldde. Hij zegt welke van de twee. Zonder een van beide zegt hij niets, in
+  plaats van te gokken.
+- **Zoek een speler of een bord** zoekt op naam of bordnummer.
+- Met live borden ([Live borden](17-live-boards.md)) toont elk bord ook wat het
+  bord in de zaal zag: dezelfde uitslag, een uitslag die nog niet is ingevoerd,
+  of, in het rood, een andere. Het is een waarschuwing; de telefoon voert ze
+  nooit zelf in.
+- Als twee arbiters voor hetzelfde bord een andere uitslag invoeren, wordt de
+  tweede geweigerd en tonen beide telefoons de onenigheid in het rood bij dat
+  bord. Niets wordt overschreven; spreek het af en voer de juiste in.
+- **Scherm aan laten** houdt de telefoon wakker zolang de pagina openstaat
+  (waar de telefoon dat kan), en **Met één hand** zet de knoppen onderaan met
+  grotere uitslagknoppen. Beide onthoudt de telefoon zelf.
+
+### Manubrium Lite, als de wifi wegvalt {#manubrium-lite-when-the-wifi-drops}
+
+Deze telefoonpagina's zijn **Manubrium Lite**: een pagina in de browser van de
+telefoon, geleverd door het programma zelf, niets te installeren. Ze blijft
+werken als de wifi in de zaal wegvalt, zolang je de pagina openlaat:
+
+- Een aangetikt resultaat gaat eerst naar het postvak op de telefoon en wordt
+  van daaruit verstuurd, in de volgorde waarin je het invoerde. Zonder
+  verbinding wacht het op de telefoon en wordt het verstuurd zodra de wifi terug
+  is. Bovenaan staat hoeveel er wachten, en elk bord toont *Wacht*,
+  *Verstuurd* of *Niet aanvaard*.
+- Het programma beoordeelt elk resultaat wanneer het aankomt, niet wanneer het
+  werd aangetikt. Een resultaat dat niet meer mag - de code van de telefoon werd
+  ingetrokken, de ronde is voor een helper niet meer de laatste, de spelers aan
+  het bord zijn veranderd, of het bord kreeg intussen een ander resultaat - wordt
+  **niet aanvaard**, en de telefoon zegt per bord waarom, tot je het wegdoet.
+  Een resultaat dat aan de tafel van de arbiter werd ingevoerd, wordt nooit
+  overschreven door een telefoon die onbereikbaar was.
+- Hetzelfde resultaat twee keer versturen (een verloren antwoord, een
+  herlaadbeurt) slaat het maar één keer op.
+- Een resultaat wissen, het slot, de rondekeuze en **Meer** hebben een
+  verbinding nodig.
+- **Verlaten** op een telefoon waar nog resultaten wachten, vraagt eerst
+  bevestiging: wie weggaat, gooit ze weg.
+
+Het hele toernooi vanaf een telefoon leiden - koppelen, spelers, stand - doe je
+met de volledige Manubrium-app, die apart verbinding maakt met het programma.
+
+### Incidenten aan de borden {#incidents-logged-at-the-boards}
+
+Elk bord op de telefoon heeft een knop voor incidenten.
+
+- Een **deputy-telefoon** meldt een incident: onreglementaire zet, probleem met
+  de klok, telefoon of elektronisch toestel, klacht, tijd bijgegeven, partij
+  teruggezet, arbiter geroepen of andere, met een korte opmerking en, als dat
+  helpt, een foto die je ter plaatse neemt (de telefoon verkleint ze voor het
+  versturen; er komt hoogstens zo'n 2 MB aan). Het bord, de ronde, de spelers en de tijd
+  komen er vanzelf bij; de opmerking is niet de plaats voor namen.
+- Een **helpertelefoon** heeft in de plaats **Arbiter roepen**: die meldt
+  alleen dat de arbiter naar dat bord moet komen.
+
+Incidenten gaan door hetzelfde postvak als resultaten, en wachten dus ook op de
+wifi. Op de pagina Paringen zegt een regel onder de ronde hoeveel er zijn, en
+**Meer**, **Incidenten** toont ze allemaal, per ronde, de nieuwste eerst; een
+nieuw incident verschijnt terwijl de pagina openstaat. Een foto staat daar als
+miniatuur, en alleen daar: ze staat op geen enkele openbare pagina, een
+arbiteraccount kan ze niet openen, ze reist niet mee in een export, en ze
+verdwijnt als het toernooi verwijderd wordt. Elk incident staat ook in het
+auditlogboek. Een afdrukbaar incidentenverslag komt later.
+
 ## Uitgestelde partijen {#postponed-games}
 
 Een partij die niet in haar ronde kan worden gespeeld (verplaatst door

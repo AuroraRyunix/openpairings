@@ -8,8 +8,14 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
   on a page meant for a projector. The local view is for the hall now; this is
   for the arbiter's own screen, shown for as long as it takes to scan.
 
+  On a desktop copy the phone codes need the phones' network listener
+  (`PairingsEngineWeb.PhoneLan`): the switch, the address and the port are
+  here, and the codes' links point at that address rather than at
+  "localhost", which a phone would take to mean itself.
+
   The events (`phone_qr_open`, `phone_qr_close`, `generate_enrollment`,
-  `revoke_enrollment`) are handled by `PairingsEngineWeb.PairingsLive`; this
+  `revoke_enrollment`, `phone_lan_switch`, `phone_lan_choose`,
+  `assign_boards`) are handled by `PairingsEngineWeb.PairingsLive`; this
   module is the markup and the small helpers that turn form params and
   enrolments into text.
   """
@@ -22,9 +28,14 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
   attr :new_enrollment, :map, default: nil
   attr :enrollments, :list, default: []
   attr :local_mode?, :boolean, default: false
+  attr :lan, :map, default: nil, doc: "`PhoneLan.status/0` on a desktop copy"
+  attr :arbiters, :list, default: [], doc: "`Tournaments.list_arbiters/1` on a server"
 
   def phone_qr_dialog(assigns) do
-    assigns = assign(assigns, :public_url, PublicLink.url(assigns.tournament, :pairings))
+    assigns =
+      assigns
+      |> assign(:public_url, PublicLink.url(assigns.tournament, :pairings))
+      |> assign(:base, enroll_base(assigns.local_mode?, assigns.lan))
 
     ~H"""
     <div class="pe-modal" id="phone-qr-modal" phx-window-keydown="phone_qr_close" phx-key="escape">
@@ -62,23 +73,70 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
             </p>
           </section>
 
-          <%!-- Not offered on a local run, because it cannot work there and
-                looks like it can: the QR would encode "localhost", which a
-                phone resolves to itself, and the listener only answers the
-                machine it runs on (that is what keeps a no-login build safe).
-                `Mobile.create_enrollment/2` refuses too; this just says so. --%>
-          <section :if={@local_mode?} id="phone-qr-enroll-unavailable" class="phone-qr-block">
-            <h3>{gettext("Enter results on a phone")}</h3>
+          <%!-- A desktop copy answers 127.0.0.1 only, which is what keeps a
+                no-login build safe; a phone reaches it through the separate
+                listener below, which serves the phone pages and nothing else,
+                to the hall's private network only, while the arbiter has it
+                switched on. Without it the QR would encode "localhost", which
+                a phone resolves to itself. --%>
+          <section :if={@local_mode?} id="phone-qr-lan" class="phone-qr-block">
+            <h3>{gettext("Phones on this network")}</h3>
 
             <p class="hint">
               {gettext(
-                "Not available when OpenPairings runs on your own computer. This machine only accepts connections from itself - which is what keeps a no-login build safe - so a phone cannot reach it, and the QR code would point the phone at itself. Helpers can enter results from a phone when a tournament runs on a shared server."
+                "This computer only answers itself until you switch this on. Then the phone pages - result entry and nothing else - answer on the address below, for phones on the same network as this computer. Everything else stays on this computer only."
               )}
             </p>
+
+            <div class="phone-qr-lan-row">
+              <button
+                type="button"
+                id="phone-lan-switch"
+                class={["pe-btn", if(@lan && @lan.enabled?, do: "", else: "primary")]}
+                phx-click="phone_lan_switch"
+                phx-value-on={to_string(!(@lan && @lan.enabled?))}
+                aria-pressed={to_string(!!(@lan && @lan.enabled?))}
+              >
+                {if @lan && @lan.enabled?,
+                  do: gettext("Stop letting phones connect"),
+                  else: gettext("Let phones on this network connect")}
+              </button>
+              <span class="hint" id="phone-lan-state">{lan_state_label(@lan)}</span>
+            </div>
+
+            <form
+              :if={@lan && @lan.enabled? && @lan.addresses != []}
+              id="phone-lan-form"
+              phx-submit="phone_lan_choose"
+              class="phone-qr-form"
+            >
+              <label>
+                {gettext("This computer's address")}
+                <select name="address" class="pe-select" id="phone-lan-address">
+                  <option :for={a <- @lan.addresses} value={a} selected={a == @lan.address}>
+                    {a}
+                  </option>
+                </select>
+              </label>
+              <label>
+                {gettext("Port")}
+                <input
+                  type="number"
+                  name="port"
+                  min="1024"
+                  max="65535"
+                  value={@lan.port}
+                  class="pe-input"
+                  style="width: 96px"
+                  id="phone-lan-port"
+                />
+              </label>
+              <button class="pe-btn" type="submit">{gettext("Use this address")}</button>
+            </form>
           </section>
 
-          <section :if={not @local_mode?} id="phone-qr-enroll" class="phone-qr-block">
-            <h3>{gettext("Enter results on a phone")}</h3>
+          <section :if={@base} id="phone-qr-enroll" class="phone-qr-block">
+            <h3>{gettext("Manubrium Lite: results on a phone")}</h3>
 
             <p class="hint">
               {gettext(
@@ -138,7 +196,7 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
             <div :if={@new_enrollment} id="phone-qr-new-enrollment" class="phone-qr-new">
               <.big_qr
                 id="phone-qr-enroll-code"
-                url={url(~p"/m/e/#{@new_enrollment.token}")}
+                url={@base <> "/m/e/" <> @new_enrollment.token}
                 label={gettext("QR code for entering results on a phone")}
               />
 
@@ -152,14 +210,14 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
                 <div class="enroll-code">{@new_enrollment.code}</div>
 
                 <p class="phone-qr-url" id="phone-qr-enroll-url">
-                  {url(~p"/m/e/#{@new_enrollment.token}")}
+                  {@base <> "/m/e/" <> @new_enrollment.token}
                 </p>
 
                 <p class="enroll-url">
                   <.rich_text text={
                     gettext("Scan the QR, or open %[url] on the phone and enter the code.")
                   }>
-                    <:part name="url"><strong>{url(~p"/m")}</strong></:part>
+                    <:part name="url"><strong>{@base <> "/m"}</strong></:part>
                   </.rich_text>
                 </p>
 
@@ -203,6 +261,56 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
               </table>
             </div>
           </section>
+
+          <%!-- Arbiters bring their own phone and sign it in themselves
+                (`/m/connect`); what the desk decides is which boards each
+                one watches. It changes what "My boards" shows on their
+                phone, not what they may enter. --%>
+          <section
+            :if={not @local_mode? and @arbiters != []}
+            id="phone-qr-arbiters"
+            class="phone-qr-block"
+          >
+            <h3>{gettext("Arbiters' boards")}</h3>
+
+            <p class="hint">
+              {gettext(
+                "Arbiters sign in on their own phone at %{url}. The boards you give each one are what \"My boards\" shows them.",
+                url: url(~p"/m/connect")
+              )}
+            </p>
+
+            <form
+              :for={a <- @arbiters}
+              id={"assign-boards-#{a.id}"}
+              phx-submit="assign_boards"
+              class="phone-qr-form"
+            >
+              <input type="hidden" name="collaborator" value={a.id} />
+              <strong class="phone-qr-arbiter">{arbiter_label(a)}</strong>
+              <input
+                type="number"
+                min="1"
+                name="board_from"
+                value={a.board_from}
+                class="pe-input"
+                style="width: 64px"
+                placeholder={gettext("from")}
+                aria-label={gettext("First board")}
+              /> <span aria-hidden="true">–</span>
+              <input
+                type="number"
+                min="1"
+                name="board_to"
+                value={a.board_to}
+                class="pe-input"
+                style="width: 64px"
+                placeholder={gettext("to")}
+                aria-label={gettext("Last board")}
+              />
+              <button class="pe-btn" type="submit">{gettext("Save")}</button>
+            </form>
+          </section>
         </div>
 
         <footer class="pe-modal-foot">
@@ -233,6 +341,44 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
     </div>
     """
   end
+
+  # Where a code's link points: the server's own address, or on a desktop
+  # copy the phones' listener while it is on - and nowhere (no code at all)
+  # while it is off.
+  defp enroll_base(false, _lan), do: url(~p"/") |> String.trim_trailing("/")
+  defp enroll_base(true, %{base_url: base}) when is_binary(base), do: base
+  defp enroll_base(true, _lan), do: nil
+
+  defp lan_state_label(%{state: :listening, base_url: base}),
+    do: gettext("Phones can connect at %{url}.", url: base <> "/m")
+
+  defp lan_state_label(%{state: :idle}),
+    do: gettext("On. It opens when you make the first code below.")
+
+  defp lan_state_label(%{state: :port_taken}),
+    do: gettext("That port is in use by another program - pick another.")
+
+  defp lan_state_label(%{state: :address_gone}),
+    do:
+      gettext(
+        "This computer no longer has that address - it may have changed network. Pick its address again."
+      )
+
+  defp lan_state_label(%{state: :no_address}),
+    do: gettext("This computer has no network address phones could reach.")
+
+  defp lan_state_label(%{state: :failed}),
+    do: gettext("Could not open the port. The log says why.")
+
+  defp lan_state_label(_off), do: gettext("Off. Phones cannot reach this computer.")
+
+  defp arbiter_label(%{user: %PairingsEngine.Accounts.User{} = user}),
+    do: PairingsEngine.Accounts.User.display_label(user)
+
+  defp arbiter_label(%{email: email}), do: email
+
+  @doc "A board number from a form field, or nil for blank or not a number."
+  def board_param(value), do: parse_board(value)
 
   def enroll_expiry(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
 

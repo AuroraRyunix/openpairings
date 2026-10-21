@@ -5,7 +5,9 @@ defmodule PairingsEngineWeb.PairingsLive do
   alias PairingsEngineWeb.LateEntryNotice
   alias PairingsEngineWeb.PublicLink
   alias PairingsEngineWeb.Components.PhoneQr
+  alias PairingsEngineWeb.DeskActions
   alias PairingsEngine.Mobile
+  alias PairingsEngine.Incidents
 
   import PairingsEngineWeb.SettingsSupport,
     only: [
@@ -24,7 +26,6 @@ defmodule PairingsEngineWeb.PairingsLive do
     ManualRoundRobin,
     NextRoundPreview,
     PairingDisplay,
-    PairingRationale,
     PostponedGames,
     ResultsImport,
     RoundRobin,
@@ -87,6 +88,8 @@ defmodule PairingsEngineWeb.PairingsLive do
       Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
       # What the boards in the hall report, for the board column.
       PairingsEngine.BoardLink.subscribe(tournament.id)
+      # Incidents logged from phones, for the count under the round.
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Incidents.topic(tournament.id))
     end
 
     {:ok,
@@ -183,6 +186,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        # The "Phone QR" dialog: open or not, the code just minted and the
        # list of phones enrolled so far (loaded when the dialog opens).
        phone_qr?: false,
+       phone_lan: nil,
+       arbiters: [],
+       # Incidents per round number, from the phones (`PairingsEngine.Incidents`).
+       incident_counts: Incidents.counts_by_round(tournament.id),
        new_enrollment: nil,
        enrollments: [],
        # The "Swap rounds" dialog of a round robin (`PairingsEngine.RoundSwap`):
@@ -261,6 +268,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_info(:check_explanation, socket) do
     socket = assign(socket, explanation_check: false)
     {:noreply, put_explanation_state(socket, socket.assigns.round_number)}
+  end
+
+  def handle_info({:incident_logged, tournament_id, _round}, socket) do
+    {:noreply, assign(socket, incident_counts: Incidents.counts_by_round(tournament_id))}
   end
 
   def handle_info({:tournament_changed, _tournament_id, hint}, socket) do
@@ -997,25 +1008,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("unpair", _params, socket) do
-    %{tournament: t, round_number: round_number} = socket.assigns
-    numbers_cleared = Engine.numbers_cleared_by_unpairing(t.id, round_number)
+    %{tournament: t, round_number: round_number, current_scope: scope} = socket.assigns
 
-    # Unpairing deletes the round and every result in it. Snapshot first -
-    # see PairingsEngine.Snapshots for why this sits at the call site and
-    # why its result is ignored.
-    Snapshots.capture(t, "pairing.round_deleted", socket.assigns.current_scope,
-      summary: "Before unpairing round #{round_number}"
-    )
-
-    case Engine.delete_round(t.id, round_number) do
+    # Restore point, delete, audit row: `DeskActions.delete_round/3`, the
+    # same steps the phone app's unpair takes.
+    case DeskActions.delete_round(t, scope, round_number) do
       :ok ->
-        Audit.log(
-          t.id,
-          socket.assigns.current_scope,
-          "pairing.round_deleted",
-          round_deleted_details(round_number, numbers_cleared)
-        )
-
         {:noreply, socket |> assign(error: nil) |> refresh()}
 
       {:error, reason} ->
@@ -1036,9 +1034,8 @@ defmodule PairingsEngineWeb.PairingsLive do
          level when level in 0..3 <- parse_id(level) do
       %{tournament: tournament, current_scope: scope} = socket.assigns
 
-      case Tournaments.set_round_publish_level(tournament, round_number, level) do
-        {:ok, tournament, steps} ->
-          Enum.each(steps, &audit_publish_step(tournament, scope, &1, round_number))
+      case DeskActions.set_publish_level(tournament, scope, round_number, level) do
+        {:ok, tournament} ->
           {:noreply, socket |> assign(tournament: tournament) |> refresh()}
 
         {:error, reason} ->
@@ -1169,11 +1166,73 @@ defmodule PairingsEngineWeb.PairingsLive do
   # dialog does (it is shown once, like any other secret).
   def handle_event("phone_qr_open", _params, socket) do
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        phone_qr?: true,
        new_enrollment: nil,
        enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
-     )}
+     )
+     |> assign_phone_reach()}
+  end
+
+  # A desktop copy: the phones' listener (`PhoneLan`). Turning it on or off,
+  # and picking the address, is the desk's call and nobody else's - this page
+  # only ever answers loopback on a desktop copy.
+  def handle_event("phone_lan_switch", %{"on" => on}, socket) do
+    _ = PairingsEngineWeb.PhoneLan.switch(on == "true")
+    {:noreply, assign_phone_reach(socket)}
+  end
+
+  def handle_event("phone_lan_choose", %{"address" => address, "port" => port}, socket) do
+    socket =
+      case PairingsEngineWeb.PhoneLan.choose(address, port) do
+        {:ok, _status} ->
+          socket
+
+        {:error, :bad_port} ->
+          put_flash(
+            socket,
+            :error,
+            gettext(
+              "Pick a port from 1024 to 65535 that is not already OpenPairings' own or the board link's."
+            )
+          )
+
+        {:error, _reason} ->
+          put_flash(socket, :error, gettext("That is not an address of this computer."))
+      end
+
+    {:noreply, assign_phone_reach(socket)}
+  end
+
+  def handle_event("assign_boards", %{"collaborator" => id} = params, socket) do
+    range = {PhoneQr.board_param(params["board_from"]), PhoneQr.board_param(params["board_to"])}
+
+    socket =
+      with {int, ""} <- Integer.parse(to_string(id)),
+           {:ok, _collaborator} <-
+             Tournaments.assign_boards(
+               socket.assigns.current_scope,
+               socket.assigns.tournament,
+               int,
+               range
+             ) do
+        put_flash(socket, :info, gettext("Boards saved."))
+      else
+        {:error, :invalid_range} ->
+          put_flash(
+            socket,
+            :error,
+            gettext(
+              "Board range is invalid - \"to\" must be at least \"from\", and both must be 1 or higher."
+            )
+          )
+
+        _other ->
+          put_flash(socket, :error, gettext("Could not save those boards."))
+      end
+
+    {:noreply, assign_phone_reach(socket)}
   end
 
   def handle_event("phone_qr_close", _params, socket),
@@ -1189,11 +1248,15 @@ defmodule PairingsEngineWeb.PairingsLive do
            PhoneQr.enrollment_opts(params)
          ) do
       {:ok, enrollment} ->
+        # On a desktop copy, looking again is what opens the listener for
+        # the first code.
         {:noreply,
-         assign(socket,
+         socket
+         |> assign(
            new_enrollment: enrollment,
            enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
-         )}
+         )
+         |> assign_phone_reach()}
 
       {:error, :too_many_codes} ->
         {:noreply,
@@ -1231,10 +1294,12 @@ defmodule PairingsEngineWeb.PairingsLive do
          else: socket.assigns.new_enrollment
 
     {:noreply,
-     assign(socket,
+     socket
+     |> assign(
        new_enrollment: new_enrollment,
        enrollments: Mobile.list_enrollments(socket.assigns.tournament.id)
-     )}
+     )
+     |> assign_phone_reach()}
   end
 
   def handle_event("mpa_dialog_cancel", _params, socket),
@@ -3903,11 +3968,6 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   defp tpn_gate_error(reason), do: error_text(reason)
 
-  defp round_deleted_details(round_number, 0), do: %{round: round_number}
-
-  defp round_deleted_details(round_number, cleared),
-    do: %{round: round_number, numbers_cleared: cleared}
-
   defp fresh_tournament(socket) do
     Tournaments.get_authorized_tournament(
       socket.assigns.current_scope,
@@ -3991,10 +4051,13 @@ defmodule PairingsEngineWeb.PairingsLive do
         socket =
           PairTiming.span(:audit, fn ->
             socket = note_recorded_missing(socket)
-            log_round_paired(socket, round.number)
-            log_bye_exclusions(socket, round.number)
-            log_bye_preferences(socket, round.number)
-            log_compliance_loss(socket, round.number)
+
+            DeskActions.audit_round_paired(
+              socket.assigns.tournament,
+              socket.assigns.current_scope,
+              round.number
+            )
+
             socket
           end)
 
@@ -4051,12 +4114,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   # postponed (VCL4THP Q159-160): said on the page and kept in the trail, so
   # the recording is not a side effect nobody sees.
   defp note_recorded_missing(%{assigns: %{recorded_missing: %{round: n, count: count}}} = socket) do
-    Audit.log(
-      socket.assigns.tournament.id,
-      socket.assigns.current_scope,
-      "pairing.missing_recorded_postponed",
-      %{round: n, count: count}
-    )
+    DeskActions.log_recorded_missing(socket.assigns.tournament, socket.assigns.current_scope, %{
+      round: n,
+      count: count
+    })
 
     socket
     |> assign(recorded_missing: nil)
@@ -4189,7 +4250,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     case RoundRobin.pair_all_rounds(tournament) do
       {:ok, last_round_number} ->
         for round_number <- (already_paired + 1)..last_round_number do
-          log_round_paired(socket, round_number)
+          DeskActions.log_round_paired(tournament, socket.assigns.current_scope, round_number)
         end
 
         # RoundRobin.pair_all_rounds/1 may have corrected rounds_count
@@ -4214,11 +4275,6 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
-  # Logs the rich "pairing.round_paired" audit entry, reusing the exact same
-  # PairingRationale analysis the "Explain this round" page renders live - so
-  # the durable audit record and the visual page describe the same decision.
-  # `swiss_match_format` pairs two rounds in one action; we log the primary
-  # (leg-1) round number, whose rationale covers the decision that was made.
   # The refusal's players, resolved for the panel. Scoped to this
   # tournament like every other player lookup here.
   defp bye_exclusion_block(socket, info) do
@@ -4271,77 +4327,6 @@ defmodule PairingsEngineWeb.PairingsLive do
     |> Enum.join(" ")
   end
 
-  # What the organiser's bye exclusions did in the round just paired, for
-  # the audit trail (not a FIDE rule, so it is on record): whose exclusion
-  # was lifted to pair it, and who was passed over for the bye because of
-  # one. That the tournament stopped matching the FIDE rules in this round
-  # is `log_compliance_loss/2`'s.
-  defp log_bye_exclusions(socket, round_number) do
-    t = socket.assigns.tournament
-
-    sections = round_sections(t.id, round_number)
-
-    name = fn id ->
-      case id && Tournaments.get_player(t.id, id) do
-        nil -> nil
-        p -> p.name
-      end
-    end
-
-    for id <- sections |> Enum.map(& &1["bye_exclusion_lifted"]) |> Enum.reject(&is_nil/1) do
-      Audit.log(t.id, socket.assigns.current_scope, "pairing.bye_exclusion_overridden", %{
-        round: round_number,
-        player_id: id,
-        player_name: name.(id)
-      })
-    end
-
-    passed = Enum.flat_map(sections, &(&1["bye_passed_over"] || []))
-
-    if passed != [] do
-      Audit.log(t.id, socket.assigns.current_scope, "pairing.bye_passed_over", %{
-        round: round_number,
-        player_ids: passed,
-        player_names: Enum.map(passed, name)
-      })
-    end
-
-    :ok
-  end
-
-  # What the players' bye preferences (not a FIDE rule) did in the round
-  # just paired, for the audit trail: that they changed who got the bye, and
-  # every preference that was not applied, with why - the Pairings page's
-  # notice in words that outlive the round's record.
-  defp log_bye_preferences(socket, round_number) do
-    t = socket.assigns.tournament
-
-    for %{"bye_preference" => %{} = record} <- round_sections(t.id, round_number) do
-      {moved, notes} = ByePreferenceText.account(record, &player_name(t.id, &1))
-
-      if moved || notes != [] do
-        Audit.log(t.id, socket.assigns.current_scope, "pairing.bye_preference", %{
-          round: round_number,
-          moved: record["moved"] == true,
-          player_id: record["bye"],
-          fide_player_id: record["fide_bye"],
-          notes: Enum.reject([moved | notes], &is_nil/1)
-        })
-      end
-    end
-
-    :ok
-  end
-
-  # The round's account, without its boards: the audit rows above need its
-  # sections and nothing else.
-  defp round_sections(tournament_id, round_number) do
-    case Tournaments.get_round_explanation(tournament_id, round_number) do
-      %{"sections" => sections} when is_list(sections) -> sections
-      _ -> []
-    end
-  end
-
   defp player_name(tournament_id, id) do
     case id && Tournaments.get_player(tournament_id, id) do
       nil -> nil
@@ -4366,54 +4351,6 @@ defmodule PairingsEngineWeb.PairingsLive do
       _ ->
         []
     end
-  end
-
-  # The first round paired away from C.04.3 - a bye exclusion that moved
-  # the bye, "only if possible" wishes that moved a board, extra points in
-  # the pairing (`Pairing.pairing_deviations/2`) - is stamped on the
-  # tournament by the pairing itself; this is the audit trail's copy, one
-  # row per deviation, as a settings change that loses compliance writes.
-  # Only the first time, and only when THIS round is the one recorded: the
-  # assign can be a pairing behind the database.
-  defp log_compliance_loss(socket, round_number) do
-    t = socket.assigns.tournament
-
-    if is_nil(t.fide_compliance_lost_round) and
-         PairingsEngine.Repo.reload!(t).fide_compliance_lost_round == round_number do
-      for deviation <- Engine.pairing_deviations(t, round_number) do
-        {setting, code} = compliance_loss_names(deviation, t)
-
-        Audit.log(t.id, socket.assigns.current_scope, "tournament.fide_compliance_lost", %{
-          setting: setting,
-          code: code,
-          round: round_number
-        })
-      end
-    end
-
-    :ok
-  end
-
-  defp compliance_loss_names(:bye_exclusion, _t), do: {"no_bye", "bye_exclusion"}
-  defp compliance_loss_names(:soft_pairs, _t), do: {"soft_pairs", "soft_pairing_wish"}
-  defp compliance_loss_names(:bye_preference, _t), do: {"bye_preference", "bye_preference"}
-
-  defp compliance_loss_names(:extra_points, t) do
-    if Tournament.extra_points_acceleration?(t),
-      do: {"extra_points_pairing", "extra_points_acceleration"},
-      else: {"extra_points_pairing", "extra_points_handicap"}
-  end
-
-  defp log_round_paired(socket, round_number) do
-    t = socket.assigns.tournament
-    rationale = PairingRationale.for_round(t, round_number)
-
-    Audit.log(
-      t.id,
-      socket.assigns.current_scope,
-      "pairing.round_paired",
-      PairingRationale.audit_payload(rationale)
-    )
   end
 
   # The result select's options, written out as markup: the same options,
@@ -5060,22 +4997,6 @@ defmodule PairingsEngineWeb.PairingsLive do
     do: gettext("That round hasn't been paired yet.")
 
   defp publish_level_error_text(reason, _round_number), do: error_text(reason)
-
-  # Each write a level change made, logged under the action its own switch
-  # logged before there was one control, with the same detail key.
-  @publish_audit %{
-    pairings_published: {"pairing.pairings_published", :through_round},
-    pairings_unpublished: {"pairing.pairings_unpublished", :from_round},
-    results_published: {"pairing.results_published", :round},
-    results_unpublished: {"pairing.results_unpublished", :round},
-    standings_published: {"standings.published", :through_round},
-    standings_unpublished: {"standings.unpublished", :from_round}
-  }
-
-  defp audit_publish_step(tournament, scope, step, round_number) do
-    {action, key} = Map.fetch!(@publish_audit, step)
-    Audit.log(tournament.id, scope, action, %{key => round_number})
-  end
 
   # The confirm for choosing a LOWER level - one question naming everything
   # that disappears, not a bare "are you sure?". Nothing is asked when the
@@ -7123,6 +7044,15 @@ defmodule PairingsEngineWeb.PairingsLive do
                 {gettext("Phone QR")}
               </button>
 
+              <%!-- What the phones (Manubrium) logged at the boards. --%>
+              <.link
+                role="menuitem"
+                id="incidents-link"
+                navigate={~p"/t/#{@tournament.id}/incidents"}
+              >
+                {gettext("Incidents")}
+              </.link>
+
               <a
                 :if={PublicLink.public?(@tournament)}
                 role="menuitem"
@@ -7157,6 +7087,21 @@ defmodule PairingsEngineWeb.PairingsLive do
       <%!-- The round changed since it was sent: the rating officer holds
             the old version. Named, never re-sent. --%>
       <SentReceipt.drift_warning status={@round_receipt} id="round-receipt-drift" />
+      <%!-- Incidents the phones logged on this round's boards (Manubrium),
+            live: an "arbiter call" is no use read an hour later. --%>
+      <p
+        :if={Map.get(@incident_counts, @round_number, 0) > 0}
+        id="round-incidents"
+        class="hint round-incidents"
+      >
+        <.link navigate={~p"/t/#{@tournament.id}/incidents?round=#{@round_number}"}>
+          {ngettext(
+            "1 incident logged from a phone in this round",
+            "%{count} incidents logged from phones in this round",
+            Map.get(@incident_counts, @round_number, 0)
+          )}
+        </.link>
+      </p>
       <%!-- Boards of the round about to be paired whose name cards are out
             (`PairingsEngine.BoardAnnouncements`): watched until the round
             is paired. --%>
@@ -7771,6 +7716,8 @@ defmodule PairingsEngineWeb.PairingsLive do
         new_enrollment={@new_enrollment}
         enrollments={@enrollments}
         local_mode?={PairingsEngine.Authz.local_mode?()}
+        lan={@phone_lan}
+        arbiters={@arbiters}
       /> <.tpn_gate_dialog :if={@tpn_gate} gate={@tpn_gate} />
       <div :if={@team_matches != []} id="team-matches" class="card table-card">
         <table class="pe-table">
@@ -9207,5 +9154,19 @@ defmodule PairingsEngineWeb.PairingsLive do
       </script>
     </Layouts.app>
     """
+  end
+
+  # What the Phone QR dialog needs to say how a phone gets here: the
+  # listener's state on a desktop copy, the arbiters and their boards on a
+  # server.
+  defp assign_phone_reach(socket) do
+    if PairingsEngine.Authz.local_mode?() do
+      assign(socket, phone_lan: PairingsEngineWeb.PhoneLan.status(), arbiters: [])
+    else
+      assign(socket,
+        phone_lan: nil,
+        arbiters: Tournaments.list_arbiters(socket.assigns.tournament)
+      )
+    end
   end
 end

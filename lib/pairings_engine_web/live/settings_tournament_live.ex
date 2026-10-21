@@ -205,18 +205,19 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   ## ---------- Share / Team (collaborators) - owner-only ----------
 
-  def handle_event("add_collaborator", %{"email" => email}, socket) do
+  def handle_event("add_collaborator", %{"email" => email} = params, socket) do
     case Tournaments.add_collaborator(
            socket.assigns.current_scope,
            socket.assigns.tournament,
-           email
+           email,
+           Map.get(params, "role", "editor")
          ) do
       {:ok, collaborator} ->
         Audit.log(
           socket.assigns.tournament.id,
           socket.assigns.current_scope,
           "collaborator.invited",
-          %{email: collaborator.email}
+          %{email: collaborator.email, role: collaborator.role}
         )
 
         note =
@@ -252,6 +253,13 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         {:noreply,
          assign(socket,
            collaborator_error: "Only the owner can manage collaborators",
+           collaborator_note: nil
+         )}
+
+      {:error, :bad_role} ->
+        {:noreply,
+         assign(socket,
+           collaborator_error: gettext("Pick editor or arbiter."),
            collaborator_note: nil
          )}
 
@@ -906,6 +914,16 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               <.setting_field label={gettext("Email address")}>
                 <input type="email" name="email" placeholder={gettext("teammate@example.com")} />
               </.setting_field>
+              <%!-- An arbiter gets the hall and nothing else: results and
+                  incidents on Manubrium, under their own account. --%>
+              <.setting_field label={gettext("Role")}>
+                <select name="role" id="collaborator-role">
+                  <option value="editor">{gettext("Editor - everything you can do")}</option>
+                  <option value="arbiter">
+                    {gettext("Arbiter - results and incidents on a phone")}
+                  </option>
+                </select>
+              </.setting_field>
             </.setting_group>
 
             <p :if={@collaborator_error} class="error-note">{@collaborator_error}</p>
@@ -945,6 +963,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   </td>
 
                   <td>
+                    <span class="badge muted" id={"collaborator-role-#{c.id}"}>
+                      {if c.role == "arbiter", do: gettext("Arbiter"), else: gettext("Editor")}
+                    </span>
                     <span class={["badge", c.status != "accepted" && "muted"]}>
                       {if c.status == "accepted", do: "active", else: "invited (waiting for accept)"}
                     </span>

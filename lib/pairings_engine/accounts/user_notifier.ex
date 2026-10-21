@@ -124,7 +124,7 @@ defmodule PairingsEngine.Accounts.UserNotifier do
   that into the `collaborator.mail_status` the owner sees; it must not
   assume this always succeeds.
   """
-  def deliver_invitation(email, owner_email, tournament_name, url) do
+  def deliver_invitation(email, owner_email, tournament_name, url, role \\ "editor") do
     deliver(
       email,
       gettext("You've been invited to %{tournament}", tournament: tournament_name),
@@ -134,9 +134,7 @@ defmodule PairingsEngine.Accounts.UserNotifier do
 
       #{gettext("Hi,")}
 
-      #{gettext(~s(%{owner} invited you to work on the tournament "%{tournament}" on OpenPairings.),
-      owner: owner_email,
-      tournament: tournament_name)}
+      #{invitation_line(role, owner_email, tournament_name)}
 
       #{gettext("Open the link below to accept (or decline) the invitation:")}
 
@@ -148,4 +146,19 @@ defmodule PairingsEngine.Accounts.UserNotifier do
       """
     )
   end
+
+  defp invitation_line("arbiter", owner, tournament),
+    do:
+      gettext(
+        ~s(%{owner} invited you to be an arbiter at "%{tournament}" on OpenPairings. You will enter results and incidents from your phone, under your own account; the tournament itself stays with its organisers.),
+        owner: owner,
+        tournament: tournament
+      )
+
+  defp invitation_line(_editor, owner, tournament),
+    do:
+      gettext(~s(%{owner} invited you to work on the tournament "%{tournament}" on OpenPairings.),
+        owner: owner,
+        tournament: tournament
+      )
 end

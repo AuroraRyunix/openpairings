@@ -342,10 +342,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
           %{email: collaborator.email}
         )
 
+        # An arbiter's place is the hall, on the phone, not a desk page.
+        socket = put_flash(socket, :info, "Invitation accepted.")
+
         {:noreply,
-         socket
-         |> put_flash(:info, "Invitation accepted.")
-         |> push_navigate(to: ~p"/t/#{collaborator.tournament_id}/players")}
+         if(collaborator.role == "arbiter",
+           do: redirect(socket, to: ~p"/m/connect"),
+           else: push_navigate(socket, to: ~p"/t/#{collaborator.tournament_id}/players")
+         )}
 
       {:error, _reason} ->
         {:noreply, socket |> assign_tournaments() |> assign_pending_invitations()}

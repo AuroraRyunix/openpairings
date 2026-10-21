@@ -327,11 +327,157 @@ defmodule PairingsEngine.Tournaments do
   # must not unlock the tournament for anyone. This is the single choke
   # point both `authorized_tournament_query/2` and `list_tournaments/1` go
   # through, so it's the only place that needs to know about `status`.
+  #
+  # Editors only. An `arbiter` row opens the hall (Manubrium) and nothing
+  # here: every desk page goes through this query, so leaving arbiters out of
+  # it is what keeps "results and incidents, nothing else" true without a
+  # check on each page. `hall_role/2` is where an arbiter counts.
   defp collaborator_tournament_ids(%User{} = user) do
     from c in Collaborator,
-      where: c.status == "accepted" and (c.user_id == ^user.id or c.email == ^user.email),
+      where:
+        c.status == "accepted" and c.role == "editor" and
+          (c.user_id == ^user.id or c.email == ^user.email),
       select: c.tournament_id
   end
+
+  @doc """
+  What `user` (or a user id) may do in the hall of tournament
+  `tournament_id` (Manubrium, docs/manubrium.md): `:owner`, `:editor`,
+  `:arbiter`, or `nil` for nothing. A tournament in the recycle bin is
+  nobody's hall. All three enter results and log incidents; only the first
+  two open anything else.
+  """
+  def hall_role(%User{id: user_id}, tournament_id), do: hall_role(user_id, tournament_id)
+
+  def hall_role(user_id, tournament_id) when is_integer(user_id) do
+    case Repo.one(
+           from t in Tournament,
+             where: t.id == ^tournament_id and is_nil(t.deleted_at),
+             select: t.user_id
+         ) do
+      nil ->
+        nil
+
+      ^user_id ->
+        :owner
+
+      _other ->
+        email = Repo.one(from u in User, where: u.id == ^user_id, select: u.email) || ""
+
+        Repo.one(
+          from c in Collaborator,
+            where:
+              c.tournament_id == ^tournament_id and c.status == "accepted" and
+                (c.user_id == ^user_id or c.email == ^email),
+            select: c.role,
+            limit: 1
+        )
+        |> case do
+          "editor" -> :editor
+          "arbiter" -> :arbiter
+          _none -> nil
+        end
+    end
+  end
+
+  def hall_role(_user, _tournament_id), do: nil
+
+  @doc """
+  The tournaments whose hall `scope`'s user may work in - owned, shared as
+  an editor, or as an arbiter - not archived or binned, newest first, as
+  `{tournament, role}`. The arbiter's way in (`/m/connect`), since no desk
+  page lists a tournament they arbitrate.
+  """
+  def hall_tournaments(%Scope{user: %User{} = user}) do
+    Repo.all(
+      from t in Tournament,
+        left_join: c in Collaborator,
+        on:
+          c.tournament_id == t.id and c.status == "accepted" and
+            (c.user_id == ^user.id or c.email == ^user.email),
+        where:
+          is_nil(t.deleted_at) and is_nil(t.archived_at) and
+            (t.user_id == ^user.id or not is_nil(c.id)),
+        order_by: [desc: t.inserted_at],
+        select: {t, t.user_id == ^user.id, c.role}
+    )
+    |> Enum.map(fn
+      {t, true, _role} -> {t, :owner}
+      {t, false, "editor"} -> {t, :editor}
+      {t, false, _arbiter} -> {t, :arbiter}
+    end)
+    |> Enum.uniq_by(fn {t, _role} -> t.id end)
+  end
+
+  def hall_tournaments(_scope), do: []
+
+  @doc """
+  The accepted arbiters of `tournament`, with their accounts and assigned
+  boards, by address.
+  """
+  def list_arbiters(%Tournament{id: id}) do
+    Repo.all(
+      from c in Collaborator,
+        where: c.tournament_id == ^id and c.status == "accepted" and c.role == "arbiter",
+        order_by: c.email,
+        preload: [:user]
+    )
+  end
+
+  @doc """
+  Gives arbiter `collaborator_id` of `tournament` the boards `{from, to}`
+  (`{nil, nil}` clears it). Anyone who may open the tournament's desk pages
+  may do it - the owner and the editors - since it changes what a phone
+  shows, not what it may do. `{:ok, collaborator}`, or `{:error,
+  :not_authorized | :not_found | :invalid_range}`.
+  """
+  def assign_boards(%Scope{} = scope, %Tournament{} = tournament, collaborator_id, {from, to}) do
+    with %Tournament{} <-
+           get_authorized_tournament(scope, tournament.id) || {:error, :not_authorized},
+         %Collaborator{} = c <-
+           Repo.get_by(Collaborator,
+             id: collaborator_id,
+             tournament_id: tournament.id,
+             role: "arbiter"
+           ) || {:error, :not_found},
+         :ok <- valid_range(from, to) do
+      c
+      |> Ecto.Changeset.change(board_from: from, board_to: to)
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        PairingsEngine.Audit.log(tournament.id, scope, "collaborator.boards_assigned", %{
+          email: updated.email,
+          from: from,
+          to: to
+        })
+
+        broadcast_tournament_change(tournament.id, :collaborators)
+      end)
+    end
+  end
+
+  defp valid_range(nil, nil), do: :ok
+  defp valid_range(f, nil) when is_integer(f) and f > 0, do: :ok
+  defp valid_range(nil, t) when is_integer(t) and t > 0, do: :ok
+  defp valid_range(f, t) when is_integer(f) and is_integer(t) and f > 0 and f <= t, do: :ok
+  defp valid_range(_f, _t), do: {:error, :invalid_range}
+
+  @doc """
+  The boards assigned to `user_id` on `tournament_id`, as `{from, to}`
+  (either may be nil), or nil when none are.
+  """
+  def assigned_boards(user_id, tournament_id) when is_integer(user_id) do
+    Repo.one(
+      from c in Collaborator,
+        where:
+          c.tournament_id == ^tournament_id and c.user_id == ^user_id and
+            c.status == "accepted" and (not is_nil(c.board_from) or not is_nil(c.board_to)),
+        select: {c.board_from, c.board_to},
+        limit: 1
+    )
+  end
+
+  def assigned_boards(_user_id, _tournament_id), do: nil
 
   ## Collaborators (tournament sharing by email - see docs/teams.md)
 
@@ -366,7 +512,9 @@ defmodule PairingsEngine.Tournaments do
   still created even if the invitation email couldn't be delivered (e.g. an
   SMTP hiccup), so the owner can share `/invites/<invite_token>` manually.
   """
-  def add_collaborator(%Scope{} = scope, %Tournament{} = tournament, email) do
+  def add_collaborator(scope, tournament, email, role \\ "editor")
+
+  def add_collaborator(%Scope{} = scope, %Tournament{} = tournament, email, role) do
     email = normalize_email(email)
     owner_email = normalize_email(scope.user.email)
 
@@ -395,6 +543,9 @@ defmodule PairingsEngine.Tournaments do
       email == owner_email ->
         {:error, :cannot_add_owner}
 
+      role not in Collaborator.roles() ->
+        {:error, :bad_role}
+
       Repo.exists?(
         from c in Collaborator, where: c.tournament_id == ^tournament.id and c.email == ^email
       ) ->
@@ -406,6 +557,7 @@ defmodule PairingsEngine.Tournaments do
         %Collaborator{tournament_id: tournament.id, user_id: user && user.id}
         |> Collaborator.changeset(%{
           email: email,
+          role: role,
           status: "pending",
           invite_token: generate_invite_token()
         })
@@ -445,7 +597,8 @@ defmodule PairingsEngine.Tournaments do
            # "Jan Peeters (jan@club.be)" when the owner has a display name.
            PairingsEngine.Accounts.User.display_with_email(owner),
            tournament.name,
-           invite_url(collaborator.invite_token)
+           invite_url(collaborator.invite_token),
+           collaborator.role
          ) do
       {:ok, _email} -> :sent
       {:error, _reason} -> :failed
@@ -488,6 +641,9 @@ defmodule PairingsEngine.Tournaments do
               # Their hall boxes go with them - see
               # `BoardLink.revoke_codes_made_by/2`.
               PairingsEngine.BoardLink.revoke_codes_made_by(tournament.id, deleted.user_id)
+              # And their phones (Manubrium): a code that belongs to an
+              # account is that account's, and the account is off.
+              PairingsEngine.Mobile.revoke_for_user(tournament.id, deleted.user_id)
               broadcast_tournament_change(tournament.id, :collaborators)
               if deleted.user_id, do: broadcast_user_tournaments(deleted.user_id)
             end)
@@ -536,6 +692,7 @@ defmodule PairingsEngine.Tournaments do
             Repo.delete(collaborator)
             |> tap_ok(fn _deleted ->
               PairingsEngine.BoardLink.revoke_codes_made_by(tournament.id, scope.user.id)
+              PairingsEngine.Mobile.revoke_for_user(tournament.id, scope.user.id)
               broadcast_tournament_change(tournament.id, :collaborators)
               broadcast_user_tournaments(scope.user.id)
             end)
@@ -2510,13 +2667,13 @@ defmodule PairingsEngine.Tournaments do
   def refusal_message(:handed_off, action),
     do: "This tournament has been handed off - take it back before #{action}."
 
-  # Not a failure to work around - phone enrolment is a hosted-only feature,
-  # and a local run has no accounts, so an enrolment token would be the one
-  # credential that worked from another machine. See `Mobile.ensure_hosted/0`.
+  # Not a failure to work around - on a desktop copy phones reach `/m` only
+  # through the network listener the arbiter switches on, and until then a
+  # code would lead nowhere. See `Mobile.ensure_reachable/0`.
   def refusal_message(:local_mode, action),
     do:
-      "Not available when OpenPairings runs on your own computer - " <>
-        "#{action} needs the hosted version."
+      "Phones cannot reach this computer yet - switch on " <>
+        "\"Let phones on this network connect\" in Phone QR before #{action}."
 
   def change_tournament(%Tournament{} = tournament, attrs \\ %{}) do
     Tournament.changeset(tournament, attrs)

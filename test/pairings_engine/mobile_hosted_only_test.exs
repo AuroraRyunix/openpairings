@@ -1,6 +1,7 @@
 defmodule PairingsEngine.MobileHostedOnlyTest do
   @moduledoc """
-  Phone enrolment is hosted-only, and the refusal has to live in the domain.
+  Phone enrolment on a desktop copy needs the phones' listener switched on
+  (`PairingsEngineWeb.PhoneLan`), and the refusal has to live in the domain.
 
   The Live Round page hides the panel on a local run, but hiding a control is
   not refusing the action behind it - this codebase's own rule, written into
@@ -47,7 +48,9 @@ defmodule PairingsEngine.MobileHostedOnlyTest do
   test "the refusal explains itself rather than reading as a fault" do
     text = PairingsEngine.Tournaments.refusal_message(:local_mode, "enrolling a phone")
 
-    assert text =~ "your own computer"
-    assert text =~ "hosted"
+    # Since phones can reach a desktop copy over the hall network, the
+    # refusal names the switch that lets them, not a server to move to.
+    assert text =~ "Let phones on this network connect"
+    assert text =~ "Phone QR"
   end
 end

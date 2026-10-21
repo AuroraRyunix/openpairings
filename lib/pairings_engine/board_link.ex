@@ -408,6 +408,7 @@ defmodule PairingsEngine.BoardLink do
             from c in Collaborator,
               where:
                 c.tournament_id == ^tournament_id and c.status == "accepted" and
+                  c.role == "editor" and
                   (c.user_id == parent_as(:user).id or c.email == parent_as(:user).email)
           )
   end
@@ -1162,6 +1163,21 @@ defmodule PairingsEngine.BoardLink do
     |> Map.new(fn g ->
       {g.game_uid, g |> Map.put(:plies, length(g.moves)) |> Map.delete(:moves)}
     end)
+  end
+
+  @doc """
+  When the first of `game_uids` (in `tournament_id`) was first reported by
+  a board, or nil - the nearest thing to "the round started" that a
+  tournament with no start time and no publish time has.
+  """
+  def first_report_at(_tournament_id, []), do: nil
+
+  def first_report_at(tournament_id, game_uids) when is_list(game_uids) do
+    Repo.one(
+      from g in Game,
+        where: g.tournament_id == ^tournament_id and g.game_uid in ^game_uids,
+        select: min(g.first_reported_at)
+    )
   end
 
   @doc """

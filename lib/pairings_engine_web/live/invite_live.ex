@@ -78,7 +78,7 @@ defmodule PairingsEngineWeb.InviteLive do
         {:noreply,
          socket
          |> put_flash(:info, "You now have access to #{socket.assigns.tournament.name}.")
-         |> push_navigate(to: ~p"/t/#{collaborator.tournament_id}/players")}
+         |> after_accept(collaborator)}
 
       {:error, :email_mismatch} ->
         {:noreply, assign(socket, mismatch?: true)}
@@ -103,6 +103,13 @@ defmodule PairingsEngineWeb.InviteLive do
         {:noreply, assign(socket, invitation: nil)}
     end
   end
+
+  # An arbiter has no desk page to land on - the hall is theirs, on the
+  # phone (`/m/connect`, a controller page, hence a full redirect).
+  defp after_accept(socket, %{role: "arbiter"}), do: redirect(socket, to: ~p"/m/connect")
+
+  defp after_accept(socket, collaborator),
+    do: push_navigate(socket, to: ~p"/t/#{collaborator.tournament_id}/players")
 
   @impl true
   def render(assigns) do

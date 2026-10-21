@@ -50,6 +50,12 @@ defmodule PairingsEngine.RateLimit do
       address.
     * `:tournament_import`, `:mobile_code_create` - file imports and phone
       codes minted, keyed by USER id, hosted edition only. See the buckets.
+    * `:mobile_sync`, `:mobile_incident` - entries a Manubrium phone sends
+      and incidents it logs, keyed by ENROLMENT id. See the buckets.
+    * `:manubrium_connect`, `:manubrium_redeem`, `:manubrium_auth`,
+      `:manubrium_api` - the Manubrium app's connect codes (USER id),
+      refused secrets and tokens (CLIENT address) and its requests (DEVICE
+      id). See the buckets.
 
   Callers pass the client address from `PairingsEngineWeb.ClientIp`, not
   `conn.remote_ip` - behind a proxy the latter is the same value for
@@ -121,7 +127,35 @@ defmodule PairingsEngine.RateLimit do
     # eight-digit space `:mobile_enroll` guards, so minting thousands of them
     # would do the guessing for the guesser. Forty an hour covers every
     # helper at a big event, twice.
-    mobile_code_create: %{max: 40, window_ms: :timer.minutes(60)}
+    mobile_code_create: %{max: 40, window_ms: :timer.minutes(60)},
+    # Entries a Manubrium phone sends (`PairingsEngine.Mobile.Sync`), keyed
+    # by ENROLMENT id: results and incidents, counted per entry, resends of
+    # an entry already answered not at all. A phone that comes back after an
+    # hour without wifi sends one entry per board it saw finish, which is
+    # dozens; six hundred in ten minutes is a script. Past it the entry is
+    # told to try again later, never refused for good.
+    mobile_sync: %{max: 600, window_ms: :timer.minutes(10)},
+    # Incidents logged from a phone (`PairingsEngine.Incidents`), keyed by
+    # ENROLMENT id. A deputy logs a few an hour on a bad day; thirty in ten
+    # minutes covers a hall that has gone collectively mad, and the
+    # per-enrolment cap in `Incidents` covers the rest.
+    mobile_incident: %{max: 30, window_ms: :timer.minutes(10)},
+    # "Connect Manubrium" QR codes made (`PairingsEngine.Manubrium`), keyed
+    # by USER id. Each is a one-time secret good for minutes; twenty an hour
+    # is a hall full of phones connected one after another, with retries.
+    manubrium_connect: %{max: 20, window_ms: :timer.minutes(60)},
+    # Connect secrets the app traded that were NOT good, keyed by CLIENT
+    # address. The secret is 256 bits, so this is not what stands between a
+    # guesser and an account; it is what keeps a guesser from costing a hash
+    # and a query per try for as long as they like.
+    manubrium_redeem: %{max: 10, window_ms: :timer.minutes(10)},
+    # Bearer tokens on the app's API that were NOT good, keyed by CLIENT
+    # address - the same reasoning as `:board_link_auth`.
+    manubrium_auth: %{max: 30, window_ms: :timer.minutes(10)},
+    # Requests a connected app makes, keyed by DEVICE id. A phone polls the
+    # round every few seconds while it is open and sends what was tapped;
+    # ten a second is an app that has lost its mind, not a tournament.
+    manubrium_api: %{max: 600, window_ms: :timer.minutes(1)}
   }
 
   @typedoc "Which limit is being counted - see the module doc."
@@ -140,6 +174,12 @@ defmodule PairingsEngine.RateLimit do
           | :board_link_auth
           | :tournament_import
           | :mobile_code_create
+          | :mobile_sync
+          | :mobile_incident
+          | :manubrium_connect
+          | :manubrium_redeem
+          | :manubrium_auth
+          | :manubrium_api
 
   def start_link(_opts), do: GenServer.start_link(__MODULE__, :ok, name: __MODULE__)
 

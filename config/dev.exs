@@ -91,3 +91,12 @@ config :phoenix_live_view,
 # No test (and no dev session) reaches ratings.fide.com on its own; the daily
 # update is exercised by starting its own instance. See PairingsEngine.Fide.AutoSync.
 config :pairings_engine, :fide_auto_sync, false
+
+# The Manubrium app's web bundle on its own dev server (`npm run dev` in the
+# manubrium repo) calling this server's API from a desktop browser. Dev
+# only: the installed app uses native HTTP, which needs no CORS, and no
+# other config sets this. See `PairingsEngineWeb.Plugs.ManubriumDevCors`.
+config :pairings_engine, :manubrium_dev_origins, [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173"
+]

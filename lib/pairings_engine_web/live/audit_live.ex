@@ -105,6 +105,7 @@ defmodule PairingsEngineWeb.AuditLive do
         team.absence_changed player.starting_numbers_set player.pairing_numbers_changed)},
     {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
+        pairing.result_confirmed pairing.result_rejected
         pairing.tpn_order_accepted
         pairing.chess960_drawn pairing.rounds_swapped pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
@@ -121,7 +122,8 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
         pairing.rating_correction pibe.correction
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
-        pairing.announcement_compared pairing.announcement_acknowledged)},
+        pairing.announcement_compared pairing.announcement_acknowledged incident.logged
+        incident.photo_added)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.late_entry_numbering_kept
         tournament.fide_compliance_lost
@@ -151,7 +153,7 @@ defmodule PairingsEngineWeb.AuditLive do
      ~w(import.swar import.swar_merged import.trf pibe.import import.json trf.finalised trf.postponed_sent
         trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
-        collaborator.removed)},
+        collaborator.removed collaborator.boards_assigned)},
     {"tournament",
      ~w(tournament.created tournament.deleted tournament.restored tournament.archived
         tournament.unarchived tournament.duplicated tournament.left tournament.handoff_forced
@@ -571,6 +573,33 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("pairing.result_entered", d),
     do: sentences([result_sentence(:entered, d), phone_sentence(d)])
+
+  # The arbiter's word on a result a Manubrium Lite phone entered
+  # (`PairingsEngine.Mobile.PhoneResults`): confirmed as seen, or rejected,
+  # which clears the board.
+  def describe("pairing.result_confirmed", d),
+    do:
+      gettext(
+        "Confirmed the result %{result} on board %{board} of round %{round} (%{white} - %{black}), entered from the phone \"%{phone}\".",
+        result: value(d, "to"),
+        board: value(d, "board"),
+        round: value(d, "round"),
+        white: value(d, "white"),
+        black: value(d, "black"),
+        phone: value(d, "phone")
+      )
+
+  def describe("pairing.result_rejected", d),
+    do:
+      gettext(
+        "Rejected the result %{result} on board %{board} of round %{round} (%{white} - %{black}), entered from the phone \"%{phone}\"; the board is blank again.",
+        result: value(d, "from"),
+        board: value(d, "board"),
+        round: value(d, "round"),
+        white: value(d, "white"),
+        black: value(d, "black"),
+        phone: value(d, "phone")
+      )
 
   # Before 2026-08-03 there was no `pairing.result_cleared`: blanking a board
   # was logged as a change TO nothing. Those rows are still in every older
@@ -1405,8 +1434,49 @@ defmodule PairingsEngineWeb.AuditLive do
   def describe("import.json", d),
     do: gettext("Imported tournament %{name} from a JSON backup.", name: name(d, "name"))
 
+  def describe("collaborator.invited", %{"role" => "arbiter"} = d),
+    do: gettext("Invited %{email} as an arbiter.", email: value(d, "email"))
+
   def describe("collaborator.invited", d),
     do: gettext("Invited %{email} as a collaborator.", email: value(d, "email"))
+
+  def describe("collaborator.boards_assigned", %{"from" => nil, "to" => nil} = d),
+    do: gettext("Took the assigned boards away from %{email}.", email: value(d, "email"))
+
+  def describe("collaborator.boards_assigned", d),
+    do:
+      gettext("Gave %{email} boards %{from} to %{to}.",
+        email: value(d, "email"),
+        from: d["from"] || "1",
+        to: d["to"] || gettext("the last")
+      )
+
+  # From a phone (Manubrium): what happened, where, and - when the arbiter
+  # wrote one - the note, which is short by rule (`Incidents.note_max/0`).
+  def describe("incident.logged", d) do
+    what =
+      gettext("Logged an incident on board %{board} (round %{round}): %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+    note =
+      if is_binary(d["note"]) and d["note"] != "",
+        do: gettext("Note: %{note}", note: d["note"])
+
+    photo = if d["photo"] == true, do: gettext("With a photo.")
+
+    sentences([what, note, photo, phone_sentence(d)])
+  end
+
+  def describe("incident.photo_added", d),
+    do:
+      gettext("Added a photo to the incident on board %{board} (round %{round}): %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
 
   def describe("collaborator.accepted", d),
     do: gettext("Accepted the collaboration invite (%{email}).", email: value(d, "email"))
