@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.101.2] - 2026-10-21
+
 - [Change] **The manual's contents come in seven parts instead of three.** "Reports, teams and sharing" held eleven chapters, which is not a part but a drawer. It is now *Reports and exports* (printing moved in), *Team tournaments*, *Publishing and sharing*, *Live boards* and *Manubrium, the phone app*. A few chapters traded numbers so that each part reads in order; every `/help/...` address stayed exactly where it was, so the links people saved still work.
 - [Change] **The other programs in the Help introduce themselves.** Each page opens with the program's mark, its job in a few words, and three paragraphs in the same order for every program, in English and Dutch: what it is, when you need it, and where it fits, with links to the chapters it belongs with. A download button and a source button replace the link that read like a footnote, and a program with several pages gets a row of them to move between. The READMEs' tests, build steps and code layout stay on GitHub, where the people who want them already look; so do the plugin internals of Polis and Nunki. Alnasl's pages are brought up to date, fair-play chapter included.
 - [Feature] **Ainalrami has a page under Other programs.** The engine that pairs every Swiss round was the one program the Help never introduced. Now it has the command line, the TRF extension lines, the organiser deviations and the questions of the rules that are still open.
