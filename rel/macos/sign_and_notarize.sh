@@ -127,7 +127,15 @@ if [ "$status" != "Accepted" ]; then
     $notary_auth || true
   exit 1
 fi
-xcrun stapler staple "$app"
+# "Accepted" and "ticket published" are two different moments at Apple; the
+# stapler asks for the ticket and gets error 68 in between. Ask again.
+tries=0
+until xcrun stapler staple "$app"; do
+  tries=$((tries + 1))
+  [ "$tries" -lt 10 ] || exit 1
+  echo "No ticket yet; asking again in 30 s ($tries/10)"
+  sleep 30
+done
 xcrun stapler validate "$app"
 
 spctl -a -vvv -t exec "$app"
