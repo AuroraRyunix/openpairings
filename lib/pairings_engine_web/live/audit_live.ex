@@ -2816,21 +2816,21 @@ defmodule PairingsEngineWeb.AuditLive do
       >
         {gettext("Norms")}
       </.link>
-      
+
       <.link
         navigate={~p"/t/#{@tournament.id}/history"}
         class={["pe-btn", "filter-picker", @active == :history && "active"]}
       >
         {gettext("History")}
       </.link>
-      
+
       <.link
         navigate={~p"/t/#{@tournament.id}/audit"}
         class={["pe-btn", "filter-picker", @active == :index && "active"]}
       >
         {gettext("Audit trail")}
       </.link>
-      
+
       <.link
         navigate={~p"/t/#{@tournament.id}/audit/explain"}
         class={["pe-btn", "filter-picker", @active == :explain && "active"]}
@@ -2857,17 +2857,17 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          
+
           <p class="subtitle" style="margin: 0">
             {gettext("Pick a paired round to see its pairing rationale")}
           </p>
         </div>
       </div>
-       <.subnav tournament={@tournament} active={:explain} />
+      <.subnav tournament={@tournament} active={:explain} />
       <div :if={@paired_rounds == 0} class="card error-note" style="display: block; margin: 12px 0">
         {gettext("No rounds have been paired yet, so there is nothing to explain.")}
       </div>
-      
+
       <div :if={@paired_rounds > 0} class="round-picker">
         <.link
           :for={n <- 1..@paired_rounds}
@@ -2899,13 +2899,13 @@ defmodule PairingsEngineWeb.AuditLive do
       <div class="page-header">
         <div>
           <h1>{@tournament.name}</h1>
-          
+
           <p class="subtitle" style="margin: 0">
             {gettext("Audit trail - every change, who made it, and when")}
           </p>
         </div>
       </div>
-       <.subnav tournament={@tournament} active={:index} />
+      <.subnav tournament={@tournament} active={:index} />
       <div class="round-picker" style="flex-wrap: wrap">
         <button
           :for={{key, _codes} <- categories()}
@@ -2916,7 +2916,7 @@ defmodule PairingsEngineWeb.AuditLive do
           {category_label(key)}
         </button>
       </div>
-      
+
       <p class="hint" style="margin: 8px 0">
         {if @category == "all",
           do: ngettext("%{count} event total.", "%{count} events total.", @total),
@@ -2927,19 +2927,19 @@ defmodule PairingsEngineWeb.AuditLive do
               @total
             )}
       </p>
-      
+
       <div class="card table-card">
         <table class="pe-table">
           <thead>
             <tr>
               <th style="width: 150px">{gettext("When")}</th>
-              
+
               <th style="width: 220px">{gettext("Who")}</th>
-              
+
               <th>{gettext("What")}</th>
             </tr>
           </thead>
-          
+
           <tbody>
             <tr :if={@entries == []}>
               <td colspan="3">
@@ -2948,18 +2948,18 @@ defmodule PairingsEngineWeb.AuditLive do
                 </div>
               </td>
             </tr>
-            
+
             <tr :for={entry <- @entries}>
               <td style="white-space: nowrap">{format_time(entry.inserted_at)}</td>
-              
+
               <td title={actor_title(entry)}>{actor(entry)}</td>
-              
+
               <td>{describe(entry)}</td>
             </tr>
           </tbody>
         </table>
       </div>
-      
+
       <div class="actions" style="margin-top: 12px; justify-content: space-between">
         <button
           class="pe-btn"
@@ -2969,7 +2969,7 @@ defmodule PairingsEngineWeb.AuditLive do
         >
           {gettext("← Newer")}
         </button>
-         <span class="hint">{gettext("Page %{n}", n: @page + 1)}</span>
+        <span class="hint">{gettext("Page %{n}", n: @page + 1)}</span>
         <button
           class="pe-btn"
           phx-click="page"
