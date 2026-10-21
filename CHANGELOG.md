@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Fix] **The Help scrolls as one page again.** The contents column outgrew the screen when it went from three parts to seven, and it held on to the mouse wheel: with the pointer over it the page refused to move, and with the pointer elsewhere the list stayed half-scrolled. It now hands the scroll on to the page when it reaches its end, like everything else on the web.
+
 ## [0.101.2] - 2026-10-21
 
 - [Change] **The manual's contents come in seven parts instead of three.** "Reports, teams and sharing" held eleven chapters, which is not a part but a drawer. It is now *Reports and exports* (printing moved in), *Team tournaments*, *Publishing and sharing*, *Live boards* and *Manubrium, the phone app*. A few chapters traded numbers so that each part reads in order; every `/help/...` address stayed exactly where it was, so the links people saved still work.

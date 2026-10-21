@@ -1096,7 +1096,10 @@ html[data-theme-source="user"][data-theme="contrast"] .theme-picker-item[data-th
   top: 16px;
   max-height: calc(100vh - 32px);
   overflow-y: auto;
-  overscroll-behavior: contain;
+  /* No `overscroll-behavior: contain` here. Once the contents grew to seven
+     parts the sidebar outgrew the screen, and `contain` kept the wheel
+     trapped in it: the page only moved with the pointer elsewhere. Letting
+     the scroll chain on is what every reader already expected. */
   scrollbar-width: thin;
 }
 .manual-sidebar-inner { display: flex; flex-direction: column; gap: 14px; padding-bottom: 12px; }
