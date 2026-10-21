@@ -23,7 +23,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   alias PairingsEngine.ByeTypes
   alias PairingsEngine.LateEntry
   alias PairingsEngine.RatingLists
-  alias PairingsEngineWeb.DeskActions
+  alias PairingsEngineWeb.{DeskActions, PlayerLookup}
   alias PairingsEngineWeb.RegistrationQueue
 
   alias PairingsEngine.Tournaments.ByeChoice
@@ -837,35 +837,18 @@ defmodule PairingsEngineWeb.PlayersLive do
   # and the FIDE hit is left out, instead of listing the player twice. Only
   # a single, exact match counts; without a birth year on both sides nothing
   # is merged.
+  #
+  # The search itself is `PlayerLookup.search/3`, which the Manubrium app's
+  # player search uses too.
   def handle_event("search", %{"q" => q}, socket) do
-    fide = q |> Fide.search() |> Enum.uniq_by(& &1.fide_id)
-
-    kbsb =
-      if socket.assigns.bel_lookup?,
-        do:
-          q
-          |> Members.search()
-          |> Enum.uniq_by(& &1.national_id)
-          |> Enum.take(10)
-          |> attach_fide_ids(fide),
-        else: []
-
-    covered = kbsb |> Enum.map(& &1.fide_id) |> Enum.reject(&is_nil/1) |> MapSet.new()
-
-    custom =
-      socket.assigns.tournament
-      |> RatingLists.sequence()
-      |> RatingLists.search_custom(q)
-      |> Enum.reject(fn {_list, e} ->
-        e.fide_id && Enum.any?(fide, &(&1.fide_id == e.fide_id))
-      end)
+    found = PlayerLookup.search(socket.assigns.tournament, q, socket.assigns.bel_lookup?)
 
     {:noreply,
      assign(socket,
        query: q,
-       kbsb_results: kbsb,
-       custom_results: custom,
-       results: Enum.reject(fide, &MapSet.member?(covered, &1.fide_id))
+       kbsb_results: found.bel,
+       custom_results: found.custom,
+       results: found.fide
      )}
   end
 
@@ -921,33 +904,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply, socket}
 
       kp ->
-        fp = kp.fide_id && Fide.get_player(kp.fide_id)
-
-        fide_values =
-          if fp,
-            do:
-              %{
-                "title" => fp.title,
-                "fide_id" => fp.fide_id,
-                "sex" => normalize_fide_sex(fp.sex)
-              }
-              |> Map.merge(
-                RatingLists.fide_values(fp, RatingLists.sequence(socket.assigns.tournament))
-              ),
-            else: %{"fide_id" => kp.fide_id}
-
-        values =
-          %{
-            "name" => Member.full_name(kp),
-            "national_id" => kp.national_id,
-            "national_rating" => kp.national_rating,
-            "club" => kp.club_name,
-            "club_number" => kp.club_number,
-            "birth_year" => kp.birth_year
-          }
-          |> Map.merge(fide_values)
-          |> put_if_blank("federation", Members.fide_federation(kp))
-          |> put_kbsb_sex(kp)
+        values = PlayerLookup.bel_values(socket.assigns.tournament, kp)
 
         {:noreply,
          assign(socket,
@@ -2572,33 +2529,6 @@ defmodule PairingsEngineWeb.PlayersLive do
       else: base
   end
 
-  # Picking a FIDE result also enriches the form with the matching KBSB row
-  # (if any), the same way a national-id-driven autofill would - the two
-  # lists are cross-referenced by FIDE id.
-  #
-  # This is the KBSB lookup wearing a different coat, so the same switch
-  # governs it: with the pack's lookup off, picking a FIDE result fills in
-  # the FIDE fields and stops there, which is exactly what an arbiter with no
-  # Belgian member list should get.
-  defp merge_kbsb_by_fide_id(%{assigns: %{bel_lookup?: false}}, form_values, _fide_id),
-    do: form_values
-
-  defp merge_kbsb_by_fide_id(_socket, form_values, fide_id) do
-    case Members.find_by_fide_id(fide_id) do
-      nil ->
-        form_values
-
-      kp ->
-        Map.merge(form_values, %{
-          "national_id" => kp.national_id,
-          "national_rating" => kp.national_rating,
-          "club" => kp.club_name,
-          "club_number" => kp.club_number
-        })
-        |> put_kbsb_sex(kp)
-    end
-  end
-
   # Shown only to somebody who reached a handler whose control is not on
   # their page - so, in practice, to a crafted event. It still says what
   # happened and where to change it, because the other way this is reached is
@@ -2612,17 +2542,6 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp club_sync_off,
     do:
       gettext("The KBSB club update is switched off for your account. Turn it on under Features.")
-
-  # The FIDE list's sex when the member has a FIDE record that states one -
-  # it is what the rating report is checked against - and otherwise the
-  # national list's own. Before the KBSB file's `Sex` was kept, a member
-  # with no FIDE ID was picked sexless, which at a youth event is most of
-  # the hall.
-  defp put_kbsb_sex(values, %Member{sex: sex}) when sex in ~w(m w) do
-    if values["sex"] in ["m", "w"], do: values, else: Map.put(values, "sex", sex)
-  end
-
-  defp put_kbsb_sex(values, _member), do: values
 
   defp put_if_blank(map, _key, nil), do: map
 
@@ -4417,25 +4336,21 @@ defmodule PairingsEngineWeb.PlayersLive do
     end
   end
 
+  # `PlayerLookup.fide_values/4`: the same values a phone's pick gets.
+  # Picking a FIDE result also fills in the matching KBSB row (if any) when
+  # the pack's lookup is on.
   defp pick_fide(socket, fp, rating_values) do
-    base =
-      Map.merge(
-        %{
-          "name" => fp.name,
-          "title" => fp.title,
-          "fide_id" => fp.fide_id,
-          "federation" => fp.federation,
-          "birth_year" => fp.birth_year,
-          "sex" => normalize_fide_sex(fp.sex)
-        },
-        rating_values
-      )
-
     assign(socket,
       query: "",
       results: [],
       custom_results: [],
-      form_values: merge_kbsb_by_fide_id(socket, base, fp.fide_id)
+      form_values:
+        PlayerLookup.fide_values(
+          socket.assigns.tournament,
+          fp,
+          socket.assigns.bel_lookup?,
+          rating_values
+        )
     )
   end
 
@@ -5522,32 +5437,4 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp blank_dash(value), do: value
 
   defp tb_name(code), do: (Tiebreaks.get(code) || %{name: code}).name
-
-  defp attach_fide_ids(members, fide) do
-    by_key =
-      fide
-      |> Enum.filter(&(&1.federation == "BEL" and is_integer(&1.birth_year)))
-      |> Enum.group_by(&{search_key(&1.name), &1.birth_year})
-
-    Enum.map(members, fn
-      %{fide_id: nil, birth_year: year} = member when is_integer(year) ->
-        case Map.get(by_key, {search_key(Member.full_name(member)), year}) do
-          [single] -> %{member | fide_id: single.fide_id}
-          _none_or_ambiguous -> member
-        end
-
-      member ->
-        member
-    end)
-  end
-
-  # "Burssens, Guy", "BURSSENS Guy" and "Bürssens, Guy" alike.
-  defp search_key(name) do
-    name
-    |> String.normalize(:nfd)
-    |> String.replace(~r/\p{Mn}/u, "")
-    |> String.downcase()
-    |> String.replace(~r/[^a-z]+/, " ")
-    |> String.trim()
-  end
 end

@@ -17,6 +17,11 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **Manubrium can start a tournament, not just run one.** *New tournament* on the phone offers the systems the desk's form offers and starts from the account's own defaults, then creates through the very function the form calls: same derived type, same seeded round dates, same hosted limit, same audit row. Team events are still made at the desk, which has room for the line-ups.
+- [Feature] **Players from the rating lists, from the phone.** The app searches the FIDE list, and the Belgian member list where it is switched on and actually has members, with the Players page's own search; picking a hit fills the player exactly as the add form would, main-list rating included. Somebody already in the tournament is marked as such and refused if added anyway, since one of them is plenty.
+- [Feature] **Check-in and requested byes in the app.** *Present* is the Players page's *Pr.* column, so ticking off arrivals at the door means the same thing on both. A player's requested byes are listed per round with their kind, and the app can replace the ones for rounds not yet paired, through the player dialog's code and its confirmations; a round already paired is refused, because rewriting history is what hand edits are for.
+- [Feature] **The results-site link and the hall boxes, on the phone.** A published tournament hands the app its OpenResults address for sharing. Each board in a round carries what a hall box saw - status, moves, result - with the disagreement flagged; the box still enters nothing, it only testifies. The organiser and editors can list the boxes' codes, make one (shown once, as on the Boards page) and withdraw one.
+
 ## [0.100.0] - 2026-10-21
 
 - [Feature] **The phone pages have a name now: Manubrium Lite.** Still a page in the phone's browser, served by the program itself, no install, no store, no account: the same code, the same helper and deputy rules. The full Manubrium - an actual app that runs the whole tournament - is a separate thing, and Lite is not going to pretend to be it by asking for a spot on the home screen.

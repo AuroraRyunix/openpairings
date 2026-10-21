@@ -75,6 +75,21 @@ defmodule PairingsEngine.ByeTypes do
   end
 
   @doc """
+  `stored/2` for every player of the tournament at once,
+  `%{player_id => %{round => type}}` - for a list, in one query.
+  """
+  def stored_by_player(tournament_id) do
+    from(b in "byes",
+      where: b.tournament_id == ^tournament_id and b.type in @types,
+      select: {b.player_id, b.round, b.type}
+    )
+    |> Repo.all()
+    |> Enum.reduce(%{}, fn {player_id, round, type}, acc ->
+      Map.update(acc, player_id, %{round => type}, &Map.put(&1, round, type))
+    end)
+  end
+
+  @doc """
   `%{round => type}` the dialog shows for the rounds of `absent_rounds`
   (canonical text) after the last paired one, before anything is picked:
   see `dialog_plan/4`. `%{}` where the setting is off.

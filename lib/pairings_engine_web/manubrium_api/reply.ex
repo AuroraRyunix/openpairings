@@ -247,6 +247,35 @@ defmodule PairingsEngineWeb.ManubriumApi.Reply do
   def describe(:not_a_photo),
     do: {415, "not_a_photo", gettext("That is not a JPEG photo.")}
 
+  def describe(:tournament_quota),
+    do: {409, "tournament_quota", PairingsEngine.Quotas.message(:tournament_quota)}
+
+  def describe(:too_many_codes),
+    do:
+      {409, "too_many_codes",
+       gettext("There are already %{max} codes. Withdraw one you no longer use first.",
+         max: PairingsEngine.BoardLink.max_links()
+       )}
+
+  def describe(:lan_unusable),
+    do: {409, "lan_unusable", gettext("Boxes on the network cannot connect right now.")}
+
+  def describe(:round_paired),
+    do:
+      {422, "round_paired",
+       gettext(
+         "That round is already paired. A paired round's byes are changed on the round itself."
+       )}
+
+  def describe(:unknown_bye_kind),
+    do: {422, "unknown_bye_kind", gettext("Pick a bye kind this tournament offers.")}
+
+  def describe(:duplicate_player),
+    do: {422, "duplicate_player", gettext("That player is already in this tournament.")}
+
+  def describe(:not_in_list),
+    do: {404, "not_in_list", gettext("That player is not on the list.")}
+
   def describe(:not_found), do: {404, "not_found", gettext("Not found.")}
   def describe(:not_paired), do: {404, "not_paired", gettext("That round is not paired.")}
 

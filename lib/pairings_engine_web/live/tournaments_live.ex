@@ -21,7 +21,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   alias PairingsEngine.Federations.BEL.{SwarImport, SwarMerge}
   alias PairingsEngine.Tools.Parser
   alias PairingsEngine.Tournaments.Tournament
-  alias PairingsEngineWeb.SettingsSupport
+  alias PairingsEngineWeb.{DeskActions, SettingsSupport}
   alias PairingsEngineWeb.UploadGuard
 
   require Logger
@@ -34,12 +34,9 @@ defmodule PairingsEngineWeb.TournamentsLive do
   @swar_import_feature "bel_swar_import"
 
   # Initial values for the "New tournament" form - kept in `new_params` and
-  # bound to each input so a phx-change re-render never wipes them.
-  @new_tournament_defaults %{
-    "pairing_system" => "swiss",
-    "rounds_count" => "9",
-    "standard" => "standard"
-  }
+  # bound to each input so a phx-change re-render never wipes them. Shared
+  # with the Manubrium app's "New tournament" (`DeskActions`).
+  @new_tournament_defaults DeskActions.new_tournament_defaults()
 
   @pairing_system_options for ps <- Tournament.pairing_systems(),
                               do: {ps, Tournament.pairing_system_label(ps)}
@@ -381,7 +378,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   @impl true
   def handle_event("new", _params, socket) do
     defaults = account_tournament_defaults(socket)
-    params = Map.merge(@new_tournament_defaults, TournamentDefaults.form_params(defaults))
+    params = DeskActions.new_tournament_params(defaults)
 
     {:noreply,
      assign(socket,
@@ -555,26 +552,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # system" choice plus the "Team tournament" checkbox, never taken from
   # the client, so the two can never disagree (see docs/pairing-systems.md
   # and the "New tournament" form below).
+  #
+  # The create itself is `DeskActions.create_tournament/2`, which the
+  # Manubrium app's "New tournament" goes through too.
   def handle_event("create", %{"tournament" => params}, socket) do
-    # The defaults the form does not show (federation, organiser, how rounds
-    # are published) go UNDER what was submitted, so anything the form does
-    # carry always wins.
-    hidden = TournamentDefaults.hidden_params(account_tournament_defaults(socket))
-
-    params =
-      hidden
-      |> Map.merge(params)
-      |> Map.put("type", derive_type(params["pairing_system"], params["team"]))
-      |> seed_round_dates()
-      |> reverse_last_two_default()
-
-    case Tournaments.create_tournament(socket.assigns.current_scope, params) do
+    case DeskActions.create_tournament(socket.assigns.current_scope, params) do
       {:ok, tournament} ->
-        Audit.log(tournament.id, socket.assigns.current_scope, "tournament.created", %{
-          name: tournament.name,
-          pairing_system: tournament.pairing_system
-        })
-
         {:noreply, push_navigate(socket, to: ~p"/t/#{tournament.id}/players")}
 
       {:error, :tournament_quota} ->
@@ -2711,63 +2694,6 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp error_text(changeset) do
     Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
   end
-
-  # The "Tournament format" select is gone from the creation modal - `type`
-  # (the FIDE-report classification: swiss | roundrobin | team-swiss |
-  # team-roundrobin) is *always* derived from the single "Pairing system"
-  # choice plus the "Team tournament" checkbox, never taken from the
-  # client, so the two can never disagree (see docs/pairing-systems.md and
-  # the "create" event handler above).
-  # Seed one round date per round from the start date, so a freshly created
-  # tournament isn't blocked on the "Round dates" required-setup item (which
-  # otherwise sends the arbiter to the Dates page to fill each round by hand
-  # before they can pair). It's only a sensible default - the arbiter refines
-  # the individual round dates on the Dates page - so we never overwrite dates
-  # the caller already supplied, and do nothing when there's no start date or
-  # no valid round count to seed from.
-  defp seed_round_dates(%{"round_dates" => existing} = params) when existing not in [nil, []],
-    do: params
-
-  defp seed_round_dates(params) do
-    start_date = String.trim(params["start_date"] || "")
-    rounds = parse_rounds_count(params["rounds_count"])
-
-    if start_date != "" and rounds > 0 do
-      Map.put(params, "round_dates", List.duplicate(start_date, rounds))
-    else
-      params
-    end
-  end
-
-  defp parse_rounds_count(n) when is_integer(n), do: n
-
-  defp parse_rounds_count(n) when is_binary(n) do
-    case Integer.parse(n) do
-      {int, _} when int > 0 -> int
-      _ -> 0
-    end
-  end
-
-  defp parse_rounds_count(_), do: 0
-
-  # A new individual double round robin plays the last two rounds of its
-  # first cycle in reverse order - FIDE C.05 Annex 1's recommendation
-  # (`tournaments.rr_reverse_last_two`). Decided here, for the form, and not
-  # in the context: an import or a restored backup that does not carry the
-  # flag must keep the schedule it was paired from.
-  defp reverse_last_two_default(%{"type" => "roundrobin", "rr_cycles" => cycles} = params)
-       when cycles in ["2", 2],
-       do: Map.put_new(params, "rr_reverse_last_two", "true")
-
-  defp reverse_last_two_default(params), do: params
-
-  defp derive_type("round_robin", "true"), do: "team-roundrobin"
-  defp derive_type("round_robin", _team?), do: "roundrobin"
-  # keizer is Swiss-classified for FIDE reporting purposes - there's no
-  # separate "type" for it (see `PairingsEngine.Tournaments.Tournament`'s
-  # `pairing_system` field docs).
-  defp derive_type(_swiss_or_keizer, "true"), do: "team-swiss"
-  defp derive_type(_swiss_or_keizer, _team?), do: "swiss"
 
   defp standard_options, do: RateOfPlay.standard_options()
   # Rate-of-play presets shown on the create form depend on the picked Standard

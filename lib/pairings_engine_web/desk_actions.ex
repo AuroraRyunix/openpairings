@@ -328,6 +328,117 @@ defmodule PairingsEngineWeb.DeskActions do
     Audit.log(tournament.id, scope, action, %{key => round_number})
   end
 
+  ## ---------- a new tournament ----------
+
+  # What the "New tournament" form starts from before an account's own
+  # defaults are laid over it.
+  @new_tournament_defaults %{
+    "pairing_system" => "swiss",
+    "rounds_count" => "9",
+    "standard" => "standard"
+  }
+
+  @doc "The \"New tournament\" form's own starting values, as string-keyed params."
+  def new_tournament_defaults, do: @new_tournament_defaults
+
+  @doc """
+  What a new tournament starts from for an account: the form's own values
+  with the account's stored defaults that the form shows laid over them
+  (`TournamentDefaults.form_params/1`). Takes the stored defaults (nil for
+  none).
+  """
+  def new_tournament_params(defaults),
+    do:
+      Map.merge(
+        @new_tournament_defaults,
+        PairingsEngine.Accounts.TournamentDefaults.form_params(defaults)
+      )
+
+  @doc """
+  Creates a tournament as the "New tournament" form does: the account's
+  defaults that the form does not show (federation, organiser, how rounds
+  are published - `TournamentDefaults.hidden_params/1`) go UNDER `params`,
+  `type` is derived from the pairing system and the team box and never
+  taken from the caller, every round is dated to the start date unless
+  `params` dates them itself, and a new double round robin reverses the
+  last two rounds of its first cycle. Then `Tournaments.create_tournament/2`
+  (the hosted edition's limit) and the audit row.
+
+  `{:ok, tournament}`, `{:error, :tournament_quota}` or the changeset.
+  """
+  def create_tournament(scope, params) when is_map(params) do
+    hidden =
+      scope.user.id
+      |> PairingsEngine.Accounts.get_user!()
+      |> Map.get(:tournament_defaults)
+      |> PairingsEngine.Accounts.TournamentDefaults.hidden_params()
+
+    params =
+      hidden
+      |> Map.merge(params)
+      |> Map.put("type", derive_type(params["pairing_system"], params["team"]))
+      |> seed_round_dates()
+      |> reverse_last_two_default()
+
+    with {:ok, tournament} <- Tournaments.create_tournament(scope, params) do
+      Audit.log(tournament.id, scope, "tournament.created", %{
+        name: tournament.name,
+        pairing_system: tournament.pairing_system
+      })
+
+      {:ok, tournament}
+    end
+  end
+
+  # `type` (the FIDE-report classification: swiss | roundrobin | team-swiss
+  # | team-roundrobin) is *always* derived from the single "Pairing system"
+  # choice plus the "Team tournament" box, never taken from the client, so
+  # the two can never disagree (see docs/pairing-systems.md). Keizer is
+  # Swiss-classified for FIDE reporting purposes.
+  defp derive_type("round_robin", "true"), do: "team-roundrobin"
+  defp derive_type("round_robin", _team?), do: "roundrobin"
+  defp derive_type(_swiss_or_keizer, "true"), do: "team-swiss"
+  defp derive_type(_swiss_or_keizer, _team?), do: "swiss"
+
+  # One round date per round from the start date, so a fresh tournament is
+  # not blocked on the "Round dates" setup item. Only a default - the Dates
+  # page refines it - so dates the caller supplied are never overwritten,
+  # and nothing happens without a start date or a round count.
+  defp seed_round_dates(%{"round_dates" => existing} = params) when existing not in [nil, []],
+    do: params
+
+  defp seed_round_dates(params) do
+    start_date = String.trim(params["start_date"] || "")
+    rounds = parse_rounds_count(params["rounds_count"])
+
+    if start_date != "" and rounds > 0 do
+      Map.put(params, "round_dates", List.duplicate(start_date, rounds))
+    else
+      params
+    end
+  end
+
+  defp parse_rounds_count(n) when is_integer(n), do: n
+
+  defp parse_rounds_count(n) when is_binary(n) do
+    case Integer.parse(n) do
+      {int, _} when int > 0 -> int
+      _ -> 0
+    end
+  end
+
+  defp parse_rounds_count(_), do: 0
+
+  # A new individual double round robin plays the last two rounds of its
+  # first cycle in reverse order - FIDE C.05 Annex 1's recommendation.
+  # Decided for a new tournament and not in the context: an import or a
+  # restored backup that does not carry the flag keeps its schedule.
+  defp reverse_last_two_default(%{"type" => "roundrobin", "rr_cycles" => cycles} = params)
+       when cycles in ["2", 2],
+       do: Map.put_new(params, "rr_reverse_last_two", "true")
+
+  defp reverse_last_two_default(params), do: params
+
   ## ---------- players ----------
 
   @audited_player_fields ~w(name title sex fide_id fide_rating national_rating tournament_rating
