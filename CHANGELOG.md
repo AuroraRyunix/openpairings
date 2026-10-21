@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Removed] **Plug-ins can no longer draw over every page.** The one plug-in that did used it for a single face in a single theme for two accounts, and that face has retired. A hook with no callers is a door left open onto nothing, so it went with it; the Tom W theme stays, for everyone, as before.
+
 - [Feature] **A group archives in one go.** A youth championship is five tournaments and one event, and closing it meant five trips through five *More* menus, each asking the same question. The group's row on the Tournaments page now has **Archive group**: one question (with the postponed games still unplayed, counted across the group), every tournament on your list archived. A sibling somebody else runs is not on your list and stays theirs to close; one handed off to another copy of the app is left alone, as the single Archive already did.
 
 - [Fix] **The Help scrolls as one page again.** The contents column outgrew the screen when it went from three parts to seven, and it held on to the mouse wheel: with the pointer over it the page refused to move, and with the pointer elsewhere the list stayed half-scrolled. It now hands the scroll on to the page when it reaches its end, like everything else on the web.

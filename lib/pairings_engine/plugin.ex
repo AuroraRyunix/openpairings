@@ -89,13 +89,6 @@ defmodule PairingsEngine.Plugin do
       and resuming something its `applications:` started. Its return value
       is ignored, and a plugin that raises is logged while the core boots
       anyway.
-    * `page_overlay/1` - something drawn over every page of the app, after
-      the flash messages: a rendered component, or nil for nothing. The
-      plugin owns the markup and its styling; the core only gives it a
-      place to stand, and the viewer's `current_scope` (nil when signed
-      out) so it can choose whom to draw for. It must not take clicks or focus away from the page
-      underneath - it is decoration, and decoration that gets in the way
-      is a bug with good intentions.
 
   The five identity callbacks are required; every hook is optional.
 
@@ -193,7 +186,6 @@ defmodule PairingsEngine.Plugin do
   @callback roster_candidates(Scope.t(), Tournament.t(), Team.t()) ::
               {:ok, String.t(), [map()]} | :none
   @callback migrations_path() :: String.t()
-  @callback page_overlay(map()) :: Phoenix.LiveView.Rendered.t() | nil
   @callback boot() :: any()
 
   @optional_callbacks routes: 0,
@@ -206,6 +198,5 @@ defmodule PairingsEngine.Plugin do
                       team_schedule: 1,
                       roster_candidates: 3,
                       migrations_path: 0,
-                      page_overlay: 1,
                       boot: 0
 end
