@@ -136,8 +136,11 @@ until xcrun stapler staple "$app"; do
   echo "No ticket yet; asking again in 30 s ($tries/10)"
   sleep 30
 done
-# Apple's ticket server drops connections now and then; the ticket is fine.
-for i in 1 2 3 4 5; do xcrun stapler validate "$app" && break; [ "$i" -lt 5 ] || exit 1; sleep 20; done
+# Apple's ticket server drops connections now and then, sometimes for
+# minutes. The stapled ticket is checked by Gatekeeper (spctl) anyway; this
+# is a second opinion, and a second opinion that will not pick up the phone
+# does not get to cancel the release.
+for i in 1 2 3 4 5; do xcrun stapler validate "$app" && break; [ "$i" -lt 5 ] || echo "::warning::stapler could not confirm the ticket online; Gatekeeper decides below"; sleep 20; done
 
 spctl -a -vvv -t exec "$app"
 echo "Signed, notarised and stapled: $app"
