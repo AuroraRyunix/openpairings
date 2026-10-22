@@ -43,8 +43,6 @@ paired round with its boards and its state:
 | *Ready to send* | Every board has a result. |
 | *Sent* | The round has been sent; the date and a receipt code are shown (for example `R5·7F2A`). |
 
-![The Export page, section TRF, with rounds in the states Being played, Ready to send and Sent](screenshots/10-export-trf-rounds.png "Rounds and their state on the Export page")
-
 Tick the rounds you want and press:
 
 - **Send…** - builds the file for the rating office, downloads it to your

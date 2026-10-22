@@ -22,8 +22,8 @@ Account, **Instellingen** (`/users/settings`). Eén pagina met een sectie voor e
 | --- | --- |
 | Profiel | Een weergavenaam, die in plaats van het adres getoond wordt in het auditlogboek, de geschiedenis, deellijsten en uitnodigingen. |
 | Aanmelden en beveiliging | Het adres wijzigen (een bevestigingslink gaat naar het nieuwe), het wachtwoord instellen of wijzigen, de browsers bekijken die aangemeld zijn, en *Afmelden* voor één of *Overal elders afmelden*. |
-| Voorkeuren | Taal, kleurthema en accent, opgeslagen op het account zodat ze je naar een andere computer volgen. |
-| Nieuwe toernooien | Waarmee het formulier Nieuw toernooi begint: systeem, ronden, format, speeltempo, plaats, federatie, organisator en hoe ronden gepubliceerd worden. |
+| Voorkeuren | Taal, kleurthema en accent, bewaard op het account zodat ze je naar een andere computer volgen. |
+| Nieuwe toernooien | Waarmee het formulier Nieuw toernooi begint: systeem, rondes, format, speeltempo, plaats, federatie, organisator en hoe rondes gepubliceerd worden. |
 | Functies van de federatie | De schakelaars hieronder. |
 | Je gegevens | Één zip met je accountgegevens en een back-up van elk toernooi dat je kunt openen. |
 | Account verwijderen | Bevestiging door te typen; geweigerd zolang het account een toernooi bezit (in de lijst, gearchiveerd of in de prullenbak). |
@@ -45,10 +45,10 @@ Een server wordt gedeeld door elk account erop, dus voorkomt hij dat één accou
 | Toernooien die één account bezit | 200 (de prullenbak telt niet mee) |
 | Bestanden ingelezen op de pagina Toernooien (back-up, TRF, SWAR, overdracht, *Dupliceren*) | 20 per uur per account |
 | Nieuwe telefooncodes ([Invoer per telefoon](07-results.md)) | 40 per uur per account |
-| Ronden die tegelijk gepaard worden, op de hele server | 2 |
+| Rondes die tegelijk gepaard worden, op de hele server | 2 |
 | Tijd die één paring mag duren | 3 minuten |
 
-De beheerder van de server kan het aantal toernooien, het aantal ronden dat tegelijk gepaard wordt en de tijdslimiet aanpassen. Is de server al bezig met andere toernooien, dan wacht een ronde van een Zwitsers teamtoernooi op zijn beurt en meldt de knop dat ze in de wachtrij staat; een individuele ronde die niet binnen enkele seconden kan beginnen, meldt dat de engine bezig is, en wie de knop even later opnieuw indrukt, paart ze alsnog. Een ronde die al gepaard wordt, vanuit een ander tabblad of door een collega-arbiter, wordt geen tweede keer gepaard. Een paring die aan de tijdslimiet gestopt of geweigerd wordt, laat niets achter: de ronde wacht nog altijd om gepaard te worden.
+De beheerder van de server kan het aantal toernooien, het aantal rondes dat tegelijk gepaard wordt en de tijdslimiet aanpassen. Is de server al bezig met andere toernooien, dan wacht een ronde van een Zwitsers teamtoernooi op zijn beurt en meldt de knop dat ze in de wachtrij staat; een individuele ronde die niet binnen enkele seconden kan beginnen, meldt dat de engine bezig is, en wie de knop even later opnieuw indrukt, paart ze alsnog. Een ronde die al gepaard wordt, vanuit een ander tabblad of door een collega-arbiter, wordt geen tweede keer gepaard. Een paring die aan de tijdslimiet gestopt of geweigerd wordt, laat niets achter: de ronde wacht nog altijd om gepaard te worden.
 
 ## Een toernooi delen {#sharing-a-tournament}
 
@@ -70,8 +70,8 @@ onderaan, in het rood):
 | Actie | Wat het doet |
 | --- | --- |
 | Exporteren | Het toernooi als JSON-bestand ([Importeren en exporteren](12-import-export.md)). |
-| Kopiëren | Een heel nieuw toernooi met de naam *Kopie van …*, met alles erin (instellingen, spelers, ronden, resultaten), van jou als eigenaar. Het is niet gepubliceerd en heeft geen medewerkers. |
-| Archiveren | Maakt het toernooi alleen-lezen (er kunnen geen ronden meer gepaard worden en er verandert niets); *Dearchiveren* maakt dat ongedaan. De pagina zegt hoeveel uitgestelde partijen nog niet gespeeld zijn. |
+| Kopiëren | Een heel nieuw toernooi met de naam *Kopie van …*, met alles erin (instellingen, spelers, rondes, resultaten), van jou als eigenaar. Het is niet gepubliceerd en heeft geen medewerkers. |
+| Archiveren | Maakt het toernooi alleen-lezen (er kunnen geen rondes meer gepaard worden en er verandert niets); *Dearchiveren* maakt dat ongedaan. De pagina zegt hoeveel uitgestelde partijen nog niet gespeeld zijn. |
 | Verwijderen | Verplaatst het toernooi naar de **Prullenbak** nadat je `DELETE` hebt getypt. |
 | Overdragen / Teruggeven / Terughalen | Zie hieronder. |
 | Verlaten | Voor een gedeeld toernooi dat niet van jou is. |
@@ -94,13 +94,11 @@ Een overdracht verplaatst een toernooi van de ene kopie van het programma naar d
 3. Wanneer het evenement voorbij is, op de tweede computer **Teruggeven**: het maakt een *retourbestand* aan en vergrendelt die kopie.
 4. Op de eerste computer, **Terughalen** met het retourbestand: de kopie hier wordt vervangen door wat op de andere computer is gespeeld, en ontgrendeld. Eerst wordt een herstelpunt van de bevroren kopie bewaard; kan dat niet, dan wordt niets vervangen.
 
-Wat meereist: de instellingen, spelers, ronden, resultaten, byes, ploegen, verboden paringen en paringsregels, het auditlogboek en de registratie van wat naar het ratingbureau is verstuurd.
+Wat meereist: de instellingen, spelers, rondes, resultaten, byes, teams, verboden paringen en paringsregels, het auditlogboek en de registratie van wat naar het ratingbureau is verstuurd.
 Wat niet meereist: de herstelpunten, de telefoons die voor het invoeren van resultaten zijn ingeschreven, en de medewerkers, die aankomen als openstaande uitnodigingen. Een overdrachtsbestand kan ook geopend worden als een gewone back-up.
 
 > [!WARNING]
 > Terwijl een toernooi is overgedragen, wordt **Versturen…** voor het ratingrapport geweigerd op de vergrendelde kopie, zodat maar één computer kan versturen.
-
-![De lijst met toernooien met de actie Overdragen en een overgedragen toernooi gemarkeerd als alleen-lezen](screenshots/16-handoff-list.png "De pagina Toernooien met een overdracht")
 
 ## Back-ups en herstelpunten {#backups-and-restore-points}
 

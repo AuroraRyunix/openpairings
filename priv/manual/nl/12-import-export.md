@@ -29,7 +29,7 @@ maakt een volledig toernooi: de kopgegevens (naam, plaats, federatie, datums,
 bedenktijd, arbiters, rondedatums), de spelers met hun FIDE-ID's, ratings, titels en
 geboortedata, de rondes, de paringen, de resultaten en de byes. De startrangschikking
 van het bestand wordt het paringsnummer. Het type van het toernooi wordt uit het
-bestand overgenomen (Zwitsers, rondetoernooi, ploegen). Het onbekende resultaat `?`
+bestand overgenomen (Zwitsers, rondetoernooi, teams). Het onbekende resultaat `?`
 komt terug als uitgestelde partij, zoveel waard als de `X` van het bestand (record
 162) een onbekend resultaat waard maakt - een remise als het bestand niets zegt. Een
 `X` die in de eigen punten van het bestand een winst of een verlies is, wordt ook hoe
@@ -39,7 +39,7 @@ erbij. Op de pagina Paringen staat zo'n bord als `* uitgesteld`; kies daar het e
 resultaat zodra je het kent. Een bord dat het bestand paart maar nog zonder
 resultaat (een bestand dat bewaard werd terwijl de ronde gespeeld werd) komt terug
 als een partij die nog gespeeld wordt: het importverslag noemt de ronde, en de
-volgende ronde wacht op het resultaat. Ploegenbestanden geven de ploegen en hun
+volgende ronde wacht op het resultaat. Teambestanden geven de teams en hun
 bordvolgorden, en de matches van elke ronde die uit de borden kunnen worden afgeleid
 (een ronde waarvan de matches onduidelijk zijn, wordt benoemd, niet geraden).
 
@@ -64,7 +64,7 @@ op de keuze van het bestand:
   rondetoernooi-cycli die zijn teruggebracht tot wat het programma speelt, tiebreaks die
   niet in het bestand stonden of die het programma niet berekent, een aantal rondes dat
   is overgenomen uit de rondes die het bestand bevat, deputy-arbiters boven de vierde,
-  forfait- en bye-punten van ploegen, extra punten buiten de puntentelling, virtuele
+  forfait- en bye-punten van teams, extra punten buiten de puntentelling, virtuele
   punten die niet de Baku-methode van de FIDE zijn (geïmporteerd als extra punten in
   versnellingsmodus: elke ronde houdt de virtuele punten waarmee ze is gepaard, en elke
   speler krijgt de punten die het bestand voor de volgende ronde geeft), partijen
@@ -99,7 +99,7 @@ op de keuze van het bestand:
   niets in geen enkele ronde, een speler met een bye van een half of een heel punt in de
   laatste ronde of een bye die al voor de volgende is toegekend, iedereen in een bestand
   waarvan alle rondes gespeeld zijn, en de spelers van een rondetoernooi of een
-  ploegentoernooi. Een bye van nul punten telt als niets. Wat je koos, wordt bij het
+  teamtoernooi. Een bye van nul punten telt als niets. Wat je koos, wordt bij het
   toernooi en in het auditlogboek bewaard.
 - *Rondes die een paringsregel breken.* Als een ronde van het bestand een regel breekt,
   krijgt de controle de kop *Deze rondes van het bestand breken de FIDE-paringsregels*
@@ -107,8 +107,6 @@ op de keuze van het bestand:
   een waarschuwing die je uitdrukkelijke bevestiging vraagt (niveau 3). De knop luidt
   dan **Toch importeren**; anders luidt hij **Importeren**. **Annuleren** importeert
   niets.
-
-![De controle van de TRF-import met de kop over rondes die de FIDE-paringsregels breken en de knop Toch importeren](screenshots/12-trf-import-review.png "De controlestap van een TRF-import")
 
 Een bevestigde import maakt het toernooi met de rondes precies zoals het bestand ze
 vastlegt. Wat de import heeft aangepast en elke regel die is gebroken, wordt bij het
@@ -121,7 +119,7 @@ dat *Versturen…* maakt, bevat alleen records en geen zo'n regel.)
 
 **Een OpenPairings-back-up importeren** leest een bestand dat is gemaakt met **Volledige
 back-up exporteren (JSON)** (hieronder), tot 10 MB. Het geeft een nieuw toernooi, dat
-van jou is, met de instellingen, officials, ploegen, elk spelerveld, rondes, resultaten,
+van jou is, met de instellingen, officials, teams, elk spelerveld, rondes, resultaten,
 byes, verboden paringen, paringsregels, de registratie van wat er naar het ratingkantoor is
 verstuurd en de partijen die live borden meldden
 ([Live borden](17-live-boards.md#games-and-pgn)). Het origineel wordt nooit aangeraakt, ook niet wanneer je je eigen bestand
@@ -269,9 +267,9 @@ toegevoegd die ervoor zorgt dat Excel de accenten goed leest.
 
 ### PGN {#pgn}
 
-Pagina Paringen, **Meer**, **PGN (alleen metadata - er worden geen zetten opgeslagen)**:
+Pagina Paringen, **Meer**, **PGN (alleen metadata - er worden geen zetten bewaard)**:
 deze ronde of alle rondes, met of zonder bordnummers, of een bereik van borden. Het
-programma slaat geen zetten op; elke partij in het PGN-bestand heeft de spelers, de
+programma bewaart geen zetten; elke partij in het PGN-bestand heeft de spelers, de
 ronde, de datum, het resultaat en een resultaatteken als zettekst. Het is een geldig
 PGN-bestand, maar een partij die niet opnieuw kan worden afgespeeld.
 
@@ -287,5 +285,5 @@ zie [Partijen en PGN](17-live-boards.md#games-and-pgn), en
 
 Een back-up van de toernooidatabase wordt automatisch ongeveer eens per dag geschreven
 (zie [Accounts, delen en overdracht](16-accounts-and-handoff.md)), en vóór elke
-handeling die moeilijk ongedaan te maken is, wordt een herstelpunt opgeslagen. Deze zijn
+handeling die moeilijk ongedaan te maken is, wordt een herstelpunt bewaard. Deze zijn
 los van de bestanden hierboven.

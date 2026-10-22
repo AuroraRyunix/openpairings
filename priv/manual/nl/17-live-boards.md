@@ -216,7 +216,7 @@ gebruikt, staan allemaal in het auditlogboek.
 
 De naam, plaats en data van het toernooi, het speeltempo, de rondes, en per ronde
 de borden: wie wit heeft en wie zwart, met naam, titel, rating, federatie en
-FIDE-ID, en bij een ploegentoernooi de wedstrijd en het bord daarbinnen. Verder
+FIDE-ID, en bij een teamtoernooi de wedstrijd en het bord daarbinnen. Verder
 gaat er niets over een speler de deur uit: geen geboortedatum, geen club, geen
 e-mailadres, geen telefoonnummer.
 
@@ -327,7 +327,7 @@ steeds geen zetten.
 opnieuw paart, worden de partijen die de borden voor de oude paringen hadden
 gemeld op dat moment uit OpenPairings verwijderd: ze horen bij partijen die
 niet meer bestaan. Hetzelfde geldt voor een bord dat je verwijdert, een
-ploegopstelling die een bord laat vallen, en een herstelpunt dat de paring niet
+teamopstelling die een bord laat vallen, en een herstelpunt dat de paring niet
 heeft. Het auditlogboek krijgt één regel met het aantal verwijderde partijen.
 Het kastje houdt zijn eigen kopie en zijn eigen PGN. Een partijpagina die open
 staat wanneer haar partij verdwijnt, stuurt je terug naar de ronde op de pagina
@@ -400,7 +400,7 @@ De uitzending is de pagina voor de partijen van een ronde, op
 
 - **Links:** de ronde-knoppen, een zoekveld, en elke partij van de ronde, met het
   bord, beide spelers, het resultaat (`1-0` of `½-½`), en de lopende partijen
-  gemarkeerd. De borden van een ploegronde staan onder hun wedstrijd.
+  gemarkeerd. De borden van een teamronde staan onder hun wedstrijd.
 - **Midden:** één partij, groot, met een balk boven en onder het bord. De balken
   tonen de naam, de titel, de federatie en de rating, de klok in een vakje, en de
   score zodra er een resultaat is. De laatste zet is opgelicht, en er is een knop
@@ -539,7 +539,7 @@ auditlogboek.
   op de regels. Een zet die onwettig is, of op twee legale zetten past, weigert de update en
   noemt de zet, en er wordt uit die update niets bewaard.
 - **Alleen twee stukkensets** worden aangeboden.
-- **Ploegentoernooien staan als losse borden op het kastje**, doorgenummerd door
+- **Teamtoernooien staan als losse borden op het kastje**, doorgenummerd door
   de ronde, niet per wedstrijd gegroepeerd.
 - **Alleen de eerste partij van een bord in een ronde verlaat het kastje.**
   Verdere partijen op hetzelfde bord blijven op het kastje.

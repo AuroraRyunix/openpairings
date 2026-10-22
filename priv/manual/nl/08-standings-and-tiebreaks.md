@@ -9,8 +9,6 @@ pagina zegt *Stand na ronde N*. Spelers die na elke tiebreak nog gelijk staan,
 worden gerangschikt op rating en naam, of delen een plaats, al naar gelang de
 instelling *Spelers die nog gelijk staan delen een plaats* (Instellingen, Toernooi, geavanceerd) (zie hieronder).
 
-![De pagina Stand van een Zwitsers toernooi met de tiebreakkolommen](screenshots/08-standings-swiss.png "Stand na ronde 5")
-
 - Het filter **Categorie** boven de tabel toont één categorie tegelijk
   ([Categorieën en normen](11-categories-and-norms.md)).
 - De kolom *Rds* (aanwezige rondes) en de kolommen voor extra punten verschijnen
@@ -151,7 +149,7 @@ onder *Regels die het programma toepast*.
 | RTNG/R | Toernooirating, omgekeerd | Hoe lager, hoe beter. |
 
 Teamevenementen hebben een eigen lijst: MP (matchpunten), GP (partijpunten), EMGSB,
-EGMSB, EGGSB, BH:GP, EDE, TBR, BBE, SSSC, BB (zie [Ploegen](13-teams.md)). Zij
+EGMSB, EGGSB, BH:GP, EDE, TBR, BBE, SSSC, BB (zie [Teams](13-teams.md)). Zij
 vormen de laatste groep van de lijst.
 
 ### Regels die het programma toepast {#rules-the-program-applies}

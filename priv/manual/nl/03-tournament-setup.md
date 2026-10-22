@@ -16,13 +16,11 @@ Toernooien, **Nieuw toernooi**.
 | Paringssysteem | **Zwitsers - FIDE Dutch**, **Rondetoernooi (Berger)** of **Keizer**. Het kan niet worden veranderd nadat de eerste ronde is gepaard. |
 | Rondes | 1 tot 99. Een rondetoernooi berekent zelf het aantal rondes uit de spelers en de cycli. |
 | Aantal keer dat iedereen tegen iedereen speelt | (alleen rondetoernooi) 1 tot 10. |
-| Ploegentoernooi | Maakt er een ploegenevenement van: Zwitserse ploegen (FIDE C.04.6) of rondetoernooi-ploegen. Keizer kan geen ploegentoernooi zijn. Zie [Ploegen](13-teams.md). |
+| Teamtoernooi | Maakt er een teamevenement van: Zwitserse teams (FIDE C.04.6) of rondetoernooi-teams. Keizer kan geen teamtoernooi zijn. Zie [Teams](13-teams.md). |
 | Plaats | De stad. |
 | Datum vanaf | Vult elke ronde met deze datum; verfijn dit op de pagina Data. |
 | Speeltempo | Een lijst met de gebruikelijke bedenktijden voor het gekozen formaat, of *geen*. |
 | Formaat | Standaard, Rapid of Blitz. Dat bepaalt welke bedenktijden worden aangeboden, uit welke FIDE-rating de ratings van de spelers worden ververst, en het type rapport. |
-
-![Het formulier Nieuw toernooi met naam, paringssysteem, rondes, plaats, startdatum en speeltempo](screenshots/03-new-tournament-form.png "Het formulier Nieuw toernooi")
 
 Het formulier begint met je standaardwaarden (pagina Account, *Nieuwe
 toernooien*: systeem, rondes, formaat, speeltempo, plaats, organisator,
@@ -34,7 +32,7 @@ bestand, een `.trf`-bestand of een JSON-back-up, of **Een overdracht
 ontvangen** (zie [Importeren en exporteren](12-import-export.md) en
 [Accounts, delen en overdracht](16-accounts-and-handoff.md)); of **Kopiëren**
 van een bestaand toernooi in de lijst (een kopie bevat alles van het origineel,
-ronden en resultaten inbegrepen, en heet *Kopie van …*).
+rondes en resultaten inbegrepen, en heet *Kopie van …*).
 
 ### Wat moet worden ingesteld vóór het paren {#what-must-be-set-before-pairing}
 
@@ -68,7 +66,7 @@ de schakelaar **Geavanceerde instellingen tonen** bovenaan de pagina. De
 schakelaar hoort bij je account: hij staat hetzelfde op elke
 instellingenpagina, in elk toernooi en op elke computer waarop je aanmeldt.
 Een instelling verbergen verandert haar nooit - een geavanceerde instelling
-houdt haar waarde en wordt zoals vroeger met de pagina opgeslagen.
+houdt haar waarde en wordt zoals vroeger met de pagina bewaard.
 
 Staat een geavanceerde instelling van de pagina niet op haar standaardwaarde,
 dan zegt de pagina dat naast de schakelaar (*2 geavanceerde instellingen staan
@@ -92,8 +90,8 @@ Nog twee dingen houden de pagina's kort:
 | --- | --- | --- |
 | Toernooi | naam, speelzaal, stad, federatie, organisator; toernooiformaat; aantal rondes; tiebreaks; Chess960 en het vinkje voor 30 dagen; delen | clubnummer van de organisator; hoe een ongerate speler in de tiebreaks telt; spelers die nog gelijk staan delen een plaats; logo |
 | Groep | dit toernooi bij de andere toernooien van zijn evenement in een groep zetten, of er weer uit halen | - |
-| Opties | paringssysteem, toernooirating, cycli (rondetoernooi), Keizer-topwaarde (Keizer), opstellingen (ploegen), type en speeltempo | engine, beginkleur, gelijke rating en titel, paringsnummers van laatkomers, afwezigen in ronde 1, acceleratie, de matchformaten, ploegrating en rating van een ongerate speler (ploegen), ander speeltempo |
-| Puntentelling | punten, matchpunten, uitgestelde partijen | de hele kaart *Byes en afwezigheden* (punten voor een overgeslagen ronde en de grenzen ervan, vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen); bye, forfait en terugtrekking van een ploeg |
+| Opties | paringssysteem, toernooirating, cycli (rondetoernooi), Keizer-topwaarde (Keizer), opstellingen (teams), type en speeltempo | engine, beginkleur, gelijke rating en titel, paringsnummers van laatkomers, afwezigen in ronde 1, acceleratie, de matchformaten, teamrating en rating van een ongerate speler (teams), ander speeltempo |
+| Puntentelling | punten, matchpunten, uitgestelde partijen | de hele kaart *Byes en afwezigheden* (punten voor een overgeslagen ronde en de grenzen ervan, vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen); bye, forfait en terugtrekking van een team |
 | Data | één datum per ronde | - |
 | Ruimtes | de ruimtes van de zaal en hun borden | - |
 | Categorieën | zie [Categorieën en normen](11-categories-and-norms.md) | - |
@@ -106,7 +104,7 @@ Nog twee dingen houden de pagina's kort:
 | Exporteren | TRF, back-ups, de CSV-download van de spelers ([Importeren en exporteren](12-import-export.md)) | de kolommen, het scheidingsteken, de volgorde en de opties van de CSV |
 | Over | versie en de paringsengine die dit toernooi gebruikt | - |
 
-Elk formulier wordt opgeslagen met zijn eigen knop **Opslaan**, en het antwoord
+Elk formulier wordt bewaard met zijn eigen knop **Bewaren**, en het antwoord
 verschijnt ernaast. Wanneer een collega dezelfde instellingen wijzigt terwijl je
 aan het typen bent, meldt de pagina dat ze verouderd is, in plaats van wat je
 typte te overschrijven. Elke wijziging van een instelling wordt met de oude en
@@ -119,8 +117,8 @@ erin, voor de rest.
 
 **Algemeen.** Naam (verplicht), speelzaal, stad, federatie, organisator, en
 (geavanceerd) het clubnummer van de organisator. **Toernooiformaat** is het type: Zwitsers
-(individueel), Rondetoernooi (individueel), Zwitsers (ploegen), Rondetoernooi
-(ploegen). **Aantal rondes** kan worden gewijzigd tot de eerste ronde is gepaard
+(individueel), Rondetoernooi (individueel), Zwitsers (teams), Rondetoernooi
+(teams). **Aantal rondes** kan worden gewijzigd tot de eerste ronde is gepaard
 (bij een rondetoernooi volgt het aantal uit de spelers en de cycli).
 
 **Tiebreaks.** Beschreven in [Rangschikking en tiebreaks](08-standings-and-tiebreaks.md).
@@ -147,7 +145,7 @@ dagen en staat het vinkje uit, dan zegt de kaart dat.
 e-mailadres (zie [Accounts, delen en overdracht](16-accounts-and-handoff.md)).
 
 **Logo** (geavanceerd tot er een logo is). Een PNG-, JPEG-, GIF- of WebP-afbeelding van maximaal 2 MB, die bij het
-toernooi wordt opgeslagen en op de documenten wordt afgedrukt.
+toernooi wordt bewaard en op de documenten wordt afgedrukt.
 
 ## Toernooigroepen {#tournament-groups}
 
@@ -175,7 +173,7 @@ met een **keuzestrook**: de naam van de groep en haar toernooien naast elkaar, h
 huidige gemarkeerd. Een klik opent dezelfde pagina van het andere toernooi -
 Rangschikking naar Rangschikking, een instellingenpagina naar dezelfde
 instellingenpagina - of de pagina Spelers wanneer het die pagina niet heeft (de
-pagina Ploegen van een individueel toernooi, de uitleg van één ronde). Op een
+pagina Teams van een individueel toernooi, de uitleg van één ronde). Op een
 telefoon is de keuzestrook een uitklapmenu.
 
 Wie wat mag: wie een toernooi mag bewerken - de eigenaar, of een medewerker die de
@@ -224,7 +222,7 @@ er deel van is.
 ## Pagina Opties {#options-page}
 
 Standaard getoond: het paringssysteem, de toernooirating, de cycli
-(rondetoernooi), de Keizer-topwaarde (Keizer), de opstellingen (ploegen) en het
+(rondetoernooi), de Keizer-topwaarde (Keizer), de opstellingen (teams) en het
 type en speeltempo. Al de rest op deze pagina is geavanceerd. De Zwitserse
 instellingen verschijnen alleen bij een Zwitsers toernooi, die van een
 rondetoernooi alleen bij een rondetoernooi.
@@ -236,8 +234,6 @@ dat in het programma zit ingebouwd en C.04.3 volgt zoals het luidt vanaf
 1 februari 2026. Er valt niets te kiezen of te installeren; de pagina noemt de
 engine. De engine krijgt een TRF-bestand dat door het programma is opgebouwd en
 gecontroleerd.
-
-![De instellingenpagina Opties met het paringssysteem, de Zwitserse engine en de toernooirating](screenshots/03-settings-options.png "Instellingen, Opties")
 
 **Toernooirating.** De rating die de spelers rangschikt, en daarmee hun
 paringsnummers bepaalt, en die de op rating gebaseerde tiebreaks gebruiken. De
@@ -281,7 +277,7 @@ zoals het altijd deed: de nummers kwamen van elders en blijven zoals ze zijn.
 Met het selectievakje *Spelers die in ronde 1 afwezig zijn, zijn laatkomers*,
 direct onder de instelling hierboven, kan het worden in- of weer
 uitgeschakeld, maar alleen zolang ronde 1 niet is gepaard; daarna is het vakje
-grijs, omdat omschakelen spelers in al gespeelde ronden zou hernummeren. Baku
+grijs, omdat omschakelen spelers in al gespeelde rondes zou hernummeren. Baku
 heeft het altijd aan, en bij een round robin of Keizer verschijnt het vakje
 niet. Een back-upbestand houdt wat het toernooi had.
 
@@ -306,7 +302,7 @@ omgekeerde rondes al gepaard zijn, blijft dubbel.
 voor de automatische waarde.
 
 **Acceleratie.** Geen, of **Baku-versnelling (FIDE C.04.7)**: het programma
-berekent in de eerste ronden de virtuele punten van elke speler en geeft die
+berekent in de eerste rondes de virtuele punten van elke speler en geeft die
 ronde na ronde aan de engine. Het geldt alleen voor Zwitserse toernooien en kan
 niet meer worden gewijzigd zodra de eerste ronde is gepaard. Groep A wordt
 geteld over de spelers die in ronde 1 gepaard zijn: wie in ronde 1 afwezig is
@@ -321,10 +317,10 @@ match telt twee rondes).
 > [!FIDE] Afwijking van de FIDE-modus
 > Het Zwitserse matchformaat is een afwijking van de FIDE-modus.
 
-**Ploegen** (ploegentoernooien): of opstellingen verplicht zijn, en
-(geavanceerd) de manier waarop de rating van een ploeg wordt berekend voor de
-volgorde van de ploegen, en de rating die wordt geteld voor een ongerate speler.
-Zie [Ploegen](13-teams.md).
+**Teams** (teamtoernooien): of opstellingen verplicht zijn, en
+(geavanceerd) de manier waarop de rating van een team wordt berekend voor de
+volgorde van de teams, en de rating die wordt geteld voor een ongerate speler.
+Zie [Teams](13-teams.md).
 
 **Toernooitype & speeltempo.** Het type (Standaard, Rapid, Blitz) en de bedenktijd uit
 een lijst, of (geavanceerd) ingetypt bij *Ander speeltempo*. Het speeltempo wordt
@@ -363,7 +359,7 @@ vormen een verboden paar, drie of meer een groep waarvan de leden elkaar nooit
 treffen. **Enkel indien mogelijk** maakt er een wens van. Een paar wordt een
 wens of weer een regel met **Maak er een wens van** / **Maak er een regel van**;
 een groep wijzig je met **Bewerken**, dat de leden aanvinkt zodat je er kunt
-toevoegen of weghalen, en dan **Groep opslaan**.
+toevoegen of weghalen, en dan **Groep bewaren**.
 
 Een paar of een regel die je toevoegt wanneer er al rondes gepaard zijn, geldt
 vanaf de eerstvolgende ronde die gepaard wordt, en het TRF-rapport zegt dat.
@@ -400,11 +396,11 @@ waarde van de **door de paring toegekende bye** (standaard: een winst).
 > waarbij een remise of de bye meer waard is dan een winst, markeert het toernooi
 > als een afwijking van de FIDE-regels.
 
-**Matchpunten** (ploegentoernooien): 2 voor een gewonnen match, 1 voor een
+**Matchpunten** (teamtoernooien): 2 voor een gewonnen match, 1 voor een
 gelijkgespeelde match en 0 voor een verloren match, standaard; en, geavanceerd,
 de matchpunten en partijpunten van een door de paring toegekende bye; wat een wedstrijd die als
-geheel forfait is aan partijpunten oplevert ([Ploegen](13-teams.md)); en de
-behandeling van een ploeg die zich terugtrekt.
+geheel forfait is aan partijpunten oplevert ([Teams](13-teams.md)); en de
+behandeling van een team dat zich terugtrekt.
 
 **Byes en afwezigheden.** (geavanceerd) *Punten voor een overgeslagen ronde* is de waarde van
 een ronde waarvoor een speler afwezig was (leeg: afwezigheden leveren niets op).
@@ -449,7 +445,7 @@ Voor een zaal met meer dan een ruimte. Elke ruimte heeft een naam en de
 borden die erin staan, getypt zoals je ze zou zeggen: `1-20, 35, 40-45`
 (komma's, puntkomma's of spaties ertussen; `1 - 20` is één reeks). **Ruimte
 toevoegen** voegt een rij toe, **Verwijderen** haalt er een weg, en
-**Ruimtes opslaan** bewaart het geheel.
+**Ruimtes bewaren** bewaart het geheel.
 
 Elke rij wordt nagekeken terwijl je typt, en de regel eronder zegt wat er
 gelezen werd (*Borden 1-20, 35: 21 borden.*) of wat er mis is:
@@ -460,7 +456,7 @@ gelezen werd (*Borden 1-20, 35: 21 borden.*) of wat er mis is:
 - een bord in geen enkele ruimte mag, en een ruimte zonder borden ook.
 
 Het nummer van een bord is het getal waarmee zijn label begint: bord `3.1`
-van een ploegentoernooi staat in de ruimte die 3 heeft, en een vaste tafel
+van een teamtoernooi staat in de ruimte die 3 heeft, en een vaste tafel
 telt met haar eigen nummer.
 
 Zodra een toernooi ruimtes heeft, zet de pagina Paringen de naam van de
@@ -498,8 +494,8 @@ behouden in de eindrangschikking*. In het TRF-rapport verschijnen ze in record
 herstelpunt, omdat het de extra punten overschrijft van elke speler bij wie een
 schijf past. **Een half punt afnemen** (alleen bij acceleratie) vraagt ook eerst
 om bevestiging, met vermelding van het ratingbereik, en bewaart een herstelpunt.
-Als de schijven in het formulier verschillen van de opgeslagen, zegt een hint
-dat je eerst moet opslaan. Opslaan antwoordt *Opgeslagen.* naast de knop.
+Als de schijven in het formulier verschillen van de bewaard, zegt een hint
+dat je eerst moet bewaren. Bewaren antwoordt *Bewaard.* naast de knop.
 
 > [!FIDE] Afwijking van de FIDE-modus
 > Extra punten maken geen deel uit van de FIDE-regels; een ronde waarvoor de
@@ -513,7 +509,7 @@ andere arbiters als het evenement had (*+ Arbiter toevoegen*), de e-mailadressen
 van de hoofdarbiter en de organisator, het IT4-evenementtype en de link naar de
 paringswebpagina, en vier bijzondere opmerkingen voor het IT3. Typ een naam of
 een FIDE-ID en kies de juiste speler: elke functionaris heeft een FIDE-ID nodig,
-en opslaan met een functionaris zonder ID wordt geweigerd, want FIDE stuurt zo'n
+en bewaren met een functionaris zonder ID wordt geweigerd, want FIDE stuurt zo'n
 rapport terug. De formulieren IT3, FA1, IA1 en IT4 op de pagina Normen worden
 hiermee ingevuld ([Categorieën en normen](11-categories-and-norms.md)).
 
@@ -550,9 +546,9 @@ mee. Als de regel geldt, heeft niemands norm de federatiemix nodig.
 Nadat de eerste ronde is gepaard, zijn sommige instellingen vergrendeld omdat ze
 bepalen wat al is gebeurd: het paringssysteem en de engine, de matchformaten, de
 paring per categorie, de puntentelling van afwezigheden, de beginkleur en (bij
-ploegenevenementen) het aantal borden per match en de opstellingsregels. In de
+teamevenementen) het aantal borden per match en de opstellingsregels. In de
 FIDE-modus is de lijst langer; zie [FIDE-modus](02-fide-mode.md).
 
 > [!TIP]
 > Buiten de FIDE-modus heeft een vergrendeld veld een bediening *Ontgrendelen* die
-> het voor één keer opslaan opent.
+> het voor één keer bewaren opent.

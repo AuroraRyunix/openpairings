@@ -135,8 +135,6 @@ On Linux the same is a command in the folder you unzipped:
 Open the program. The first page is **Tournaments**: the list of your
 tournaments (empty at first), with *New tournament* and the import buttons.
 
-![The Tournaments page with a few tournaments listed and the New tournament and import buttons at the top](screenshots/01-tournaments-list.png "The Tournaments page")
-
 The bar at the top of every page has:
 
 - **Tournaments** - the list of your tournaments. Inside a tournament this
@@ -162,8 +160,6 @@ Inside a tournament the bar shows the tournament's own tabs:
 | Print | every printable document |
 | Advanced | Norms, History (restore points), Audit trail, Pairing rationale, Badges |
 | Settings | the tournament's settings (several pages) |
-
-![The tab bar inside a tournament, showing Players, Pairings, Standings, Print, Advanced and Settings](screenshots/01-tournament-tabs.png "The tournament's tabs")
 
 *Connections* (the rating lists, backups, publishing address) appears in the
 bar on the Tournaments page, for the administrator of the installation. On a
