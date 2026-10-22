@@ -49,7 +49,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
     public_slug_published_at deleted_at
     manual_ranking_stale fide_compliance_lost_round
     logo_data logo_content_type inserted_at updated_at user_id
-    pairing_numbers_origin tpn_order_accepted late_entry_notice_dismissed)a
+    pairing_numbers_origin tpn_order_accepted late_entry_notice_dismissed
+    registrations_checked_at)a
 
   @doc """
   The frame every tournament Settings page sits in - the account page's

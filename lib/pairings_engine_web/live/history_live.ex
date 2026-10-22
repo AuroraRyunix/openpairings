@@ -37,6 +37,7 @@ defmodule PairingsEngineWeb.HistoryLive do
 
   alias PairingsEngine.{Audit, PostponedGames, Snapshots, Tournaments}
   alias PairingsEngineWeb.{AuditLive, Postponed, SettingsSupport}
+  import PairingsEngineWeb.Components.LocalTime, only: [local_time: 1]
 
   # How many audit rows to pull. The stream is merged with snapshots and
   # rendered in full (no pagination) - this is the "recent narrative" view,
@@ -594,25 +595,10 @@ defmodule PairingsEngineWeb.HistoryLive do
 
   defp audit_who(row), do: who(row.user)
 
-  defp time_label(at), do: Calendar.strftime(at, "%H:%M")
-
-  # A restore point's own stamp. Day headings used to carry the date and each
-  # row only the time; that could not survive branch collapse, since one
-  # collapsed branch stands in for points which may span several days. So the
-  # date moved onto the row. "Today"/"Yesterday" stay because they are what an
-  # arbiter actually reads mid-event.
-  defp stamp(at) do
-    date = DateTime.to_date(at)
-
-    prefix =
-      case Date.diff(Date.utc_today(), date) do
-        0 -> gettext("Today")
-        1 -> gettext("Yesterday")
-        _ -> Calendar.strftime(date, "%-d %B %Y")
-      end
-
-    prefix <> " " <> time_label(at)
-  end
+  # Times on this page are `PairingsEngineWeb.Components.LocalTime`: the
+  # reader's zone, with "Today"/"Yesterday" decided by the reader's calendar.
+  # The UTC version of the same thing used to live here, unlabelled, turning
+  # the day over at Greenwich's midnight rather than the hall's.
 
   # Field names come straight from the schema; humanise them rather than
   # showing `points_win` to an arbiter.
@@ -827,7 +813,8 @@ defmodule PairingsEngineWeb.HistoryLive do
       </div>
 
       <div class="hist-meta">
-        <span>{stamp(@point.at)}</span> <span class="hist-sep">·</span> <span>{@point.who}</span>
+        <.local_time id={"hist-at-#{@point.id}"} at={@point.at} format="stamp" />
+        <span class="hist-sep">·</span> <span>{@point.who}</span>
       </div>
 
       <div class="hist-actions">
@@ -889,8 +876,12 @@ defmodule PairingsEngineWeb.HistoryLive do
       <ol :if={@expanded and @point.changes != []} class="hist-changes">
         <li :for={change <- @point.changes} class="hist-change" data-kind={change.kind}>
           <div class="hist-change-head">
-            <span class="hist-change-time">{time_label(change.at)}</span>
-            <span class="hist-change-tag">{change.kind}</span>
+            <.local_time
+              id={"hist-change-at-#{change.id}"}
+              class="hist-change-time"
+              at={change.at}
+              format="time"
+            /> <span class="hist-change-tag">{change.kind}</span>
             <span class="hist-change-who">{change.who}</span>
           </div>
 
@@ -957,7 +948,10 @@ defmodule PairingsEngineWeb.HistoryLive do
             )
           }>
             <:part name="when">
-              <strong>{Calendar.strftime(@snapshot.inserted_at, "%Y-%m-%d %H:%M UTC")}</strong>{if @snapshot.summary,
+              <strong><.local_time
+                  id={"restore-at-#{@snapshot.id}"}
+                  at={@snapshot.inserted_at}
+                /></strong>{if @snapshot.summary,
                 do: " (#{@snapshot.summary})"}
             </:part>
           </.rich_text>

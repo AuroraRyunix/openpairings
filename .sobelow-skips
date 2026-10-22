@@ -39,7 +39,9 @@ Traversal.FileModule: Directory Traversal in `File.open`,lib/pairings_engine/lau
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:442,2DF6CFB
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:464,37ED976
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:468,2930CAD
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:482,678110F
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:490,3CCB344
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:504,7D5407D
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2208,2E7C41
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2237,38323F6
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2262,78F7AC1
@@ -69,6 +71,7 @@ Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/tou
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/tournament_import.ex:158,3760BC5
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/controllers/theme_pack_controller.ex:47,15D3458
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/live/rating_lists_live.ex:65,378EBED
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/live/rating_lists_live.ex:68,355750C
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:183,15829FF
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:204,383CDC0
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:276,4F910B4

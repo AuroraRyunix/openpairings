@@ -564,6 +564,9 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "incident.photo_added" => [
       %{"kind" => "illegal_move", "round" => 3, "board" => 7, "via" => "mobile"}
     ],
+    "category.renamed" => [%{"from" => "U12", "to" => "U12 girls", "players" => 4}],
+    "incident.handled" => [%{"kind" => "illegal_move", "round" => 3, "board" => 7}],
+    "incident.reopened" => [%{"kind" => "illegal_move", "round" => 3, "board" => 7}],
     "incident.edited" => [
       %{
         "kind" => "time_added",

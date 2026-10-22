@@ -192,3 +192,7 @@ A send that does not arrive is
 kept and tried again with longer pauses; the status of the connection is shown
 as a small label in the top bar, and the page says what is wrong. The public
 page catches up to the hall when the connection is back.
+
+When the program has no words for a failure, the label says so in a plain
+sentence and keeps the raw error behind **Technical detail**, for whoever has to
+report it.

@@ -3864,6 +3864,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                           {ngettext("%{count} tournament", "%{count} tournaments", length(group.rows))}
                         </span>
                       </button>
+
                       <%!-- A youth championship is five tournaments and one
                             event; closing it took five trips through five
                             menus. Only the members this list shows are
@@ -4379,8 +4380,14 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
   defp tournament_row(assigns) do
     ~H"""
-    <tr id={"tournament-row-#{@t.id}"} class={[@grouped && "home-group-member"]}>
-      <td>
+    <%!-- Below 720px the CSS turns each row into a card (name and More on
+          top, the facts as one line, the status under it) - the same cells,
+          so every id and handler stays where it was. Seven columns at 375px
+          had cut Status and More off the edge of a card that cannot scroll,
+          because the More menu needs it not to. `data-label` names a fact
+          once its column heading is gone. --%>
+    <tr id={"tournament-row-#{@t.id}"} class={["tour-row", @grouped && "home-group-member"]}>
+      <td class="tour-cell-name">
         <.link navigate={~p"/t/#{@t.id}/players"}><strong>{@t.name}</strong></.link>
         <span
           :if={!@owned?}
@@ -4389,15 +4396,19 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >{gettext("shared")}</span>
       </td>
 
-      <td>{Tournament.type_label(@t.type)}</td>
+      <td class="tour-cell-fact" data-label={gettext("System")}>
+        {Tournament.type_label(@t.type)}
+      </td>
 
-      <td class="num">{@t.rounds_count}</td>
+      <td class="num tour-cell-fact" data-label={gettext("Rounds")}>{@t.rounds_count}</td>
 
-      <td class="num">{@player_count}</td>
+      <td class="num tour-cell-fact" data-label={gettext("Players")}>{@player_count}</td>
 
-      <td>{date_range(@t.start_date, @t.end_date)}</td>
+      <td class="tour-cell-fact" data-label={gettext("Dates")}>
+        {date_range(@t.start_date, @t.end_date)}
+      </td>
 
-      <td>
+      <td class="tour-cell-status">
         <span class={["badge", status_class(@t.status)]}>{status_label(@t.status)}</span>
         <.link
           :if={Map.get(@postponed_counts, @t.id, 0) > 0}
@@ -4428,7 +4439,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         >{gettext("on loan")}</span>
       </td>
 
-      <td style="text-align: right">
+      <td class="tour-cell-actions" style="text-align: right">
         <%!-- One More menu per row, as on the Pairings and Players pages.
               Every action is still here with its event; the destructive one
               is last and red. The title on Export appears only on a row

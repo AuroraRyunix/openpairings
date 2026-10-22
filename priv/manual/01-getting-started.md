@@ -135,6 +135,10 @@ On Linux the same is a command in the folder you unzipped:
 Open the program. The first page is **Tournaments**: the list of your
 tournaments (empty at first), with *New tournament* and the import buttons.
 
+On a phone-width screen the list becomes one card per tournament, with the
+status on its own line and the **More** menu in the corner; on a wider screen
+it is a table.
+
 The bar at the top of every page has:
 
 - **Tournaments** - the list of your tournaments. Inside a tournament this

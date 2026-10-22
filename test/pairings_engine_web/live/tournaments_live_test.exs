@@ -71,7 +71,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
 
       {:ok, _lv, html} = live(conn, ~p"/")
 
-      assert html =~ ~r/<td>\s*-\s*<\/td>/
+      assert html =~ ~r/data-label="Dates">\s*-\s*<\/td>/
     end
 
     test "a finished tournament's badge gets its own colour, distinct from setup/running", %{

@@ -271,6 +271,30 @@ defmodule PairingsEngine.Incidents do
   end
 
   @doc """
+  Marks incident `incident_id` of `tournament_id` handled (`true`) or open
+  again (`false`), with an audit row under `scope`. A handled incident stays
+  on the list, unhighlighted; nothing about it is lost.
+
+  `{:ok, incident}` or `{:error, :not_found | :archived | :handed_off}`.
+  """
+  def set_handled(tournament_id, incident_id, handled?, scope) do
+    with :ok <- Tournaments.ensure_writable(tournament_id),
+         %Incident{} = incident <- get(tournament_id, incident_id) || {:error, :not_found} do
+      at = if handled?, do: DateTime.utc_now() |> DateTime.truncate(:second)
+      updated = Repo.update!(Ecto.Changeset.change(incident, handled_at: at))
+
+      # Two literal calls rather than one with a computed action: the
+      # audit page's tests read the codes straight off the source.
+      if handled?,
+        do: Audit.log(tournament_id, scope, "incident.handled", summary(incident)),
+        else: Audit.log(tournament_id, scope, "incident.reopened", summary(incident))
+
+      announce(tournament_id, incident.round_number)
+      {:ok, updated}
+    end
+  end
+
+  @doc """
   Amends incident `incident_id` of `tournament_id`: `attrs` may carry `:kind`
   and `:note`; one left out stays as it is. The same checks a new one meets
   (`kinds/0`, `note_max/0`); who may touch which kind is the caller's

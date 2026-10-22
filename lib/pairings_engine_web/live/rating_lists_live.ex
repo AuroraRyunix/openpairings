@@ -29,6 +29,9 @@ defmodule PairingsEngineWeb.RatingListsLive do
        preview: nil,
        errors: [],
        notice: nil,
+       renaming: nil,
+       rename_error: nil,
+       rename_form: to_form(%{"name" => ""}, as: :rename),
        lists: RatingLists.custom_lists()
      )
      |> allow_upload(:csv,
@@ -141,6 +144,71 @@ defmodule PairingsEngineWeb.RatingListsLive do
     end
   end
 
+  # Rename: one row at a time turns into a small form. The id is what
+  # sequences hold, so nothing a tournament reads changes but the label.
+  def handle_event("rename_start", %{"id" => id}, socket) do
+    with true <- socket.assigns.may_admin?,
+         {n, ""} <- Integer.parse(id),
+         %{} = list <- RatingLists.get_list(n) do
+      {:noreply,
+       assign(socket,
+         renaming: list.id,
+         rename_form: to_form(%{"name" => list.name}, as: :rename),
+         rename_error: nil
+       )}
+    else
+      false -> {:noreply, assign(socket, errors: [admin_only()])}
+      _ -> {:noreply, list_gone(socket)}
+    end
+  end
+
+  def handle_event("rename_cancel", _params, socket),
+    do: {:noreply, assign(socket, renaming: nil, rename_error: nil)}
+
+  def handle_event("rename_save", %{"rename" => %{"name" => name}}, socket) do
+    with true <- socket.assigns.may_admin?,
+         id when is_integer(id) <- socket.assigns.renaming do
+      case RatingLists.rename_list(id, name) do
+        {:ok, list, old_name} ->
+          {:noreply,
+           assign(socket,
+             renaming: nil,
+             rename_error: nil,
+             notice:
+               gettext(
+                 "“%{old}” is now called “%{name}”. Tournaments that read it keep reading it.",
+                 old: old_name,
+                 name: list.name
+               ),
+             lists: RatingLists.custom_lists()
+           )}
+
+        {:error, :not_found} ->
+          {:noreply, socket |> assign(renaming: nil) |> list_gone()}
+
+        {:error, reason} ->
+          {:noreply,
+           assign(socket,
+             rename_error: rename_error(reason),
+             rename_form: to_form(%{"name" => name}, as: :rename)
+           )}
+      end
+    else
+      false -> {:noreply, assign(socket, errors: [admin_only()])}
+      _ -> {:noreply, socket}
+    end
+  end
+
+  defp list_gone(socket) do
+    socket
+    |> put_flash(:error, gettext("That list no longer exists."))
+    |> assign(lists: RatingLists.custom_lists())
+  end
+
+  defp rename_error(:blank), do: gettext("Give the list a name.")
+  defp rename_error(:too_long), do: gettext("The name is longer than 80 characters.")
+  defp rename_error(:taken), do: gettext("Another list already has that name.")
+
   defp preview(socket, name, raw) do
     cond do
       name == "" ->
@@ -209,11 +277,57 @@ defmodule PairingsEngineWeb.RatingListsLive do
 
           <tbody>
             <tr :for={list <- @lists} id={"custom-list-#{list.id}"}>
-              <td>{list.name}</td>
+              <td>
+                <span :if={@renaming != list.id}>{list.name}</span>
+                <.form
+                  :if={@renaming == list.id}
+                  for={@rename_form}
+                  id={"rename-custom-list-form-#{list.id}"}
+                  class="inline-rename"
+                  phx-submit="rename_save"
+                >
+                  <input
+                    type="text"
+                    name={@rename_form[:name].name}
+                    id={"rename-custom-list-name-#{list.id}"}
+                    value={@rename_form[:name].value}
+                    maxlength="80"
+                    class="pe-input"
+                    aria-label={gettext("New name for “%{name}”", name: list.name)}
+                    phx-mounted={JS.focus()}
+                  />
+                  <button
+                    type="submit"
+                    class="pe-btn primary"
+                    id={"rename-custom-list-save-#{list.id}"}
+                  >
+                    {gettext("Rename")}
+                  </button>
+
+                  <button type="button" class="pe-btn" phx-click="rename_cancel">
+                    {gettext("Cancel")}
+                  </button>
+
+                  <p :if={@rename_error} id="rename-custom-list-error" class="error-note" role="alert">
+                    {@rename_error}
+                  </p>
+                </.form>
+              </td>
 
               <td>{list.entry_count}</td>
 
-              <td style="text-align: right">
+              <td style="text-align: right; white-space: nowrap">
+                <button
+                  :if={@may_admin? and @renaming != list.id}
+                  type="button"
+                  class="pe-btn"
+                  id={"rename-custom-list-#{list.id}"}
+                  phx-click="rename_start"
+                  phx-value-id={list.id}
+                >
+                  {gettext("Rename")}
+                </button>
+
                 <button
                   :if={@may_admin?}
                   type="button"

@@ -15,6 +15,9 @@ Settings, **Categories**:
   categories can all be written this way. Age is counted by the FIDE
   convention, as of 1 January of the year: the editor shows the birth year
   that a limit means ("under 16 = born 2010 or later").
+- **Rename** beside a category changes its name everywhere: in the list, in its
+  rule and prize count, and in the tags of every player who carries it. A
+  restore point is saved first, and a name that already exists is refused.
 - **Save rules** keeps the rules and the prizes of the whole table at once and
   answers *Rules saved.* A rule whose *from* is not below its *below* matches
   nobody and is refused. The button that assigns categories works from the
@@ -103,7 +106,9 @@ Nothing is stored: the files live in memory only while you work.
 
 ## History (restore points)
 
-**Advanced**, **History**. A restore point is a full copy of the tournament at
+**Advanced**, **History**. Times here, and in the audit trail and the incident
+list, are shown in your computer's own time zone (hover for the UTC time), and
+*Today* turns at your midnight. A restore point is a full copy of the tournament at
 one moment. The program takes one automatically before an action that is hard
 to undo (pairing or unpairing a round, importing results from a file, a forfeit
 or score of a match, a changed line-up, a withdrawn team, a hand-off) and
@@ -142,4 +147,5 @@ collaborators, the tournament). The audit trail travels with a hand-off.
 ## Badges
 
 **Advanced**, **Badges** opens the accreditation badge editor for this
-tournament ([Printing](09-printing.md)).
+tournament ([Printing](09-printing.md)). The badge editor saves as you type:
+a *Saved* tick appears beside the heading after each save.

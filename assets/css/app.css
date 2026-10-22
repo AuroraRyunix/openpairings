@@ -4672,6 +4672,54 @@ a.pending-chip:hover {
 .table-card.menu-card { overflow: visible; }
 .table-card.menu-card .pe-table td:first-child { white-space: normal; }
 
+/* At phone width the tournaments list stops being a table: one card per
+   tournament, name and More on the first line, the facts on the second,
+   the status under them. The cells are the same `<td>`s, re-flowed, so the
+   More menu still drops out of its row and nothing is cut off. */
+@media (max-width: 720px) {
+  #tournaments-table,
+  #tournaments-table tbody { display: block; width: 100%; }
+  #tournaments-table thead { display: none; }
+
+  #tournaments-table tr.tour-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 12px;
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  #tournaments-table tr.tour-row > td {
+    display: block;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+
+  #tournaments-table .tour-cell-name { flex: 1 1 0; min-width: 0; order: 1; }
+  #tournaments-table .tour-cell-actions { flex: 0 0 auto; order: 2; }
+
+  #tournaments-table .tour-cell-fact {
+    order: 3;
+    font-size: 13px;
+    color: var(--text-soft);
+  }
+
+  #tournaments-table .tour-cell-fact::before {
+    content: attr(data-label) " ";
+    font-weight: 500;
+  }
+
+  #tournaments-table .tour-cell-status { order: 4; flex: 1 1 100%; }
+
+  #tournaments-table tr.home-group-row,
+  #tournaments-table tr.home-group-row > td { display: block; }
+
+  #tournaments-table .home-group-member > td:first-child { padding-left: 0; }
+  #tournaments-table tr.tour-row.home-group-member { padding-left: 28px; }
+}
+
 /* The players page's header line: the count, the manual (?) and the grid's
    own instructions behind a button. A <details>, so it needs no script. */
 .players-subtitle { display: flex; align-items: center; flex-wrap: wrap; gap: 2px 4px; }
@@ -6918,6 +6966,12 @@ html.mq-onehand .mobile-result-btn { min-height: 56px; font-size: 18px; }
 .round-incidents a { font-weight: 650; }
 .incident-rounds { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 14px; }
 .incident-call td:first-child { box-shadow: inset 3px 0 0 var(--warn); }
+/* Handled: still on the list, no longer asking for anyone's attention. */
+.incident-handled td { color: var(--text-soft); }
+.incident-handled td img { opacity: 0.7; }
+.incident-actions { white-space: nowrap; text-align: right; }
+.incident-actions .pe-btn { gap: 4px; }
+.incident-actions .pe-btn.is-on { color: var(--success); border-color: var(--success); }
 
 /* Arbiter-side "enrol a phone" panel (desktop tournament view). */
 .enroll-panel { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
@@ -7945,6 +7999,29 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
 .conn-detail span + span::before {
   content: "·";
   margin: 0 6px;
+}
+
+/* The term behind a reason this version has no sentence for: one click
+   away for whoever reports it, out of the way for whoever is pairing. */
+.conn-raw {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-soft);
+}
+
+.conn-raw summary {
+  cursor: pointer;
+  width: fit-content;
+}
+
+.conn-raw code {
+  display: block;
+  margin-top: 4px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  background: rgba(127, 127, 127, 0.12);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 
 .conn-status.is-ok      { border-left-color: var(--success); }
@@ -9028,3 +9105,53 @@ select:not([multiple]):not([size]):disabled { cursor: not-allowed; opacity: 0.6;
 @media (prefers-reduced-motion: no-preference) {
   .explain[data-open] .explain-pop { animation: tset-in 0.15s ease-out; }
 }
+
+/* Badge editor: it saves as you type, so it says when it has. The tick is a
+   new element per save (keyed on a counter), which restarts the fade. */
+.badge-save-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.badge-save-state { font-size: 13px; min-height: 1.4em; }
+
+.badge-saved-tick {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--success);
+  animation: badge-saved-fade 2.4s ease-out forwards;
+}
+
+.badge-save-failed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--danger);
+}
+
+@keyframes badge-saved-fade {
+  0%   { opacity: 0; transform: translateY(2px); }
+  10%  { opacity: 1; transform: none; }
+  70%  { opacity: 1; }
+  100% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .badge-saved-tick { animation: none; }
+}
+
+/* A name edited where it stands (rating lists, categories): the field,
+   Rename and Cancel on one line, wrapping on a phone. */
+.inline-rename {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.inline-rename .pe-input { min-width: 10rem; flex: 1 1 12rem; }
+.inline-rename .error-note { flex-basis: 100%; margin: 0; }

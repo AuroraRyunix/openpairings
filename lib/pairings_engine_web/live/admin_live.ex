@@ -444,7 +444,12 @@ defmodule PairingsEngineWeb.AdminLive do
               </tr>
 
               <tr :for={entry <- @recent_activity}>
-                <td style="white-space: nowrap">{AuditLive.format_time(entry.inserted_at)}</td>
+                <td style="white-space: nowrap">
+                  <PairingsEngineWeb.Components.LocalTime.local_time
+                    id={"admin-audit-at-#{entry.id}"}
+                    at={entry.inserted_at}
+                  />
+                </td>
 
                 <td title={AuditLive.actor_title(entry)}>{AuditLive.actor(entry)}</td>
 
