@@ -55,9 +55,6 @@ config :phoenix_test,
   otp_app: :pairings_engine,
   playwright: [
     assets_dir: "e2e",
-    # Set on Windows, where the driver cannot be spawned directly: the browser
-    # runs in `npx playwright run-server` and the tests connect to it.
-    ws_endpoint: System.get_env("PLAYWRIGHT_WS_ENDPOINT"),
     browser_pools: [[id: :default_pool, size: 1]],
     timeout: to_timeout(second: 10),
     browser_launch_timeout: to_timeout(second: 30),
@@ -69,6 +66,14 @@ config :phoenix_test,
     # owner waits that long before taking the connection away.
     ecto_sandbox_stop_owner_delay: 100
   ]
+
+# On Windows, where Erlang cannot spawn Playwright's driver (a .js file), the
+# browser runs in `npx playwright run-server` and the tests connect to it.
+# Only when set, since the option refuses a nil; `config` merges it into the
+# list above.
+if ws_endpoint = System.get_env("PLAYWRIGHT_WS_ENDPOINT") do
+  config :phoenix_test, playwright: [ws_endpoint: ws_endpoint]
+end
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false
