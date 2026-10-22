@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.102.0] - 2026-10-22
+
 - [Fix] **Error pages are pages now, and a dead link says why it is dead.** A missing page or tournament used to answer with two words of plain text and nothing to click; it now says it does not exist, was deleted or is no longer yours, and offers the way back to Tournaments, as does the server-error page. Refusals in the print tabs (a round not paired yet, a preview nobody worked out) get the same treatment with a link back to Print documents, the old public links answer with the same page, and the rating inbox and backup downloads send a vanished file back to the page it came from with a sentence, not a line of text in an empty tab. Statuses are unchanged; only the dead end is gone.
 
 - [Fix] **A button for something that is already gone no longer crashes the page.** Handing off, returning, deleting, restoring or purging a tournament purged in another tab, a badge or badge event deleted elsewhere, and a restore point that vanished all said nothing useful, or said 404. They now say what happened and refresh the list. An invitation to a tournament its owner deleted is no longer listed, cannot be accepted, and its link says "This tournament was deleted by its owner." instead of crashing. Accepting or declining an invitation that is no longer valid says so; the wrong-account page offers to switch account; the invitation names the role it is for (an arbiter is told they get results on the phone, not full editing access); and declining asks first.
