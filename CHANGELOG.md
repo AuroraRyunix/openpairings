@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+## [0.103.0] - 2026-10-22
+
 - [Change] **The tournament format stops pretending it can change after round 1.** Once round 1 is paired, Swiss, round robin, individual or team is fixed: the select is disabled with a sentence saying why, there is no Unlock, and the server refuses the change from anywhere else too. The rounds already played were built for one shape, and no amount of reinterpretation turns a Swiss into a round robin after the fact. Start a new tournament.
 - [Change] **New points after round 1 come with a warning, not a padlock.** Outside FIDE mode the win, draw, loss and bye values can still be fixed after rounds are paired, because a club that typed 3-1-0 by mistake deserves a way out. Changing them now says, before the save, that every round already played is re-scored and the standings and anything published move with it.
 - [Change] **Round dates that run backwards are refused.** Settings, Dates no longer saves round 5 on the day before round 4; it names both rounds, in Dutch too. Two rounds on one Saturday are fine, a blank is not out of order, and an imported file keeps whatever schedule it arrived with.
