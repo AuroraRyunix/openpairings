@@ -96,7 +96,7 @@ defmodule PairingsEngine.RegistrationsTest do
       handler_id,
       [:pairings_engine, :repo, :query],
       fn _event, _measurements, metadata, _config ->
-        if self() == test_pid and String.contains?(metadata.query, "registrations") and
+        if self() == test_pid and String.contains?(metadata.query, "openresults_registrations") and
              broadcast_waiting?(tournament_id) do
           send(test_pid, {ref, metadata.query})
         end

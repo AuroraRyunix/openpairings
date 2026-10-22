@@ -969,6 +969,11 @@ defmodule PairingsEngine.Tournaments.Tournament do
     # what C.04.2 2.4 says, answered - either way. Not cast.
     field :late_entry_notice_dismissed, :boolean, default: false
 
+    # When entries were last fetched from the results site - by the Entries
+    # page's button or by the timer (`Registrations.pull/1`). Not cast, not
+    # exported: it is about this copy's conversation with one server.
+    field :registrations_checked_at, :utc_datetime
+
     # Native per-category Swiss pairing (SWAR-parity #24) - when true, each
     # category in `categories` (plus a catch-all "Uncategorized" pool for
     # blank/unlisted `player.category`) is paired completely independently:

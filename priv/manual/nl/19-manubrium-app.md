@@ -180,6 +180,8 @@ JPEG's van een redelijke grootte worden aangenomen. Foto's zijn nooit
 openbaar, en de telefoon van een arbiter kan er een versturen maar die van
 anderen niet openen.
 
+Aan het bureau heeft **Incidents** per incident **Markeer als afgehandeld**: het blijft op de lijst staan maar verliest zijn markering, en kan weer geopend worden. **Verwijderen** wist een incident met notitie en foto na een bevestiging; het logboek bewaart een regel dat het bestond.
+
 ## Instellingen vanaf de telefoon {#settings}
 
 **More**, **Settings**, **Change the mid-event settings**: het tempo, de

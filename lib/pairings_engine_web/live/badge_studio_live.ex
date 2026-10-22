@@ -130,6 +130,8 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         |> assign(:prev_id, if(index > 0, do: Enum.at(ids, index - 1)))
         |> assign(:next_id, Enum.at(ids, index + 1))
         |> assign(:position, {index + 1, length(ids)})
+        |> assign(:badge_saves, 0)
+        |> assign(:badge_save_failed?, false)
         |> assign_badge(badge)
     end
   end
@@ -153,6 +155,15 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
     socket
     |> assign(:badge, badge)
     |> assign(:badge_form, to_form(Badges.change_badge(badge)))
+  end
+
+  # The editor saves as you type and has no Save button, which is fine until
+  # somebody wonders whether it did. Each save bumps a counter; the tick is
+  # keyed on it, so it is a new element - and a fresh fade - every time.
+  defp mark_saved(socket) do
+    socket
+    |> assign(:badge_save_failed?, false)
+    |> update(:badge_saves, &(&1 + 1))
   end
 
   defp assign_event_form(socket, changeset, params) do
@@ -239,10 +250,13 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
   def handle_event("save_badge", %{"badge" => params}, socket) do
     case Badges.update_badge(socket.assigns.current_scope, socket.assigns.badge, params) do
       {:ok, badge} ->
-        {:noreply, assign_badge(socket, badge)}
+        {:noreply, socket |> assign_badge(badge) |> mark_saved()}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, :badge_form, to_form(Map.put(changeset, :action, :update)))}
+        {:noreply,
+         socket
+         |> assign(:badge_save_failed?, true)
+         |> assign(:badge_form, to_form(Map.put(changeset, :action, :update)))}
     end
   end
 
@@ -250,7 +264,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
     %{current_scope: scope, event: event, badge: badge} = socket.assigns
 
     case Badges.set_role(scope, event, badge, key) do
-      {:ok, badge} -> {:noreply, assign_badge(socket, badge)}
+      {:ok, badge} -> {:noreply, socket |> assign_badge(badge) |> mark_saved()}
       _ -> {:noreply, socket}
     end
   end
@@ -261,7 +275,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
     case Integer.parse(room) do
       {num, ""} ->
         {:ok, badge} = Badges.toggle_room(scope, event, badge, num)
-        {:noreply, assign_badge(socket, badge)}
+        {:noreply, socket |> assign_badge(badge) |> mark_saved()}
 
       _ ->
         {:noreply, socket}
@@ -280,7 +294,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
       end
 
     {:ok, badge} = Badges.set_room_access(scope, event, badge, rooms)
-    {:noreply, assign_badge(socket, badge)}
+    {:noreply, socket |> assign_badge(badge) |> mark_saved()}
   end
 
   def handle_event("clear_photo", _params, socket) do
@@ -933,7 +947,35 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         </div>
 
         <section class="card" aria-labelledby="badge-details-heading">
-          <h2 id="badge-details-heading">{gettext("Badge")}</h2>
+          <div class="badge-save-head">
+            <h2 id="badge-details-heading">{gettext("Badge")}</h2>
+
+            <span id="badge-save-state" class="badge-save-state" role="status" aria-live="polite">
+              <span
+                :if={@badge_save_failed?}
+                id="badge-save-failed"
+                class="badge-save-failed"
+              >
+                <.icon name="hero-exclamation-triangle" class="w-4 h-4" /> {gettext(
+                  "Not saved - see the field marked below."
+                )}
+              </span>
+
+              <span
+                :if={!@badge_save_failed? and @badge_saves > 0}
+                id={"badge-saved-#{@badge_saves}"}
+                class="badge-saved-tick"
+              >
+                <.icon name="hero-check-circle" class="w-4 h-4" /> {gettext("Saved")}
+              </span>
+            </span>
+          </div>
+
+          <p id="badge-autosave-hint" class="hint" style="margin-top: 0">
+            {gettext(
+              "Changes are saved as you type - there is no Save button. A tick appears beside the heading after each save."
+            )}
+          </p>
 
           <.form for={@badge_form} id="badge-form" phx-change="save_badge" phx-submit="save_badge">
             <div class="grid grid-cols-2 gap-x-3">

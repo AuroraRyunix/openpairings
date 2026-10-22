@@ -95,6 +95,7 @@ defmodule PairingsEngine.Registrations do
     with :ok <- ensure_available(tournament),
          {:ok, entries} <- fetch(tournament) do
       counts = store(tournament, entries)
+      mark_checked(tournament)
 
       # Something arrived: the Players page's queue should show it without a
       # reload, and the results site's count of places taken should include
@@ -104,6 +105,29 @@ defmodule PairingsEngine.Registrations do
 
       {:ok, counts}
     end
+  end
+
+  # Written straight to the row, not through a changeset: it is not a
+  # setting, so it must not make a restore point, an audit line or a
+  # broadcast that re-renders every open page for a timestamp.
+  defp mark_checked(%Tournament{id: id}) do
+    now = DateTime.utc_now() |> DateTime.truncate(:second)
+
+    Repo.update_all(from(t in Tournament, where: t.id == ^id),
+      set: [registrations_checked_at: now]
+    )
+
+    :ok
+  end
+
+  @doc """
+  When entries were last fetched for this tournament, or nil if never.
+  """
+  @spec last_checked(integer()) :: DateTime.t() | nil
+  def last_checked(tournament_id) do
+    Repo.one(
+      from t in Tournament, where: t.id == ^tournament_id, select: t.registrations_checked_at
+    )
   end
 
   @doc """

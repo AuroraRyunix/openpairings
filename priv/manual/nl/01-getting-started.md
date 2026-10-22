@@ -137,6 +137,10 @@ stoppen), `./openpairings.sh details --once` toont het één keer, om te plakken
 Open het programma. De eerste pagina is **Toernooien**: de lijst van je
 toernooien (aanvankelijk leeg), met *Nieuw toernooi* en de importknoppen.
 
+Op een scherm ter grootte van een telefoon wordt de lijst één kaart per toernooi,
+met de status op een eigen regel en het menu **Meer** in de hoek; op een breder
+scherm is het een tabel.
+
 De balk bovenaan elke pagina bevat:
 
 - **Toernooien** - de lijst van je toernooien. In een toernooi heet dit eerste

@@ -44,6 +44,7 @@ defmodule PairingsEngineWeb.AuditLive do
 
   alias PairingsEngine.{Audit, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
+  import PairingsEngineWeb.Components.LocalTime, only: [local_time: 1]
 
   @per_page 50
 
@@ -103,11 +104,12 @@ defmodule PairingsEngineWeb.AuditLive do
         team.roster_filled
         team.board_order_changed team.seeding_changed team.withdrawn team.reinstated
         team.absence_changed player.starting_numbers_set player.pairing_numbers_changed)},
-    {"pairings", ~w(pairing.round_paired pairing.result_entered pairing.result_changed
+    {"pairings",
+     ~w(pairing.round_paired pairing.result_entered pairing.result_changed
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.result_confirmed pairing.result_rejected
         pairing.tpn_order_accepted
-        pairing.chess960_drawn pairing.rounds_swapped pairing.results_imported pairing.players_swapped pairing.player_substituted
+        pairing.chess960_drawn pairing.chess960_redrawn pairing.rounds_swapped pairing.schedule_unpaired pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
@@ -118,19 +120,19 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
         pairing.postponed_not_played
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference
-        pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand
+        pairing.mpa_started pairing.mpa_finished pairing.mpa_discarded pairing.round_created_by_hand
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
         pairing.rating_correction pibe.correction
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
         pairing.announcement_compared pairing.announcement_acknowledged incident.logged
-        incident.photo_added incident.edited incident.deleted)},
+        incident.photo_added incident.edited incident.handled incident.reopened incident.deleted)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.late_entry_numbering_kept
         tournament.fide_compliance_lost
         logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed forbidden_pairing.changed
         pairing_rule.added pairing_rule.changed pairing_rule.removed
-        category.created category.removed category.rules_updated category.auto_assigned
+        category.created category.removed category.renamed category.rules_updated category.auto_assigned
         categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
         openresults.toggled openresults.listed openresults.display openresults.hall
         openresults.live_boards
@@ -865,6 +867,23 @@ defmodule PairingsEngineWeb.AuditLive do
         round: value(d, "round")
       )
 
+  def describe("pairing.chess960_redrawn", d),
+    do:
+      gettext(
+        "Drew the Chess960 position for round %{round} again: %{position}, in place of %{previous}.",
+        position: PairingsEngine.Chess960.label(%{chess960_position: d["position"]}),
+        previous: PairingsEngine.Chess960.label(%{chess960_position: d["previous"]}),
+        round: value(d, "round")
+      )
+
+  def describe("pairing.schedule_unpaired", d),
+    do:
+      ngettext(
+        "Unpaired the whole round-robin schedule: %{count} round.",
+        "Unpaired the whole round-robin schedule: %{count} rounds.",
+        count(d, "rounds")
+      )
+
   def describe("standings.lots_drawn", d),
     do:
       ngettext(
@@ -995,6 +1014,13 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("pairing.mpa_started", d),
     do: gettext("Started hand edits to round %{round}.", round: value(d, "round"))
+
+  def describe("pairing.mpa_discarded", d),
+    do:
+      gettext(
+        "Discarded the hand edits to round %{round}: its boards went back to how they were when the hand edits started.",
+        round: value(d, "round")
+      )
 
   def describe("pairing.mpa_finished", %{"pibe" => line} = d) when is_binary(line),
     do:
@@ -1521,6 +1547,22 @@ defmodule PairingsEngineWeb.AuditLive do
         kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
       )
 
+  def describe("incident.handled", d),
+    do:
+      gettext("Marked the incident on board %{board} (round %{round}) handled: %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+  def describe("incident.reopened", d),
+    do:
+      gettext("Opened the incident on board %{board} (round %{round}) again: %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
   # Before and after, both: the point of an amended report is that the
   # first version is still readable somewhere.
   def describe("incident.edited", d) do
@@ -1639,6 +1681,14 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("category.removed", d),
     do: gettext("Removed category %{name}.", name: name(d, "name"))
+
+  def describe("category.renamed", d),
+    do:
+      gettext("Renamed category %{from} to %{to} (%{count} players retagged).",
+        from: name(d, "from"),
+        to: name(d, "to"),
+        count: value(d, "players")
+      )
 
   # One save for the whole rules table, prize counts included; the row
   # records that it happened and nothing about what it said.
@@ -2900,7 +2950,8 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def actor_title(_entry), do: nil
 
-  @doc "Formats an audit row's `inserted_at` for display."
+  @doc "Formats an audit row's `inserted_at` for display (UTC, unlabelled - the
+  trail itself uses `LocalTime`)."
   def format_time(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%Y-%m-%d %H:%M")
   def format_time(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
   def format_time(other), do: to_string(other)
@@ -3057,7 +3108,9 @@ defmodule PairingsEngineWeb.AuditLive do
             </tr>
 
             <tr :for={entry <- @entries}>
-              <td style="white-space: nowrap">{format_time(entry.inserted_at)}</td>
+              <td style="white-space: nowrap">
+                <.local_time id={"audit-at-#{entry.id}"} at={entry.inserted_at} />
+              </td>
 
               <td title={actor_title(entry)}>{actor(entry)}</td>
 

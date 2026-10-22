@@ -34,7 +34,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token label
              computer guid swar trf json csv fide id elo keizer support deputy helper pibe
-             chess960 chess rnbqkbnr javafo ainalrami live incident team teams)
+             chess960 chess rnbqkbnr bbqnnrkr javafo ainalrami live incident team teams)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list
@@ -391,6 +391,8 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 4, "changed" => 3}
     ],
     "pairing.chess960_drawn" => [%{"round" => 2, "position" => 518}],
+    "pairing.chess960_redrawn" => [%{"round" => 2, "position" => 518, "previous" => 0}],
+    "pairing.schedule_unpaired" => [%{"rounds" => 7}, %{"rounds" => 1}],
     "pairing.rounds_swapped" => [%{"rounds" => [4, 5], "table_rounds" => [5, 4]}, %{}],
     "standings.lots_drawn" => [%{"players" => 3}, %{"players" => 1}],
     "pairing.results_imported" => [
@@ -415,6 +417,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "pairing.seat_filled" => [%{"round" => 3, "summary" => "Chris Maes joins board 7"}],
     "pairing.pool_paired" => [%{"round" => 3, "summary" => "Chris Maes  vs  Dirk Jacobs"}],
     "pairing.mpa_started" => [%{"round" => 3, "implicit" => true}, %{"round" => 3}],
+    "pairing.mpa_discarded" => [%{"round" => 3}],
     "pairing.mpa_finished" => [
       %{"round" => 3, "pibe" => "MPA @ Round 3: 1-4 2-3 => 1-3 2-4"},
       %{"round" => 3, "pibe" => nil}
@@ -561,6 +564,9 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "incident.photo_added" => [
       %{"kind" => "illegal_move", "round" => 3, "board" => 7, "via" => "mobile"}
     ],
+    "category.renamed" => [%{"from" => "U12", "to" => "U12 girls", "players" => 4}],
+    "incident.handled" => [%{"kind" => "illegal_move", "round" => 3, "board" => 7}],
+    "incident.reopened" => [%{"kind" => "illegal_move", "round" => 3, "board" => 7}],
     "incident.edited" => [
       %{
         "kind" => "time_added",

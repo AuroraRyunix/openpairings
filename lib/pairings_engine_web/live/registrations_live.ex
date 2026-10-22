@@ -48,7 +48,9 @@ defmodule PairingsEngineWeb.RegistrationsLive do
        tournament: tournament,
        page_title: "#{tournament.name} · " <> gettext("Entries"),
        configured?: Publishing.configured?(),
-       last_pull: nil,
+       # Stored per tournament now, so it survives the visit; the timer's
+       # pulls count too, because they are checks all the same.
+       last_pull: tournament.registrations_checked_at,
        error: nil,
        note: nil
      )
@@ -68,7 +70,10 @@ defmodule PairingsEngineWeb.RegistrationsLive do
          |> push_navigate(to: ~p"/")}
 
       tournament ->
-        {:noreply, socket |> assign(tournament: tournament) |> load_entries()}
+        {:noreply,
+         socket
+         |> assign(tournament: tournament, last_pull: tournament.registrations_checked_at)
+         |> load_entries()}
     end
   end
 
@@ -81,7 +86,7 @@ defmodule PairingsEngineWeb.RegistrationsLive do
          |> assign(
            error: nil,
            note: pull_note(new, total),
-           last_pull: DateTime.utc_now(),
+           last_pull: Registrations.last_checked(socket.assigns.tournament.id),
            queue_error: nil,
            queue_note: nil
          )
@@ -157,8 +162,6 @@ defmodule PairingsEngineWeb.RegistrationsLive do
   defp pull_note(new, _total),
     do: ngettext("1 new entry.", "%{count} new entries.", new)
 
-  defp received_label(at), do: RegistrationQueue.received_label(at)
-
   @impl true
   def render(assigns) do
     ~H"""
@@ -216,8 +219,17 @@ defmodule PairingsEngineWeb.RegistrationsLive do
             {gettext("Fetch entries")}
           </button>
 
-          <span :if={@last_pull} class="hint">
-            {gettext("Last checked")} {received_label(@last_pull)}
+          <span :if={@last_pull} id="registrations-last-checked" class="hint">
+            {gettext("Last checked")}
+            <PairingsEngineWeb.Components.LocalTime.local_time
+              id="registrations-last-checked-at"
+              at={@last_pull}
+              format="stamp"
+            />
+          </span>
+
+          <span :if={!@last_pull and @configured?} id="registrations-never-checked" class="hint">
+            {gettext("Not checked yet")}
           </span>
         </div>
 

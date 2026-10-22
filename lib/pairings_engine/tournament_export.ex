@@ -252,6 +252,9 @@ defmodule PairingsEngine.TournamentExport do
   #     (`PairingsEngine.BoardLink`). A credential for one box in one hall:
   #     a copy of the tournament on another machine has its own box, or
   #     none, and asks its own results site for its own key.
+  #   registrations_checked_at
+  #     When this copy last asked its results site for entries. A copy made
+  #     from the file has asked nobody yet.
   @excluded_tournament_fields ~w(
     id user_id inserted_at updated_at public_slug
     public_slug_minted_at public_slug_server public_slug_published_at
@@ -265,7 +268,7 @@ defmodule PairingsEngine.TournamentExport do
     openresults_relay_key openresults_removed_at
     handed_off_at handed_off_to handoff_token handoff_origin
     send_confirmation_needed
-    tpn_order_accepted late_entry_notice_dismissed
+    tpn_order_accepted late_entry_notice_dismissed registrations_checked_at
   )a
 
   @doc false

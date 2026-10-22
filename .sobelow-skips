@@ -39,7 +39,9 @@ Traversal.FileModule: Directory Traversal in `File.open`,lib/pairings_engine/lau
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:442,2DF6CFB
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:464,37ED976
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:468,2930CAD
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:482,678110F
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:490,3CCB344
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/badge_studio_live.ex:504,7D5407D
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2208,2E7C41
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2237,38323F6
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2262,78F7AC1
@@ -47,6 +49,7 @@ Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_we
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2327,4A85E8A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2341,F8A94D
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2413,3346FAD
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2573,4BD8B5F
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:348,C49B3A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:356,6FE4E90
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:364,1A8F14A
@@ -69,6 +72,7 @@ Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/tou
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine/tournament_import.ex:158,3760BC5
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/controllers/theme_pack_controller.ex:47,15D3458
 Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/live/rating_lists_live.ex:65,378EBED
+Traversal.FileModule: Directory Traversal in `File.read`,lib/pairings_engine_web/live/rating_lists_live.ex:68,355750C
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:183,15829FF
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:204,383CDC0
 Traversal.FileModule: Directory Traversal in `File.rm`,lib/pairings_engine/backup.ex:276,4F910B4
@@ -119,6 +123,7 @@ XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6698,63EFC74
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6707,149F43E
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6777,4F4D46B
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6875,2451F6F
+XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:7050,4D70812
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:916,111B9F9
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:928,7D98D70
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:929,539CCD1

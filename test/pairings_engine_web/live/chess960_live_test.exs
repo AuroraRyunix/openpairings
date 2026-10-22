@@ -62,8 +62,8 @@ defmodule PairingsEngineWeb.Chess960LiveTest do
 
     assert has_element?(lv, "#draw-chess960")
     refute has_element?(lv, "#chess960-position")
-    # Once drawn it stays drawn, so the button asks first.
-    assert has_element?(lv, ~s(#draw-chess960[data-confirm*="cannot be drawn again"]))
+    # Drawn again only while the round has no results, so the button asks first.
+    assert has_element?(lv, ~s(#draw-chess960[data-confirm*="drawn again only while"]))
 
     lv |> element("#draw-chess960") |> render_click()
 

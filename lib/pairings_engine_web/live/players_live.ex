@@ -436,6 +436,50 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp close_edit_if_gone(socket, _tournament), do: socket
 
+  # Players whose rating, birth year or federation looks off, for the notice
+  # above the grid. Warn-only: `PairingsEngine.PlayerWarnings`.
+  defp data_warnings(entries) do
+    for entry <- entries,
+        found = PairingsEngine.PlayerWarnings.check(entry.player),
+        found != [],
+        do: {entry.player, found}
+  end
+
+  defp warning_text(:rating),
+    do: gettext("a rating outside 0-3000")
+
+  defp warning_text(:birth_year),
+    do: gettext("a birth year before 1900 or in the future")
+
+  defp warning_text(:federation),
+    do: gettext("a federation that is not a three-letter code")
+
+  defp warning_sentence(found),
+    do: found |> Enum.map(&warning_text/1) |> Enum.join(", ")
+
+  attr :id, :string, required: true
+  attr :data, :map, required: true
+
+  # The same notice inside the add and edit forms, live as the values change.
+  defp data_warning_note(assigns) do
+    assigns = assign(assigns, :found, PairingsEngine.PlayerWarnings.check(assigns.data))
+
+    ~H"""
+    <p
+      :if={@found != []}
+      id={@id}
+      class="pe-modal-warn"
+      role="note"
+      style="grid-column: 1 / -1; margin: 0"
+    >
+      <strong>{gettext("Check this:")}</strong> {gettext(
+        "this has %{what}. It is kept as typed - nothing is refused.",
+        what: warning_sentence(@found)
+      )}
+    </p>
+    """
+  end
+
   defp assign_players(socket) do
     tournament = socket.assigns.tournament
 
@@ -452,6 +496,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     socket
     |> assign(:players, entries)
     |> assign(:player_total, length(all_entries))
+    |> assign(:data_warnings, data_warnings(all_entries))
     |> assign(
       :starting_numbers_editable?,
       StartingNumbers.editable?(tournament) and Tournaments.ensure_writable(tournament) == :ok
@@ -2044,6 +2089,21 @@ defmodule PairingsEngineWeb.PlayersLive do
   # for why a raw "F" in the form is a sex that silently disappears.
   defp normalize_fide_sex(s), do: Player.normalize_sex(s)
 
+  defp add_note_with_warnings(note, player) do
+    case PairingsEngine.PlayerWarnings.check(player) do
+      [] ->
+        note
+
+      found ->
+        note <>
+          " " <>
+          gettext("Check %{name}: %{what}. Kept as typed.",
+            name: player.name,
+            what: warning_sentence(found)
+          )
+    end
+  end
+
   defp do_save(socket, params) do
     # The add and its audit row: `DeskActions.create_player/3`, which the
     # phone app's late entry goes through too.
@@ -2058,9 +2118,12 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> assign(
            error: nil,
            add_note:
-             gettext("Added %{name} (#%{n}).",
-               name: player.name,
-               n: player.pairing_number || "-"
+             add_note_with_warnings(
+               gettext("Added %{name} (#%{n}).",
+                 name: player.name,
+                 n: player.pairing_number || "-"
+               ),
+               player
              ),
            form_values: %{},
            confirm_sex: false,
@@ -3289,6 +3352,24 @@ defmodule PairingsEngineWeb.PlayersLive do
         </ul>
       </div>
 
+      <details :if={@data_warnings != []} id="players-data-warnings" class="players-data-warnings">
+        <summary>
+          {ngettext(
+            "%{count} player has data worth a second look",
+            "%{count} players have data worth a second look",
+            length(@data_warnings)
+          )}
+        </summary>
+        <ul>
+          <li :for={{player, found} <- @data_warnings} id={"players-data-warning-#{player.id}"}>
+            <strong>{player.name}</strong>: {warning_sentence(found)}
+          </li>
+        </ul>
+        <p class="hint">
+          {gettext("Nothing is refused or changed; imports keep these values too.")}
+        </p>
+      </details>
+
       <form :if={@adding} id="add-player-form" class="card" phx-submit="save">
         <h2>{gettext("Add player")}</h2>
 
@@ -3485,6 +3566,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>{gettext("Birth year")}</span>
             <input type="number" name="player[birth_year]" value={@form_values["birth_year"]} />
           </label>
+          <.data_warning_note id="add-player-data-warning" data={@form_values} />
 
           <label class="field">
             <span>{gettext("Club")}</span> <input name="player[club]" value={@form_values["club"]} />
@@ -5110,6 +5192,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             <span>{gettext("Birth year")}</span>
             <input type="number" name="player[birth_year]" value={@form["birth_year"]} />
           </label>
+          <.data_warning_note id="edit-player-data-warning" data={@form} />
 
           <div class="field">
             <span>Sex</span>

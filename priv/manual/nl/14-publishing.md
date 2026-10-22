@@ -102,3 +102,5 @@ Pagina **Paringen**, **Meer**, **Lokale weergave** (de pagina `/t/:id/live` van 
 Een wijziging wordt enkele seconden nadat je ze maakt verstuurd; het label in de bovenbalk zegt intussen *Bezig met versturen*. Als er voor toeschouwers niets veranderd is (een dialoogvenster bevestigd terwijl er niets te doen was, een resultaat ingevoerd en meteen teruggenomen), wordt er niets verstuurd en blijft het label zoals het was. **Opnieuw proberen**, publiceren uit- en weer aanzetten, en het programma opnieuw starten versturen altijd.
 
 Wat niet aankomt, wordt bewaard en opnieuw geprobeerd met steeds langere pauzes; de status van de verbinding wordt getoond als een klein label in de bovenbalk, en de pagina zegt wat er mis is. De openbare pagina haalt de zaal in wanneer de verbinding terug is.
+
+Weet het programma voor een fout geen woorden, dan zegt het label dat in een gewone zin en houdt het de ruwe fout achter **Technische details**, voor wie het moet melden.

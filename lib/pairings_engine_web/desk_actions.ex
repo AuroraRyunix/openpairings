@@ -789,9 +789,11 @@ defmodule PairingsEngineWeb.DeskActions do
       acknowledged: Enum.filter(acknowledged, &(&1 in [:sent_round_changed, :second_half_bye]))
     ]
 
+    opening = before_hand_edits(t, scope, round)
+
     case staged.apply.(ack) do
       {:ok, _} = ok ->
-        implicit_mpa_start(t, scope, round)
+        implicit_mpa_start(t, scope, round, opening)
 
         details =
           %{round: round.number, summary: staged.summary}
@@ -820,11 +822,36 @@ defmodule PairingsEngineWeb.DeskActions do
     end
   end
 
+  @doc """
+  What opening a round's hand edits needs before the first edit lands: a
+  restore point, and the round as it stands for "Discard hand edits"
+  (`ManualPairing.restore_record/1`). `:open` when a session is already
+  open on `round` - nothing to take - or the record, possibly nil, for
+  `ManualPairing.start/3`.
+
+  Taken before the edit is applied, so both remember the round without it;
+  an edit then refused leaves a restore point of the round as it was, which
+  is the one thing a restore point is allowed to be.
+  """
+  def before_hand_edits(%Tournament{} = t, scope, round) do
+    if ManualPairing.open?(round) do
+      :open
+    else
+      Snapshots.capture(t, "pairing.mpa_started", scope,
+        summary: "Before hand edits to round #{round.number}"
+      )
+
+      ManualPairing.restore_record(round)
+    end
+  end
+
   # The first hand edit of a round opens its manual pairing alteration, from
   # the boards as they were before it (Q65) - `PairingsLive`'s own rule.
-  defp implicit_mpa_start(t, scope, round) do
+  defp implicit_mpa_start(_t, _scope, _round, :open), do: :ok
+
+  defp implicit_mpa_start(t, scope, round, record) do
     if not ManualPairing.open?(round) do
-      case ManualPairing.start(round, ManualPairing.boards(round)) do
+      case ManualPairing.start(round, ManualPairing.boards(round), record) do
         {:ok, true} ->
           Audit.log(t.id, scope, "pairing.mpa_started", %{round: round.number, implicit: true})
 
@@ -834,6 +861,23 @@ defmodule PairingsEngineWeb.DeskActions do
     end
 
     :ok
+  end
+
+  @doc """
+  "Discard hand edits": `round` back as its open hand edits found it,
+  boards and byes, and the session closed (`ManualPairing.discard/2`),
+  audited as `pairing.mpa_discarded` with `extra` merged into the details.
+  The Pairings page's button and the phones' route both come here.
+
+  `{:ok, round}` or `{:error, reason}`: what `ManualPairing.discard/2`
+  refuses (`:no_session`, `:no_way_back`, `:has_results`, `:stale`,
+  `:archived`, `:handed_off`).
+  """
+  def discard_hand_edits(%Tournament{} = t, scope, %Round{} = round, extra \\ %{}) do
+    with {:ok, round} <- ManualPairing.discard(round) do
+      Audit.log(t.id, scope, "pairing.mpa_discarded", Map.merge(%{round: round.number}, extra))
+      {:ok, round}
+    end
   end
 
   @doc """

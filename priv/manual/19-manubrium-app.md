@@ -172,6 +172,10 @@ earlier (**More**, **Incidents**, **Add photo**) and look at one
 are taken. Photos are never public, and an arbiter's phone can send one but
 not open anyone's.
 
+On the desk, **Incidents** has **Mark handled** for each incident: it stays on the list but
+loses its highlight, and can be opened again. **Remove** deletes an incident with its
+note and photo after a confirmation; the audit trail keeps a line saying it existed.
+
 ## Settings from the phone {#settings}
 
 **More**, **Settings**, **Change the mid-event settings**: the time

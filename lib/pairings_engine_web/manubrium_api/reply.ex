@@ -187,6 +187,27 @@ defmodule PairingsEngineWeb.ManubriumApi.Reply do
   def describe(:no_hand_edits),
     do: {409, "no_hand_edits", gettext("This round has no hand edits open.")}
 
+  def describe(:no_way_back),
+    do:
+      {409, "no_way_back",
+       gettext(
+         "These hand edits began on a round that already had results, so there is nothing to go back to. Change the boards by hand, or use the restore point at the desk."
+       )}
+
+  def describe(:has_results),
+    do:
+      {409, "has_results",
+       gettext(
+         "A result was entered in this round since the hand edits began, so they can no longer be discarded. Change the boards by hand."
+       )}
+
+  def describe(:stale),
+    do:
+      {409, "stale",
+       gettext(
+         "A player the round would go back to is no longer in the tournament. Change the boards by hand."
+       )}
+
   def describe(:not_in_round),
     do: {422, "not_in_round", gettext("That player or board is not in this round.")}
 

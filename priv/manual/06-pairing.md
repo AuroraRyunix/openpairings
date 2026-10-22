@@ -37,7 +37,8 @@ Everything else is in **More**, at the end of the bar, in groups:
 - **Views**: **Local view**, **Phone QR** (a large dialog with the QR codes for a
   phone to scan) and, for a published tournament,
   **Public page**;
-- **Danger zone**: **Unpair round**, on the last paired round only.
+- **Danger zone**: **Unpair round**, on the last paired round only, and in
+  a round robin with no result anywhere yet, **Unpair the whole schedule**.
 
 Before a round is paired, More holds the views (and *Swap rounds…*). It works
 from the keyboard: the arrow keys move through it, <kbd>Escape</kbd> closes
@@ -392,10 +393,15 @@ If **Chess960** is ticked on the Tournament settings page, the Pairings page
 shows, for a paired round, the button **Draw Chess960 position**. It draws one
 of the 960 starting positions at random (each is equally likely), shows its
 number and the pieces of the first rank, and prints it with the round's
-pairings. A round gets one position: the draw cannot be repeated until a
-position pleases, and a second attempt is refused - which is why the button
-asks *Draw the Chess960 position for round N now?* first. The draw is written
-to the audit trail.
+pairings. The button asks *Draw the Chess960 position for round N now?*
+first, and the draw is written to the audit trail.
+
+While the round has no result yet - the wrong round drawn for, a draw made
+before the boards were set up - **Draw position again** beside the position
+draws a new one, after a confirmation that names the position it replaces.
+The audit trail records both, so drawing until one pleases is possible but
+happens in front of witnesses. Once a game of the round has a result (or a
+postponement, or a date played) the button is gone and the position stands.
 
 ## Changing a pairing by hand
 
@@ -414,7 +420,11 @@ name. The program calls it a
   or implicitly with the first hand edit of the round. While it is open, a
   banner says *Hand edits to round N are open*, reminds you how to make one
   (right-click, or tap on a touch screen, a player on a board or in the
-  not-playing list) and carries the button **Finish hand edits**.
+  not-playing list) and carries the buttons **Discard hand edits** and
+  **Finish hand edits**.
+- Opening a session takes a restore point of the round as it was, which you
+  find under **Advanced**, **History**
+  ([Restore points](11-categories-and-norms.md#history-restore-points)).
 - Hand edits are made with the **Hand edits** menu: right-click a player (or
   press the context-menu key) on the Pairings page. The menu offers,
   according to what you clicked:
@@ -437,6 +447,12 @@ one player left does wait, until that player has a bye or an opponent.
 - The session **ends** only when you press **Finish hand edits**. The next
   round cannot be paired while a session is open, so the check below cannot
   be skipped by moving on.
+- **Discard hand edits** changes your mind instead: after a confirmation,
+  the boards and the not-playing list go back to how they were when the
+  session opened, and the session ends without the check below. It is
+  offered only while no game of the round has a result; after that, change
+  the boards by hand again or go back to the restore point. The audit trail
+  records the discard.
 
 Every edit first shows a confirmation with the boards before and after,
 which you accept or cancel (<kbd>Escape</kbd> cancels). While an edit is half-made, a
@@ -550,6 +566,14 @@ the same way, and are judged the same.
 
 In a Swiss match format the two rounds of a match go together. A round that
 has been sent to the rating office cannot be unpaired.
+
+A round robin paired too early - the field changed, the wrong players were
+in it - does not have to be unpaired one round at a time from the last.
+While no game in the schedule has a result, **More**, **Unpair the whole
+schedule** deletes every paired round, with its boards and byes, after a
+confirmation and a restore point. The players keep their pairing numbers;
+pair the schedule again when the field is right. The audit trail records
+how many rounds went.
 
 Unpairing round 1 of an individual Swiss - so that no round is left - also
 takes back the pairing numbers that round gave. The next round 1 numbers
