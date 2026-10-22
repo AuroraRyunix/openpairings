@@ -82,7 +82,6 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
     ~H"""
     <div class={["conn-status", "is-#{@tone}", @compact && "is-compact"]}>
       <span class="conn-dot" aria-hidden="true"></span>
-
       <div class="conn-body">
         <p class="conn-line">
           <strong>{headline(@status)}</strong>
@@ -94,7 +93,6 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
               headline above it now come from the same place. --%>
         <p :if={not @compact} class="conn-detail">{detail(@status)}</p>
         <.raw_reason :if={not @compact} reason={@status[:reason]} id_prefix="conn" />
-
         <p class="conn-detail conn-facts">
           <span :if={@status.endpoint}>{host(@status.endpoint)}</span>
           <span :if={@status.pending > 0}>
@@ -104,6 +102,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
               @status.pending
             )}
           </span>
+
           <%!-- One phrase, not two. The size used to be bolted on as its own
                 span, which read "last sent just now · 82.0 KB last sent" -
                 the same words twice in one line. A snapshot is the whole
@@ -114,6 +113,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
           <span :if={@status.pending == 0 and @status.last_published_at}>
             {sent_line(@status)}
           </span>
+
           <span :if={@status.pending == 0 and is_nil(@status.last_published_at)}>
             {gettext("nothing sent from this machine yet")}
           </span>
@@ -188,8 +188,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
       </summary>
 
       <div class="topbar-menu-panel pub-panel">
-        <.connection_status status={@status} />
-        <.stability_line />
+        <.connection_status status={@status} /> <.stability_line />
       </div>
     </details>
     """
@@ -229,6 +228,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
             ms: @window.worst_ms
           )}
         </span>
+
         <span :if={@window.last_failure_at} class="conn-drop">
           {gettext("last drop %{ago}", ago: ago(@window.last_failure_at))}
         </span>

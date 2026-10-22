@@ -949,6 +949,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         <section class="card" aria-labelledby="badge-details-heading">
           <div class="badge-save-head">
             <h2 id="badge-details-heading">{gettext("Badge")}</h2>
+
             <span id="badge-save-state" class="badge-save-state" role="status" aria-live="polite">
               <span
                 :if={@badge_save_failed?}
@@ -959,6 +960,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                   "Not saved - see the field marked below."
                 )}
               </span>
+
               <span
                 :if={!@badge_save_failed? and @badge_saves > 0}
                 id={"badge-saved-#{@badge_saves}"}
@@ -968,6 +970,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
               </span>
             </span>
           </div>
+
           <p id="badge-autosave-hint" class="hint" style="margin-top: 0">
             {gettext(
               "Changes are saved as you type - there is no Save button. A tick appears beside the heading after each save."

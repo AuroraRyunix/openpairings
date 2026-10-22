@@ -162,8 +162,6 @@ defmodule PairingsEngineWeb.RegistrationsLive do
   defp pull_note(new, _total),
     do: ngettext("1 new entry.", "%{count} new entries.", new)
 
-  defp received_label(at), do: RegistrationQueue.received_label(at)
-
   @impl true
   def render(assigns) do
     ~H"""
@@ -222,8 +220,14 @@ defmodule PairingsEngineWeb.RegistrationsLive do
           </button>
 
           <span :if={@last_pull} id="registrations-last-checked" class="hint">
-            {gettext("Last checked")} {received_label(@last_pull)}
+            {gettext("Last checked")}
+            <PairingsEngineWeb.Components.LocalTime.local_time
+              id="registrations-last-checked-at"
+              at={@last_pull}
+              format="stamp"
+            />
           </span>
+
           <span :if={!@last_pull and @configured?} id="registrations-never-checked" class="hint">
             {gettext("Not checked yet")}
           </span>

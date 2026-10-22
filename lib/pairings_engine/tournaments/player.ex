@@ -287,7 +287,8 @@ defmodule PairingsEngine.Tournaments.Player do
     |> normalize_period_ratings()
     |> sync_special_table()
     |> validate_fide_id_range()
-    |> validate_number(:tournament_rating, greater_than_or_equal_to: 0, less_than: 10_000)
+    # No bound on the tournament rating, or on any rating, birth year or
+    # federation: `PlayerWarnings` flags the odd ones and nothing is refused.
     |> unique_fide_id_in_tournament()
   end
 

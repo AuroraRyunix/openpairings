@@ -131,7 +131,7 @@ defmodule PairingsEngineWeb.AuditLive do
         logo.uploaded logo.cleared
         forbidden_pairing.added forbidden_pairing.removed forbidden_pairing.changed
         pairing_rule.added pairing_rule.changed pairing_rule.removed
-        category.created category.removed category.rules_updated category.auto_assigned
+        category.created category.removed category.renamed category.rules_updated category.auto_assigned
         categories.toggled pair_by_category.toggled categories_ranked_separately.toggled
         openresults.toggled openresults.listed openresults.display openresults.hall
         openresults.live_boards
@@ -1608,6 +1608,14 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("category.removed", d),
     do: gettext("Removed category %{name}.", name: name(d, "name"))
+
+  def describe("category.renamed", d),
+    do:
+      gettext("Renamed category %{from} to %{to} (%{count} players retagged).",
+        from: name(d, "from"),
+        to: name(d, "to"),
+        count: value(d, "players")
+      )
 
   # One save for the whole rules table, prize counts included; the row
   # records that it happened and nothing about what it said.

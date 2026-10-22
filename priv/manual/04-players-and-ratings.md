@@ -57,6 +57,10 @@ list with the same name is replaced. Only an administrator loads lists on a
 server. The lists are shared by every tournament on the machine, turn up when
 a player is added, and can be put in a tournament's rating-list sequence.
 
+**Renaming a list.** **Rename** beside a list changes its name and nothing else:
+the rating-list sequence and every tournament that reads the list keep reading
+it, because they hold its number, not its name.
+
 **The rating-list sequence.** Settings, **FIDE**, section *Rating lists*, sets
 the lists a player's rating is taken from when the player is added or the
 ratings are refreshed, in order: FIDE Standard, FIDE Rapid, FIDE Blitz,
@@ -124,6 +128,10 @@ the **Pr.** cell, the keyboard) is behind the information button next to the
 number of players. It is closed until you press it.
 
 ### Adding a player
+
+A rating below 0 or above 3000, a birth year before 1900 or in the future and a
+federation that is not a three-letter code get a warning in the form and in a
+list above the grid. Nothing is refused, and imports keep such values too.
 
 Press **Add player**. The form first offers a search box:
 
@@ -344,6 +352,10 @@ are open, players can register themselves on the results site. The page
 **Entries from the results site** lists them; **Fetch entries** checks for new
 ones, and each entry is accepted (it becomes a player) or discarded. An
 accepted entry can be put back.
+
+*Last checked* beside the button is stored per tournament, so it is still there
+when you come back to the page; it also counts the checks the program makes by
+itself.
 
 > [!NOTE]
 > The entry form itself is configured on the OpenResults settings page.

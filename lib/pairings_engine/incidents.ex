@@ -280,17 +280,17 @@ defmodule PairingsEngine.Incidents do
   def set_handled(tournament_id, incident_id, handled?, scope) do
     with :ok <- Tournaments.ensure_writable(tournament_id),
          %Incident{} = incident <- get(tournament_id, incident_id) || {:error, :not_found} do
-        at = if handled?, do: DateTime.utc_now() |> DateTime.truncate(:second)
-        updated = Repo.update!(Ecto.Changeset.change(incident, handled_at: at))
+      at = if handled?, do: DateTime.utc_now() |> DateTime.truncate(:second)
+      updated = Repo.update!(Ecto.Changeset.change(incident, handled_at: at))
 
-        # Two literal calls rather than one with a computed action: the
-        # audit page's tests read the codes straight off the source.
-        if handled?,
-          do: Audit.log(tournament_id, scope, "incident.handled", summary(incident)),
-          else: Audit.log(tournament_id, scope, "incident.reopened", summary(incident))
+      # Two literal calls rather than one with a computed action: the
+      # audit page's tests read the codes straight off the source.
+      if handled?,
+        do: Audit.log(tournament_id, scope, "incident.handled", summary(incident)),
+        else: Audit.log(tournament_id, scope, "incident.reopened", summary(incident))
 
-        announce(tournament_id, incident.round_number)
-        {:ok, updated}
+      announce(tournament_id, incident.round_number)
+      {:ok, updated}
     end
   end
 
@@ -304,22 +304,22 @@ defmodule PairingsEngine.Incidents do
   def delete(tournament_id, incident_id, scope) do
     with :ok <- Tournaments.ensure_writable(tournament_id),
          %Incident{} = incident <- get(tournament_id, incident_id) || {:error, :not_found} do
-        Repo.delete!(incident)
+      Repo.delete!(incident)
 
-        Audit.log(
-          tournament_id,
-          scope,
-          "incident.deleted",
-          Map.merge(summary(incident), %{
-            note: incident.note,
-            white: incident.white_name,
-            black: incident.black_name,
-            photo: incident.has_photo
-          })
-        )
+      Audit.log(
+        tournament_id,
+        scope,
+        "incident.deleted",
+        Map.merge(summary(incident), %{
+          note: incident.note,
+          white: incident.white_name,
+          black: incident.black_name,
+          photo: incident.has_photo
+        })
+      )
 
-        announce(tournament_id, incident.round_number)
-        {:ok, incident}
+      announce(tournament_id, incident.round_number)
+      {:ok, incident}
     end
   end
 

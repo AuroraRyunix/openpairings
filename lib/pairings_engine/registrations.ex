@@ -112,7 +112,11 @@ defmodule PairingsEngine.Registrations do
   # broadcast that re-renders every open page for a timestamp.
   defp mark_checked(%Tournament{id: id}) do
     now = DateTime.utc_now() |> DateTime.truncate(:second)
-    Repo.update_all(from(t in Tournament, where: t.id == ^id), set: [registrations_checked_at: now])
+
+    Repo.update_all(from(t in Tournament, where: t.id == ^id),
+      set: [registrations_checked_at: now]
+    )
+
     :ok
   end
 

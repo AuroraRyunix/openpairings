@@ -288,11 +288,11 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
       status = Publishing.status()
 
       assert {"refused", "Refused by the results site",
-              "Could not confirm the connection (403 some_future_code)."} =
+              "Could not confirm the connection, for a reason this version has no words for yet. Results are kept and sent once it clears."} =
                card(status, "en")
 
       assert {"refused", "Geweigerd door de uitslagensite",
-              "Kon de verbinding niet bevestigen (403 some_future_code)."} =
+              "De verbinding kon niet worden bevestigd, om een reden waar deze versie nog geen woorden voor heeft. Resultaten blijven bewaard en worden verstuurd zodra het weer lukt."} =
                card(status, "nl")
     end
   end
@@ -340,8 +340,8 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
           {:timeout, "The connection timed out.", "De verbinding kreeg een time-out."},
           {:closed, "The connection was closed.", "De verbinding werd verbroken."},
           {:nxdomain, "The address did not resolve.", "Het adres werd niet gevonden."},
-          {:ehostunreach, "Could not connect (:ehostunreach).",
-           "Kon geen verbinding maken (:ehostunreach)."}
+          {:ehostunreach, "Could not connect to the results site.",
+           "Kon geen verbinding maken met de resultatensite."}
         ] do
       @reason reason
       @en en
@@ -378,7 +378,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatusTest do
     status = %{arrange(:token_rejected) | reason: {:refused, :something_new}}
 
     assert {"refused", "Refused by the results site",
-            "Could not confirm the connection (:something_new)."} =
+            "Could not confirm the connection, for a reason this version has no words for yet. Results are kept and sent once it clears."} =
              card(status, "en")
   end
 

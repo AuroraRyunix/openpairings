@@ -1119,6 +1119,7 @@ defmodule PairingsEngineWeb.FideLive do
                   {gettext("On, but not answering: see a tournament's Settings, Live boards")}
               <% end %>
             </span>
+
             <button
               :if={@board_lan.enabled?}
               type="button"
@@ -1311,12 +1312,12 @@ defmodule PairingsEngineWeb.FideLive do
               <strong style="color: var(--danger)">{describe_check(@publish_test)}</strong>
           <% end %>
         </p>
+
         <.raw_reason
           :if={match?({:error, _}, @publish_test)}
           reason={elem(@publish_test, 1)}
           id_prefix="publish-test"
         />
-
         <p :if={not @publish_configured?} class="hint" style="margin-top: 12px">
           {gettext("Nothing is published until both an address and a token are set.")}
         </p>

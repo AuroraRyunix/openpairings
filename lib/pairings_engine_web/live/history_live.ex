@@ -881,8 +881,7 @@ defmodule PairingsEngineWeb.HistoryLive do
               class="hist-change-time"
               at={change.at}
               format="time"
-            />
-            <span class="hist-change-tag">{change.kind}</span>
+            /> <span class="hist-change-tag">{change.kind}</span>
             <span class="hist-change-who">{change.who}</span>
           </div>
 

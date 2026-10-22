@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
   import PairingsEngineWeb.SettingsSupport
 
-  alias PairingsEngine.{Audit, CategoryRules, Snapshots, Tournaments}
+  alias PairingsEngine.{Audit, CategoryRename, CategoryRules, Snapshots, Tournaments}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -21,6 +21,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
        rules_note: nil,
        form_nonce: 0,
        category_error: nil,
+       renaming_category: nil,
+       rename_form: to_form(%{"name" => ""}, as: :rename),
+       rename_error: nil,
        assign_note: nil,
        toggle_error: nil,
        category_confirm: nil,
@@ -347,6 +350,71 @@ defmodule PairingsEngineWeb.CategoriesLive do
           {:error, message} ->
             {:noreply, assign(socket, category_error: message)}
         end
+    end
+  end
+
+  def handle_event("rename_category_start", %{"name" => name}, socket) do
+    if name in (socket.assigns.tournament.categories || []) do
+      {:noreply,
+       assign(socket,
+         renaming_category: name,
+         rename_form: to_form(%{"name" => name}, as: :rename),
+         rename_error: nil
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("rename_category_cancel", _params, socket),
+    do: {:noreply, assign(socket, renaming_category: nil, rename_error: nil)}
+
+  # Rewrites the name in the list, the rules, the prize counts and every
+  # player's tags after a pinned restore point (`CategoryRename`).
+  def handle_event("rename_category_save", %{"rename" => %{"name" => name}}, socket) do
+    old = socket.assigns.renaming_category
+
+    result =
+      if old,
+        do:
+          CategoryRename.rename(
+            socket.assigns.tournament,
+            old,
+            name,
+            socket.assigns.current_scope
+          )
+
+    case result do
+      {:ok, tournament, players} ->
+        new = String.trim(name)
+
+        Audit.log(tournament.id, socket.assigns.current_scope, "category.renamed", %{
+          from: old,
+          to: new,
+          players: players
+        })
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           gettext("Renamed category %{from} to %{to}. A restore point was saved first.",
+             from: old,
+             to: new
+           )
+         )
+         |> assign(tournament: tournament, renaming_category: nil, rename_error: nil)
+         |> assign_rules_editor()}
+
+      nil ->
+        {:noreply, socket}
+
+      {:error, reason} ->
+        {:noreply,
+         assign(socket,
+           rename_error: rename_error(reason),
+           rename_form: to_form(%{"name" => name}, as: :rename)
+         )}
     end
   end
 
@@ -708,6 +776,17 @@ defmodule PairingsEngineWeb.CategoriesLive do
     end
   end
 
+  defp rename_error(:blank), do: gettext("Enter a category name")
+  defp rename_error(:too_long), do: gettext("The name is longer than 80 characters.")
+  defp rename_error(:unchanged), do: gettext("That is already its name.")
+  defp rename_error(:taken), do: gettext("That category already exists")
+  defp rename_error(:not_found), do: gettext("That category no longer exists.")
+
+  defp rename_error(:no_restore_point),
+    do: gettext("The restore point could not be saved, so nothing was renamed.")
+
+  defp rename_error(other), do: error_text(other)
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -1037,6 +1116,15 @@ defmodule PairingsEngineWeb.CategoriesLive do
                       <td style="text-align: right">
                         <button
                           type="button"
+                          id={"rename-category-#{idx}"}
+                          class="pe-btn"
+                          phx-click="rename_category_start"
+                          phx-value-name={c}
+                        >
+                          {gettext("Rename")}
+                        </button>
+                        <button
+                          type="button"
                           class="pe-btn danger-link"
                           phx-click="remove_category"
                           phx-value-name={c}
@@ -1059,6 +1147,39 @@ defmodule PairingsEngineWeb.CategoriesLive do
                   <span :if={@rules_note} id="rules-saved-note" class="ok-note">{@rules_note}</span>
                 </div>
               </form>
+
+              <.form
+                :if={@renaming_category}
+                for={@rename_form}
+                id="rename-category-form"
+                class="inline-rename"
+                phx-submit="rename_category_save"
+              >
+                <input
+                  type="text"
+                  name={@rename_form[:name].name}
+                  id="rename-category-name"
+                  value={@rename_form[:name].value}
+                  maxlength="80"
+                  class="pe-input"
+                  aria-label={gettext("New name for category %{name}", name: @renaming_category)}
+                  phx-mounted={JS.focus()}
+                />
+                <button type="submit" class="pe-btn primary" id="rename-category-save">
+                  {gettext("Rename")}
+                </button>
+                <button type="button" class="pe-btn" phx-click="rename_category_cancel">
+                  {gettext("Cancel")}
+                </button>
+                <p :if={@rename_error} id="rename-category-error" class="error-note" role="alert">
+                  {@rename_error}
+                </p>
+                <p class="hint" style="flex-basis: 100%; margin: 0">
+                  {gettext(
+                    "Rules, prize counts and every player's tags move with the name. A restore point is saved first."
+                  )}
+                </p>
+              </.form>
             </div>
 
             <p :if={@tournament.categories == []} class="hint" style="margin-bottom: 0">

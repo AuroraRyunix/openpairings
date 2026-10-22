@@ -3864,6 +3864,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                           {ngettext("%{count} tournament", "%{count} tournaments", length(group.rows))}
                         </span>
                       </button>
+
                       <%!-- A youth championship is five tournaments and one
                             event; closing it took five trips through five
                             menus. Only the members this list shows are

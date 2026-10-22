@@ -138,6 +138,7 @@ defmodule PairingsEngineWeb.IncidentsLive do
       <div class="page-header">
         <div>
           <h1>{gettext("Incidents")}</h1>
+
           <p class="subtitle" style="margin: 0">
             {gettext(
               "Logged at the boards from phones (Manubrium). Times are the phone's clock when it was plausible."
@@ -153,6 +154,7 @@ defmodule PairingsEngineWeb.IncidentsLive do
         >
           {gettext("All rounds")}
         </.link>
+
         <.link
           :for={{n, count} <- Enum.sort(@counts)}
           id={"incident-round-#{n}"}
@@ -177,16 +179,25 @@ defmodule PairingsEngineWeb.IncidentsLive do
           <thead>
             <tr>
               <th>{gettext("Time")}</th>
+
               <th class="num">{gettext("Round")}</th>
+
               <th class="num">{gettext("Board")}</th>
+
               <th>{gettext("What")}</th>
+
               <th>{gettext("Players")}</th>
+
               <th>{gettext("Note")}</th>
+
               <th>{gettext("Photo")}</th>
+
               <th>{gettext("From")}</th>
+
               <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
+
           <tbody>
             <tr
               :for={i <- @incidents}
@@ -199,16 +210,22 @@ defmodule PairingsEngineWeb.IncidentsLive do
               <td>
                 <.local_time id={"incident-at-#{i.id}"} at={i.occurred_at} format="stamp" />
               </td>
+
               <td class="num">{i.round_number}</td>
+
               <td class="num">{i.board}</td>
+
               <td><strong>{Manubrium.kind_label(i.kind)}</strong></td>
+
               <td>
                 {player_name(i.white_player, i.white_name)} - {player_name(
                   i.black_player,
                   i.black_name
                 )}
               </td>
+
               <td style="white-space: normal; min-width: 12rem;">{i.note}</td>
+
               <td>
                 <a
                   :if={i.has_photo}
@@ -226,7 +243,9 @@ defmodule PairingsEngineWeb.IncidentsLive do
                   />
                 </a>
               </td>
+
               <td class="hint">{source(i)}</td>
+
               <td class="incident-actions">
                 <button
                   type="button"
@@ -240,9 +259,9 @@ defmodule PairingsEngineWeb.IncidentsLive do
                   <.icon
                     name={if i.handled_at, do: "hero-check-circle-solid", else: "hero-check-circle"}
                     class="w-4 h-4"
-                  />
-                  {if i.handled_at, do: gettext("Handled"), else: gettext("Mark handled")}
+                  /> {if i.handled_at, do: gettext("Handled"), else: gettext("Mark handled")}
                 </button>
+
                 <button
                   type="button"
                   id={"incident-delete-#{i.id}"}

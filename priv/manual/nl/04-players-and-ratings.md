@@ -61,6 +61,10 @@ een beheerder lijsten. De lijsten worden door elk toernooi op de machine gedeeld
 verschijnen wanneer een speler wordt toegevoegd, en kunnen in de
 ratinglijstvolgorde van een toernooi worden opgenomen.
 
+**Een lijst hernoemen.** **Hernoemen** naast een lijst wijzigt de naam en niets anders:
+de ratinglijstvolgorde en elk toernooi dat de lijst gebruikt blijven hem gebruiken,
+want ze houden het nummer bij, niet de naam.
+
 **De volgorde van de ratinglijsten.** Instellingen, **FIDE**, sectie *Ratinglijsten*,
 bepaalt de lijsten waaruit de rating van een speler wordt gehaald wanneer de
 speler wordt toegevoegd of de ratings worden vernieuwd, in volgorde: FIDE
@@ -130,6 +134,10 @@ Spelerskaart, de cel **Pr.**, het toetsenbord) staat achter de
 informatieknop naast het aantal spelers. Hij is dicht tot je erop drukt.
 
 ### Een speler toevoegen {#adding-a-player}
+
+Een rating onder 0 of boven 3000, een geboortejaar voor 1900 of in de toekomst en een
+federatie die geen code van drie letters is, krijgen een waarschuwing in het formulier en in
+een lijst boven het rooster. Er wordt niets geweigerd, en imports behouden zulke waarden ook.
 
 Druk op **Speler toevoegen**. Het formulier biedt eerst een zoekvak aan:
 
@@ -365,6 +373,8 @@ inschrijven. De pagina **Inschrijvingen van de uitslagensite** toont ze;
 **Inschrijvingen ophalen** controleert op nieuwe, en elke inschrijving wordt
 geaccepteerd (ze wordt een speler) of verwijderd. Een geaccepteerde inschrijving
 kan worden teruggezet.
+
+*Laatst gecontroleerd* naast de knop wordt per toernooi bewaard en staat er dus nog als je terugkomt; ook de controles die het programma zelf doet tellen mee.
 
 > [!NOTE]
 > Het inschrijfformulier zelf wordt ingesteld op de instellingenpagina van
