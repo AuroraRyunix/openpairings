@@ -14,20 +14,18 @@ de lijst opent niet). Typ daarna
 - <kbd>2</kbd> voor een remise (½-½),
 - <kbd>3</kbd> voor een overwinning voor zwart (0-1).
 
-Het resultaat wordt opgeslagen en de focus gaat naar het volgende bord, zodat
+Het resultaat wordt bewaard en de focus gaat naar het volgende bord, zodat
 <kbd>1</kbd><kbd>3</kbd><kbd>1</kbd><kbd>3</kbd><kbd>1</kbd><kbd>2</kbd>
 zes borden invult zonder de muis aan te raken. De cijfers worden gelezen op basis
 van de fysieke toets, dus de bovenste rij en het numerieke toetsenblok werken
 allebei, op elke toetsenbordindeling. De pijltjestoetsen lopen door de andere
-waarden heen zonder elke waarde onderweg op te slaan; een tweede klik op het veld
+waarden heen zonder elke waarde onderweg te bewaren; een tweede klik op het veld
 opent de lijst, voor de resultaten die geen cijfer hebben.
-
-![De resultatenkolom van een ronde, met de resultatenlijst open bij één bord](screenshots/07-result-entry.png "Resultaten invoeren op de pagina Paringen")
 
 ### Met de muis of een telefoon {#with-the-mouse-or-a-phone}
 
 Kies het resultaat uit de lijst. Op een telefoon of een smal scherm heeft elk bord
-ook drie grote knoppen, 1-0, ½-½ en 0-1; de knop van het opgeslagen resultaat is
+ook drie grote knoppen, 1-0, ½-½ en 0-1; de knop van het bewaarde resultaat is
 ingedrukt. Druk je op de ingedrukte knop nogmaals, dan verandert er niets.
 
 ### De resultaten in de lijst {#the-results-in-the-list}
@@ -52,7 +50,7 @@ maar niet gerate is, is een gespeelde partij die FIDE niet rate.
 Het kiezen van de lege waarde op een bord dat al een resultaat heeft, wist het niet
 meteen: een vakje vraagt *Het geregistreerde resultaat wissen?* en je bevestigt met
 **Ja, wis het**, of annuleert. Een resultaat wijzigen in een ander resultaat wordt
-meteen opgeslagen en in het auditlogboek vastgelegd, met de oude en de nieuwe
+meteen bewaard en in het auditlogboek vastgelegd, met de oude en de nieuwe
 waarde.
 
 Een resultaat in een ronde die al naar het ratingkantoor is **verstuurd**, wordt
@@ -66,7 +64,7 @@ pas na een bevestiging gewijzigd.
 Wanneer twee arbiters aan dezelfde ronde werken, wordt een resultaat geweigerd als de
 spelers aan het bord niet meer degenen zijn die je pagina toonde - een collega heeft
 een speler gewisseld of vervangen nadat je pagina was opgebouwd. De melding is *Niet
-opgeslagen: dit bord is gewijzigd*; er wordt niets weggeschreven. Laad de pagina
+bewaard: dit bord is gewijzigd*; er wordt niets weggeschreven. Laad de pagina
 opnieuw en voer het resultaat in op het bord zoals het nu is. Een telefoon die voor
 resultaten wordt gebruikt, zegt hetzelfde voor zijn bord. Twee arbiters die een
 verschillend resultaat invoeren op hetzelfde, ongewijzigde bord worden niet geweigerd:
@@ -100,7 +98,7 @@ het nummer dat op het paringsblad staat. Geaccepteerde resultaatwoorden: `1-0`,
 `*B`. Borden die niet worden genoemd, behouden hun resultaat.
 
 > [!NOTE]
-> **Er wordt niets opgeslagen tenzij elke regel geldig is**: de pagina somt elk
+> **Er wordt niets bewaard tenzij elke regel geldig is**: de pagina somt elk
 > probleem op (maximaal 50) en je corrigeert het bestand en verstuurt het opnieuw.
 
 ## Resultaten via telefoons {#results-from-phones}
@@ -194,7 +192,7 @@ werken als de wifi in de zaal wegvalt, zolang je de pagina openlaat:
   Een resultaat dat aan de tafel van de arbiter werd ingevoerd, wordt nooit
   overschreven door een telefoon die onbereikbaar was.
 - Hetzelfde resultaat twee keer versturen (een verloren antwoord, een
-  herlaadbeurt) slaat het maar één keer op.
+  herlaadbeurt) bewaart het maar één keer.
 - Een resultaat wissen, het slot, de rondekeuze en **Meer** hebben een
   verbinding nodig.
 - **Verlaten** op een telefoon waar nog resultaten wachten, vraagt eerst
@@ -237,7 +235,7 @@ schema niet van de scores afhangt. Daar staat de schakelaar aan en kun je hem ni
 uitzetten.
 Op dezelfde pagina stel je in wat een uitgestelde partij telt tot ze is gespeeld,
 voor de speler die haar heeft uitgesteld en voor de tegenstander: standaard een
-remise voor beiden. De waarde wordt bij elke partij opgeslagen wanneer ze wordt
+remise voor beiden. De waarde wordt bij elke partij bewaard wanneer ze wordt
 uitgesteld, dus een latere wijziging van de instelling raakt alleen nieuwe
 uitgestelde partijen.
 
@@ -255,7 +253,7 @@ eerdere ronde nog open is, vraagt om een bevestiging die de spelers noemt: zij
 worden op een voorlopige score gepaard.
 
 **Borden zonder uitslag, in een round robin.** Een round robin paart
-alle ronden vooraf, dus een partij die niet gespeeld wordt, blijft vaak gewoon
+alle rondes vooraf, dus een partij die niet gespeeld wordt, blijft vaak gewoon
 zonder uitslag staan. Zodra een *latere* ronde al haar uitslagen heeft, telt zo'n
 bord als een uitgestelde partij waar niemand om vroeg: beide spelers krijgen in de
 stand en de tiebreaks wat de instelling aan de tegenstander geeft (standaard een
@@ -266,7 +264,7 @@ kunt de ronde pas versturen als ze er een heeft. Een partij die vooraf gespeeld 
 in een latere ronde, maakt die ronde niet volledig; de hele ronde moet binnen zijn.
 Wil je dat de stand dezelfde avond al doorloopt, zet het bord dan zelf op
 *uitgesteld door wit* of *uitgesteld door zwart*. Zwitserse, Keizer- en
-ploegentoernooien doen dit niet: daar kun je sowieso niet verder paren met een leeg
+teamtoernooien doen dit niet: daar kun je sowieso niet verder paren met een leeg
 bord.
 
 **Openstaande partijen.** De pagina Paringen toont de openstaande uitgestelde
@@ -284,7 +282,7 @@ gedownload.
 
 **Overal waar de stand verschijnt.** Zolang een partij open is, zeggen de stand, de
 afdrukken en de publiek gepubliceerde stand dat ze *niet definitief* zijn, markeren
-ze de speler of ploeg met *1 pending* (1 in behandeling), en blijft het toernooi
+ze de speler of team met *1 pending* (1 in behandeling), en blijft het toernooi
 lopen. Een ronde met een open uitgestelde partij, of met alleen nog de borden uit
 een round robin hierboven zonder uitslag, houdt de gepubliceerde stand niet
 tegen: die loopt door tot de laatste zulke ronde en zegt hoeveel partijen nog
@@ -294,7 +292,7 @@ wel tegen, zoals altijd. Het archiveren van het toernooi meldt hoeveel partijen 
 
 **Verslaglegging.** In de FIDE-modus is er geen TRF die de ronde van een
 uitgestelde partij zonder resultaat bevat, en geen eindstand: Instellingen,
-Exporteren toont de openstaande partijen. Een bestand met alleen de ronden
+Exporteren toont de openstaande partijen. Een bestand met alleen de rondes
 ervoor wordt nog wel gemaakt, en OpenResults blijft de stand tonen, gemarkeerd
 als niet definitief. Voer het resultaat in, of druk naast de partij op **Niet
 gespeeld in dit toernooi**. Die tweede weg vraagt het twee keer (ze haalt het

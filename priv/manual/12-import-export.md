@@ -106,8 +106,6 @@ follows the choice of the file:
   **Import anyway**; otherwise it reads **Import**. **Cancel** imports
   nothing.
 
-![The TRF import review with the heading about rounds that break the FIDE pairing rules and the Import anyway button](screenshots/12-trf-import-review.png "The review step of a TRF import")
-
 A confirmed import creates the tournament with the rounds exactly as the file
 records them. What the import adjusted and every rule it found broken are kept
 with the tournament and in its audit log. For each such round the TRF copies of

@@ -123,8 +123,6 @@ How to use the grid (double-click to edit, right-click for the Players Card,
 the **Pr.** cell, the keyboard) is behind the information button next to the
 number of players. It is closed until you press it.
 
-![The Players page with the player grid and the buttons above it](screenshots/04-players-grid.png "The Players page")
-
 ### Adding a player
 
 Press **Add player**. The form first offers a search box:
@@ -140,8 +138,6 @@ Press **Add player**. The form first offers a search box:
   put in the federation field. A member the FIDE list does not know is
   added with the federation blank, to be typed if it matters.
 - Or fill the details in by hand below the search box.
-
-![The Add player form with the search box and the search results](screenshots/04-add-player-form.png "Adding a player")
 
 The form fields: full name (required), title, FIDE rating, national ID,
 national rating, federation, birth year, sex (M or F), club, and further down the fixed

@@ -68,7 +68,7 @@ niets waard, wat **Punten voor een overgeslagen ronde** op de pagina Opties ook 
 die instelling hoort bij de Zwitserse telling, en Keizer betaalt een afwezigheid
 volgens zijn eigen regel, op de ladder.
 
-### Ronden en paringen {#rounds-and-pairings}
+### Rondes en paringen {#rounds-and-pairings}
 
 Elke gepubliceerde ronde heeft een eigen pagina, met de paringen en, wanneer de
 arbiter dat toestaat, de resultaten naarmate ze binnenkomen. Een uitgesteld
@@ -81,7 +81,7 @@ arbiter, ronde per ronde: zie
 ### De kruistabel {#the-cross-table}
 
 De kruistabel heeft een rij per speler en een kolom per ronde. Bij een
-ploegen-Zwitsers staat er ook een tabel met een rij per ploeg. Ze verschijnt
+teams-Zwitsers staat er ook een tabel met een rij per team. Ze verschijnt
 alleen voor de rondes die de openbare stand al weerspiegelt, zodat ze nooit
 vooruitloopt op de stand.
 
@@ -93,12 +93,12 @@ geschiedenispagina, gezocht op FIDE-id, en die is vanaf de kaart bereikbaar
 wanneer er een id is. Ratings, titels, federaties en clubs staan alleen op de
 kaart wanneer de arbiter ze toont.
 
-### Ploegen {#teams}
+### Teams {#teams}
 
-Een ploegentoernooi heeft een lijst van ploegen, een pagina per ploeg met de
-wedstrijden, en een pagina per ronde met de ploegwedstrijden. Ploegen worden met
-hun volledige naam getoond. Wanneer OpenPairings een ploegrating meestuurt, staat
-die in de ploeglijst in een kolom *Rating*.
+Een teamtoernooi heeft een lijst van teams, een pagina per team met de
+wedstrijden, en een pagina per ronde met de teamwedstrijden. Teams worden met
+hun volledige naam getoond. Wanneer OpenPairings een teamrating meestuurt, staat
+die in de teamlijst in een kolom *Rating*.
 
 ### Het zaalscherm en de beamerweergave {#the-hall-display-and-the-projector-view}
 
