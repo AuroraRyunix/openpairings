@@ -87,6 +87,10 @@ defmodule PairingsEngine.QuotasTest do
   describe "the import allowance" do
     test "counts per account per hour, and refuses past it", %{scope: scope} do
       key = Integer.to_string(scope.user.id)
+      # The bucket lives in ETS, outside the sandbox, and SQLite hands a
+      # rolled-back id to the next user: an earlier test's imports can be
+      # sitting in "our" bucket. Start from nothing.
+      RateLimit.clear(:tournament_import, key)
       on_exit(fn -> RateLimit.clear(:tournament_import, key) end)
 
       for _ <- 1..20, do: assert(:ok = Quotas.check_import(scope))
