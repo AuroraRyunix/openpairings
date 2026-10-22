@@ -98,7 +98,7 @@ defmodule PairingsEngine.ResultsImportTest do
 
     test "results are case-insensitive" do
       assert ResultsImport.parse_text("1,ff\n") ==
-               {:error, ["line 1: unrecognized result \"ff\""]}
+               {:error, [{:unrecognized_result, 1, "ff"}]}
 
       assert ResultsImport.parse_text("1,x\n") == {:ok, [{1, "0-0"}]}
     end
@@ -120,19 +120,17 @@ defmodule PairingsEngine.ResultsImportTest do
       csv = "1,1-0\nnope\n3,huh\n"
       assert {:error, errors} = ResultsImport.parse_text(csv)
       assert length(errors) == 2
-      assert Enum.any?(errors, &(&1 =~ "line 2"))
-      assert Enum.any?(errors, &(&1 =~ "line 3"))
+      assert {:bad_line, 2, "nope"} in errors
+      assert {:unrecognized_result, 3, "huh"} in errors
     end
 
     test "duplicate boards are rejected" do
       csv = "1,1-0\n1,0-1\n"
-      assert {:error, [error]} = ResultsImport.parse_text(csv)
-      assert error =~ "board 1"
-      assert error =~ "more than once"
+      assert {:error, [{:duplicate_board, 1, "1, 2"}]} = ResultsImport.parse_text(csv)
     end
 
     test "empty file is an error" do
-      assert {:error, ["The file is empty"]} = ResultsImport.parse_text("")
+      assert {:error, [:empty_file]} = ResultsImport.parse_text("")
     end
 
     # `Integer.parse/1` builds a bignum out of whatever digits it is given.
@@ -143,8 +141,7 @@ defmodule PairingsEngine.ResultsImportTest do
     test "a board number no board could have is an error, not a raise" do
       csv = "Board;Result\n" <> String.duplicate("9", 1_300_000) <> ";1-0\n"
 
-      assert {:error, [reason]} = ResultsImport.parse_text(csv)
-      assert String.starts_with?(reason, "line 1: invalid board number")
+      assert {:error, [{:invalid_board_number, 1, _text}]} = ResultsImport.parse_text(csv)
     end
 
     # Same input in the position the header check reads: a first field that
@@ -234,7 +231,7 @@ defmodule PairingsEngine.ResultsImportTest do
       assert {:error, errors} =
                ResultsImport.apply_import(tournament, 1, [{1, "1-0"}, {99, "0-1"}])
 
-      assert Enum.any?(errors, &(&1 =~ "board 99"))
+      assert {:no_such_board, 99, 1} in errors
 
       assert Repo.reload!(p1).result == ""
       assert Repo.reload!(p2).result == ""
@@ -247,8 +244,7 @@ defmodule PairingsEngine.ResultsImportTest do
       assert {:error, errors} =
                ResultsImport.apply_import(tournament, 1, [{1, "1-0"}, {3, "0-1"}])
 
-      assert Enum.any?(errors, &(&1 =~ "board 3"))
-      assert Enum.any?(errors, &(&1 =~ "bye"))
+      assert {:bye_board, 3} in errors
 
       assert Repo.reload!(p1).result == ""
     end
@@ -257,8 +253,8 @@ defmodule PairingsEngine.ResultsImportTest do
       scope = user_scope_fixture()
       {tournament, _} = fixture(scope)
 
-      assert {:error, [error]} = ResultsImport.apply_import(tournament, 2, [{1, "1-0"}])
-      assert error =~ "Round 2"
+      assert {:error, [{:round_not_paired, 2}]} =
+               ResultsImport.apply_import(tournament, 2, [{1, "1-0"}])
     end
   end
 end

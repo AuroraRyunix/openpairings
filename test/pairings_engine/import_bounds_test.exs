@@ -138,8 +138,7 @@ defmodule PairingsEngine.ImportBoundsTest do
     test "is refused with a single message" do
       text = Enum.map_join(1..10_001, "\n", fn i -> "#{i},1-0" end)
 
-      assert {:error, [message]} = ResultsImport.parse_text(text)
-      assert message =~ "10001 lines"
+      assert {:error, [{:too_many_lines, 10_001, 10_000}]} = ResultsImport.parse_text(text)
     end
 
     test "but a CSV covering a whole round of a very large open still parses" do
@@ -160,7 +159,7 @@ defmodule PairingsEngine.ImportBoundsTest do
 
       # 50 problems plus the one line that says how many were left out.
       assert length(errors) == 51
-      assert List.last(errors) =~ "and 4950 more"
+      assert List.last(errors) == {:more_problems, 4950}
     end
 
     test "but a handful of mistakes is still listed in full" do
@@ -168,7 +167,7 @@ defmodule PairingsEngine.ImportBoundsTest do
 
       assert {:error, errors} = ResultsImport.parse_text(text)
       assert length(errors) == 2
-      refute Enum.any?(errors, &(&1 =~ "more problem"))
+      refute Enum.any?(errors, &match?({:more_problems, _}, &1))
     end
   end
 
