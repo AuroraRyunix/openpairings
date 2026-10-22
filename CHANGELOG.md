@@ -17,6 +17,8 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Feature] **An incident logged from the phone can be put right from the phone.** The Manubrium app's API takes `PATCH /incidents/:id` (a new type, a new note, or both) and `DELETE /incidents/:id` (the photo goes with it). Whoever may log an incident may amend or delete one, and only for a type their phone code may log, so a code that can only call the arbiter cannot rewrite an illegal-move report through the back door. Both land in the audit trail under the account: the amendment with what it said before, the deletion with the note it took along. The report is corrected; the history of it having been wrong stays. The contract gains the request and the 204 and stays `manubrium-v1`: nothing that was there changed.
+
 ## [0.102.0] - 2026-10-22
 
 - [Fix] **Error pages are pages now, and a dead link says why it is dead.** A missing page or tournament used to answer with two words of plain text and nothing to click; it now says it does not exist, was deleted or is no longer yours, and offers the way back to Tournaments, as does the server-error page. Refusals in the print tabs (a round not paired yet, a preview nobody worked out) get the same treatment with a link back to Print documents, the old public links answer with the same page, and the rating inbox and backup downloads send a vanished file back to the page it came from with a sentence, not a line of text in an empty tab. Statuses are unchanged; only the dead end is gone.

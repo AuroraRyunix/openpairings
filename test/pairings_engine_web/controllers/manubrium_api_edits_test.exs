@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.ManubriumApiEditsTest do
   The Manubrium app's second batch of routes (docs/manubrium.md, "Full
   app"): hand edits to a paired round and finishing them, the settings an
   arbiter changes mid-event, the arbiter's word on a Lite phone's result,
-  and an incident's photo.
+  and an incident after it was logged: its photo, amending it, deleting it.
   """
   use PairingsEngineWeb.ConnCase, async: false
 
@@ -698,6 +698,166 @@ defmodule PairingsEngineWeb.ManubriumApiEditsTest do
                |> phone(stranger)
                |> get(@api <> "/tournaments/#{t.id}/incidents/#{i.id}/photo")
                |> json_response(404)
+    end
+  end
+
+  ## ---------- amending and deleting incidents ----------
+
+  describe "amending and deleting an incident" do
+    test "amend the kind and the note; the audit row keeps both versions", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = paired(owner)
+      i = incident(conn, token, t)
+      url = @api <> "/tournaments/#{t.id}/incidents/#{i.id}"
+
+      body =
+        conn
+        |> phone(token)
+        |> patch(url, %{"kind" => "time_added", "note" => "  Two minutes to Black "})
+        |> json_response(200)
+
+      assert body["incident"]["kind"] == "time_added"
+      assert body["incident"]["note"] == "Two minutes to Black"
+
+      # Only the note: the kind stays.
+      body = conn |> phone(token) |> patch(url, %{"note" => ""}) |> json_response(200)
+      assert body["incident"]["kind"] == "time_added"
+      assert body["incident"]["note"] == ""
+
+      [latest, first | _] =
+        t.id |> Audit.list_for_tournament() |> Enum.filter(&(&1.action == "incident.edited"))
+
+      assert first.details["changed_fields"] == %{
+               "kind" => ["clock", "time_added"],
+               "note" => ["Flag fell", "Two minutes to Black"]
+             }
+
+      assert latest.details["changed_fields"] == %{"note" => ["Two minutes to Black", ""]}
+      assert first.details["board"] == i.board
+
+      # Nothing changed: nothing written.
+      conn |> phone(token) |> patch(url, %{"note" => ""}) |> json_response(200)
+
+      assert t.id |> Audit.list_for_tournament() |> Enum.count(&(&1.action == "incident.edited")) ==
+               2
+    end
+
+    test "a wrong kind, a long note, an unknown incident", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = paired(owner)
+      i = incident(conn, token, t)
+      url = @api <> "/tournaments/#{t.id}/incidents/#{i.id}"
+
+      assert %{"error" => "unknown_kind"} =
+               conn |> phone(token) |> patch(url, %{"kind" => "tantrum"}) |> json_response(422)
+
+      long = String.duplicate("x", Incidents.note_max() + 1)
+
+      assert %{"error" => "note_too_long"} =
+               conn |> phone(token) |> patch(url, %{"note" => long}) |> json_response(422)
+
+      assert %{"error" => "not_found"} =
+               conn
+               |> phone(token)
+               |> patch(@api <> "/tournaments/#{t.id}/incidents/999999", %{"note" => "x"})
+               |> json_response(404)
+
+      assert %{"error" => "not_found"} =
+               conn
+               |> phone(token)
+               |> delete(@api <> "/tournaments/#{t.id}/incidents/999999")
+               |> json_response(404)
+
+      assert Incidents.get(t.id, i.id).note == "Flag fell"
+    end
+
+    test "delete takes the photo with it and leaves an audit row", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = paired(owner)
+      i = incident(conn, token, t, %{"photo" => Base.encode64(@jpeg)})
+
+      assert conn
+             |> phone(token)
+             |> delete(@api <> "/tournaments/#{t.id}/incidents/#{i.id}")
+             |> response(204) == ""
+
+      refute Incidents.get(t.id, i.id)
+      refute Incidents.get_photo(t.id, i.id)
+
+      assert [row] =
+               t.id
+               |> Audit.list_for_tournament()
+               |> Enum.filter(&(&1.action == "incident.deleted"))
+
+      assert row.details["note"] == "Flag fell"
+      assert row.details["photo"] == true
+    end
+
+    test "an arbiter may, as for logging one; a stranger may not", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = paired(owner)
+      i = incident(conn, token, t)
+      arbiter = token(enlist(owner, t, "arbiter"))
+      url = @api <> "/tournaments/#{t.id}/incidents/#{i.id}"
+
+      assert %{"incident" => %{"note" => "Both flags down"}} =
+               conn
+               |> phone(arbiter)
+               |> patch(url, %{"note" => "Both flags down"})
+               |> json_response(200)
+
+      stranger = token(user_scope_fixture())
+
+      assert %{"error" => "tournament_not_found"} =
+               conn |> phone(stranger) |> delete(url) |> json_response(404)
+
+      assert conn |> phone(arbiter) |> delete(url) |> response(204) == ""
+    end
+
+    test "a code that may only call the arbiter changes nothing else", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = paired(owner)
+      i = incident(conn, token, t)
+      url = @api <> "/tournaments/#{t.id}/incidents/#{i.id}"
+
+      # Account-bound codes are deputies; this one is demoted by hand, to
+      # see the level rule hold where logging holds it.
+      Repo.update_all(Mobile.Enrollment, set: [level: "helper"])
+
+      assert %{"error" => "kind_not_allowed"} =
+               conn |> phone(token) |> patch(url, %{"note" => "x"}) |> json_response(422)
+
+      assert %{"error" => "kind_not_allowed"} =
+               conn |> phone(token) |> delete(url) |> json_response(422)
+
+      assert Incidents.get(t.id, i.id)
+    end
+
+    test "an archived tournament keeps its incidents", %{conn: conn, owner: owner, token: token} do
+      t = paired(owner)
+      i = incident(conn, token, t)
+      {:ok, _} = Tournaments.archive_tournament(t)
+
+      assert %{"error" => "archived"} =
+               conn
+               |> phone(token)
+               |> delete(@api <> "/tournaments/#{t.id}/incidents/#{i.id}")
+               |> json_response(409)
     end
   end
 end

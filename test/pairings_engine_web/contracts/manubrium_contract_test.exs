@@ -32,6 +32,7 @@ defmodule PairingsEngineWeb.ManubriumContractTest do
     edit-request.json
     expected-request.json
     finish-edits-request.json
+    incident-update-request.json
     pair-request.json
     photo-request.json
     player-create-request.from-fide.json
@@ -345,6 +346,26 @@ defmodule PairingsEngineWeb.ManubriumContractTest do
 
       incidents = conn |> phone(token) |> get(base <> "/incidents?round=1") |> json_response(200)
       record_example(@contract, "incidents-response", incidents)
+
+      amended =
+        conn
+        |> phone(token)
+        |> patch(base <> "/incidents/#{incident_id}", request("incident-update-request.json"))
+        |> json_response(200)
+
+      assert_valid!(@contract, "incident-response.schema.json", amended)
+      assert amended["incident"]["kind"] == "time_added"
+
+      deleted = conn |> phone(token) |> delete(base <> "/incidents/#{incident_id}")
+      record_example(@contract, "incident-delete-response", no_content(deleted))
+
+      gone =
+        conn
+        |> phone(token)
+        |> patch(base <> "/incidents/#{incident_id}", %{"note" => "again"})
+        |> json_response(404)
+
+      assert_valid!(@contract, "error.schema.json", gone)
 
       settings =
         conn
