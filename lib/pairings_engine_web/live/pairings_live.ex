@@ -1,6 +1,8 @@
 defmodule PairingsEngineWeb.PairingsLive do
   use PairingsEngineWeb, :live_view
 
+  require Logger
+
   alias PairingsEngineWeb.ByePreferenceText
   alias PairingsEngineWeb.LateEntryNotice
   alias PairingsEngineWeb.PublicLink
@@ -326,7 +328,7 @@ defmodule PairingsEngineWeb.PairingsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -416,6 +418,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     missing_setup = Tournament.missing_setup_fields(t)
     setup_complete = missing_setup == []
     round = Tournaments.get_round(t.id, n)
+    had_round? = socket.assigns[:round] != nil
 
     socket =
       assign(socket,
@@ -444,6 +447,11 @@ defmodule PairingsEngineWeb.PairingsLive do
         # occurrence - which is why this was easy to miss.
         absent_counts: Standings.absent_counts(t),
         paired_rounds: paired,
+        # Whether unpairing the last round would also take back the pairing
+        # numbers (`Engine.numbers_cleared_by_unpairing/2`) - asked only
+        # when there is one round (or one match) left to unpair.
+        unpair_clears_numbers?:
+          paired in [1, 2] and Engine.numbers_cleared_by_unpairing(t.id, paired) > 0,
         # A round whose next round is over: a result found wrong now is
         # corrected for the rating report only (C.04.2:4.3, VCL4THP Q192).
         rating_fix_open?: round != nil and n < Tournaments.last_played_round(t.id),
@@ -487,25 +495,33 @@ defmodule PairingsEngineWeb.PairingsLive do
       |> assign_announcements()
       |> assign_board_reports()
 
-    if Keyword.get(opts, :keep_gesture, false) do
-      socket
-    else
+    cond do
+      # A remote unpair took the round out from under a staged gesture:
+      # there is nothing left for it to point at, keep_gesture or not.
+      Keyword.get(opts, :keep_gesture, false) and not (had_round? and round == nil) ->
+        socket
+
       # Whatever a half-finished gesture was pointing at may no longer be
       # current by the time OUR OWN action just completed here (a round
       # switch, or the change's own confirmed write) - safer to drop back
       # to "nothing selected" than to leave a just-consumed gesture
       # sitting around.
-      assign(socket,
-        menu: nil,
-        swap_first: nil,
-        pool_first: nil,
-        seat_pick: nil,
-        confirm: nil,
-        mpa_dialog: nil,
-        rr_numbers: nil,
-        manual_round_offer: false
-      )
+      true ->
+        clear_gesture(socket)
     end
+  end
+
+  defp clear_gesture(socket) do
+    assign(socket,
+      menu: nil,
+      swap_first: nil,
+      pool_first: nil,
+      seat_pick: nil,
+      confirm: nil,
+      mpa_dialog: nil,
+      rr_numbers: nil,
+      manual_round_offer: false
+    )
   end
 
   # The "Working out the explanation…" note beside the round's status. Once
@@ -742,14 +758,27 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     case comparison do
       %{announcement: announcement, round_id: round_id, changed: changed} ->
-        {:ok, _} = BoardAnnouncements.acknowledge(announcement, round_id)
+        # Read again: another tab may have withdrawn it (a hard delete) while
+        # this dialog sat open, and a stale struct makes for a crash, not
+        # an acknowledgement.
+        current = BoardAnnouncements.get(t.id, announcement.round)
 
-        Audit.log(t.id, scope, "pairing.announcement_acknowledged", %{
-          round: announcement.round,
-          changed: length(changed)
-        })
+        with %{id: id} when id == announcement.id <- current,
+             {:ok, _} <- BoardAnnouncements.acknowledge(current, round_id) do
+          Audit.log(t.id, scope, "pairing.announcement_acknowledged", %{
+            round: announcement.round,
+            changed: length(changed)
+          })
 
-        {:noreply, socket |> assign(announcement_mismatch: nil) |> refresh()}
+          {:noreply, socket |> assign(announcement_mismatch: nil) |> refresh()}
+        else
+          _ ->
+            {:noreply,
+             socket
+             |> assign(announcement_mismatch: nil)
+             |> put_flash(:error, gettext("This announcement was withdrawn."))
+             |> refresh()}
+        end
 
       nil ->
         {:noreply, assign(socket, announcement_mismatch: nil)}
@@ -1014,7 +1043,27 @@ defmodule PairingsEngineWeb.PairingsLive do
     # same steps the phone app's unpair takes.
     case DeskActions.delete_round(t, scope, round_number) do
       :ok ->
-        {:noreply, socket |> assign(error: nil) |> refresh()}
+        # Land where a fresh visit would: the last round still paired, or
+        # round 1 when nothing is.
+        paired = Engine.paired_rounds_count(t.id)
+
+        {:noreply,
+         socket
+         |> assign(error: nil, round_number: max(paired, 1))
+         |> refresh()
+         |> put_flash(
+           :info,
+           gettext("Round %{n} unpaired. A restore point was saved.", n: round_number)
+         )}
+
+      # The engine's own refusal is a plain English sentence (the phone
+      # API passes it on as it is); the page says it in the arbiter's
+      # language.
+      {:error, "Only the latest round can be unpaired"} ->
+        {:noreply,
+         socket
+         |> assign(error: gettext("Only the last paired round can be unpaired."))
+         |> refresh()}
 
       {:error, reason} ->
         {:noreply, assign(socket, error: error_text(reason))}
@@ -1282,10 +1331,32 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   def handle_event("revoke_enrollment", %{"id" => id}, socket) do
-    case Integer.parse(to_string(id)) do
-      {int, _} -> Mobile.revoke(socket.assigns.tournament.id, int)
-      _ -> :ok
-    end
+    result =
+      case Integer.parse(to_string(id)) do
+        {int, _} -> Mobile.revoke(socket.assigns.tournament.id, int)
+        _ -> {:error, :not_found}
+      end
+
+    # It used to say nothing either way, which for a button that signs a
+    # phone out is a strange thing to be modest about.
+    socket =
+      case result do
+        {:ok, _} ->
+          put_flash(socket, :info, gettext("Phone code revoked."))
+
+        {:error, :not_found} ->
+          put_flash(socket, :error, gettext("That phone code is already gone."))
+
+        {:error, reason} when reason in [:archived, :handed_off] ->
+          put_flash(
+            socket,
+            :error,
+            Tournaments.refusal_message(reason, gettext("revoking a phone code"))
+          )
+
+        {:error, _} ->
+          put_flash(socket, :error, gettext("Could not revoke that phone code; try again."))
+      end
 
     new_enrollment =
       if socket.assigns.new_enrollment &&
@@ -1681,9 +1752,9 @@ defmodule PairingsEngineWeb.PairingsLive do
   # `stage_delete_pairing` below, which actually removes the row.
   def handle_event("toggle_hidden", %{"pairing-id" => id}, socket) do
     %{tournament: t, round: round, round_number: round_number} = socket.assigns
-    pairing_id = String.to_integer(id)
 
-    with {:ok, pairing} <- fetch_pairing(round, pairing_id),
+    with pairing_id when is_integer(pairing_id) <- parse_id(id),
+         {:ok, pairing} <- fetch_pairing(round, pairing_id),
          {:ok, updated} <- Tournaments.set_pairing_hidden(round, pairing, !pairing.hidden) do
       Audit.log(
         t.id,
@@ -1691,9 +1762,22 @@ defmodule PairingsEngineWeb.PairingsLive do
         if(updated.hidden, do: "pairing.hidden", else: "pairing.unhidden"),
         %{pairing_id: pairing.id, round: round_number, board: pairing.board}
       )
-    end
 
-    {:noreply, refresh(socket)}
+      text =
+        if updated.hidden,
+          do: gettext("Board %{board} hidden.", board: pairing.board),
+          else: gettext("Board %{board} shown again.", board: pairing.board)
+
+      {:noreply, socket |> assign(error: nil) |> refresh() |> announce(text)}
+    else
+      # It used to fail in silence and refresh, which looked exactly like
+      # success to anyone not counting boards.
+      {:error, reason} ->
+        {:noreply, socket |> refresh() |> put_flash(:error, hand_edit_error_text(reason))}
+
+      _ ->
+        {:noreply, refresh(socket)}
+    end
   end
 
   def handle_event("stage_delete_pairing", %{"pairing-id" => id}, socket) do
@@ -2265,7 +2349,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         {:error, reason} ->
           {:noreply,
            socket
-           |> assign(error: "Could not attach that board: " <> slot_reason(reason))
+           |> assign(
+             error: gettext("Could not attach that board: %{reason}", reason: slot_reason(reason))
+           )
            |> refresh()}
       end
     else
@@ -2346,7 +2432,15 @@ defmodule PairingsEngineWeb.PairingsLive do
 
           {:noreply,
            socket
-           |> put_flash(:info, "Imported #{count} result#{if count != 1, do: "s"}.")
+           |> put_flash(
+             :info,
+             ngettext(
+               "Imported %{count} result for round %{round} (CSV).",
+               "Imported %{count} results for round %{round} (CSV).",
+               count,
+               round: round_number
+             )
+           )
            |> assign(import_errors: nil, importing_results: false, error: nil)
            |> refresh()}
         else
@@ -2354,7 +2448,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         end
 
       [] ->
-        {:noreply, assign(socket, import_errors: ["Choose a CSV file first"])}
+        {:noreply, assign(socket, import_errors: [gettext("Choose a CSV file first.")])}
     end
   end
 
@@ -2509,7 +2603,7 @@ defmodule PairingsEngineWeb.PairingsLive do
              kind: :swap,
              a_id: a_id,
              b_id: b_id,
-             title: if(same?, do: "Swap colours", else: "Swap players"),
+             title: if(same?, do: gettext("Swap colours"), else: gettext("Swap players")),
              subtitle: "#{a}  ⇄  #{b}",
              changes: changes,
              # Every distinct name shown across the diff, each its own
@@ -2537,8 +2631,9 @@ defmodule PairingsEngineWeb.PairingsLive do
              kind: :swap_pool,
              seated_id: seated_id,
              pool_id: pool_id,
-             title: "Substitute player",
-             subtitle: "#{pool_name} takes #{seated_name}'s place",
+             title: gettext("Substitute player"),
+             subtitle:
+               gettext("%{pool} takes %{seated}'s place", pool: pool_name, seated: seated_name),
              changes: changes,
              # The mirror image of the board row above: the pool player was
              # on the bench before this action, the seated player lands
@@ -2560,7 +2655,9 @@ defmodule PairingsEngineWeb.PairingsLive do
              # per-traveller colour coding `:swap` already has.
              colors: identity_colors(changes),
              note:
-               "#{seated_name} moves to the not-playing list for this round." <>
+               gettext("%{name} moves to the not-playing list for this round.",
+                 name: seated_name
+               ) <>
                  whole_event_note(socket, pool_id),
              new_boards: new_board(pairing, [{field, pool_id}])
            }}
@@ -2584,13 +2681,19 @@ defmodule PairingsEngineWeb.PairingsLive do
        %{
          kind: :vacate,
          player_id: player_id,
-         title: "Mark absent",
-         subtitle: "#{name} is not playing round #{socket.assigns.round_number}",
+         title: gettext("Mark absent"),
+         subtitle:
+           gettext("%{name} is not playing round %{n}",
+             name: name,
+             n: socket.assigns.round_number
+           ),
          changes: [board_change(pairing, [{field, ""}])],
          note:
-           "Board #{pairing.board} keeps its number and #{blank_dash(opponent)} stays put. " <>
-             "The empty seat can be filled from the not-playing list, or turned into a bye - " <>
-             "until then the round counts as unfinished."
+           gettext(
+             "Board %{board} keeps its number and %{opponent} stays put. The empty seat can be filled from the not-playing list, or turned into a bye - until then the round counts as unfinished.",
+             board: pairing.board,
+             opponent: blank_dash(opponent)
+           )
        }
        |> Map.merge(vacate_bye_choice(socket, player_id))}
     end
@@ -2605,10 +2708,14 @@ defmodule PairingsEngineWeb.PairingsLive do
        %{
          kind: :bye,
          pairing_id: pairing_id,
-         title: "Award a bye",
-         subtitle: "#{name} sits out round #{socket.assigns.round_number}",
+         title: gettext("Award a bye"),
+         subtitle:
+           gettext("%{name} sits out round %{n}", name: name, n: socket.assigns.round_number),
          changes: [%{board: pairing.board, before: board_seats(pairing), after: {name, "bye"}}],
-         note: "Scores #{socket.assigns.tournament.bye_value} pt, as a pairing-allocated bye.",
+         note:
+           gettext("Scores %{points} pt, as a pairing-allocated bye.",
+             points: socket.assigns.tournament.bye_value
+           ),
          new_boards:
            if(remaining,
              do: [{pairing.white_player_id || pairing.black_player_id, :pab}],
@@ -2628,11 +2735,11 @@ defmodule PairingsEngineWeb.PairingsLive do
          kind: :fill,
          pairing_id: pairing_id,
          player_id: player_id,
-         title: "Fill the empty seat",
-         subtitle: "#{name} joins board #{pairing.board}",
+         title: gettext("Fill the empty seat"),
+         subtitle: gettext("%{name} joins board %{board}", name: name, board: pairing.board),
          changes: [board_change(pairing, [{field, name}])],
          note:
-           "#{name} is no longer marked absent for this round." <>
+           gettext("%{name} is no longer marked absent for this round.", name: name) <>
              whole_event_note(socket, player_id),
          new_boards: new_board(pairing, [{field, player_id}])
        }}
@@ -2726,17 +2833,21 @@ defmodule PairingsEngineWeb.PairingsLive do
        %{
          kind: :delete_pairing,
          pairing_id: pairing_id,
-         title: "Delete this board",
-         subtitle: "Board #{pairing.board} is removed from round #{socket.assigns.round_number}",
+         title: gettext("Delete this board"),
+         subtitle:
+           gettext("Board %{board} is removed from round %{n}",
+             board: pairing.board,
+             n: socket.assigns.round_number
+           ),
          # Nothing to diff - the row is already empty on both seats
          # (delete is only offered/allowed on a fully-vacated board), so
          # the modal's board-diff cards would just show "empty ⇄ empty".
          # The title/subtitle/note carry the whole story instead.
          changes: [],
          note:
-           "This removes the board row itself, not just hides it - permanently, and only " <>
-             "possible on the round's last board, so no other board's number ever has to " <>
-             "change. This cannot be undone from here."
+           gettext(
+             "This removes the board row itself, not just hides it - permanently, and only possible on the round's last board, so no other board's number ever has to change. This cannot be undone from here."
+           )
        }}
     end
   end
@@ -2762,10 +2873,10 @@ defmodule PairingsEngineWeb.PairingsLive do
        a_id: a_id,
        b_id: b_id,
        board: board,
-       title: "Pair these two",
-       subtitle: "#{a}  vs  #{b}",
+       title: gettext("Pair these two"),
+       subtitle: gettext("%{a}  vs  %{b}", a: a, b: b),
        changes: [%{board: board, before: {"", ""}, after: {a, b}}],
-       note: "Neither will be marked absent for this round any more.",
+       note: gettext("Neither will be marked absent for this round any more."),
        team_note: pool_pair_team_note(t, round, a_id, b_id, board),
        new_boards: [{a_id, b_id}]
      }}
@@ -2877,6 +2988,16 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp apply_confirm(socket, %{rule_ack: false}), do: {:noreply, socket}
   defp apply_confirm(socket, %{half_ack: false}), do: {:noreply, socket}
   defp apply_confirm(socket, %{half_blocked: true}), do: {:noreply, socket}
+
+  # Another tab unpaired the round while this one had a change staged on
+  # it. There is nothing left to apply it to, so say so instead of handing
+  # `nil` to a function that expects a round and finding out the hard way.
+  defp apply_confirm(%{assigns: %{round: nil}} = socket, _confirm) do
+    {:noreply,
+     socket
+     |> clear_gesture()
+     |> put_flash(:error, gettext("This round was unpaired elsewhere; nothing was changed."))}
+  end
 
   defp apply_confirm(socket, confirm) do
     %{tournament: t, round: round} = socket.assigns
@@ -3012,15 +3133,78 @@ defmodule PairingsEngineWeb.PairingsLive do
          )}
 
       {:error, reason} ->
-        {:noreply,
-         assign(socket,
-           error: "Could not apply that change: #{error_text(reason)}",
-           confirm: nil,
-           swap_first: nil,
-           pool_first: nil
-         )}
+        # Read the round again: most of these refusals mean the boards
+        # moved under the dialog, and the page should show where they went.
+        {:noreply, socket |> refresh() |> assign(error: hand_edit_error_text(reason))}
     end
   end
+
+  # The unpair confirmation: what goes (the round's results; in a match
+  # format the other leg too; the pairing numbers when nothing is left) and
+  # what stays (a restore point, under Advanced, History).
+  defp unpair_confirm_text(%Tournament{} = t, n, clears_numbers?) do
+    [
+      if(t.swiss_match_format and n > 1,
+        do:
+          gettext(
+            "Unpair round %{n}? Round %{n} and round %{previous}, the other half of the match, are deleted with all their results.",
+            n: n,
+            previous: n - 1
+          ),
+        else: gettext("Unpair round %{n}? All results of round %{n} are deleted.", n: n)
+      ),
+      if(clears_numbers?,
+        do:
+          gettext(
+            "The pairing numbers go too: the next round 1 numbers everybody again, by rating."
+          )
+      ),
+      gettext("A restore point is saved first (Advanced, History).")
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(" ")
+  end
+
+  # What a refused hand edit says. The write functions answer in atoms,
+  # which made good log lines and terrible sentences ("Could not apply that
+  # change: not in round"). Anything not listed here is somebody else's
+  # refusal and gets the shared wording.
+  @doc false
+  def hand_edit_error_text(:not_in_round),
+    do: gettext("That board or player is no longer in this round; the page has been refreshed.")
+
+  def hand_edit_error_text(:same_player),
+    do: gettext("That is the same player twice; pick two different players.")
+
+  def hand_edit_error_text(:invalid_player),
+    do: gettext("That player is not in this tournament any more; the page has been refreshed.")
+
+  def hand_edit_error_text(:already_seated),
+    do: gettext("That player already has a board in this round; the page has been refreshed.")
+
+  def hand_edit_error_text(reason) when reason in [:seat_taken, :not_a_vacancy],
+    do: gettext("That seat is no longer empty; the page has been refreshed.")
+
+  def hand_edit_error_text(:empty_board),
+    do: gettext("That board has nobody on it to give the bye to.")
+
+  def hand_edit_error_text(:not_vacant),
+    do: gettext("Somebody is still seated on that board, so it cannot go.")
+
+  def hand_edit_error_text(:not_last_board),
+    do: gettext("Only the last board of the round can be deleted.")
+
+  def hand_edit_error_text(:board_taken),
+    do: gettext("That board number is already taken; the page has been refreshed.")
+
+  def hand_edit_error_text(:no_full_point_bye),
+    do: gettext("That player has no full-point bye in this round to withdraw.")
+
+  def hand_edit_error_text(reason) when reason in [:archived, :handed_off],
+    do: error_text(reason)
+
+  def hand_edit_error_text(reason),
+    do: gettext("Could not apply that change: %{reason}", reason: error_text(reason))
 
   defp vacate_bye_type_options do
     [
@@ -3677,8 +3861,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   # modal says so, with the one place that can change it.
   defp whole_event_note(socket, player_id) do
     if Enum.any?(socket.assigns.round_pool, &(&1.player.id == player_id and &1.absent?)) do
-      " They stay marked absent for the whole event - clear that on the Players page if they " <>
-        "are back for good, or the next round will leave them out again."
+      " " <>
+        gettext(
+          "They stay marked absent for the whole event - clear that on the Players page if they are back for good, or the next round will leave them out again."
+        )
     else
       ""
     end
@@ -3832,7 +4018,7 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp other_seat_name(pairing, :white_player_id), do: player_label(pairing.black_player)
   defp other_seat_name(pairing, :black_player_id), do: player_label(pairing.white_player)
 
-  defp blank_dash(""), do: "the empty seat"
+  defp blank_dash(""), do: gettext("the empty seat")
   defp blank_dash(name), do: name
 
   defp pair_clicked(params, socket) do
@@ -3851,8 +4037,8 @@ defmodule PairingsEngineWeb.PairingsLive do
          put_flash(
            socket,
            :error,
-           "Finish the tournament setup before pairing - missing: " <>
-             missing_setup_summary(socket.assigns.missing_setup)
+           gettext("Finish the tournament setup before pairing - still missing:") <>
+             " " <> missing_setup_summary(socket.assigns.missing_setup)
          )}
 
       # A round's hand edits are checked when they finish (VCL4THP Q68), so
@@ -4075,8 +4261,9 @@ defmodule PairingsEngineWeb.PairingsLive do
         socket = PairTiming.span(:refresh, fn -> refresh(socket) end)
         {:noreply, compare_announcement(socket, round.number)}
 
-      {:error, %Ecto.Changeset{}} ->
-        {:noreply, assign(socket, error: "Could not save the round")}
+      {:error, %Ecto.Changeset{} = changeset} ->
+        Logger.error("round could not be saved: #{inspect(changeset.errors)}")
+        {:noreply, assign(socket, error: round_not_saved_text())}
 
       # VCL4THP Q43: this pairing would take the tournament out of FIDE mode
       # (nothing was written). Ask twice, then pair again with the guard off.
@@ -4267,8 +4454,9 @@ defmodule PairingsEngineWeb.PairingsLive do
          |> assign(tournament: fresh_tournament, round_number: 1, error: nil)
          |> refresh()}
 
-      {:error, %Ecto.Changeset{}} ->
-        {:noreply, assign(socket, error: "Could not save the round")}
+      {:error, %Ecto.Changeset{} = changeset} ->
+        Logger.error("round could not be saved: #{inspect(changeset.errors)}")
+        {:noreply, assign(socket, error: round_not_saved_text())}
 
       {:error, reason} ->
         {:noreply, assign(socket, error: error_text(reason))}
@@ -4534,6 +4722,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   # the flash/tooltip shown when pairing is blocked - the on-page banner (see
   # render/1) additionally links each item to the Settings (sub-)page it
   # lives on.
+  defp round_not_saved_text,
+    do:
+      gettext(
+        "The round could not be saved. Nothing was paired; try again, and if it repeats, report it."
+      )
+
   defp missing_setup_summary(missing) do
     Enum.map_join(missing, "; ", fn {_field, message} -> message end)
   end
@@ -4591,11 +4785,12 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp pairing_engine_label(tournament), do: Tournament.engine_name(tournament)
 
   defp pairing_engine_description(%{pairing_system: "round_robin"}),
-    do: "round-robin schedule (Berger tables)"
+    do: gettext("round-robin schedule (Berger tables)")
 
-  defp pairing_engine_description(%{pairing_system: "keizer"}), do: "Keizer ladder pairing"
+  defp pairing_engine_description(%{pairing_system: "keizer"}),
+    do: gettext("Keizer ladder pairing")
 
-  defp pairing_engine_description(_swiss), do: "FIDE Dutch pairing (Ainalrami)"
+  defp pairing_engine_description(_swiss), do: gettext("FIDE Dutch pairing (Ainalrami)")
 
   # Bare display name for an audit-log payload (nil = a bye's empty side).
   defp player_name(nil), do: nil
@@ -4644,7 +4839,68 @@ defmodule PairingsEngineWeb.PairingsLive do
         board: board
       )
 
-  defp import_error_text(text), do: text
+  defp import_error_text(:empty_file), do: gettext("The file is empty.")
+
+  defp import_error_text({:too_many_lines, lines, max}),
+    do:
+      gettext("This file has %{lines} lines; one round has at most %{max} boards.",
+        lines: lines,
+        max: max
+      )
+
+  defp import_error_text({:unrecognized_result, line, text}),
+    do: gettext("line %{line}: unrecognized result \"%{text}\"", line: line, text: text)
+
+  defp import_error_text({:invalid_board_number, line, text}),
+    do: gettext("line %{line}: invalid board number \"%{text}\"", line: line, text: text)
+
+  defp import_error_text({:bad_line, line, text}),
+    do:
+      gettext("line %{line}: expected \"board,result\" (got \"%{text}\")", line: line, text: text)
+
+  defp import_error_text({:duplicate_board, board, lines}),
+    do:
+      gettext("board %{board}: listed more than once (lines %{lines})",
+        board: board,
+        lines: lines
+      )
+
+  defp import_error_text({:more_problems, extra}),
+    do:
+      ngettext(
+        "...and %{count} more problem in this file",
+        "...and %{count} more problems in this file",
+        extra
+      )
+
+  defp import_error_text({:round_not_paired, round}),
+    do: gettext("Round %{round} has not been paired yet.", round: round)
+
+  defp import_error_text({:bye_board, board}),
+    do: gettext("board %{board}: is a bye - no result to enter", board: board)
+
+  defp import_error_text({:no_such_board, board, round}),
+    do: gettext("board %{board}: no such board in round %{round}", board: board, round: round)
+
+  defp import_error_text({:ambiguous_board, board, count, round}),
+    do:
+      gettext(
+        "board %{board}: names %{count} fixed tables in round %{round}, so it is ambiguous - enter these from the Pairings page",
+        board: board,
+        count: count,
+        round: round
+      )
+
+  defp import_error_text(:board_changed),
+    do:
+      gettext(
+        "Could not save results: a board's players changed while the import ran. Reload the page and import again."
+      )
+
+  defp import_error_text(:save_failed),
+    do: gettext("Could not save results. Nothing was written; try again.")
+
+  defp import_error_text(text) when is_binary(text), do: text
 
   ## ---------- postponed games: the pair buttons' confirmations ----------
 
@@ -5628,7 +5884,7 @@ defmodule PairingsEngineWeb.PairingsLive do
             <strong>{gettext("The numbers cannot change after round 1.")}</strong>
             <p style="margin: 6px 0 0">
               {gettext(
-                "This pairs every round of the schedule at once and locks in who is playing: anyone added afterwards is not in it, and the schedule cannot be changed once it exists."
+                "This pairs every round of the schedule at once and locks in who is playing: anyone added afterwards is not in it. It can only be undone by unpairing, from the last round back."
               )}
             </p>
           </div>
@@ -6631,6 +6887,11 @@ defmodule PairingsEngineWeb.PairingsLive do
             type="button"
             class="pe-btn"
             phx-click="draw_chess960"
+            data-confirm={
+              gettext("Draw the Chess960 position for round %{n} now? It cannot be drawn again.",
+                n: @round_number
+              )
+            }
           >
             {gettext("Draw Chess960 position")}
           </button>
@@ -6754,9 +7015,9 @@ defmodule PairingsEngineWeb.PairingsLive do
                   nil
 
                 @tournament.pairing_system == "round_robin" ->
-                  "This generates the whole round-robin schedule at once (every round, not just " <>
-                    "this one) and locks in who's playing - anyone added afterward won't be in " <>
-                    "it, and the schedule can't be changed once it exists. Continue?"
+                  gettext(
+                    "This pairs the whole round-robin schedule at once (every round, not just this one) and locks in who is playing: anyone added afterwards is not in it. It can only be undone by unpairing, from the last round back. Continue?"
+                  )
 
                 true ->
                   pair_confirm_text(
@@ -6770,11 +7031,12 @@ defmodule PairingsEngineWeb.PairingsLive do
             title={
               cond do
                 !@setup_complete ->
-                  "Finish the tournament setup first - missing: " <>
-                    missing_setup_summary(@missing_setup)
+                  gettext("Finish the tournament setup first - missing: %{missing}",
+                    missing: missing_setup_summary(@missing_setup)
+                  )
 
                 !@can_pair ->
-                  "Previous round still has missing results"
+                  gettext("Previous round still has missing results")
 
                 @mpa_open != nil ->
                   gettext("Finish the hand edits to round %{n} first.", n: @mpa_open)
@@ -6800,10 +7062,13 @@ defmodule PairingsEngineWeb.PairingsLive do
                 gettext("Pair the remaining rounds (Berger)")
 
               @tournament.pairing_system == "round_robin" ->
-                "Pair the whole tournament (Berger)"
+                gettext("Pair the whole tournament (Berger)")
 
               true ->
-                "Pair round #{@round_number} (#{pairing_engine_label(@tournament)})"
+                gettext("Pair round %{n} (%{engine})",
+                  n: @round_number,
+                  engine: pairing_engine_label(@tournament)
+                )
             end}
           </button>
 
@@ -7074,7 +7339,9 @@ defmodule PairingsEngineWeb.PairingsLive do
                   id={"unpair-round-#{@round_number}"}
                   class="is-danger"
                   phx-click="unpair"
-                  data-confirm={"Unpair round #{@round_number}? All its results will be deleted."}
+                  data-confirm={
+                    unpair_confirm_text(@tournament, @round_number, @unpair_clears_numbers?)
+                  }
                 >
                   {gettext("Unpair round")}
                 </button>
@@ -7203,6 +7470,11 @@ defmodule PairingsEngineWeb.PairingsLive do
           <strong>{gettext("Hand edits to round %{n} are open.", n: @round_number)}</strong> {gettext(
             "Change the boards as needed, then finish: the pairing checker compares the round with its own pairing, and a difference is recorded in the TRF."
           )}
+          <span id="mpa-banner-how">
+            {gettext(
+              "Right-click (or tap) a player on a board or in the not-playing list to swap, mark absent, or seat them."
+            )}
+          </span>
         </span>
 
         <button

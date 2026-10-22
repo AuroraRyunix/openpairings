@@ -58,7 +58,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Tournaments",
+       page_title: gettext("Tournaments"),
        collapsed_groups: MapSet.new(),
        creating: false,
        importing: false,
@@ -372,7 +372,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
         )
 
         # An arbiter's place is the hall, on the phone, not a desk page.
-        socket = put_flash(socket, :info, "Invitation accepted.")
+        socket = put_flash(socket, :info, gettext("Invitation accepted."))
 
         {:noreply,
          if(collaborator.role == "arbiter",
@@ -381,7 +381,11 @@ defmodule PairingsEngineWeb.TournamentsLive do
          )}
 
       {:error, _reason} ->
-        {:noreply, socket |> assign_tournaments() |> assign_pending_invitations()}
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("That invitation is no longer valid."))
+         |> assign_tournaments()
+         |> assign_pending_invitations()}
     end
   end
 
@@ -395,10 +399,16 @@ defmodule PairingsEngineWeb.TournamentsLive do
           %{email: collaborator.email}
         )
 
-        {:noreply, assign_pending_invitations(socket)}
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Invitation declined."))
+         |> assign_pending_invitations()}
 
       {:error, _reason} ->
-        {:noreply, assign_pending_invitations(socket)}
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("That invitation is no longer valid."))
+         |> assign_pending_invitations()}
     end
   end
 
@@ -858,9 +868,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("validate_handoff", _params, socket), do: {:noreply, socket}
 
   def handle_event("handoff_start", %{"id" => id}, socket) do
-    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, gone(socket)}
 
-    {:noreply, assign(socket, handoff_target: tournament, return_target: nil, error: nil)}
+      tournament ->
+        {:noreply, assign(socket, handoff_target: tournament, return_target: nil, error: nil)}
+    end
   end
 
   def handle_event("handoff_cancel", _params, socket) do
@@ -868,9 +882,13 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   def handle_event("return_start", %{"id" => id}, socket) do
-    tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
+    case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, gone(socket)}
 
-    {:noreply, assign(socket, return_target: tournament, handoff_target: nil, error: nil)}
+      tournament ->
+        {:noreply, assign(socket, return_target: tournament, handoff_target: nil, error: nil)}
+    end
   end
 
   def handle_event("return_cancel", _params, socket) do
@@ -922,8 +940,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
   ## ---------- Delete tournament (with type-DELETE-to-confirm modal) ----------
 
   def handle_event("delete_start", %{"id" => id}, socket) do
-    tournament = Tournaments.get_user_tournament!(socket.assigns.current_scope, id)
-    {:noreply, assign(socket, delete_target: tournament, delete_confirm_text: "")}
+    case Tournaments.get_user_tournament(socket.assigns.current_scope, id) do
+      nil -> {:noreply, gone(socket)}
+      tournament -> {:noreply, assign(socket, delete_target: tournament, delete_confirm_text: "")}
+    end
   end
 
   def handle_event("delete_cancel", _params, socket) do
@@ -946,6 +966,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
             {:noreply,
              socket
              |> assign(delete_target: nil, delete_confirm_text: "")
+             |> put_flash(
+               :info,
+               gettext("\"%{name}\" was moved to the Recycle bin.", name: tournament.name)
+             )
              |> assign_tournaments()
              |> assign_deleted_tournaments()}
 
@@ -1002,7 +1026,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
          :ok <- Quotas.check_import(scope) do
       duplicate(socket, tournament)
     else
-      nil -> {:noreply, put_flash(socket, :error, "Tournament not found.")}
+      nil -> {:noreply, put_flash(socket, :error, gettext("Tournament not found."))}
       {:error, reason} -> {:noreply, put_flash(socket, :error, Quotas.message(reason))}
     end
   end
@@ -1019,7 +1043,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("leave_tournament", %{"id" => id}, socket) do
     case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
       nil ->
-        {:noreply, put_flash(socket, :error, "Tournament not found.")}
+        {:noreply, put_flash(socket, :error, gettext("Tournament not found."))}
 
       tournament ->
         case Tournaments.leave_tournament(socket.assigns.current_scope, tournament) do
@@ -1030,15 +1054,20 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
             {:noreply,
              socket
-             |> put_flash(:info, "Left \"#{tournament.name}\".")
+             |> put_flash(:info, gettext("Left \"%{name}\".", name: tournament.name))
              |> assign_tournaments()}
 
           {:error, :owner} ->
             {:noreply,
-             put_flash(socket, :error, "You own this tournament - delete it instead of leaving.")}
+             put_flash(
+               socket,
+               :error,
+               gettext("You own this tournament - delete it instead of leaving.")
+             )}
 
           {:error, :not_found} ->
-            {:noreply, put_flash(socket, :error, "You're not a collaborator on this tournament.")}
+            {:noreply,
+             put_flash(socket, :error, gettext("You're not a collaborator on this tournament."))}
         end
     end
   end
@@ -1056,7 +1085,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("archive_tournament", %{"id" => id}, socket) do
     case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
       nil ->
-        {:noreply, put_flash(socket, :error, "Tournament not found.")}
+        {:noreply, put_flash(socket, :error, gettext("Tournament not found."))}
 
       tournament ->
         case Tournaments.archive_tournament(tournament) do
@@ -1067,7 +1096,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
             {:noreply,
              socket
-             |> put_flash(:info, "\"#{tournament.name}\" is archived - it's now read-only.")
+             |> put_flash(
+               :info,
+               gettext("\"%{name}\" is archived - it's now read-only.", name: tournament.name)
+             )
              |> assign_tournaments()
              |> assign_archived_tournaments()}
 
@@ -1148,7 +1180,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
   def handle_event("unarchive_tournament", %{"id" => id}, socket) do
     case Tournaments.get_authorized_tournament(socket.assigns.current_scope, id) do
       nil ->
-        {:noreply, put_flash(socket, :error, "Tournament not found.")}
+        {:noreply, put_flash(socket, :error, gettext("Tournament not found."))}
 
       tournament ->
         {:ok, _} = Tournaments.unarchive_tournament(tournament)
@@ -1159,7 +1191,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         {:noreply,
          socket
-         |> put_flash(:info, "\"#{tournament.name}\" is editable again.")
+         |> put_flash(
+           :info,
+           gettext("\"%{name}\" is editable again.", name: tournament.name)
+         )
          |> assign_tournaments()
          |> assign_archived_tournaments()}
     end
@@ -1168,26 +1203,43 @@ defmodule PairingsEngineWeb.TournamentsLive do
   ## ---------- Recycle bin (restore / permanently delete) ----------
 
   def handle_event("restore_tournament", %{"id" => id}, socket) do
-    tournament =
-      Tournaments.get_owned_tournament_including_deleted!(socket.assigns.current_scope, id)
+    case Tournaments.get_owned_tournament_including_deleted(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, gone(socket)}
 
-    {:ok, _} = Tournaments.restore_tournament(tournament)
+      tournament ->
+        case Tournaments.restore_tournament(tournament) do
+          {:ok, _} ->
+            Audit.log(tournament.id, socket.assigns.current_scope, "tournament.restored", %{
+              name: tournament.name
+            })
 
-    Audit.log(tournament.id, socket.assigns.current_scope, "tournament.restored", %{
-      name: tournament.name
-    })
+            {:noreply,
+             socket
+             |> put_flash(
+               :info,
+               gettext("\"%{name}\" was restored.", name: tournament.name)
+             )
+             |> assign_tournaments()
+             |> assign_deleted_tournaments()}
 
-    {:noreply,
-     socket
-     |> assign_tournaments()
-     |> assign_deleted_tournaments()}
+          {:error, reason} ->
+            {:noreply,
+             socket
+             |> put_flash(:error, SettingsSupport.error_text(reason))
+             |> assign_deleted_tournaments()}
+        end
+    end
   end
 
   def handle_event("purge_start", %{"id" => id}, socket) do
-    tournament =
-      Tournaments.get_owned_tournament_including_deleted!(socket.assigns.current_scope, id)
+    case Tournaments.get_owned_tournament_including_deleted(socket.assigns.current_scope, id) do
+      nil ->
+        {:noreply, gone(socket)}
 
-    {:noreply, assign(socket, purge_target: tournament, purge_confirm_text: "")}
+      tournament ->
+        {:noreply, assign(socket, purge_target: tournament, purge_confirm_text: "")}
+    end
   end
 
   def handle_event("purge_cancel", _params, socket) do
@@ -1212,6 +1264,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
             {:noreply,
              socket
              |> assign(purge_target: nil, purge_confirm_text: "")
+             |> put_flash(
+               :info,
+               gettext("\"%{name}\" was permanently deleted.", name: tournament.name)
+             )
              |> assign_deleted_tournaments()}
         end
 
@@ -1260,11 +1316,17 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         {:noreply,
          socket
-         |> put_flash(:info, "Duplicated as \"#{new_tournament.name}\".")
+         |> put_flash(
+           :info,
+           gettext("Duplicated as \"%{name}\".", name: new_tournament.name)
+         )
          |> assign_tournaments()}
 
       {:error, reason} ->
-        {:noreply, put_flash(socket, :error, "Could not duplicate: #{reason}")}
+        Logger.warning("Duplicating tournament #{tournament.id} failed: #{inspect(reason)}")
+
+        {:noreply,
+         put_flash(socket, :error, gettext("Could not duplicate this tournament. Try again."))}
     end
   end
 
@@ -1501,7 +1563,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
   defp handoff_error(message) when is_binary(message), do: message
 
   defp handoff_error(other),
-    do: gettext("Could not take that file in: %{reason}", reason: inspect(other))
+    do: handoff_unknown_error(other)
+
+  defp handoff_unknown_error(other) do
+    Logger.warning("Hand-off file refused: #{inspect(other)}")
+    gettext("Could not take that file in. Check it is the hand-off file of this tournament.")
+  end
 
   # Shared by both import panels. Neither `.swar` nor `.trf` has a registered
   # browser MIME type, so both dropzones have to accept `:any` and a file can
@@ -1735,9 +1802,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
   # A sentence the import already wrote (the account's tournament ceiling,
   # a refused player) is shown as written; anything else as it came.
   defp swar_commit_error(reason) when is_binary(reason),
-    do: "Could not import this SWAR file: " <> reason
+    do: gettext("Could not import this SWAR file: %{reason}", reason: reason)
 
-  defp swar_commit_error(reason), do: "Could not import this SWAR file: #{inspect(reason)}"
+  defp swar_commit_error(reason) do
+    Logger.warning("SWAR import failed: #{inspect(reason)}")
+    gettext("Could not import this SWAR file.")
+  end
 
   # The one place a TRF file becomes a tournament from this page: the real
   # import (the review was a rolled-back run of the same), then the audit
@@ -2792,7 +2862,31 @@ defmodule PairingsEngineWeb.TournamentsLive do
   end
 
   defp error_text(changeset) do
-    Enum.map_join(changeset.errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
+    Enum.map_join(changeset.errors, ", ", fn {field, error} ->
+      "#{field_label(field)} #{PairingsEngineWeb.CoreComponents.translate_error(error)}"
+    end)
+  end
+
+  defp field_label(:name), do: gettext("Name")
+  defp field_label(:start_date), do: gettext("Start date")
+  defp field_label(:end_date), do: gettext("End date")
+  defp field_label(:rounds), do: gettext("Rounds")
+  defp field_label(:rate_of_play), do: gettext("Rate of play")
+  defp field_label(:pairing_system), do: gettext("Pairing system")
+
+  defp field_label(field),
+    do: field |> to_string() |> String.replace("_", " ") |> String.capitalize()
+
+  # A button or link for a tournament that is gone by the time it is pressed
+  # (purged, deleted or unshared from another tab): say so and show the lists
+  # as they are now, instead of a crash.
+  defp gone(socket) do
+    socket
+    |> put_flash(:error, gettext("That tournament is no longer there."))
+    |> assign_tournaments()
+    |> assign_deleted_tournaments()
+    |> assign_archived_tournaments()
+    |> assign_pending_invitations()
   end
 
   defp standard_options, do: RateOfPlay.standard_options()
@@ -2949,7 +3043,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
 
         <p class="hint" style="margin-top: 0">
           {gettext(
-            "Someone has invited you to collaborate on these tournaments. Accepting gives you full editing access; declining removes the invitation."
+            "Someone has invited you to collaborate on these tournaments. An editor invitation gives you full editing access; an arbiter invitation lets you enter results from your phone in the hall. Declining removes the invitation."
           )}
         </p>
 
@@ -2960,6 +3054,8 @@ defmodule PairingsEngineWeb.TournamentsLive do
                 <th>{gettext("Tournament")}</th>
 
                 <th>{gettext("Invited by")}</th>
+
+                <th>{gettext("Role")}</th>
 
                 <th><span class="sr-only">{gettext("Actions")}</span></th>
               </tr>
@@ -2979,6 +3075,10 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   {owner_email}
                 </td>
 
+                <td>
+                  {if c.role == "arbiter", do: gettext("Arbiter"), else: gettext("Editor")}
+                </td>
+
                 <td style="text-align: right">
                   <button
                     class="pe-btn primary"
@@ -2992,6 +3092,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                     class="pe-btn danger-link"
                     phx-click="decline_invite"
                     phx-value-token={c.invite_token}
+                    data-confirm={gettext("Decline the invitation to \"%{name}\"?", name: t.name)}
                   >
                     {gettext("Decline")}
                   </button>
@@ -3832,7 +3933,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
                   >{gettext("shared")}</span>
                 </td>
 
-                <td>{t.archived_at}</td>
+                <td>{PairingsEngineWeb.AuditLive.format_time(t.archived_at)}</td>
 
                 <td><span class="badge archived">{gettext("archived")}</span></td>
 
@@ -3897,7 +3998,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
                         class="is-danger"
                         phx-click="leave_tournament"
                         phx-value-id={t.id}
-                        data-confirm={"Leave \"#{t.name}\"? You'll lose access to it unless the owner invites you again."}
+                        data-confirm={
+                          gettext(
+                            "Leave \"%{name}\"? You'll lose access to it unless the owner invites you again.",
+                            name: t.name
+                          )
+                        }
                       >
                         {gettext("Leave")}
                       </button>
@@ -3935,7 +4041,7 @@ defmodule PairingsEngineWeb.TournamentsLive do
               <tr :for={t <- @deleted_tournaments}>
                 <td><strong>{t.name}</strong></td>
 
-                <td>{t.deleted_at}</td>
+                <td>{PairingsEngineWeb.AuditLive.format_time(t.deleted_at)}</td>
 
                 <td style="text-align: right">
                   <button class="pe-btn" phx-click="restore_tournament" phx-value-id={t.id}>
@@ -4423,7 +4529,12 @@ defmodule PairingsEngineWeb.TournamentsLive do
               class="is-danger"
               phx-click="leave_tournament"
               phx-value-id={@t.id}
-              data-confirm={"Leave \"#{@t.name}\"? You'll lose access to it unless the owner invites you again."}
+              data-confirm={
+                gettext(
+                  "Leave \"%{name}\"? You'll lose access to it unless the owner invites you again.",
+                  name: @t.name
+                )
+              }
             >
               {gettext("Leave")}
             </button>

@@ -56,7 +56,10 @@ pagina Afdrukken gebruikt de laatst gepaarde ronde, en de pagina Paringen drukt 
 ronde af waarnaar je kijkt. In het adres van een afdrukpagina kiest `?round=N` een
 ronde. De paringenlijst valt standaard terug op ronde 1 en de resultaatkaartjes op de
 laatst gepaarde ronde als je het weglaat. Een ronde die niet is gepaard, geeft het
-antwoord *Ronde N is nog niet gepaard*, niet een andere ronde. De afdruk van de stand
+antwoord *Ronde N is nog niet gepaard*, niet een andere ronde. Zo'n weigering
+(en het voorbeeld van de volgende ronde dat nog niet is uitgewerkt) opent als een
+klein paginatje met de reden en een link terug naar de pagina Afdrukken, in
+hetzelfde tabblad. De afdruk van de stand
 neemt op dezelfde manier een ronde (`?round=N`) en toont dan de stand zoals die was
 na die ronde.
 

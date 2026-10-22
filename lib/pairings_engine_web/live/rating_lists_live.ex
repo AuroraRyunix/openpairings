@@ -23,7 +23,7 @@ defmodule PairingsEngineWeb.RatingListsLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Rating lists",
+       page_title: gettext("Rating lists"),
        may_admin?: Authz.may_administer?(socket.assigns.current_scope.user),
        name: "",
        preview: nil,
@@ -129,7 +129,12 @@ defmodule PairingsEngineWeb.RatingListsLive do
            lists: RatingLists.custom_lists()
          )}
       else
-        _ -> {:noreply, assign(socket, lists: RatingLists.custom_lists())}
+        _ ->
+          {:noreply,
+           assign(socket,
+             errors: [gettext("That list no longer exists.")],
+             lists: RatingLists.custom_lists()
+           )}
       end
     else
       {:noreply, assign(socket, errors: [admin_only()])}
@@ -216,7 +221,12 @@ defmodule PairingsEngineWeb.RatingListsLive do
                   id={"delete-custom-list-#{list.id}"}
                   phx-click="delete_list"
                   phx-value-id={list.id}
-                  data-confirm={gettext("Delete this list? Sequences that name it drop it.")}
+                  data-confirm={
+                    gettext(
+                      "Delete “%{name}”? Tournaments that use it in their rating-list sequence drop it.",
+                      name: list.name
+                    )
+                  }
                 >
                   {gettext("Delete")}
                 </button>

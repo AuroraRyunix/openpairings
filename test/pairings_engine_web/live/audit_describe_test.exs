@@ -1251,7 +1251,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       # The level, when it was recorded, is the label the Live round page
       # gives it.
       assert nl("pairing.result_entered", Map.put(old, "enrollment_level", "deputy")) =~
-               ~s[Via de telefoon "Board 3 tablet" (Deputy).]
+               ~s[Via de telefoon "Board 3 tablet" (Hulparbiter).]
     end
 
     test "a restore point whose name was stored in English is quoted as a name inside the Dutch sentence" do

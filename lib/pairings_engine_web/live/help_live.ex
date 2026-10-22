@@ -13,8 +13,9 @@ defmodule PairingsEngineWeb.HelpLive do
   would have helped nobody and bounced the people who need it most.
   `mount_current_scope` still gives a signed-in arbiter their own top bar.
 
-  The manual text is English only (FIDE's checklist asks for an English
-  manual); the page chrome around it is translated.
+  The manual exists in English and Dutch (`PairingsEngine.Manual`, one
+  chapter file per language; a chapter not translated yet shows in English),
+  and the page chrome around it is translated too.
 
   ## The page
 

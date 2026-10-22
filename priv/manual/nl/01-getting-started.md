@@ -141,7 +141,8 @@ toernooien (aanvankelijk leeg), met *Nieuw toernooi* en de importknoppen.
 
 De balk bovenaan elke pagina bevat:
 
-- **Toernooien** - de lijst van je toernooien.
+- **Toernooien** - de lijst van je toernooien. In een toernooi heet dit eerste
+  tabblad **Start** en het leidt naar dezelfde lijst.
 - **Hulpmiddelen** - de openbare arbiterhulpmiddelen (normrapporten uit
   geüploade bestanden).
 - **Wijzigingen** - wat er in elke release is veranderd.

@@ -13,7 +13,7 @@ defmodule PairingsEngineWeb.ChangelogLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, assign(socket, page_title: "Changelog", changelog_html: Changelog.html())}
+    {:ok, assign(socket, page_title: gettext("Changelog"), changelog_html: Changelog.html())}
   end
 
   @impl true

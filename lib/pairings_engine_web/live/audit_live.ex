@@ -185,10 +185,48 @@ defmodule PairingsEngineWeb.AuditLive do
           if connected?(socket),
             do: Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Audit.topic(tournament.id))
 
-          load_entries(socket)
+          socket
       end
 
     {:ok, socket}
+  end
+
+  # The category and the page being looked at live in the URL
+  # (`?category=players&page=2`), so a reload or a pasted link keeps them.
+  # An unknown category falls back to "all" and a junk page to the first.
+  @impl true
+  def handle_params(params, _uri, %{assigns: %{live_action: :index}} = socket) do
+    category =
+      case params["category"] do
+        key when is_binary(key) ->
+          if Enum.any?(@categories, fn {k, _codes} -> k == key end), do: key, else: "all"
+
+        _ ->
+          "all"
+      end
+
+    page =
+      case Integer.parse(to_string(params["page"] || "1")) do
+        {n, ""} when n >= 1 -> n - 1
+        _ -> 0
+      end
+
+    {:noreply, socket |> assign(category: category, page: page) |> load_entries()}
+  end
+
+  def handle_params(_params, _uri, socket), do: {:noreply, socket}
+
+  defp audit_path(tournament, category, page) do
+    query =
+      Enum.reject(
+        [
+          category: if(category == "all", do: nil, else: category),
+          page: if(page > 0, do: page + 1)
+        ],
+        fn {_k, v} -> is_nil(v) end
+      )
+
+    ~p"/t/#{tournament.id}/audit?#{query}"
   end
 
   defp page_title(:explain, tournament),
@@ -217,12 +255,16 @@ defmodule PairingsEngineWeb.AuditLive do
 
   @impl true
   def handle_event("filter", %{"category" => category}, socket) do
-    {:noreply, socket |> assign(category: category, page: 0) |> load_entries()}
+    {:noreply, push_patch(socket, to: audit_path(socket.assigns.tournament, category, 0))}
   end
 
   def handle_event("page", %{"delta" => delta}, socket) do
     page = max(socket.assigns.page + String.to_integer(delta), 0)
-    {:noreply, socket |> assign(page: page) |> load_entries()}
+
+    {:noreply,
+     push_patch(socket,
+       to: audit_path(socket.assigns.tournament, socket.assigns.category, page)
+     )}
   end
 
   defp load_entries(socket) do

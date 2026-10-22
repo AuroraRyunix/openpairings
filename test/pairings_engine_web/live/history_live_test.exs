@@ -618,6 +618,17 @@ defmodule PairingsEngineWeb.HistoryLiveTest do
       assert html =~ ~r/<button[^>]*disabled[^>]*>\s*Go back to this point/
     end
 
+    test "a restore point that has vanished says so instead of doing nothing", %{
+      conn: conn,
+      scope: scope
+    } do
+      {tournament, _snapshot} = restorable(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/history")
+
+      html = render_click(lv, "restore_start", %{"id" => "999999"})
+      assert html =~ "That restore point no longer exists."
+    end
+
     test "a wrong confirmation word does nothing", %{conn: conn, scope: scope} do
       {tournament, snapshot} = restorable(scope)
 

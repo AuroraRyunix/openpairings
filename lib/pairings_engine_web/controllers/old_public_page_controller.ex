@@ -24,7 +24,11 @@ defmodule PairingsEngineWeb.OldPublicPageController do
       |> put_status(:moved_permanently)
       |> redirect(external: base <> "/t/" <> slug <> suffix(conn.private[:old_page]))
     else
-      _not_a_slug_or_nowhere -> conn |> put_status(:not_found) |> text("Not found")
+      _not_a_slug_or_nowhere ->
+        conn
+        |> put_status(:not_found)
+        |> put_view(html: PairingsEngineWeb.ErrorHTML)
+        |> render("404.html")
     end
   end
 

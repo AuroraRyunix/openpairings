@@ -615,4 +615,79 @@ defmodule PairingsEngineWeb.CategoriesLiveTest do
       refute has_element?(lv, "#ranked-separately")
     end
   end
+
+  describe "UX gaps" do
+    setup %{scope: scope} do
+      tournament =
+        create_tournament(scope, %{
+          "categories_enabled" => true,
+          "categories" => ["U1800"],
+          "category_rules" => %{"U1800" => %{"rating_below" => 1800}}
+        })
+
+      %{tournament: tournament}
+    end
+
+    test "Remove names the category and what goes with it", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      assert has_element?(
+               lv,
+               ~s(button[phx-click="remove_category"][data-confirm*="Remove category U1800?"])
+             )
+    end
+
+    test "Save rules says so, and Assign waits for a save while the table is edited", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      refute has_element?(lv, "#assign-save-first")
+
+      render_change(lv, "rules_change", %{"rule" => %{"0" => %{"rating_below" => "1700"}}})
+      assert has_element?(lv, "#assign-save-first", "Save the rules first.")
+      assert has_element?(lv, "#assign-categories-button[disabled]")
+
+      lv |> form("#rules-form") |> render_submit()
+      assert has_element?(lv, "#rules-saved-note", "Rules saved.")
+      refute has_element?(lv, "#assign-save-first")
+    end
+
+    test "rules whose from is not below the ceiling are refused", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+
+      html =
+        render_submit(lv, "save_rules", %{
+          "rule" => %{"0" => %{"rating_from" => "1900", "rating_below" => "1800"}}
+        })
+
+      assert html =~ "must be lower than"
+    end
+
+    test "typing in the rules table survives a change made elsewhere", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      render_change(lv, "rules_change", %{"rule" => %{"0" => %{"age_below" => "13"}}})
+
+      {:ok, _} = Tournaments.update_tournament(tournament, %{"venue" => "Elsewhere"})
+      html = render(lv)
+
+      assert html =~ ~s(value="13")
+    end
+
+    test "the add form is empty after a category is added", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/categories")
+      assert has_element?(lv, "#new-category-name-0")
+
+      lv |> form("#add-category-form", %{"name" => "U1400"}) |> render_submit()
+
+      assert has_element?(lv, "#new-category-name-1")
+      refute has_element?(lv, "#new-category-name-0")
+    end
+  end
 end

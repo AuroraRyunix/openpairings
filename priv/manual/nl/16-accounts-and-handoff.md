@@ -56,7 +56,7 @@ De eigenaar kan andere arbiters uitnodigen. Instellingen, **Toernooi**, kaart
 **Delen / Team**: voer een e-mailadres in en **Medewerker toevoegen**.
 
 - De uitnodiging verleent op zich geen toegang. De persoon ontvangt een e-mail
-  met een link (`/invites/…`) en moet aangemeld zijn met dat adres en op **Aanvaarden** (of **Weigeren**) drukken. Openstaande uitnodigingen worden ook op de pagina Toernooien getoond. Als de e-mail niet verstuurd kon worden, toont de pagina de link om met de hand door te geven.
+  met een link (`/invites/…`) en moet aangemeld zijn met dat adres en op **Aanvaarden** (of **Weigeren**) drukken. Openstaande uitnodigingen worden ook op de pagina Toernooien getoond, met de rol waarvoor je uitgenodigd bent; weigeren vraagt eerst om bevestiging. Als de eigenaar het toernooi intussen verwijderd heeft, zegt de link dat en kan er niets aanvaard worden. Als de e-mail niet verstuurd kon worden, toont de pagina de link om met de hand door te geven. Heb je de uitnodiging al aanvaard, dan werkt de link niet meer en staat het toernooi op je pagina Toernooien; ben je aangemeld met een ander adres dan het uitgenodigde, dan biedt de pagina **Afmelden en van account wisselen** aan.
 - Een medewerker die als **Bewerker** is uitgenodigd, kan alles wat de eigenaar kan, behalve medewerkers beheren en het toernooi verwijderen. Wie als **Arbiter** is uitgenodigd, krijgt resultaten en incidenten op een telefoon en verder niets ([Arbiters met een eigen account](07-results.md#arbiters-with-their-own-account)).
 - Iedereen ziet wijzigingen zodra ze gebeuren: wanneer een collega een ronde paart of een resultaat invoert, worden je pagina's vanzelf bijgewerkt. Ging het om een ronde (gepaard, ongedaan gemaakt, opnieuw gepaard, gepubliceerd of weer ingetrokken) dan meldt een kort bericht op de pagina Paringen of Spelers dat, bijvoorbeeld "Ronde 4 is zojuist elders gepaard"; wie het zelf deed hoort niets, en het bericht noemt nooit een persoon. Dat geldt ook voor het auditspoor: een regel die wordt weggeschreven terwijl je het open hebt staan verschijnt binnen een ogenblik, op de pagina en met het filter waar je naar keek, en elke medewerker ziet dezelfde regels als de eigenaar.
 - De eigenaar kan een medewerker verwijderen; een medewerker kan een gedeeld toernooi **Verlaten** vanuit de lijst. Hoe dan ook worden de codes voor zaalboxen die die persoon voor het toernooi maakte samen met die persoon ingetrokken ([Live borden](17-live-boards.md)), en een code werkt alleen zolang wie hem maakte het toernooi nog kan openen.
@@ -78,7 +78,7 @@ onderaan, in het rood):
 
 De tabel **Gearchiveerd** onder de lijst heeft per rij hetzelfde menu **Meer**, met *Exporteren*, *Dearchiveren* en, onderaan in het rood, *Verwijderen* of *Verlaten*.
 
-De **Prullenbak** toont verwijderde toernooien; **Herstellen** brengt er één terug.
+De **Prullenbak** toont verwijderde toernooien, met de datum waarop ze verwijderd zijn; **Herstellen** brengt er één terug. Verwijderen, herstellen en definitief verwijderen tonen elk een melding met de naam van het toernooi.
 
 > [!WARNING]
 > **Definitief verwijderen** haalt een toernooi voorgoed uit de prullenbak (na bevestiging).

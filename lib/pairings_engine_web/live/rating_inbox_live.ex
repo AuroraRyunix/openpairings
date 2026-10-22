@@ -13,6 +13,8 @@ defmodule PairingsEngineWeb.RatingInboxLive do
   """
   use PairingsEngineWeb, :live_view
 
+  require Logger
+
   alias PairingsEngine.{RatingInbox, Repo, SentReceipts}
   alias PairingsEngine.Tournaments.{SentReceipt, Tournament}
   alias PairingsEngineWeb.Postponed
@@ -40,7 +42,9 @@ defmodule PairingsEngineWeb.RatingInboxLive do
         {:noreply, update(socket, :checks, &Map.put(&1, id_int(id), {:error, reason}))}
 
       _ ->
-        {:noreply, socket}
+        # The send (or its tournament) is gone: say so where the answer
+        # would have been, instead of a button that does nothing.
+        {:noreply, update(socket, :checks, &Map.put(&1, id_int(id), {:error, :send_gone}))}
     end
   end
 
@@ -51,8 +55,10 @@ defmodule PairingsEngineWeb.RatingInboxLive do
   def handle_async({:check, id}, {:ok, result}, socket),
     do: {:noreply, update(socket, :checks, &Map.put(&1, id, result))}
 
-  def handle_async({:check, id}, {:exit, reason}, socket),
-    do: {:noreply, update(socket, :checks, &Map.put(&1, id, {:error, inspect(reason)}))}
+  def handle_async({:check, id}, {:exit, reason}, socket) do
+    Logger.warning("Rating inbox check #{id} crashed: #{inspect(reason)}")
+    {:noreply, update(socket, :checks, &Map.put(&1, id, {:error, :crashed}))}
+  end
 
   defp id_int(id) do
     case Integer.parse(id) do
@@ -134,7 +140,13 @@ defmodule PairingsEngineWeb.RatingInboxLive do
         "No copy: the tournament is in FIDE mode and a postponed game in it has no result, so no TRF of it is made."
       )
 
-  defp error_text(other), do: inspect(other)
+  defp error_text(:send_gone),
+    do: gettext("This send no longer exists - press Refresh.")
+
+  defp error_text(other) do
+    Logger.warning("Rating inbox: unexpected check error #{inspect(other)}")
+    gettext("The check could not be run.")
+  end
 
   @impl true
   def render(assigns) do

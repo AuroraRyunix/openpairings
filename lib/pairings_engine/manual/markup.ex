@@ -54,18 +54,30 @@ defmodule PairingsEngine.Manual.Markup do
   text (lower-cased, runs of other characters becoming one `-`).
   """
 
+  use Gettext, backend: PairingsEngineWeb.Gettext
+
   alias PairingsEngine.Markdown
 
   @screenshot_url "/images/manual"
 
   @callouts %{
-    "NOTE" => {"note", "Note", "hero-information-circle"},
-    "TIP" => {"tip", "Tip", "hero-light-bulb"},
-    "IMPORTANT" => {"important", "Important", "hero-exclamation-circle"},
-    "WARNING" => {"warning", "Warning", "hero-exclamation-triangle"},
-    "CAUTION" => {"caution", "Caution", "hero-shield-exclamation"},
-    "FIDE" => {"fide", "FIDE rule", "hero-scale"}
+    "NOTE" => {"note", "hero-information-circle"},
+    "TIP" => {"tip", "hero-light-bulb"},
+    "IMPORTANT" => {"important", "hero-exclamation-circle"},
+    "WARNING" => {"warning", "hero-exclamation-triangle"},
+    "CAUTION" => {"caution", "hero-shield-exclamation"},
+    "FIDE" => {"fide", "hero-scale"}
   }
+
+  # The title a callout carries when the chapter gives none. Looked up when
+  # the chapter is rendered, in the locale `chapter/3` was asked for, so the
+  # Dutch manual does not say "Warning".
+  defp callout_title("note"), do: gettext("Note")
+  defp callout_title("tip"), do: gettext("Tip")
+  defp callout_title("important"), do: gettext("Important")
+  defp callout_title("warning"), do: gettext("Warning")
+  defp callout_title("caution"), do: gettext("Caution")
+  defp callout_title("fide"), do: gettext("FIDE rule")
 
   @callout_marker ~r/\A\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION|FIDE)\][ \t]*([^\n]*)\n?/s
 
@@ -82,6 +94,18 @@ defmodule PairingsEngine.Manual.Markup do
   the screenshot slots (`%{file:, alt:, caption:, present?:, id:, number:}`).
   """
   def chapter(markdown, number, opts \\ []) do
+    case Keyword.get(opts, :locale) do
+      nil ->
+        do_chapter(markdown, number, opts)
+
+      locale ->
+        Gettext.with_locale(PairingsEngineWeb.Gettext, locale, fn ->
+          do_chapter(markdown, number, opts)
+        end)
+    end
+  end
+
+  defp do_chapter(markdown, number, opts) do
     ast = Markdown.parse(markdown)
 
     {title, ast} = take_title(ast)
@@ -149,9 +173,9 @@ defmodule PairingsEngine.Manual.Markup do
   defp transform({"blockquote", _attrs, children, meta} = node, state) do
     case callout(children) do
       {:ok, kind, title, body} ->
-        {kind_class, default_title, icon} = Map.fetch!(@callouts, kind)
+        {kind_class, icon} = Map.fetch!(@callouts, kind)
         {body, state} = transform_nodes(body, state)
-        title = if title == "", do: default_title, else: title
+        title = if title == "", do: callout_title(kind_class), else: title
 
         {{"div",
           [
@@ -294,7 +318,7 @@ defmodule PairingsEngine.Manual.Markup do
         )
 
     number = state.figure + 1
-    label = "Figure #{state.number}.#{number}"
+    label = gettext("Figure %{n}", n: "#{state.number}.#{number}")
 
     {file, url, present?} =
       case Regex.run(~r{\Ascreenshots/([A-Za-z0-9][A-Za-z0-9._-]*)\z}, src) do
@@ -318,7 +342,7 @@ defmodule PairingsEngine.Manual.Markup do
            {"type", "button"},
            {"class", "manual-figure-frame"},
            {"data-enlarge", "true"},
-           {"aria-label", "Enlarge " <> label <> ": " <> alt}
+           {"aria-label", gettext("Enlarge %{figure}: %{alt}", figure: label, alt: alt)}
          ],
          [
            {"img", [{"src", url}, {"alt", alt}, {"loading", "lazy"}, {"decoding", "async"}], [],
@@ -332,12 +356,13 @@ defmodule PairingsEngine.Manual.Markup do
          [
            {"class", "manual-figure-placeholder"},
            {"role", "img"},
-           {"aria-label", "Screenshot not added yet: " <> alt}
+           {"aria-label", gettext("Screenshot not added yet: %{alt}", alt: alt)}
          ],
          [
            {"span", [{"class", "hero-photo manual-placeholder-icon"}, {"aria-hidden", "true"}],
             [], %{}},
-           {"span", [{"class", "manual-placeholder-label"}], ["Screenshot to come"], %{}},
+           {"span", [{"class", "manual-placeholder-label"}], [gettext("Screenshot to come")],
+            %{}},
            {"code", [{"class", "manual-placeholder-file"}], [file || src], %{}},
            {"span", [{"class", "manual-placeholder-alt"}], [alt], %{}}
          ], %{}}

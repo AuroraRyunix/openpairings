@@ -30,7 +30,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
      |> attach_fide_gate()
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Scoring",
+       page_title: "#{tournament.name} · " <> gettext("Scoring"),
        note: nil,
        error: nil,
        dirty: false,
@@ -140,7 +140,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -196,7 +196,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   # Only follows the absence points box, for the late-entry toggle beside
   # it. A locked (disabled) box is not sent, and then the saved value holds.
   def handle_event("preview", %{"tournament" => %{"abs_value" => value}}, socket) do
-    {:noreply, assign(socket, abs_points_on?: abs_points_on?(value))}
+    {:noreply, assign(socket, abs_points_on?: abs_points_on?(value), note: nil)}
   end
 
   def handle_event("preview", _params, socket), do: {:noreply, socket}
@@ -238,7 +238,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
            tournament: tournament,
            vur_checked: tournament.absent_counts_as_vur,
            abs_points_on?: abs_points_on?(tournament.abs_value),
-           note: "Saved.",
+           note: gettext("Saved."),
            error: nil,
            dirty: false,
            stale: false,

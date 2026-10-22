@@ -13,6 +13,8 @@ defmodule PairingsEngine.ResultsImport do
   from a click or a CSV line.
   """
 
+  require Logger
+
   alias PairingsEngine.Encoding
   alias PairingsEngine.PairingDisplay
   alias PairingsEngine.PostponedGames
@@ -55,7 +57,7 @@ defmodule PairingsEngine.ResultsImport do
   defp cap_errors(errors) do
     case length(errors) - @max_errors do
       extra when extra > 0 ->
-        Enum.take(errors, @max_errors) ++ ["...and #{extra} more problem(s) in this file"]
+        Enum.take(errors, @max_errors) ++ [{:more_problems, extra}]
 
       _ ->
         errors
@@ -99,7 +101,10 @@ defmodule PairingsEngine.ResultsImport do
 
   Returns `{:ok, [{board, result}]}` when every line parses cleanly, or
   `{:error, [reason, ...]}` - one entry per malformed line or duplicate
-  board - otherwise. Never raises. A file with more lines than a round can
+  board - otherwise. A reason is a term (`{:unrecognized_result, line,
+  text}`, `{:duplicate_board, board, lines}`, ...), never a sentence: the
+  page words it in the arbiter's language (`PairingsLive`'s
+  `import_error_text/1`). Never raises. A file with more lines than a round can
   have boards is refused outright, and a long list of problems is truncated
   with a count; see the bounds at the top of the module for both numbers.
   """
@@ -114,11 +119,10 @@ defmodule PairingsEngine.ResultsImport do
 
     cond do
       lines == [] ->
-        {:error, ["The file is empty"]}
+        {:error, [:empty_file]}
 
       length(lines) > @max_lines ->
-        {:error,
-         ["This file has #{length(lines)} lines; one round has at most #{@max_lines} boards"]}
+        {:error, [{:too_many_lines, length(lines), @max_lines}]}
 
       true ->
         separator = detect_separator(lines)
@@ -166,14 +170,14 @@ defmodule PairingsEngine.ResultsImport do
           {:ok, line_no, board, result}
         else
           {:error, :unrecognized} ->
-            {:error, "line #{line_no}: unrecognized result #{inspect(String.trim(result_str))}"}
+            {:error, {:unrecognized_result, line_no, String.trim(result_str)}}
 
           _ ->
-            {:error, "line #{line_no}: invalid board number #{inspect(String.trim(board_str))}"}
+            {:error, {:invalid_board_number, line_no, String.trim(board_str)}}
         end
 
       _ ->
-        {:error, "line #{line_no}: expected \"board,result\" (got #{inspect(line)})"}
+        {:error, {:bad_line, line_no, line}}
     end
   end
 
@@ -236,7 +240,7 @@ defmodule PairingsEngine.ResultsImport do
     |> Enum.sort_by(fn {board, _entries} -> board end)
     |> Enum.map(fn {board, entries} ->
       lines = entries |> Enum.map(fn {line_no, _b, _r} -> line_no end) |> Enum.join(", ")
-      "board #{board}: listed more than once (lines #{lines})"
+      {:duplicate_board, board, lines}
     end)
   end
 
@@ -253,7 +257,9 @@ defmodule PairingsEngine.ResultsImport do
 
   Returns `{:ok, count}` (number of results written) or
   `{:error, [reason, ...]}`, truncated with a count past the same limit
-  `parse_text/1` applies. A reason is a sentence, or
+  `parse_text/1` applies. A reason is a term like `parse_text/1`'s
+  (`{:no_such_board, board, round}`, `{:bye_board, board}`, ...), the
+  refusal sentence of an archived or handed-off tournament, or
   `{:postponed_non_draw, board}` for a postponed game given a result that
   is not a draw, or `{:finalised_result_changed, board}` for a result
   already sent in a finalised TRF - both have to be entered on the Pairings
@@ -264,7 +270,7 @@ defmodule PairingsEngine.ResultsImport do
   def apply_import(tournament, round_number, rows) when is_list(rows) do
     case Tournaments.get_round(tournament.id, round_number) do
       nil ->
-        {:error, ["Round #{round_number} has not been paired yet"]}
+        {:error, [{:round_not_paired, round_number}]}
 
       round ->
         # Keyed on the DISPLAYED label, not on `pairing.board`. The arbiter
@@ -294,7 +300,7 @@ defmodule PairingsEngine.ResultsImport do
           Enum.reduce(rows, {[], []}, fn {board, result}, {resolved, errors} ->
             case resolve_board(by_label, board, round_number) do
               {:ok, %{result: "bye"}} ->
-                {resolved, ["board #{board}: is a bye - no result to enter" | errors]}
+                {resolved, [{:bye_board, board} | errors]}
 
               # A postponed game given a result that is not a draw. Every
               # round paired since counted it as a draw, and the arbiter has
@@ -361,7 +367,7 @@ defmodule PairingsEngine.ResultsImport do
   defp resolve_board(by_label, board, round_number) do
     case Map.get(by_label, to_string(board), []) do
       [] ->
-        {:error, "board #{board}: no such board in round #{round_number}"}
+        {:error, {:no_such_board, board, round_number}}
 
       [only] ->
         {:ok, only}
@@ -372,9 +378,7 @@ defmodule PairingsEngine.ResultsImport do
             {:ok, ordinary}
 
           [] ->
-            {:error,
-             "board #{board}: names #{length(several)} fixed tables in round " <>
-               "#{round_number}, so it is ambiguous - enter these from the Pairings page"}
+            {:error, {:ambiguous_board, board, length(several), round_number}}
         end
     end
   end
@@ -423,14 +427,13 @@ defmodule PairingsEngine.ResultsImport do
       # Another arbiter changed a board's players between the check and the
       # write. Nothing was written, for any board.
       {:error, :board_changed} ->
-        {:error,
-         [
-           "Could not save results: a board's players changed while the import ran. Reload the page and import again."
-         ]}
+        {:error, [:board_changed]}
 
       # Any other refusal the checks above let through: nothing was written.
+      # The term goes to the log; the page gets a sentence.
       {:error, reason} ->
-        {:error, ["Could not save results: #{inspect(reason)}"]}
+        Logger.warning("results import refused: #{inspect(reason)}")
+        {:error, [:save_failed]}
     end
   end
 

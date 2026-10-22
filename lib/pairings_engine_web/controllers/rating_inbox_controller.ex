@@ -34,8 +34,15 @@ defmodule PairingsEngineWeb.RatingInboxController do
       )
       |> send_resp(200, text)
     else
-      false -> refuse(conn, :forbidden, "Only an administrator can open the rating inbox.")
-      _ -> refuse(conn, :not_found, "No such file.")
+      false ->
+        forbid(conn)
+
+      _ ->
+        refuse(
+          conn,
+          ~p"/admin/rating-inbox",
+          gettext("That file no longer exists. Press Refresh.")
+        )
     end
   end
 
@@ -53,10 +60,20 @@ defmodule PairingsEngineWeb.RatingInboxController do
     "receipt-#{id}-round-#{round}-#{code}_COPY-NOT-FOR-RATING.trf"
   end
 
-  defp refuse(conn, status, message) do
+  # Not an administrator: nothing stale about it, so it stays a 403, on a
+  # page with a way back.
+  defp forbid(conn) do
     conn
-    |> put_status(status)
+    |> put_status(:forbidden)
     |> put_view(html: PairingsEngineWeb.ErrorHTML)
-    |> text(message)
+    |> render("403.html")
+  end
+
+  # A download link that leads nowhere should land back on a page, with the
+  # reason on it, not on a bare line of text in a tab of its own.
+  defp refuse(conn, to, message) do
+    conn
+    |> put_flash(:error, message)
+    |> redirect(to: to)
   end
 end

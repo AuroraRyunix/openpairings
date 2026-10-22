@@ -130,7 +130,8 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       html = render_click(lv, "edit_player", %{"id" => to_string(player.id)})
       assert html =~ "Player registration"
       refute html =~ "stopPropagation"
-      assert html =~ ~s(phx-click-away="close_edit")
+      # A click outside must not throw away what was typed (Escape and Cancel still close it).
+      refute html =~ ~s(phx-click-away="close_edit")
     end
 
     test "Cancel closes the modal via close_edit", %{
@@ -1299,7 +1300,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       refute html =~ "FIDE disagrees"
     end
 
-    test "by name: No keeps the original name but leaves the other fields applied", %{
+    test "by name: No puts the form back as it was before the lookup", %{
       conn: conn,
       tournament: tournament
     } do
@@ -1320,7 +1321,7 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
 
       html = lv |> element("button[phx-click='reject_fide_conflicts']") |> render_click()
       assert html =~ ~s(value="tijl")
-      assert html =~ ~s(value="BEL")
+      refute html =~ ~s(value="BEL")
       refute html =~ "FIDE disagrees"
     end
 
@@ -2902,6 +2903,128 @@ defmodule PairingsEngineWeb.PlayersLiveTest do
       |> render_submit()
 
       assert Repo.get!(PairingsEngine.Tournaments.Player, player.id).start_round == 3
+    end
+  end
+
+  describe "UX gaps: removing, bulk changes, stale rows" do
+    setup %{scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{
+          "name" => "UX Players",
+          "type" => "swiss",
+          "rounds_count" => "5",
+          "round_dates" => List.duplicate("2026-07-15", 5)
+        })
+
+      {:ok, alice} = Tournaments.create_player(tournament.id, %{"name" => "Alice"})
+      {:ok, _bob} = Tournaments.create_player(tournament.id, %{"name" => "Bob"})
+      %{tournament: tournament, alice: alice}
+    end
+
+    test "Remove asks in words, and the grid hands its menu words to the hook", %{
+      conn: conn,
+      tournament: tournament,
+      alice: alice
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      assert has_element?(
+               lv,
+               ~s(tr[data-player-id='#{alice.id}'] button[data-confirm='Remove Alice from the tournament?'])
+             )
+
+      assert has_element?(lv, "#players-table[data-menu-labels][data-player-total='2']")
+    end
+
+    test "the grid headers and menus follow the language", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      conn = put_req_header(conn, "accept-language", "nl")
+      {:ok, _lv, html} = live(conn, ~p"/t/#{tournament.id}/players")
+      # the column description tooltip is translated, not the English attribute text
+      refute html =~ ~s[title="Current standings rank (classement)"]
+    end
+
+    test "a bulk change keeps a restore point and says how many players it touched", %{
+      conn: conn,
+      tournament: tournament
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "set_all_absent_flag", %{"value" => "true"})
+      assert html =~ "2 players updated"
+
+      html = render_click(lv, "set_all_paid", %{"value" => "paid"})
+      assert html =~ "2 players updated"
+    end
+
+    test "a row that is no longer there is said so", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+
+      html = render_click(lv, "delete", %{"id" => "999999"})
+      assert html =~ "That player is no longer in this tournament."
+
+      html = render_click(lv, "set_paid", %{"id" => "999999", "value" => "paid"})
+      assert html =~ "That player is no longer in this tournament."
+    end
+
+    test "saving the edit dialog of a player removed elsewhere closes it with a message", %{
+      conn: conn,
+      tournament: tournament,
+      alice: alice
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "edit_player", %{"id" => to_string(alice.id)})
+      assert has_element?(lv, "#player-edit-form")
+
+      {:ok, _} = Tournaments.delete_player(alice)
+
+      html = render_submit(lv, "save_player", %{"player" => %{"name" => "Alice B"}})
+      assert html =~ "Alice was removed in another window."
+      refute has_element?(lv, "#player-edit-form")
+    end
+
+    test "adding a player says so in the form", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      lv
+      |> form("#add-player-form", player: %{name: "Carol", sex: "m"})
+      |> render_submit()
+
+      assert has_element?(lv, "#add-player-note", "Added Carol")
+    end
+
+    test "a search with no hit says so", %{conn: conn, tournament: tournament} do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "add", %{})
+
+      html = render_change(lv, "search", %{"q" => "Zzzzzz"})
+      assert html =~ "add-player-no-match"
+      assert html =~ "No FIDE list has been downloaded yet."
+      assert has_element?(lv, "#add-player-connections-link")
+    end
+
+    test "a lookup by a name that matches several FIDE players asks for the FIDE ID", %{
+      conn: conn,
+      tournament: tournament,
+      alice: alice
+    } do
+      for {id, name} <- [{1_100_001, "Alice, Anna"}, {1_100_002, "Alice, Anne"}] do
+        Repo.insert!(%FidePlayer{
+          fide_id: id,
+          name: name,
+          federation: "BEL",
+          standard_rating: 1500
+        })
+      end
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/players")
+      render_click(lv, "edit_player", %{"id" => to_string(alice.id)})
+      html = lv |> element("button", "FIDE lookup") |> render_click()
+
+      assert html =~ "Several FIDE players match this name; search by FIDE ID instead."
     end
   end
 end

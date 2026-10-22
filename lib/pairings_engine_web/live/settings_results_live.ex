@@ -561,7 +561,8 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not save what the public page shows")}
+        {:noreply,
+         put_flash(socket, :error, gettext("Could not save what the public page shows"))}
     end
   end
 
@@ -624,7 +625,7 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not change the entry form")}
+        {:noreply, put_flash(socket, :error, gettext("Could not change the entry form"))}
     end
   end
 
@@ -720,7 +721,11 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         # changed nothing, and re-rendering as if it might have is how
         # somebody ends up believing an event was withdrawn while it is up.
         {:noreply,
-         put_flash(socket, :error, "Could not remove it from the results site: #{message}")}
+         put_flash(
+           socket,
+           :error,
+           gettext("Could not remove it from the results site: %{reason}", reason: message)
+         )}
     end
   end
 
@@ -738,12 +743,14 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
          |> assign(tournament: updated)
          |> put_flash(
            :info,
-           "This tournament now publishes to the address the backup came from. Its own public " <>
-             "link changed to match."
+           gettext(
+             "This tournament now publishes to the address the backup came from. Its own public link changed to match."
+           )
          )}
 
       {:error, message} ->
-        {:noreply, put_flash(socket, :error, "Could not take it over: #{message}")}
+        {:noreply,
+         put_flash(socket, :error, gettext("Could not take it over: %{reason}", reason: message))}
     end
   end
 
@@ -755,7 +762,10 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
         {:noreply,
          socket
          |> assign(tournament: updated)
-         |> put_flash(:info, "Starting fresh. This copy will publish to an address of its own.")}
+         |> put_flash(
+           :info,
+           gettext("Starting fresh. This copy will publish to an address of its own.")
+         )}
 
       {:error, message} ->
         {:noreply, put_flash(socket, :error, message)}
@@ -1755,18 +1765,23 @@ defmodule PairingsEngineWeb.SettingsResultsLive do
           <div class="set-field solo">
             <span class="set-label">{gettext("Accepting entries")}</span>
             <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-              <.state on?={@tournament.registration_open} on="Open" off="Closed" />
+              <.state
+                on?={@tournament.registration_open}
+                on={gettext("Open")}
+                off={gettext("Closed")}
+              />
               <button
                 type="button"
                 class="pe-btn"
                 phx-click="toggle_registration"
                 data-confirm={
                   if @tournament.registration_open,
-                    do: "Close the form? Nobody will be able to enter until you open it again.",
+                    do:
+                      gettext("Close the form? Nobody will be able to enter until you open it again."),
                     else: nil
                 }
               >
-                {if @tournament.registration_open, do: "Close it", else: "Open it"}
+                {if @tournament.registration_open, do: gettext("Close it"), else: gettext("Open it")}
               </button>
 
               <a

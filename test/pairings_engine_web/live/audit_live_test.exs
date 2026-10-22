@@ -113,6 +113,31 @@ defmodule PairingsEngineWeb.AuditLiveTest do
     refute html =~ "Registered player Alice"
   end
 
+  test "the category and the page are in the URL, so a reload keeps them", %{
+    conn: conn,
+    scope: scope
+  } do
+    t = make_tournament(scope)
+    Audit.log(t.id, scope, "player.created", %{player_name: "Alice"})
+
+    Audit.log(t.id, scope, "tournament.settings_updated", %{
+      changed_fields: %{"name" => ["A", "B"]}
+    })
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/audit")
+    lv |> element("button", "Players") |> render_click()
+    assert_patch(lv, ~p"/t/#{t.id}/audit?category=players")
+
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/audit?category=players")
+    assert html =~ "Registered player Alice"
+    refute html =~ "Updated tournament settings"
+
+    # junk falls back to the first page of everything
+    {:ok, _lv, html} = live(conn, ~p"/t/#{t.id}/audit?category=nonsense&page=zero")
+    assert html =~ "Registered player Alice"
+    assert html =~ "Updated tournament settings"
+  end
+
   test "a Dutch arbiter reads the trail in Dutch - the rows, not just the page around them", %{
     conn: conn,
     scope: scope

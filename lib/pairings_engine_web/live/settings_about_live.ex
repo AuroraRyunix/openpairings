@@ -25,7 +25,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
     {:ok,
      assign(socket,
        tournament: tournament,
-       page_title: "#{tournament.name} · Settings · About"
+       page_title: "#{tournament.name} · " <> gettext("Settings") <> " · " <> gettext("About")
      )}
   end
 
@@ -38,7 +38,7 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->

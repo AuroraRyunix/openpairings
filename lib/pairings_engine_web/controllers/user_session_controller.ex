@@ -6,11 +6,11 @@ defmodule PairingsEngineWeb.UserSessionController do
   alias PairingsEngineWeb.{ClientIp, UserAuth}
 
   def create(conn, %{"_action" => "confirmed"} = params) do
-    create(conn, params, "User confirmed successfully.")
+    create(conn, params, gettext("User confirmed successfully."))
   end
 
   def create(conn, params) do
-    create(conn, params, "Welcome back!")
+    create(conn, params, gettext("Welcome back!"))
   end
 
   # magic link login
@@ -25,7 +25,7 @@ defmodule PairingsEngineWeb.UserSessionController do
 
       _ ->
         conn
-        |> put_flash(:error, "The link is invalid or it has expired.")
+        |> put_flash(:error, gettext("The link is invalid or it has expired."))
         |> redirect(to: ~p"/users/log-in")
     end
   end
@@ -53,7 +53,7 @@ defmodule PairingsEngineWeb.UserSessionController do
       # distinguish a real account from a missing one.
       not Enum.all?(limits, fn {bucket, key} -> RateLimit.allow?(bucket, key) end) ->
         conn
-        |> put_flash(:error, "Too many sign-in attempts. Try again in a few minutes.")
+        |> put_flash(:error, gettext("Too many sign-in attempts. Try again in a few minutes."))
         |> put_flash(:email, String.slice(email, 0, 160))
         |> redirect(to: ~p"/users/log-in")
 
@@ -68,7 +68,9 @@ defmodule PairingsEngineWeb.UserSessionController do
         conn
         |> put_flash(
           :error,
-          "@#{PairingsEngine.Accounts.User.sso_domain()} accounts sign in with SSO."
+          gettext("@%{domain} accounts sign in with SSO.",
+            domain: PairingsEngine.Accounts.User.sso_domain()
+          )
         )
         |> redirect(to: ~p"/users/log-in")
 
@@ -88,7 +90,7 @@ defmodule PairingsEngineWeb.UserSessionController do
 
         # In order to prevent user enumeration attacks, don't disclose whether the email is registered.
         conn
-        |> put_flash(:error, "Invalid email or password")
+        |> put_flash(:error, gettext("Invalid email or password"))
         |> put_flash(:email, String.slice(email, 0, 160))
         |> redirect(to: ~p"/users/log-in")
     end
@@ -112,20 +114,31 @@ defmodule PairingsEngineWeb.UserSessionController do
 
   def update_password(conn, %{"user" => user_params} = params) do
     user = conn.assigns.current_scope.user
-    true = Accounts.sudo_mode?(user)
-    {:ok, {_user, expired_tokens}} = Accounts.update_user_password(user, user_params)
 
-    # disconnect all existing LiveViews with old sessions
-    UserAuth.disconnect_sessions(expired_tokens)
+    with true <- Accounts.sudo_mode?(user),
+         {:ok, {_user, expired_tokens}} <- Accounts.update_user_password(user, user_params) do
+      # disconnect all existing LiveViews with old sessions
+      UserAuth.disconnect_sessions(expired_tokens)
 
-    conn
-    |> put_session(:user_return_to, ~p"/users/settings")
-    |> create(params, "Password updated successfully!")
+      conn
+      |> put_session(:user_return_to, ~p"/users/settings")
+      |> create(params, gettext("Password updated successfully!"))
+    else
+      false ->
+        conn
+        |> put_flash(:error, gettext("You must re-authenticate to access this page."))
+        |> redirect(to: ~p"/users/log-in")
+
+      _invalid ->
+        conn
+        |> put_flash(:error, gettext("The password could not be changed. Try again."))
+        |> redirect(to: ~p"/users/settings")
+    end
   end
 
   def delete(conn, _params) do
     conn
-    |> put_flash(:info, "Logged out successfully.")
+    |> put_flash(:info, gettext("Logged out successfully."))
     |> UserAuth.log_out_user()
   end
 end

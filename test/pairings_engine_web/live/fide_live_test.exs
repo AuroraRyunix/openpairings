@@ -146,6 +146,16 @@ defmodule PairingsEngineWeb.FideLiveTest do
       assert html =~ "needs an administrator"
     end
 
+    test "removing the token asks first", %{conn: conn} do
+      Publishing.put_endpoint("https://openresults.example")
+      Publishing.put_token("operators-token")
+
+      {:ok, lv, _html} = live(conn, ~p"/fide")
+
+      assert lv |> element("button[phx-click=clear_publishing_token]") |> render() =~
+               "data-confirm"
+    end
+
     test "says nothing is published until both halves are set", %{conn: conn} do
       {:ok, _lv, html} = live(conn, ~p"/fide")
 

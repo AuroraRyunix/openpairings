@@ -134,6 +134,25 @@ defmodule PairingsEngineWeb.AdminLiveTest do
   end
 
   describe "changing a role" do
+    test "the confirmation is a dialog, and the table scrolls inside its own wrapper", %{
+      conn: conn
+    } do
+      colleague = user_fixture()
+      {:ok, lv, html} = live(conn, ~p"/admin")
+
+      assert html =~ "card-table-wrap"
+      refute has_element?(lv, "#role-modal")
+
+      lv
+      |> element("button[phx-value-id='#{colleague.id}'][phx-value-role='support']")
+      |> render_click()
+
+      assert has_element?(lv, "#role-modal #role-dialog[role='dialog']")
+
+      lv |> element("#role-dialog button", "Cancel") |> render_click()
+      refute has_element?(lv, "#role-modal")
+    end
+
     test "updates the role and writes a durable, non-tournament audit row", %{
       conn: conn,
       user: admin

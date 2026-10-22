@@ -371,6 +371,24 @@ defmodule PairingsEngineWeb.RatingInboxLiveTest do
     assert has_element?(view, "#rating-inbox-result-#{late.id}")
   end
 
+  test "a send that no longer exists says so, in the page and at the download", %{
+    conn: conn,
+    scope: scope
+  } do
+    t = tournament(scope, "Inbox vanished")
+    receipt = send!(conn, t)
+
+    {:ok, view, _html} = live(conn, ~p"/admin/rating-inbox")
+    PairingsEngine.Repo.delete!(receipt)
+
+    view |> render_hook("check", %{"id" => to_string(receipt.id)})
+    assert render(view) =~ "This send no longer exists"
+
+    gone = get(conn, ~p"/admin/rating-inbox/receipts/#{receipt.id}/trf")
+    assert redirected_to(gone) == ~p"/admin/rating-inbox"
+    assert Phoenix.Flash.get(gone.assigns.flash, :error) =~ "no longer exists"
+  end
+
   test "the download is for administrators only", %{conn: conn, scope: scope, user: user} do
     t = tournament(scope, "Inbox gate")
     receipt = send!(conn, t)

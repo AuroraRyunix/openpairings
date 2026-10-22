@@ -1,6 +1,8 @@
 defmodule PairingsEngineWeb.FideLive do
   use PairingsEngineWeb, :live_view
 
+  require Logger
+
   import PairingsEngineWeb.Components.ConnectionStatus
 
   alias PairingsEngine.Audit
@@ -186,7 +188,15 @@ defmodule PairingsEngineWeb.FideLive do
            |> put_flash(:info, gettext("Backup written: %{name}", name: Path.basename(path)))}
 
         {:error, reason} ->
-          {:noreply, assign(socket, backup_note: reason)}
+          Logger.warning("Backup failed: #{inspect(reason)}")
+
+          {:noreply,
+           assign(socket,
+             backup_note:
+               gettext(
+                 "The backup could not be written. Check the free space and the permissions of the backup folder on this machine."
+               )
+           )}
       end
     else
       {:noreply, put_flash(socket, :error, publishing_restricted())}
@@ -1282,6 +1292,11 @@ defmodule PairingsEngineWeb.FideLive do
               type="button"
               class="pe-btn"
               phx-click="clear_publishing_token"
+              data-confirm={
+                gettext(
+                  "Remove the publishing token? Nothing is published until a new one is entered, and the old one cannot be shown again."
+                )
+              }
             >
               {gettext("Remove token")}
             </button>

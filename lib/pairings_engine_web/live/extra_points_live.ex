@@ -33,7 +33,10 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
        tournament: tournament,
        mode: tournament.extra_points_mode,
        count: tournament.count_extra_points == true,
-       page_title: "#{tournament.name} · Extra points",
+       page_title: "#{tournament.name} · " <> gettext("Extra points"),
+       bands: tournament.extra_points_bands,
+       reduce_from: "0",
+       reduce_to: "3000",
        extra_points_error: nil,
        extra_points_note: nil,
        reduce_error: nil,
@@ -50,7 +53,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -65,7 +68,25 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
   # the counting switch as well.
   def handle_event("change_extra_points", %{"tournament" => params}, socket) do
     mode = if params["extra_points_mode"] == "acceleration", do: "acceleration", else: "handicap"
-    {:noreply, assign(socket, mode: mode, count: params["count_extra_points"] == "true")}
+
+    {:noreply,
+     assign(socket,
+       mode: mode,
+       count: params["count_extra_points"] == "true",
+       bands: params["extra_points_bands"] || socket.assigns.bands,
+       extra_points_note: nil
+     )}
+  end
+
+  # The range typed in the "Remove half a point" form, kept so that the
+  # confirmation can name it.
+  def handle_event("reduce_change", %{"reduce" => params}, socket) do
+    {:noreply,
+     assign(socket,
+       reduce_from: params["from"] || socket.assigns.reduce_from,
+       reduce_to: params["to"] || socket.assigns.reduce_to,
+       reduce_note: nil
+     )}
   end
 
   def handle_event("save_extra_points", %{"tournament" => params}, socket) do
@@ -94,8 +115,9 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
            tournament: tournament,
            mode: tournament.extra_points_mode,
            count: tournament.count_extra_points == true,
+           bands: tournament.extra_points_bands,
            extra_points_error: nil,
-           extra_points_note: nil
+           extra_points_note: gettext("Saved.")
          )}
 
       {:error, changeset} ->
@@ -109,7 +131,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       socket.assigns.tournament,
       "standings.extra_points_applied",
       socket.assigns.current_scope,
-      summary: "Before applying the extra-points bands"
+      summary: gettext("Before applying the extra-points bands")
     )
 
     case Tournaments.apply_extra_points_bands(socket.assigns.tournament) do
@@ -152,6 +174,7 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
 
     with {:ok, from} <- parse_rating(params["from"]),
          {:ok, to} <- parse_rating(params["to"]),
+         :ok <- reduce_restore_point(socket, from, to),
          {:ok, %{changed: changed}} <- Tournaments.reduce_extra_points(tournament, from, to) do
       Audit.log(
         tournament.id,
@@ -182,6 +205,23 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
       {:error, reason} ->
         {:noreply, assign(socket, reduce_error: error_text(reason), reduce_note: nil)}
     end
+  end
+
+  # Takes points off every player in a rating range - restore point first,
+  # as applying the bands does.
+  defp reduce_restore_point(socket, from, to) do
+    Snapshots.capture(
+      socket.assigns.tournament,
+      "standings.extra_points_reduced",
+      socket.assigns.current_scope,
+      summary:
+        gettext("Before removing half a point from players rated %{from} to %{to}",
+          from: from,
+          to: to
+        )
+    )
+
+    :ok
   end
 
   defp parse_rating(value) do
@@ -293,7 +333,10 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
                   name="tournament[extra_points_bands]"
                   value={@tournament.extra_points_bands}
                   placeholder={
-                    if(@acceleration?, do: "e.g. 1800:0.5, 2000:1", else: "e.g. 1400:1, 1600:0.5")
+                    if(@acceleration?,
+                      do: gettext("e.g. 1800:0.5, 2000:1"),
+                      else: gettext("e.g. 1400:1, 1600:0.5")
+                    )
                   }
                 />
               </.setting_field>
@@ -329,13 +372,26 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
                 id="apply-extra-points-bands"
                 class="pe-btn"
                 phx-click="apply_extra_points_bands"
+                data-confirm={
+                  gettext(
+                    "Overwrite the extra points of every player the bands match? A restore point is kept."
+                  )
+                }
               >
                 {gettext("Apply bands to players")}
               </button>
             </div>
           </form>
 
-          <p :if={@tournament.extra_points_mode != @mode} class="hint" style="margin-bottom: 0">
+          <p
+            :if={
+              @tournament.extra_points_mode != @mode or
+                (@tournament.extra_points_bands || "") != (@bands || "")
+            }
+            id="extra-points-save-first"
+            class="hint"
+            style="margin-bottom: 0"
+          >
             {gettext(
               "Save first: \"Apply bands to players\" uses the saved kind and bands, not the ones in the form."
             )}
@@ -351,14 +407,18 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
             )}
           </p>
 
-          <form id="reduce-extra-points-form" phx-submit="reduce_extra_points">
+          <form
+            id="reduce-extra-points-form"
+            phx-change="reduce_change"
+            phx-submit="reduce_extra_points"
+          >
             <.setting_group>
               <.setting_field label={gettext("From rating")}>
-                <input type="number" min="0" name="reduce[from]" value="0" />
+                <input type="number" min="0" name="reduce[from]" value={@reduce_from} />
               </.setting_field>
 
               <.setting_field label={gettext("To rating")}>
-                <input type="number" min="0" name="reduce[to]" value="3000" />
+                <input type="number" min="0" name="reduce[to]" value={@reduce_to} />
               </.setting_field>
             </.setting_group>
 
@@ -367,7 +427,20 @@ defmodule PairingsEngineWeb.ExtraPointsLive do
             <p :if={@reduce_note} class="ok-note">{@reduce_note}</p>
 
             <div class="actions">
-              <button type="submit" class="pe-btn">{gettext("Remove half a point")}</button>
+              <button
+                type="submit"
+                id="reduce-extra-points-button"
+                class="pe-btn"
+                data-confirm={
+                  gettext(
+                    "Take half a point off every player rated %{from} to %{to} who has extra points? A restore point is kept.",
+                    from: @reduce_from,
+                    to: @reduce_to
+                  )
+                }
+              >
+                {gettext("Remove half a point")}
+              </button>
             </div>
           </form>
         </div>

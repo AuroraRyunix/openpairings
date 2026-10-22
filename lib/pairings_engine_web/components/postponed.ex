@@ -244,7 +244,10 @@ defmodule PairingsEngineWeb.Postponed do
       <li :for={game <- @games}>
         <.link
           id={"#{@id}-game-#{game.pairing.id}"}
-          navigate={~p"/t/#{@tournament.id}/pairings?round=#{game.round}"}
+          navigate={
+            ~p"/t/#{@tournament.id}/pairings?round=#{game.round}" <>
+              "#pairing-row-#{game.pairing.id}"
+          }
         >
           {game_text(game)}
         </.link>

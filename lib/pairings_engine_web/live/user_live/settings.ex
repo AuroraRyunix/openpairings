@@ -316,8 +316,12 @@ defmodule PairingsEngineWeb.UserLive.Settings do
     empty = Map.new(TournamentDefaults.fields(), &{Atom.to_string(&1), ""})
 
     case Accounts.update_tournament_defaults(socket.assigns.user, empty) do
-      {:ok, user} -> {:noreply, socket |> assign_user(user) |> assign(saved: :defaults)}
-      {:error, _changeset} -> {:noreply, socket}
+      {:ok, user} ->
+        {:noreply, socket |> assign_user(user) |> assign(saved: :defaults)}
+
+      {:error, _changeset} ->
+        {:noreply,
+         put_flash(socket, :error, gettext("The defaults could not be cleared. Try again."))}
     end
   end
 
@@ -1182,6 +1186,11 @@ defmodule PairingsEngineWeb.UserLive.Settings do
                     id="clear-defaults"
                     class="pe-btn"
                     phx-click="clear_defaults"
+                    data-confirm={
+                      gettext(
+                        "Clear all new-tournament defaults? Tournaments you create from now on start from the app's own settings again."
+                      )
+                    }
                   >
                     {gettext("Clear all")}
                   </button>

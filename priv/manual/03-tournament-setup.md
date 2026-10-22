@@ -88,6 +88,7 @@ Two more things keep the pages short:
 | Page | Shown | With *Show advanced settings* |
 | --- | --- | --- |
 | Tournament | name, venue, city, federation, organiser; tournament format; number of rounds; tie-breaks; Chess960 and the 30-day tick; sharing | organiser's club number; how an unrated player is counted in the tie-breaks; players still level share a place; logo |
+| Group | put this tournament in a group with the other tournaments of its event, or take it out | - |
 | Options | pairing system, tournament rating, cycles (round robin), Keizer top value (Keizer), line-ups (teams), type and rate of play | engine, initial colour, equal rating and title, late entrants' pairing numbers, round-1 absentees, acceleration, the match formats, team rating and unrated rating (teams), other rate of play |
 | Scoring | points, match points, postponed games | the whole *Byes and absences* card (points for a round sat out and its limits, voluntary unplayed rounds, late entrants' absences, asking the bye type); a team's bye, forfeit and withdrawal rules |
 | Dates | one date per round | - |
@@ -314,7 +315,7 @@ is two rounds).
 the way a team's rating is worked out for the order of the teams, and the
 rating counted for an unrated player. See [Teams](13-teams.md).
 
-**Type and rate of play.** The type (Standard, Rapid, Blitz) and the time
+**Tournament type & rate of play.** The type (Standard, Rapid, Blitz) and the time
 control from a list, or (advanced) typed in under *Other rate of play*. The
 rate of play is written into the TRF report.
 
@@ -342,7 +343,7 @@ rounds** (counted back from the number of rounds) or **From round … to round
 …**. A rule follows the players as they are when a round is paired, so a
 late entrant or a corrected club is covered without touching it. Each rule
 shows what it does now, for example *4 pairs among 2 clubs*; **Edit** and
-**Remove** work in place.
+**Remove** work in place; **Remove** asks first and names what goes.
 
 **Players who must not meet.** Search by name, club or federation, tick two
 or more players and press **Keep these N apart**. Two players make a
@@ -473,6 +474,12 @@ can also be typed per player on the Players page. *Count extra points
 (standings and pairing)* makes the standings (and, for a handicap, the
 pairing) use them; for acceleration the switch is called *Keep acceleration
 points in the final standings*. In the TRF report they appear in record 299.
+
+**Apply bands to players** asks first and keeps a restore point, because it
+overwrites the extra points of every player a band matches. **Remove half a
+point** (acceleration only) asks first too, naming the rating range, and keeps
+a restore point. When the bands typed in the form differ from the saved ones, a
+hint says to save first. Saving answers *Saved.* beside the button.
 
 > [!FIDE] Departure from FIDE mode
 > Extra points are not part of the FIDE rules; a round that the pairing used

@@ -185,7 +185,7 @@ defmodule PairingsEngineWeb.UserLive.Registration do
        put_flash(
          socket,
          :error,
-         "Too many sign-up emails from here just now. Try again in a few minutes."
+         gettext("Too many sign-up emails from here just now. Try again in a few minutes.")
        )}
     end
   end
@@ -204,7 +204,9 @@ defmodule PairingsEngineWeb.UserLive.Registration do
              socket
              |> put_flash(
                :info,
-               "An email was sent to #{user.email}, please access it to confirm your account."
+               gettext("An email was sent to %{email}, please access it to confirm your account.",
+                 email: user.email
+               )
              )
              |> push_navigate(to: ~p"/users/log-in")}
 
@@ -216,7 +218,9 @@ defmodule PairingsEngineWeb.UserLive.Registration do
              socket
              |> put_flash(
                :error,
-               "Account created successfully, but we could not send the email. Please contact an admin or check your SMTP configuration."
+               gettext(
+                 "Account created successfully, but the email could not be sent. Try again later or contact the administrator."
+               )
              )
              |> push_navigate(to: ~p"/users/log-in")}
         end

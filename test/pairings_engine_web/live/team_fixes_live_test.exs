@@ -68,7 +68,7 @@ defmodule PairingsEngineWeb.TeamFixesLiveTest do
       assert has_element?(lv, "#delete-team-#{e.id}[data-confirm]")
 
       lv |> element("#delete-team-#{a.id}") |> render_click()
-      assert has_element?(lv, "p[role=alert]")
+      assert has_element?(lv, "#flash-error")
       assert Repo.get(PairingsEngine.Tournaments.Team, a.id)
 
       lv |> element("#delete-team-#{d.id}") |> render_click()

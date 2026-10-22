@@ -21,6 +21,28 @@ defmodule PairingsEngineWeb.TopbarMenusTouchTest do
     %{tournament: tournament}
   end
 
+  test "the Settings menu lists every page of the settings sub-nav, in its order", %{
+    conn: conn,
+    tournament: t
+  } do
+    {:ok, _view, html} = live(conn, ~p"/t/#{t.id}/settings")
+
+    menu =
+      html
+      |> LazyHTML.from_fragment()
+      |> LazyHTML.query("#topbar-settings-toggle + .topbar-menu-panel a")
+      |> Enum.map(&(LazyHTML.attribute(&1, "href") |> List.first()))
+
+    nav =
+      html
+      |> LazyHTML.from_fragment()
+      |> LazyHTML.query("#settings-nav a")
+      |> Enum.map(&(LazyHTML.attribute(&1, "href") |> List.first()))
+
+    assert menu == nav
+    assert ~p"/t/#{t.id}/settings/norms" in menu
+  end
+
   test "Advanced and Settings render as tap-toggled disclosure controls", %{
     conn: conn,
     tournament: t

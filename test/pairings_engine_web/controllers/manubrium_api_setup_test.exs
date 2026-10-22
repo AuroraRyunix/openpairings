@@ -206,7 +206,7 @@ defmodule PairingsEngineWeb.ManubriumApiSetupTest do
                |> post(@api <> "/tournaments", %{"tournament" => %{"system" => "swiss"}})
                |> json_response(422)
 
-      assert message =~ "name"
+      assert message =~ ~r/name/i
     end
 
     test "an unknown system, a bad date and an end before the start are refused", %{

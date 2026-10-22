@@ -198,6 +198,8 @@ defmodule PairingsEngineWeb.ManubriumLiveTest do
 
       assert has_element?(lv, "#incidents tbody tr", "Clock problem")
       assert has_element?(lv, "#incidents tbody tr", "Phone or electronic device")
+      # Eight columns: the card scrolls sideways on a phone, the page does not.
+      assert has_element?(lv, "#incidents-card.table-card #incidents")
       assert html =~ "W1"
       assert has_element?(lv, "#incidents td", "Hall B")
       assert has_element?(lv, "#incident-round-1", "(2)")

@@ -30,7 +30,7 @@ Keizer kan geen ploegentoernooi zijn.
    gemiddelde van de hele opstelling, of een rating die je per ploeg intypt. De rating van een ploeg
    kan ook op haar kaart ingetypt worden, en die wint dan. Een ongerate speler telt mee met de rating
    ingesteld bij *Rating van een ongerate speler* (standaard 1400).
-6. **Wedstrijdpunten** (Instellingen, Puntentelling): standaard 2, 1, 0. Een competitie die 3, 1, 0
+6. **Matchpunten** (Instellingen, Puntentelling): standaard 2, 1, 0. Een competitie die 3, 1, 0
    scoort, past ze hier aan. Partijpunten tellen de bordresultaten. In de FIDE-modus kun je ze
    niet meer wijzigen zodra ronde 1 gepaard is: het reglement van de competitie legt de
    puntentelling vooraf vast (C.04.6 art. 1.2.1).

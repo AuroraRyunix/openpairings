@@ -70,7 +70,8 @@ defmodule PairingsEngineWeb.BackupControllerTest do
       assert row.details["filename"] == name
     end
 
-    test "a name not on disk 404s, and nothing is logged", %{conn: conn, user: user} do
+    test "a name not on disk goes back to the Connections page with a notice, and nothing is logged",
+         %{conn: conn, user: user} do
       # The backup dir from setup exists but holds nothing, so this name is
       # not a traversal attempt succeeding - it is simply not among what
       # `Backup.list/0` finds, which is the whole of the defence (see the
@@ -79,7 +80,8 @@ defmodule PairingsEngineWeb.BackupControllerTest do
 
       conn = get(conn, ~p"/backups/does-not-exist.opbak")
 
-      assert conn.status == 404
+      assert redirected_to(conn) == ~p"/fide"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "no longer exists"
       assert Audit.list_machine_wide() == []
     end
   end

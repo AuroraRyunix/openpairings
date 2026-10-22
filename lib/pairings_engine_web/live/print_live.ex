@@ -7,10 +7,16 @@ defmodule PairingsEngineWeb.PrintLive do
   def mount(%{"id" => id}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
 
+    # The list of documents depends on what is paired and what is postponed,
+    # which change while this page is open in a tab beside the Pairings page.
+    if connected?(socket) do
+      Phoenix.PubSub.subscribe(PairingsEngine.PubSub, Tournaments.tournament_topic(tournament.id))
+    end
+
     {:ok,
      assign(socket,
        tournament: tournament,
-       page_title: "#{tournament.name} · Print",
+       page_title: "#{tournament.name} · #{gettext("Print")}",
        # Standings, cross table and prize lists printed while a postponed
        # game is still to be played are provisional: the page says so
        # before anything is printed, with a link to each game.
@@ -32,6 +38,29 @@ defmodule PairingsEngineWeb.PrintLive do
 
     {:noreply, assign(socket, :category, category)}
   end
+
+  @impl true
+  def handle_info({:tournament_changed, _tournament_id, _hint}, socket) do
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("This tournament was deleted."))
+         |> push_navigate(to: ~p"/")}
+
+      tournament ->
+        {:noreply,
+         assign(socket,
+           tournament: tournament,
+           postponed_open: PairingsEngine.PostponedGames.open_games(tournament)
+         )}
+    end
+  end
+
+  def handle_info(_other, socket), do: {:noreply, socket}
 
   @impl true
   def handle_event("pick_category", params, socket) do
@@ -149,64 +178,67 @@ defmodule PairingsEngineWeb.PrintLive do
     [
       %{
         id: "print-doc-players",
-        name: "Player list",
-        desc: "All registered players with ratings, federation and club.",
+        name: gettext("Player list"),
+        desc: gettext("All registered players with ratings, federation and club."),
         href: ~p"/t/#{tournament.id}/print/players"
       },
       %{
         id: "print-doc-cards",
-        name: "Player cards",
-        desc: "One card per player with their round-by-round schedule to fill in.",
+        name: gettext("Player cards"),
+        desc: gettext("One card per player with their round-by-round schedule to fill in."),
         href: ~p"/t/#{tournament.id}/print/cards"
       },
       %{
         id: "print-doc-pairings",
-        name: "Pairing list (latest round)",
-        desc: "Board-by-board pairings for posting at the venue.",
+        name: gettext("Pairing list (latest round)"),
+        desc: gettext("Board-by-board pairings for posting at the venue."),
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings?round=#{latest}")
       },
       %{
         id: "print-doc-standings",
-        name: "Standings",
-        desc: "Current ranking with points and tiebreaks.",
+        name: gettext("Standings"),
+        desc: gettext("Current ranking with points and tiebreaks."),
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/standings")
       },
       %{
         id: "print-doc-results",
-        name: "Result cards (latest round)",
-        desc: "One slip per board to record the result over the board.",
+        name: gettext("Result cards (latest round)"),
+        desc: gettext("One slip per board to record the result over the board."),
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/results?round=#{latest}")
       },
       %{
         id: "print-doc-pairings-alpha",
-        name: "Alphabetical pairing list",
-        desc: "\"Where do I sit\" list, sorted by player name.",
+        name: gettext("Alphabetical pairing list"),
+        desc: gettext("\"Where do I sit\" list, sorted by player name."),
         href:
           if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings-alpha?round=#{latest}")
       },
       %{
         id: "print-doc-scoresheets",
-        name: "Score sheets",
-        desc: "Pre-filled per board: names, ratings, move columns, signatures.",
+        name: gettext("Score sheets"),
+        desc: gettext("Pre-filled per board: names, ratings, move columns, signatures."),
         href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/scoresheets?round=#{latest}")
       },
       %{
         id: "print-doc-crosstable",
-        name: "Cross table",
-        desc: "Full results grid of the tournament.",
+        name: gettext("Cross table"),
+        desc: gettext("Full results grid of the tournament."),
         href: ~p"/t/#{tournament.id}/print/crosstable"
       },
       %{
         id: "print-doc-placecards",
-        name: "Place cards",
-        desc: "A folded name card per player, to stand at their seat.",
+        name: gettext("Place cards"),
+        desc: gettext("A folded name card per player, to stand at their seat."),
         href: ~p"/t/#{tournament.id}/print/placecards"
       },
       %{
         id: "print-doc-next-round-preview",
-        name: "Next round preview",
+        name: gettext("Next round preview"),
         desc:
-          "The next round's boards that are already certain. Work it out on the Pairings page first; until then there is nothing to print.",
+          gettext(
+            "The next round's boards that are already certain. Work it out on the Pairings page first; until then there is nothing to print."
+          ),
+        disabled_reason: gettext("Work out the preview on the Pairings page first"),
         href:
           if(next_round_preview_ready?(tournament),
             do: ~p"/t/#{tournament.id}/print/next-round-preview"
@@ -300,7 +332,7 @@ defmodule PairingsEngineWeb.PrintLive do
                   :if={!doc.href}
                   class="pe-btn"
                   disabled
-                  title={gettext("Available once rounds are paired")}
+                  title={doc[:disabled_reason] || gettext("Available once rounds are paired")}
                 >
                   {gettext("Print…")}
                 </button>

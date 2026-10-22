@@ -73,8 +73,13 @@ The owner can invite other arbiters. Settings, **Tournament**, card
 - The invitation grants no access by itself. The person receives an e-mail
   with a link (`/invites/…`) and must be signed in with that address and press
   **Accept** (or **Decline**). Pending invitations are also listed on the
-  Tournaments page. If the e-mail could not be sent, the page shows the link to
-  pass on by hand.
+  Tournaments page, with the role they were invited for; declining asks for
+  confirmation first. If the tournament was deleted by its owner in the
+  meantime, the link says so and nothing can be accepted. If the e-mail could
+  not be sent, the page shows the link to pass on by hand. If you already
+  accepted the invitation, the link no longer works and the tournament is on
+  your Tournaments page; if you are signed in with another address than the
+  one invited, the page offers **Log out and switch account**.
 - A collaborator invited as an **Editor** can do everything the owner can
   except managing collaborators and deleting the tournament. One invited as an
   **Arbiter** gets results and incidents on a phone and nothing else
@@ -110,7 +115,9 @@ players, dates and status. Each row has one **More** menu with these actions
 
 The **Archived** table below the list has the same **More** menu on each row, with *Export*, *Unarchive* and, last in red, *Delete* or *Leave*.
 
-The **Recycle bin** lists deleted tournaments; **Restore** brings one back.
+The **Recycle bin** lists deleted tournaments, with the date they were deleted;
+**Restore** brings one back. Deleting, restoring and deleting permanently each
+show a notice naming the tournament.
 
 > [!WARNING]
 > **Delete permanently** removes a tournament from the bin for good (after

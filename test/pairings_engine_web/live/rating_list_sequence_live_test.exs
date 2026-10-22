@@ -402,8 +402,14 @@ defmodule PairingsEngineWeb.RatingListSequenceLiveTest do
         ])
 
       {:ok, lv, _} = live(conn, ~p"/rating-lists")
+      # the confirmation names the list it is about
+      assert lv |> element("#delete-custom-list-#{list.id}") |> render() =~ "Club"
       lv |> element("#delete-custom-list-#{list.id}") |> render_click()
       assert RatingLists.custom_lists() == []
+
+      # a second click on a stale button says the list is gone
+      html = render_click(lv, "delete_list", %{"id" => to_string(list.id)})
+      assert html =~ "That list no longer exists."
     end
 
     test "an account that is not an administrator cannot load a list", %{conn: conn} do

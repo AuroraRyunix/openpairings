@@ -26,7 +26,7 @@ defmodule PairingsEngineWeb.InviteLive do
   def mount(%{"token" => token}, _session, socket) do
     {:ok,
      socket
-     |> assign(page_title: "Invitation", token: token)
+     |> assign(page_title: gettext("Invitation"), token: token)
      |> load_invitation()}
   end
 
@@ -38,10 +38,43 @@ defmodule PairingsEngineWeb.InviteLive do
     # `/invites/1`, `/invites/2`, ... - see `find_invitation_by_token/1`.
     case Tournaments.find_invitation_by_token(socket.assigns.token) do
       nil ->
-        assign(socket, invitation: nil, tournament: nil, owner_email: nil, mismatch?: false)
+        assign(socket,
+          invitation: nil,
+          tournament: nil,
+          owner_email: nil,
+          mismatch?: false,
+          deleted?: false
+        )
 
       %{status: "pending"} = collaborator ->
-        tournament = Tournaments.get_tournament!(collaborator.tournament_id)
+        load_pending(socket, scope, collaborator)
+
+      %{} ->
+        # Already accepted or previously declined-then-reused link.
+        assign(socket,
+          invitation: nil,
+          tournament: nil,
+          owner_email: nil,
+          mismatch?: false,
+          deleted?: false
+        )
+    end
+  end
+
+  defp load_pending(socket, scope, collaborator) do
+    case Tournaments.get_tournament(collaborator.tournament_id) do
+      nil ->
+        # The owner put the tournament in the recycle bin: the link is dead,
+        # and the page says why instead of crashing into a 404.
+        assign(socket,
+          invitation: nil,
+          tournament: nil,
+          owner_email: nil,
+          mismatch?: false,
+          deleted?: true
+        )
+
+      tournament ->
         owner = Accounts.get_user!(tournament.user_id)
         mismatch? = normalize(collaborator.email) != normalize(scope.user.email)
 
@@ -52,12 +85,9 @@ defmodule PairingsEngineWeb.InviteLive do
           # the person deciding whether to accept should see who is asking,
           # and still the address, because a name alone is not unique.
           owner_email: Accounts.User.display_with_email(owner),
-          mismatch?: mismatch?
+          mismatch?: mismatch?,
+          deleted?: false
         )
-
-      %{} ->
-        # Already accepted or previously declined-then-reused link.
-        assign(socket, invitation: nil, tournament: nil, owner_email: nil, mismatch?: false)
     end
   end
 
@@ -77,11 +107,17 @@ defmodule PairingsEngineWeb.InviteLive do
       {:ok, collaborator} ->
         {:noreply,
          socket
-         |> put_flash(:info, "You now have access to #{socket.assigns.tournament.name}.")
+         |> put_flash(
+           :info,
+           gettext("You now have access to %{name}.", name: socket.assigns.tournament.name)
+         )
          |> after_accept(collaborator)}
 
       {:error, :email_mismatch} ->
         {:noreply, assign(socket, mismatch?: true)}
+
+      {:error, :tournament_deleted} ->
+        {:noreply, assign(socket, invitation: nil, deleted?: true)}
 
       {:error, :not_found} ->
         {:noreply, assign(socket, invitation: nil)}
@@ -93,7 +129,7 @@ defmodule PairingsEngineWeb.InviteLive do
       {:ok, _collaborator} ->
         {:noreply,
          socket
-         |> put_flash(:info, "Invitation declined.")
+         |> put_flash(:info, gettext("Invitation declined."))
          |> push_navigate(to: ~p"/")}
 
       {:error, :email_mismatch} ->
@@ -110,6 +146,18 @@ defmodule PairingsEngineWeb.InviteLive do
 
   defp after_accept(socket, collaborator),
     do: push_navigate(socket, to: ~p"/t/#{collaborator.tournament_id}/players")
+
+  defp invite_text("arbiter") do
+    gettext(
+      "%[owner] invited you as an arbiter for %[tournament]. Accepting lets you enter results from your phone in the hall; you do not get the desk pages."
+    )
+  end
+
+  defp invite_text(_editor) do
+    gettext(
+      "%[owner] invited you to collaborate on %[tournament]. Accepting gives you full editing access to this tournament - everything the owner can do, except managing collaborators or deleting it."
+    )
+  end
 
   @impl true
   def render(assigns) do
@@ -128,8 +176,13 @@ defmodule PairingsEngineWeb.InviteLive do
             <% is_nil(@invitation) -> %>
               <h1>{gettext("Invitation not found")}</h1>
 
-              <p class="hint">
+              <p :if={@deleted?} id="invite-deleted" class="hint">
+                {gettext("This tournament was deleted by its owner.")}
+              </p>
+
+              <p :if={not @deleted?} class="hint">
                 {gettext("This invitation link is invalid, has already been used, or was declined.")}
+                {gettext("If you already accepted it, the tournament is on your Tournaments page.")}
               </p>
 
               <div class="actions">
@@ -152,16 +205,20 @@ defmodule PairingsEngineWeb.InviteLive do
 
               <div class="actions">
                 <.link navigate={~p"/"} class="pe-btn">{gettext("Go to Tournaments")}</.link>
+                <.link
+                  id="invite-switch-account"
+                  href={~p"/users/log-out"}
+                  method="delete"
+                  class="pe-btn"
+                >
+                  {gettext("Log out and switch account")}
+                </.link>
               </div>
             <% true -> %>
               <h1>{gettext("You've been invited")}</h1>
 
               <p class="hint" style="margin-top: 0">
-                <.rich_text text={
-                  gettext(
-                    "%[owner] invited you to collaborate on %[tournament]. Accepting gives you full editing access to this tournament - everything the owner can do, except managing collaborators or deleting it."
-                  )
-                }>
+                <.rich_text text={invite_text(@invitation.role)}>
                   <:part name="owner"><strong>{@owner_email}</strong></:part>
 
                   <:part name="tournament"><strong>{@tournament.name}</strong></:part>

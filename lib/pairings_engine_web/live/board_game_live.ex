@@ -70,18 +70,38 @@ defmodule PairingsEngineWeb.BoardGameLive do
 
   def handle_info(_message, socket), do: {:noreply, socket}
 
+  # Two ways to lose the page, two different landings: a deleted
+  # tournament goes home, a game unpaired out from under it goes back to
+  # the round it was in. Both say why, rather than just teleporting.
   defp reload(socket) do
-    with %{} = tournament <-
-           Tournaments.get_authorized_tournament(
-             socket.assigns.current_scope,
-             socket.assigns.tournament.id
-           ),
-         {:ok, socket} <- load(assign(socket, tournament: tournament)) do
-      {:noreply, socket}
-    else
-      _gone -> {:noreply, push_navigate(socket, to: ~p"/")}
+    case Tournaments.get_authorized_tournament(
+           socket.assigns.current_scope,
+           socket.assigns.tournament.id
+         ) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("This tournament was deleted."))
+         |> push_navigate(to: ~p"/")}
+
+      tournament ->
+        case load(assign(socket, tournament: tournament)) do
+          {:ok, socket} ->
+            {:noreply, socket}
+
+          :gone ->
+            {:noreply,
+             socket
+             |> put_flash(:error, gettext("That game is no longer in this tournament."))
+             |> push_navigate(to: pairings_path(tournament, socket.assigns[:pairing]))}
+        end
     end
   end
+
+  defp pairings_path(tournament, %{round: %{number: n}}),
+    do: ~p"/t/#{tournament.id}/pairings?round=#{n}"
+
+  defp pairings_path(tournament, _pairing), do: ~p"/t/#{tournament.id}/pairings"
 
   @impl true
   def render(assigns) do

@@ -355,7 +355,7 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       render(lv)
 
       refute Repo.get(Tournament, tournament.id)
-      refute has_element?(lv, "*", "Purgeable")
+      refute has_element?(lv, "td", "Purgeable")
     end
   end
 
@@ -1252,6 +1252,102 @@ defmodule PairingsEngineWeb.TournamentsLiveTest do
       html = lv |> render_hook("archive_tournament", %{"id" => to_string(t.id)})
       assert Process.alive?(lv.pid)
       assert html =~ "handed off" or html =~ "Take it back" or html =~ "checked out"
+    end
+  end
+
+  ## ---------- stale buttons, notices and invitations (UX gaps, 2026-10-22) ----------
+
+  describe "a button for a tournament that is gone" do
+    test "does not crash the page, says so", %{conn: conn} do
+      {:ok, lv, _} = live(conn, ~p"/")
+
+      for event <- ~w(handoff_start return_start delete_start restore_tournament purge_start) do
+        html = lv |> render_hook(event, %{"id" => "999999"})
+        assert Process.alive?(lv.pid)
+        assert html =~ "That tournament is no longer there."
+      end
+    end
+  end
+
+  describe "the Recycle bin says what it did" do
+    test "moving, restoring and purging each name the tournament", %{conn: conn, scope: scope} do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{"name" => "Binnable Two", "type" => "swiss"})
+
+      {:ok, lv, _} = live(conn, ~p"/")
+
+      lv |> render_hook("delete_start", %{"id" => to_string(t.id)})
+      lv |> render_hook("delete_confirm_input", %{"confirm" => "DELETE"})
+      html = lv |> render_hook("delete_confirmed", %{})
+      assert html =~ "Binnable Two&quot; was moved to the Recycle bin"
+      # the time is formatted, not a raw struct dump
+      assert html =~ ~r/\d{4}-\d\d-\d\d \d\d:\d\d/
+
+      html = lv |> render_hook("restore_tournament", %{"id" => to_string(t.id)})
+      assert html =~ "Binnable Two&quot; was restored"
+
+      lv |> render_hook("delete_start", %{"id" => to_string(t.id)})
+      lv |> render_hook("delete_confirm_input", %{"confirm" => "DELETE"})
+      lv |> render_hook("delete_confirmed", %{})
+      lv |> render_hook("purge_start", %{"id" => to_string(t.id)})
+      lv |> render_hook("purge_confirm_input", %{"confirm" => "DELETE"})
+      html = lv |> render_hook("purge_confirmed", %{})
+      assert html =~ "Binnable Two&quot; was permanently deleted"
+    end
+  end
+
+  describe "pending invitations on the list" do
+    setup %{scope: scope} do
+      {:ok, t} =
+        Tournaments.create_tournament(scope, %{"name" => "Invited To", "type" => "swiss"})
+
+      invitee =
+        Repo.insert!(%PairingsEngine.Accounts.User{
+          email: "invitee#{System.unique_integer([:positive])}@example.com",
+          confirmed_at: DateTime.truncate(DateTime.utc_now(), :second)
+        })
+
+      {:ok, invite} = Tournaments.add_collaborator(scope, t, invitee.email, "arbiter")
+      invitee_conn = Phoenix.ConnTest.build_conn() |> log_in_user(invitee)
+      %{t: t, invitee: invitee, invite: invite, invitee_conn: invitee_conn}
+    end
+
+    test "show the role, and declining asks first and says it was done", %{
+      invitee_conn: conn,
+      invite: invite
+    } do
+      {:ok, lv, html} = live(conn, ~p"/")
+      assert html =~ "Arbiter"
+      assert html =~ "enter results from your phone"
+
+      assert lv
+             |> element("button[phx-click='decline_invite']")
+             |> render() =~ "data-confirm"
+
+      html = lv |> render_hook("decline_invite", %{"token" => invite.invite_token})
+      assert html =~ "Invitation declined."
+    end
+
+    test "a stale accept or decline says the invitation is no longer valid", %{invitee_conn: conn} do
+      {:ok, lv, _} = live(conn, ~p"/")
+      assert lv |> render_hook("accept_invite", %{"token" => "gone"}) =~ "no longer valid"
+      assert lv |> render_hook("decline_invite", %{"token" => "gone"}) =~ "no longer valid"
+    end
+
+    test "an invitation to a deleted tournament is neither listed nor accepted", %{
+      t: t,
+      invitee: invitee,
+      invite: invite
+    } do
+      scope = PairingsEngine.Accounts.Scope.for_user(invitee)
+      assert [_] = Tournaments.list_pending_invitations(scope)
+
+      {:ok, _} = Tournaments.soft_delete_tournament(t)
+
+      assert Tournaments.list_pending_invitations(scope) == []
+
+      assert {:error, :tournament_deleted} =
+               Tournaments.accept_invitation(scope, invite.invite_token)
     end
   end
 

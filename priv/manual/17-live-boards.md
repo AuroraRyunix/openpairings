@@ -319,6 +319,8 @@ OpenPairings at that moment: they belong to games that no longer exist. The
 same holds for a board you delete, a team line-up that drops a board, and a
 restore point that does not have the pairing. The audit trail gets one line
 with how many games were removed. The box keeps its own copy and its own PGN.
+A game page that is open when its game goes sends you back to the round on
+the Pairings page, with *That game is no longer in this tournament.*
 A game whose pairing merely moved to another board, or changed a player, is
 kept. If you go back to a restore point from before the re-pairing, the old
 pairings return with their games as they stood when the point was taken; the

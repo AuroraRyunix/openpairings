@@ -21,6 +21,14 @@ defmodule PairingsEngineWeb.StandingsLiveTest do
     assert html =~ ~s(target="_blank")
   end
 
+  test "an empty standings page links to the Players page", %{conn: conn, scope: scope} do
+    {:ok, tournament} =
+      Tournaments.create_tournament(scope, %{"name" => "No players", "type" => "swiss"})
+
+    {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/standings")
+    assert has_element?(lv, "#standings-add-players[href='/t/#{tournament.id}/players']")
+  end
+
   test "shows a public link on the results site once the tournament publishes", %{
     conn: conn,
     scope: scope

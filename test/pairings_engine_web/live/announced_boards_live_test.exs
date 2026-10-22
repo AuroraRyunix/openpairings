@@ -221,4 +221,27 @@ defmodule PairingsEngineWeb.AnnouncedBoardsLiveTest do
     assert has_element?(lv, "#announced-mismatch-dialog")
     assert has_element?(lv, "#announced-changed")
   end
+
+  test "acknowledging an announcement another tab withdrew says so instead of crashing",
+       %{conn: conn, scope: scope} do
+    {t, open, _decided} = tournament(scope)
+    lv = open_preview(conn, t)
+    lv |> element("#next-round-preview-announce") |> render_click()
+    [first | _] = BoardAnnouncements.pending(t.id).boards
+    Repo.update!(Ecto.Changeset.change(first, label: "99"))
+
+    render_click(lv, "result", %{"pairing-id" => to_string(open.id), "result" => "0-1"})
+    render_click(lv, "pair", %{})
+    assert has_element?(lv, "#announced-mismatch-dialog")
+
+    # Withdrawn elsewhere: a hard delete under the open dialog.
+    Repo.delete_all(
+      from a in PairingsEngine.BoardAnnouncements.Announcement, where: a.tournament_id == ^t.id
+    )
+
+    html = lv |> element("#announced-mismatch-acknowledge") |> render_click()
+    assert html =~ "This announcement was withdrawn."
+    refute has_element?(lv, "#announced-mismatch-dialog")
+    refute "pairing.announcement_acknowledged" in audit_actions(t)
+  end
 end

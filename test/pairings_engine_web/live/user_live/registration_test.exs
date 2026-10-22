@@ -82,7 +82,8 @@ defmodule PairingsEngineWeb.UserLive.RegistrationTest do
             render_submit(form)
             |> follow_redirect(conn, ~p"/users/log-in")
 
-          assert html =~ "we could not send the email"
+          assert html =~ "the email could not be sent"
+          refute html =~ "SMTP"
           refute html =~ "please access it to confirm your account"
         end)
 

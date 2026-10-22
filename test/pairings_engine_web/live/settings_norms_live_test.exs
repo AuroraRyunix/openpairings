@@ -102,4 +102,57 @@ defmodule PairingsEngineWeb.SettingsNormsLiveTest do
     assert has_element?(lv, "#big-swiss-status")
     refute has_element?(lv, "#big-swiss-status input")
   end
+
+  describe "UX gaps: officials form" do
+    test "text typed since the last save survives adding an arbiter", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
+
+      render_change(lv, "officials_change", %{
+        "tournament" => %{"officials" => %{"remark1" => "typed, not saved"}}
+      })
+
+      lv |> element(~s(button[phx-click="add_arbiter"])) |> render_click()
+
+      assert has_element?(
+               lv,
+               "input[name='tournament[officials][remark1]'][value='typed, not saved']"
+             )
+    end
+
+    test "removing one extra arbiter moves the later ones up", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+
+      {:ok, _} =
+        Tournaments.update_tournament(tournament, %{
+          "officials" => %{
+            "extra_arbiters_count" => 2,
+            "arbiter1_name" => "First",
+            "arbiter1_fide_id" => "1",
+            "arbiter2_name" => "Second",
+            "arbiter2_fide_id" => "2"
+          }
+        })
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
+      assert has_element?(lv, "#remove-arbiter-1[data-confirm]")
+
+      lv |> element("#remove-arbiter-1") |> render_click()
+
+      assert has_element?(lv, "input[name='tournament[officials][arbiter1_name]'][value=Second]")
+      refute has_element?(lv, "input[name='tournament[officials][arbiter2_name]']")
+    end
+
+    test "a search that finds nobody says so", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
+
+      render_change(lv, "arbiter_search", %{
+        "_target" => ["tournament", "chief_arbiter"],
+        "tournament" => %{"chief_arbiter" => "Zzzzzz"}
+      })
+
+      assert has_element?(lv, "#arbiter-combo-chief_arbiter-name-results-empty")
+    end
+  end
 end

@@ -117,3 +117,130 @@ msgstr ""
 
 msgid "must be a whole number of players, at least 1"
 msgstr ""
+
+## From the app's own changesets (lib/pairings_engine/**) - not extractable, added by hand
+msgid "Baku acceleration cannot be combined with extra points in the pairing (extra points in acceleration mode, or counted in handicap mode)"
+msgstr ""
+
+msgid "Keizer cannot pair team against team. Choose Swiss or Round robin for a team tournament."
+msgstr ""
+
+msgid "cannot be changed after round 4 has been paired (FIDE C.04.2.B.3)"
+msgstr ""
+
+msgid "cannot change once round 1 is paired"
+msgstr ""
+
+msgid "choose at least two players"
+msgstr ""
+
+msgid "colours must be written as #RRGGBB"
+msgstr ""
+
+msgid "did not change"
+msgstr ""
+
+msgid "does not match password"
+msgstr ""
+
+msgid "each range needs a FIDE tournament ID and from_round <= to_round (both >= 1)"
+msgstr ""
+
+msgid "is not a list of round ratings"
+msgstr ""
+
+msgid "match format is not yet supported together with more than one cycle (rr_cycles > 1)"
+msgstr ""
+
+msgid "match format requires an even number of rounds (each match is 2 rounds)"
+msgstr ""
+
+msgid "must be a comma-separated list of \"rating:bonus\" pairs, e.g. \"1400:1, 1600:0.5\""
+msgstr ""
+
+msgid "must be a different player than player A"
+msgstr ""
+
+msgid "must be a list of ranges"
+msgstr ""
+
+msgid "must be a map of category name to prize count"
+msgstr ""
+
+msgid "must be a team in this tournament"
+msgstr ""
+
+msgid "must be a three-letter FIDE federation code"
+msgstr ""
+
+msgid "must be a three-letter currency code, like EUR"
+msgstr ""
+
+msgid "must be a valid email address"
+msgstr ""
+
+msgid "must be an amount like 12 or 12.50"
+msgstr ""
+
+msgid "must be digits only"
+msgstr ""
+
+msgid "must be greater than or equal to board_from"
+msgstr ""
+
+msgid "must be round numbers or ranges, e.g. \"3,5\" or \"2-4\""
+msgstr ""
+
+msgid "must have the @ sign and no spaces"
+msgstr ""
+
+msgid "must not be before the first round"
+msgstr ""
+
+msgid "must not contain control characters"
+msgstr ""
+
+msgid "must not contain quotes, slashes or control characters"
+msgstr ""
+
+msgid "must stay 2: round %{round} was paired with the first cycle's last two rounds reversed, which only a double round robin does"
+msgstr ""
+
+msgid "needs the rounds, e.g. \"3,5\" or \"2-4\""
+msgstr ""
+
+msgid "pairing by category is not yet supported together with Baku acceleration"
+msgstr ""
+
+msgid "pairing by category is not yet supported together with match format"
+msgstr ""
+
+msgid "pairing by category requires categories to be enabled first"
+msgstr ""
+
+msgid "say how many rounds"
+msgstr ""
+
+msgid "say which rounds"
+msgstr ""
+
+msgid "this pair is already forbidden"
+msgstr ""
+
+msgid "use round:rating pairs from round 2 on, such as 5:1850, 9:1872"
+msgstr ""
+
+msgid "would end the schedule after round %{count}, but %{paired} rounds are already paired"
+msgid_plural "would end the schedule after round %{count}, but %{paired} rounds are already paired"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "would end the schedule after round %{count}, but a round up to there was swapped with one after it; swap them back first"
+msgid_plural "would end the schedule after round %{count}, but a round up to there was swapped with one after it; swap them back first"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "would need %{count} rounds, above the %{max}-round maximum"
+msgid_plural "would need %{count} rounds, above the %{max}-round maximum"
+msgstr[0] ""
+msgstr[1] ""

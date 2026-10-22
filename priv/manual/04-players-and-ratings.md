@@ -225,7 +225,8 @@ Some cells open a small menu (right-click, or <kbd>Space</kbd> /
 <kbd>Shift</kbd>+<kbd>F10</kbd> / the context-menu key on the keyboard): the presence cell sets a player present
 or absent, the *Paid* cell sets the registration status, the category cell
 assigns categories, and the header of the presence column sets everybody
-present or absent at once. The arrow keys move between the cells; the cell
+present or absent at once. The header menus (presence, *Paid* and category) ask
+first, keep a restore point and say how many players they changed. The arrow keys move between the cells; the cell
 menu is announced to screen readers with a sentence that says what the letter
 in the cell means.
 
@@ -243,12 +244,24 @@ Double-click a player's name (or press <kbd>Enter</kbd> or <kbd>Space</kbd> on i
 key) to open the **Players Card**: the player's opponents, colours and results
 round by round, with a print button and previous/next buttons.
 
+The **Player registration** form closes with <kbd>Esc</kbd> or **Cancel**.
+Clicking outside it does not close it any more, so typed changes are not lost.
+If the player was removed in another window, the form closes and says so.
+Lookups in the FIDE list take the player by FIDE ID; a name that matches
+several FIDE players asks for the FIDE ID instead of taking the first one, and
+**No** on the question about a changed name puts the form back as it was
+before the lookup.
+
 ### Removing a player
 
 > [!WARNING]
-> **Remove** deletes a player. A player who has already played cannot be
-> deleted in FIDE mode if the deletion would change a round that is no longer
-> open; such a player is withdrawn instead (forfeit).
+> **Remove** deletes a player and asks first. For a player who has played, the
+> question says how many games they were in: removing them empties their seat
+> in those games and changes their opponents' results, and a restore point is
+> kept just before. To stop pairing a player, withdraw them in the edit dialog
+> instead. A player who has already played cannot be deleted in FIDE mode if
+> the deletion would change a round that is no longer open; such a player is
+> withdrawn instead (forfeit).
 
 ## Refreshing ratings
 
