@@ -8017,7 +8017,7 @@ html:has(#deploy-banner:not([hidden]), #site-notice:not([hidden])) { scroll-padd
   margin-top: 4px;
   padding: 4px 6px;
   border-radius: 4px;
-  background: var(--surface-2, rgba(127, 127, 127, 0.12));
+  background: rgba(127, 127, 127, 0.12);
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
