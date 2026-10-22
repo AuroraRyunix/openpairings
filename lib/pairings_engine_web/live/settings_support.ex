@@ -80,7 +80,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   ## Leaving with unsaved edits
 
-  `guard` puts the `.UnsavedGuard` hook on the frame: once something is
+  `guard` switches on the frame's `.UnsavedGuard` hook: once something is
   typed into a form on the page (or a button inside one is pressed - the
   tie-break arrows, "+ Add arbiter"), leaving asks first, both for a
   page load (`beforeunload`, the browser's own wording) and for a link
@@ -110,7 +110,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
     <div
       class="tset-page"
       id={@id}
-      phx-hook={@guard && ".UnsavedGuard"}
+      phx-hook=".UnsavedGuard"
       data-unsaved-message={
         @guard && gettext("You have changes on this page that are not saved. Leave anyway?")
       }
@@ -174,6 +174,10 @@ defmodule PairingsEngineWeb.SettingsSupport do
       // before LiveView's own link handling and can stop it.
       export default {
         mounted() {
+          // On every Settings page (a colocated hook name has to be written
+          // out literally to be found), but it only guards where the page
+          // gave it something to ask.
+          if (!this.el.dataset.unsavedMessage) return
           this.edited = new Set()
 
           const trackedForm = (target) => {
@@ -248,6 +252,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           window.addEventListener("click", this.onClick, true)
         },
         destroyed() {
+          if (!this.edited) return
           window.removeEventListener("beforeunload", this.onBeforeUnload)
           window.removeEventListener("click", this.onClick, true)
           document.querySelectorAll("[data-unsaved-asked]").forEach((link) => this.unlend(link))
