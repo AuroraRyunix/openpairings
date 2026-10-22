@@ -46,6 +46,7 @@ Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_we
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2271,7D661ED
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2327,4A85E8A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2341,F8A94D
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2413,3346FAD
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:348,C49B3A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:356,6FE4E90
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:364,1A8F14A
@@ -101,6 +102,7 @@ XSS.Raw: XSS,lib/pairings_engine_web/components/badges/badge_card.ex:234,2CD207
 XSS.Raw: XSS,lib/pairings_engine_web/components/phone_qr.ex:229,12981A5
 XSS.Raw: XSS,lib/pairings_engine_web/components/phone_qr.ex:238,488E066
 XSS.Raw: XSS,lib/pairings_engine_web/components/phone_qr.ex:337,57EAD2
+XSS.Raw: XSS,lib/pairings_engine_web/components/phone_qr.ex:342,238F7AB
 XSS.Raw: XSS,lib/pairings_engine_web/components/phone_qr.ex:346,71E04D
 XSS.Raw: XSS,lib/pairings_engine_web/controllers/badge_print_html.ex:65,53E0166
 XSS.Raw: XSS,lib/pairings_engine_web/controllers/mobile_connect_html.ex:90,CFBF4F
@@ -115,6 +117,7 @@ XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6640,687C8C4
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6698,63EFC74
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6707,149F43E
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6777,4F4D46B
+XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6875,2451F6F
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:916,111B9F9
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:928,7D98D70
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:929,539CCD1
