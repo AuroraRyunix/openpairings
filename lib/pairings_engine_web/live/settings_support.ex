@@ -84,7 +84,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
   typed into a form on the page (or a button inside one is pressed - the
   tie-break arrows, "+ Add arbiter"), leaving asks first, both for a
   page load (`beforeunload`, the browser's own wording) and for a link
-  inside the app, LiveView navigation included. Submitting a form forgets
+  inside the app, LiveView navigation included, in the app's own themed
+  confirm dialog (the `data-confirm` one in app.js). Submitting a form forgets
   its edits. A form that saves as it changes, or that is not a setting at
   all, carries `data-unsaved-ignore`.
 
@@ -206,20 +207,38 @@ defmodule PairingsEngineWeb.SettingsSupport do
               return
             }
 
+            const link = e.target.closest && e.target.closest("a[href]")
+            if (!link) return
+
+            // The question is asked by app.js's themed `data-confirm` dialog,
+            // the one every other confirmation here uses: this only lends the
+            // link the attribute, marked as borrowed. On OK that dialog clicks
+            // the link again with the attribute set aside - that second click
+            // is the answer, and the attribute goes back to nobody.
+            if (link.hasAttribute("data-unsaved-asked")) {
+              if (!link.hasAttribute("data-confirm")) {
+                this.edited.clear()
+                setTimeout(() => this.unlend(link), 0)
+              } else if (this.edited.size === 0) {
+                this.unlend(link)
+              }
+              return
+            }
+
             if (this.edited.size === 0 || e.defaultPrevented) return
             if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
-            const link = e.target.closest && e.target.closest("a[href]")
-            if (!link || link.target === "_blank" || link.hasAttribute("download")) return
+            if (link.target === "_blank" || link.hasAttribute("download")) return
+            if (link.hasAttribute("data-confirm")) return
             const href = link.getAttribute("href")
             if (!href || href.startsWith("#") || href.startsWith("javascript:")) return
 
-            if (window.confirm(this.el.dataset.unsavedMessage)) {
-              // Asked once; the page load that follows need not ask again.
-              this.edited.clear()
-            } else {
-              e.preventDefault()
-              e.stopImmediatePropagation()
-            }
+            link.setAttribute("data-confirm", this.el.dataset.unsavedMessage)
+            link.setAttribute("data-unsaved-asked", "")
+          }
+
+          this.unlend = (link) => {
+            link.removeAttribute("data-confirm")
+            link.removeAttribute("data-unsaved-asked")
           }
 
           this.el.addEventListener("input", this.onEdit)
@@ -231,6 +250,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
         destroyed() {
           window.removeEventListener("beforeunload", this.onBeforeUnload)
           window.removeEventListener("click", this.onClick, true)
+          document.querySelectorAll("[data-unsaved-asked]").forEach((link) => this.unlend(link))
         }
       }
     </script>

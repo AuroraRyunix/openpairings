@@ -25,6 +25,7 @@ What is covered, one file per flow:
 | `tournament_flow_test.exs` | a new tournament, four players, round 1 paired, both results entered, the standings |
 | `publish_test.exs` | publishing to OpenResults: the consent dialog, then the drain's three requests to a stub of the results site (`PublicServerStub`); declining sends nothing |
 | `archive_group_test.exs` | "Archive group" and its confirm dialog, both answers |
+| `unsaved_guard_test.exs` | leaving a Settings page with unsaved edits asks first, both answers; no edits, no question |
 | `smoke_script_test.exs` | `e2e/smoke.mjs` itself, against the test server |
 
 OpenPairings has no guided tour; Alnasl's has its own tests in that

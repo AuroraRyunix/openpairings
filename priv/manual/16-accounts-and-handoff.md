@@ -77,13 +77,17 @@ The owner can invite other arbiters. Settings, **Tournament**, card
   confirmation first. If the tournament was deleted by its owner in the
   meantime, the link says so and nothing can be accepted. If the e-mail could
   not be sent, the page shows the link to pass on by hand. If you already
-  accepted the invitation, the link no longer works and the tournament is on
-  your Tournaments page; if you are signed in with another address than the
+  accepted the invitation, the link no longer works - it is good for one
+  acceptance, and opening it again says it has been used - and the tournament
+  is on your Tournaments page; if you are signed in with another address than the
   one invited, the page offers **Log out and switch account**.
 - A collaborator invited as an **Editor** can do everything the owner can
   except managing collaborators and deleting the tournament. One invited as an
   **Arbiter** gets results and incidents on a phone and nothing else
   ([Arbiters with their own account](07-results.md#arbiters-with-their-own-account)).
+  The owner changes the role with the select beside the name, before or after
+  the invitation is accepted, and can **Resend invitation** while it is still
+  pending (the same link, at most once a minute).
 - Everyone sees changes as they happen: when a colleague pairs a round or
   enters a result, your pages update by themselves. When it was a round that
   changed (paired, unpaired, paired again, published or withdrawn from

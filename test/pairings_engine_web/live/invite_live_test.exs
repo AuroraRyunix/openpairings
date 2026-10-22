@@ -74,7 +74,8 @@ defmodule PairingsEngineWeb.InviteLiveTest do
 
       {:ok, again, html} = live(invitee_conn, ~p"/invites/#{token}")
 
-      assert html =~ "Invitation not found"
+      assert has_element?(again, "#invite-not-found")
+      assert has_element?(again, "#invite-used-or-invalid")
       refute html =~ tournament.name
       refute has_element?(again, "button", "Accept")
       refute has_element?(again, ~s(a[href="/t/#{tournament.id}/players"]))

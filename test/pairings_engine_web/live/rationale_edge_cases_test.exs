@@ -196,6 +196,8 @@ defmodule PairingsEngineWeb.RationaleEdgeCasesTest do
     "collaborator.accepted",
     "collaborator.declined",
     "collaborator.removed",
+    "collaborator.role_changed",
+    "collaborator.invitation_resent",
     "snapshot.manual",
     "snapshot.restored",
     "categories.toggled",

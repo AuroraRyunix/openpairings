@@ -598,6 +598,11 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "collaborator.accepted" => [%{"email" => "an@example.org"}],
     "collaborator.declined" => [%{"email" => "an@example.org"}],
     "collaborator.removed" => [%{"email" => "an@example.org"}],
+    "collaborator.role_changed" => [
+      %{"email" => "an@example.org", "role" => "arbiter"},
+      %{"email" => "an@example.org", "role" => "editor"}
+    ],
+    "collaborator.invitation_resent" => [%{"email" => "an@example.org"}],
     "group.created" => [%{"name" => "Lenteopen"}],
     "group.joined" => [%{"name" => "Lenteopen"}],
     "group.left" => [%{"name" => "Lenteopen"}],

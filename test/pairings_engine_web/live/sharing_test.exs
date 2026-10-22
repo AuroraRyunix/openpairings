@@ -434,7 +434,9 @@ defmodule PairingsEngineWeb.SharingTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
-      lv |> element(~s(button[phx-value-id="#{invite.id}"])) |> render_click()
+      lv
+      |> element(~s(button[phx-click="remove_collaborator"][phx-value-id="#{invite.id}"]))
+      |> render_click()
 
       # Same self-broadcast race as the "enter a pairing result" test above
       # - remove_collaborator/3 broadcasts on the tournament topic that this
@@ -540,7 +542,11 @@ defmodule PairingsEngineWeb.SharingTest do
       %{tournament: t, collaborator: c}
     end
 
-    test "the role select changes the role and says so", %{conn: conn, tournament: t, collaborator: c} do
+    test "the role select changes the role and says so", %{
+      conn: conn,
+      tournament: t,
+      collaborator: c
+    } do
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
 
       lv
@@ -554,8 +560,10 @@ defmodule PairingsEngineWeb.SharingTest do
 
     test "Resend mails the pending invitation again, once a minute at most",
          %{conn: conn, tournament: t, collaborator: c} do
-      # The invitation that `add_collaborator/4` sent.
+      # The invitation that `add_collaborator/4` sent (the test adapter may
+      # report it to this process more than once: self and shared process).
       assert_received {:email, _}
+      flush_emails()
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
 
@@ -574,7 +582,19 @@ defmodule PairingsEngineWeb.SharingTest do
       assert_received {:email, %{to: [{_, "helper@example.com"}]}}
     end
 
-    test "an accepted collaborator has no Resend button", %{conn: conn, tournament: t, collaborator: c} do
+    defp flush_emails do
+      receive do
+        {:email, _} -> flush_emails()
+      after
+        0 -> :ok
+      end
+    end
+
+    test "an accepted collaborator has no Resend button", %{
+      conn: conn,
+      tournament: t,
+      collaborator: c
+    } do
       Repo.update!(Ecto.Changeset.change(c, status: "accepted", invite_token: nil))
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
 

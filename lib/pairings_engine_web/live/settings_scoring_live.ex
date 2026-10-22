@@ -67,8 +67,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
   defp points_changed?(tournament, params) do
     Enum.any?(@points_fields, fn field ->
       case Map.fetch(params, field) do
-        {:ok, typed} -> not same_points?(Map.get(tournament, String.to_existing_atom(field)), typed)
-        :error -> false
+        {:ok, typed} ->
+          not same_points?(Map.get(tournament, String.to_existing_atom(field)), typed)
+
+        :error ->
+          false
       end
     end)
   end

@@ -675,7 +675,12 @@ defmodule PairingsEngine.Tournaments do
   :bad_role | :archived | :handed_off}`. Picking the role it already has is
   not an error, merely a short trip to the database and back.
   """
-  def change_collaborator_role(%Scope{} = scope, %Tournament{} = tournament, collaborator_id, role) do
+  def change_collaborator_role(
+        %Scope{} = scope,
+        %Tournament{} = tournament,
+        collaborator_id,
+        role
+      ) do
     with :ok <- ensure_roster_owner(scope, tournament),
          true <- role in Collaborator.roles() || {:error, :bad_role},
          %Collaborator{} = collaborator <-
@@ -986,6 +991,11 @@ defmodule PairingsEngine.Tournaments do
   tournament (`ensure_writable/1`) and any change to a `locked_fields/1`
   member (`ensure_unlocked/3`) - unless that field is named in the
   `:unlock` option, see `ensure_unlocked/3`.
+
+  `round_dates_order: :refuse` also refuses round dates that run backwards
+  (`Tournament.validate_round_dates_order/1`). The Dates page asks for it;
+  an import or merge does not, because a file's schedule is what the file
+  says, and refusing it would refuse the whole file over one typo.
   """
   def update_tournament(%Tournament{} = tournament, attrs, opts \\ []) do
     with :ok <- ensure_writable(tournament),
@@ -995,7 +1005,11 @@ defmodule PairingsEngine.Tournaments do
       |> Tournament.validate_no_team_keizer()
       |> validate_round_one_absentees_switch(tournament)
       |> validate_type_unchanged_after_pairing(tournament)
-      |> Tournament.validate_round_dates_order()
+      |> then(fn cs ->
+        if opts[:round_dates_order] == :refuse,
+          do: Tournament.validate_round_dates_order(cs),
+          else: cs
+      end)
       |> follow_round_robin_shape(tournament)
       |> record_soft_position_change(tournament)
       |> stamp_compliance_loss(fn ->
@@ -2795,12 +2809,13 @@ defmodule PairingsEngine.Tournaments do
         action: refusal_action(action)
       )
 
-  # The verbs the core passes. Anything else came from the web layer,
-  # already in the reader's language.
-  defp refusal_action("pairing"), do: gettext("pairing")
-  defp refusal_action("unpairing"), do: gettext("unpairing")
-  defp refusal_action("importing results"), do: gettext("importing results")
-  defp refusal_action("swapping rounds"), do: gettext("swapping rounds")
+  # The verbs the core passes, in their own context: "pairing" alone is
+  # also a button label elsewhere, and the two read differently in Dutch.
+  # Anything else came from the web layer, already in the reader's language.
+  defp refusal_action("pairing"), do: pgettext("refusal", "pairing")
+  defp refusal_action("unpairing"), do: pgettext("refusal", "unpairing")
+  defp refusal_action("importing results"), do: pgettext("refusal", "importing results")
+  defp refusal_action("swapping rounds"), do: pgettext("refusal", "swapping rounds")
   defp refusal_action(action), do: action
 
   def change_tournament(%Tournament{} = tournament, attrs \\ %{}) do

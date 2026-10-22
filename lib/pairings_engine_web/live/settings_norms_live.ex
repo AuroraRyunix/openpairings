@@ -3,11 +3,13 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   Settings, Officials & norms (`/t/:id/settings/norms`): who ran the event
   and what kind of event the title regulations see it as.
 
-    * **Officials** - chief arbiter, organizer, person responsible for
+    * **Officials** - chief arbiter, person responsible for
       pairings, the ranked deputies, any further arbiters, the e-mail
       addresses FIDE's report template insists on, and the IT3/IT4 extras
-      (special remarks, IT4 event type, pairings web link). Stored on the
-      tournament (`chief_arbiter`, `organizer`, and the `officials` map) and
+      (special remarks, IT4 event type, pairings web link). The organizer is
+      shown read-only: `PairingsEngineWeb.SettingsTournamentLive` owns the
+      name and its FIDE ID. Stored on the
+      tournament (`chief_arbiter` and the `officials` map) and
       read by the IT3 / FA1 / IA1 / IT4 forms the Norms page downloads.
       Every named official needs a FIDE ID: FIDE bounces a report without
       one, so the save refuses rather than storing something unusable. The
@@ -133,13 +135,14 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
     do: {:noreply, socket |> keep_typed_officials(params) |> assign(officials_dirty: true)}
 
   def handle_event("save_officials", %{"tournament" => params}, socket) do
+    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+
     params =
       params
-      |> Map.take(["chief_arbiter", "organizer", "officials"])
+      |> Map.take(["chief_arbiter", "officials"])
       |> clamp_officials_extra_arbiters()
       |> drop_blank_unverified_flags()
-
-    base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+      |> keep_organizer_id(base)
 
     case missing_official_ids(params) do
       [] ->
@@ -331,9 +334,6 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
           do: %{t | chief_arbiter: params["chief_arbiter"]},
           else: t
       end)
-      |> then(fn t ->
-        if is_binary(params["organizer"]), do: %{t | organizer: params["organizer"]}, else: t
-      end)
       |> then(fn t -> %{t | officials: Map.merge(t.officials || %{}, typed)} end)
 
     assign(socket, tournament: tournament, typed_officials: nil)
@@ -421,14 +421,6 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
     }
   end
 
-  defp apply_arbiter_pick(tournament, "organizer", fp) do
-    %{
-      tournament
-      | organizer: fp.name,
-        officials: put_official(tournament, "organizer_id", fp.fide_id)
-    }
-  end
-
   defp apply_arbiter_pick(tournament, "person_responsible_pairings", fp) do
     officials =
       tournament
@@ -484,8 +476,11 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
 
   defp clear_unverified(tournament, role) do
     case official_id_key(role) do
-      nil -> tournament
-      key -> %{tournament | officials: Map.delete(tournament.officials || %{}, key <> "_unverified")}
+      nil ->
+        tournament
+
+      key ->
+        %{tournament | officials: Map.delete(tournament.officials || %{}, key <> "_unverified")}
     end
   end
 
@@ -503,6 +498,18 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   end
 
   defp drop_blank_unverified_flags(params), do: params
+
+  # `officials` is saved as one map, and this form no longer carries the
+  # organiser's id (Settings > Tournament owns it), so it is carried over
+  # from the row rather than quietly dropped by a save that never showed it.
+  @organizer_keys ~w(organizer_id organizer_id_unverified)
+
+  defp keep_organizer_id(%{"officials" => officials} = params, base) when is_map(officials) do
+    kept = Map.take(base.officials || %{}, @organizer_keys)
+    Map.put(params, "officials", officials |> Map.drop(@organizer_keys) |> Map.merge(kept))
+  end
+
+  defp keep_organizer_id(params, _base), do: params
 
   defp extra_arbiters_count(tournament),
     do: tournament |> o_get("extra_arbiters_count") |> parse_extra_count()
@@ -660,17 +667,40 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
                 unverified={unverified?(@tournament, "chief_arbiter")}
                 search={@arbiter_search}
               />
-              <.arbiter_combo
-                role="organizer"
-                label={gettext("Organizer")}
-                name_field="tournament[organizer]"
-                name_value={@tournament.organizer}
-                id_field="tournament[officials][organizer_id]"
-                id_value={o_get(@tournament, "organizer_id")}
-                unverified_field={unverified_field("organizer")}
-                unverified={unverified?(@tournament, "organizer")}
-                search={@arbiter_search}
-              />
+              <%!-- The organiser belongs to Settings > Tournament, which owns
+              the name and its FIDE ID; two pages editing one field is how a
+              name and an id drift apart. Shown here because the forms use it. --%>
+              <div class="field" id="officials-organizer">
+                <span>{gettext("Organizer")}</span>
+                <p style="margin: 0">
+                  <span id="officials-organizer-name">
+                    {if blank?(@tournament.organizer),
+                      do: gettext("Not set"),
+                      else: @tournament.organizer}
+                  </span>
+                  <span
+                    :if={not blank?(o_get(@tournament, "organizer_id"))}
+                    id="officials-organizer-id"
+                    class="meta"
+                  >
+                    · {gettext("FIDE ID")} {o_get(@tournament, "organizer_id")}
+                  </span>
+                  <span
+                    :if={unverified?(@tournament, "organizer")}
+                    id="officials-organizer-unverified"
+                    class="badge muted"
+                  >
+                    {gettext("unverified")}
+                  </span>
+                </p>
+                <.link
+                  id="officials-organizer-edit"
+                  navigate={~p"/t/#{@tournament.id}/settings"}
+                  class="hint"
+                >
+                  {gettext("Change it under Settings - Tournament")}
+                </.link>
+              </div>
               <.arbiter_combo
                 role="person_responsible_pairings"
                 label={gettext("Person responsible for pairings")}

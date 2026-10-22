@@ -153,7 +153,8 @@ defmodule PairingsEngineWeb.AuditLive do
      ~w(import.swar import.swar_merged import.trf pibe.import import.json trf.finalised trf.postponed_sent
         trf.copy_confirmed trf.postponed_report_set)},
     {"collaborators", ~w(collaborator.invited collaborator.accepted collaborator.declined
-        collaborator.removed collaborator.boards_assigned)},
+        collaborator.removed collaborator.boards_assigned collaborator.role_changed
+        collaborator.invitation_resent)},
     {"tournament",
      ~w(tournament.created tournament.deleted tournament.restored tournament.archived
         tournament.unarchived tournament.duplicated tournament.left tournament.handoff_forced
@@ -1528,6 +1529,15 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("collaborator.removed", d),
     do: gettext("Removed collaborator %{email}.", email: value(d, "email"))
+
+  def describe("collaborator.role_changed", %{"role" => "arbiter"} = d),
+    do: gettext("Made %{email} an arbiter.", email: value(d, "email"))
+
+  def describe("collaborator.role_changed", d),
+    do: gettext("Made %{email} an editor.", email: value(d, "email"))
+
+  def describe("collaborator.invitation_resent", d),
+    do: gettext("Sent the invitation to %{email} again.", email: value(d, "email"))
 
   def describe("forbidden_pairing.added", d),
     do:
