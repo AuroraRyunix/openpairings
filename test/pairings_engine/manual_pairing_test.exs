@@ -328,4 +328,85 @@ defmodule PairingsEngine.ManualPairingTest do
     refute Repo.get_by(Board, round_id: round.id, board: 9)
     assert %Player{} = Repo.get!(Player, ann.id)
   end
+
+  describe "discard/2" do
+    # Round 1 paired, with a hand-edit session open on it.
+    defp session_round!(t) do
+      {:ok, _} = Pairing.pair_next_round(Repo.reload!(t))
+      round = Tournaments.get_round(t.id, 1)
+      {:ok, true} = ManualPairing.start(round)
+      round
+    end
+
+    # A hand edit, the blunt way: board 1's players change colours and
+    # board 2 disappears.
+    defp edit!(round) do
+      [b1, b2 | _] = Enum.sort_by(round.pairings, & &1.board)
+
+      Repo.update_all(
+        Ecto.Query.from(p in Board, where: p.id == ^b1.id),
+        set: [white_player_id: b1.black_player_id, black_player_id: b1.white_player_id]
+      )
+
+      Repo.delete!(Repo.get!(Board, b2.id))
+    end
+
+    defp rows(round_id) do
+      Ecto.Query.from(p in Board,
+        where: p.round_id == ^round_id,
+        order_by: p.board,
+        select: {p.id, p.board, p.white_player_id, p.black_player_id, p.game_uid}
+      )
+      |> Repo.all()
+    end
+
+    test "puts the round back, ids and game identities included, and closes the session" do
+      t = tournament()
+      players(t, ~w(Ann Ben Cas Dan Eve Fay))
+      round = session_round!(t)
+      before = rows(round.id)
+
+      edit!(round)
+      assert rows(round.id) != before
+
+      assert {:ok, %Round{mpa_session: nil, mpa_pibe: nil}} = ManualPairing.discard(t, 1)
+      assert rows(round.id) == before
+      refute ManualPairing.open?(Repo.get!(Round, round.id))
+    end
+
+    test "a stale round struct is read again: a closed session is not discarded twice" do
+      t = tournament()
+      players(t, ~w(Ann Ben Cas Dan))
+      round = session_round!(t)
+
+      assert {:ok, _} = ManualPairing.discard(round)
+      assert {:error, :no_session} = ManualPairing.discard(round)
+    end
+
+    test "refused once the round has a result, and for a round that does not exist" do
+      t = tournament()
+      players(t, ~w(Ann Ben Cas Dan))
+      round = session_round!(t)
+      edit!(round)
+
+      [p | _] = Tournaments.get_round(t.id, 1).pairings
+      {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+
+      assert {:error, :has_results} = ManualPairing.discard(t, 1)
+      assert ManualPairing.open?(Repo.get!(Round, round.id))
+      assert {:error, :no_round} = ManualPairing.discard(t, 7)
+    end
+
+    test "a session opened on a round with results remembers no way back" do
+      t = tournament()
+      players(t, ~w(Ann Ben Cas Dan))
+      {:ok, _} = Pairing.pair_next_round(Repo.reload!(t))
+      [p | _] = Tournaments.get_round(t.id, 1).pairings
+      {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+
+      {:ok, true} = ManualPairing.start(Tournaments.get_round(t.id, 1))
+      refute ManualPairing.discardable?(Tournaments.get_round(t.id, 1))
+      assert {:error, :no_way_back} = ManualPairing.discard(t, 1)
+    end
+  end
 end

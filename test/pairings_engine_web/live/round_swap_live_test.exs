@@ -8,7 +8,7 @@ defmodule PairingsEngineWeb.RoundSwapLiveTest do
 
   import Phoenix.LiveViewTest
 
-  alias PairingsEngine.{Audit, Repo, RoundRobin, Tournaments}
+  alias PairingsEngine.{Audit, Repo, RoundRobin, Snapshots, Tournaments}
 
   setup :register_and_log_in_user
 
@@ -29,7 +29,11 @@ defmodule PairingsEngineWeb.RoundSwapLiveTest do
     Repo.reload!(t)
   end
 
-  test "two rounds swapped from the dialog, with an audit row", %{conn: conn, scope: scope} do
+  defp swap_snapshots(t),
+    do: t.id |> Snapshots.list() |> Enum.filter(&(&1.trigger == "pairing.rounds_swapped"))
+
+  test "two rounds swapped from the dialog, with an audit row and a restore point",
+       %{conn: conn, scope: scope} do
     t = paired_rr(scope)
     {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
 
@@ -40,12 +44,15 @@ defmodule PairingsEngineWeb.RoundSwapLiveTest do
     refute has_element?(lv, "#rr-swap-dialog")
 
     assert Repo.reload!(t).rr_round_map == [3, 2, 1]
+    assert [_] = swap_snapshots(t)
 
     assert [%{details: %{"rounds" => [1, 3], "table_rounds" => [3, 1]}}] =
              Audit.list_for_tournament(t.id, action: "pairing.rounds_swapped")
   end
 
-  test "a round with a result is refused in the dialog", %{conn: conn, scope: scope} do
+  # Asked before the restore point is taken: a refusal leaves none behind.
+  test "a round with a result is refused in the dialog, with no restore point",
+       %{conn: conn, scope: scope} do
     t = paired_rr(scope)
     [p | _] = Tournaments.get_round(t.id, 2).pairings
     {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
@@ -56,6 +63,7 @@ defmodule PairingsEngineWeb.RoundSwapLiveTest do
 
     assert has_element?(lv, "#rr-swap-error")
     assert Repo.reload!(t).rr_round_map == nil
+    assert swap_snapshots(t) == []
   end
 
   test "a Swiss has no swap", %{conn: conn, scope: scope} do

@@ -180,10 +180,12 @@ defmodule PairingsEngineWeb.Layouts do
             {gettext("Teams")}
           </.link>
 
+          <%!-- The live round (`/t/:id/live`) is the pairings, projected:
+                it lights this tab rather than none at all. --%>
           <.link
             navigate={~p"/t/#{@tournament.id}/pairings"}
-            class={tab_class(@active == "pairings")}
-            aria-current={@active == "pairings" && "page"}
+            class={tab_class(@active in ["pairings", "live"])}
+            aria-current={@active in ["pairings", "live"] && "page"}
           >
             {gettext("Pairings")}
           </.link>

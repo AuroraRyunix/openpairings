@@ -350,6 +350,60 @@ defmodule PairingsEngine.RoundRobin do
     end
   end
 
+  @doc """
+  Unpairs every round of a round robin's schedule, last first, in one
+  transaction - the way out of a schedule paired too early, which used to
+  be one "Unpair round" per round, from the last back.
+
+  Each round goes through `PairingsEngine.Pairing.delete_round/2`, so its
+  bye rows and everything else that hangs off a round goes with it, and the
+  pairing numbers (the Berger table's) stay as they are. Refused while
+  anything in the schedule is decided (`Tournaments.results_recorded?/2`):
+  results are not something to lose in bulk. `{:ok, count}` with the number
+  of rounds unpaired, or `{:error, reason}`.
+  """
+  def unpair_schedule(%Tournament{} = tournament) do
+    paired = Engine.paired_rounds_count(tournament.id)
+
+    case check_unpair_schedule(tournament) do
+      {:error, _} = refusal ->
+        refusal
+
+      :ok ->
+        Repo.transaction(fn ->
+          for n <- paired..1//-1 do
+            case Engine.delete_round(tournament.id, n) do
+              :ok -> :ok
+              {:error, reason} -> Repo.rollback(reason)
+            end
+          end
+
+          paired
+        end)
+        |> tap(fn _ ->
+          # `delete_round/2` broadcast from inside the transaction, where a
+          # reader could still see the rounds; say it again once they are gone.
+          Tournaments.broadcast_tournament_change(tournament.id, :rounds)
+          Tournaments.refresh_status!(tournament.id)
+        end)
+    end
+  end
+
+  @doc """
+  Whether `unpair_schedule/1` would run, without running it: `:ok` or the
+  `{:error, reason}` it would answer. Asked before the restore point is
+  taken, so a refusal leaves none behind.
+  """
+  def check_unpair_schedule(%Tournament{} = tournament) do
+    cond do
+      refusal = Tournaments.write_refused(tournament) -> refusal
+      tournament.pairing_system != "round_robin" -> {:error, :not_round_robin}
+      Engine.paired_rounds_count(tournament.id) == 0 -> {:error, :nothing_paired}
+      Tournaments.results_recorded?(tournament.id) -> {:error, :has_results}
+      true -> :ok
+    end
+  end
+
   defp do_pair_all_rounds(%Tournament{} = tournament) do
     # Freeze, read the roster and correct `rounds_count` ONCE, then loop on
     # the corrected struct.

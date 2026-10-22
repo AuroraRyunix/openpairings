@@ -110,6 +110,17 @@ defmodule PairingsEngine.RoundSwapTest do
     assert Repo.reload!(t).rr_round_map == nil
   end
 
+  test "check/3 answers what swap/3 would, and changes nothing" do
+    t = paired_rr(4)
+    assert :ok = RoundSwap.check(t, 1, 3)
+    assert Repo.reload!(t).rr_round_map == nil
+
+    score_round(t, 2)
+    assert {:error, message} = RoundSwap.check(t, 2, 3)
+    assert {:error, ^message} = RoundSwap.swap(t, 2, 3)
+    assert {:error, _} = RoundSwap.check(t, 2, 2)
+  end
+
   test "refused for a postponed game" do
     t = paired_rr(4)
     [p | _] = Tournaments.get_round(t.id, 3).pairings

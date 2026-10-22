@@ -6995,6 +6995,42 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Whether anything has been decided in a round of `tournament_id`: a result
+  on a board (a pairing-allocated bye is the pairing's, not a result), a
+  postponed mark, a date played, or a team match's forfeit or score. With
+  `round_number` only that round is asked; without it, every round.
+
+  What the "while no results exist" undo buttons of the Pairings page ask -
+  discarding hand edits, redrawing a Chess960 position, unpairing a round
+  robin's whole schedule - before they throw anything away.
+  """
+  @spec results_recorded?(integer(), integer() | nil) :: boolean()
+  def results_recorded?(tournament_id, round_number \\ nil) do
+    rounds =
+      from(r in Round, where: r.tournament_id == ^tournament_id, select: r.id)
+      |> then(fn q ->
+        if round_number, do: where(q, [r], r.number == ^round_number), else: q
+      end)
+
+    Repo.exists?(
+      from p in Pairing,
+        where:
+          p.round_id in subquery(rounds) and
+            ((not is_nil(p.result) and p.result not in ["", "bye"]) or
+               not is_nil(p.postponed_by) or not is_nil(p.played_on) or
+               not is_nil(p.not_played_at) or not is_nil(p.provisional_white) or
+               not is_nil(p.provisional_black))
+    ) or
+      Repo.exists?(
+        from m in Match,
+          where:
+            m.round_id in subquery(rounds) and
+              (not is_nil(m.forfeited_to_team_id) or m.double_forfeit == true or
+                 not is_nil(m.match_score_a) or not is_nil(m.match_score_b))
+      )
+  end
+
+  @doc """
   The highest round number of `tournament_id` in which every two-player
   board has a result (`*` included) - 0 when there is none. Byes and empty
   seats are not games and do not hold a round open - except in a team event
