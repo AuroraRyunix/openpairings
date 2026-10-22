@@ -220,6 +220,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:dates}

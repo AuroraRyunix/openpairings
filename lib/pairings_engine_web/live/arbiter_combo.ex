@@ -124,6 +124,26 @@ defmodule PairingsEngineWeb.Live.ArbiterCombo do
   def results_for(%{role: role, field: field, results: results}, role, field), do: results
   def results_for(_search, _role, _field), do: []
 
+  @doc """
+  The FIDE ID typed into `role`'s ID box, when the search found nobody and
+  the text looks like a FIDE ID (digits only, 3 to 10 of them) - the one
+  case where a page that allows it offers to take the number as typed,
+  flagged unverified. `nil` otherwise.
+
+  The lookup stays the normal way in. This is for the machine with no FIDE
+  list, or the arbiter registered after the list this machine has.
+  """
+  def typed_id(%{role: role, field: :id, results: [], query: query}, role)
+      when is_binary(query) do
+    if valid_typed_id?(query), do: query
+  end
+
+  def typed_id(_search, _role), do: nil
+
+  @doc "Whether `text` has the shape of a FIDE ID: digits only, 3 to 10 of them."
+  def valid_typed_id?(text) when is_binary(text), do: Regex.match?(~r/\A\d{3,10}\z/, text)
+  def valid_typed_id?(_text), do: false
+
   @doc "The FIDE player a pick's `fide_id` param refers to, or `nil` (an unrecognised id, or none)."
   def picked_player(fide_id), do: Fide.get_player(fide_id)
 

@@ -10,7 +10,10 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
       tournament (`chief_arbiter`, `organizer`, and the `officials` map) and
       read by the IT3 / FA1 / IA1 / IT4 forms the Norms page downloads.
       Every named official needs a FIDE ID: FIDE bounces a report without
-      one, so the save refuses rather than storing something unusable.
+      one, so the save refuses rather than storing something unusable. The
+      ID comes from the FIDE lookup, or - with no list on this machine, or
+      nobody matching - typed by hand and flagged unverified
+      (`officials["<id key>_unverified"]`), which the page keeps saying.
     * **Title norms** - `norm_event_type`, the B.01 event kind that grants
       fewer games (1.4.1 (b)) or lifts the federation mix (1.4.3 (a)-(c)).
       Beside it, what the field says about 1.4.3 (d), the big-Swiss clause,
@@ -66,7 +69,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
        # or added and not yet saved, so it cannot be what a change from
        # elsewhere is measured against.
        loaded: tournament,
-       page_title: "#{tournament.name} · Settings · " <> gettext("Officials & norms"),
+       page_title:
+         "#{tournament.name} · " <> gettext("Settings") <> " · " <> gettext("Officials & norms"),
        officials_note: nil,
        officials_error: nil,
        norm_note: nil,
@@ -133,6 +137,7 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
       params
       |> Map.take(["chief_arbiter", "organizer", "officials"])
       |> clamp_officials_extra_arbiters()
+      |> drop_blank_unverified_flags()
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
@@ -221,10 +226,39 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
 
         {:noreply,
          assign(socket,
-           tournament: apply_arbiter_pick(socket.assigns.tournament, role, fp),
+           tournament:
+             socket.assigns.tournament
+             |> apply_arbiter_pick(role, fp)
+             |> clear_unverified(role),
            arbiter_search: nil,
            officials_dirty: true
          )}
+    end
+  end
+
+  # No FIDE list here, or nobody in it: the ID box offers to take the
+  # number as typed. The id lands where a pick would put it; beside it a
+  # flag says nobody looked it up, and the page keeps saying so until a
+  # real pick replaces it.
+  def handle_event("arbiter_use_typed", %{"role" => role, "fide-id" => fide_id}, socket) do
+    with key when is_binary(key) <- official_id_key(role),
+         true <- ArbiterCombo.valid_typed_id?(fide_id) do
+      socket = apply_typed_officials(socket)
+      tournament = socket.assigns.tournament
+
+      officials =
+        (tournament.officials || %{})
+        |> Map.put(key, fide_id)
+        |> Map.put(key <> "_unverified", "true")
+
+      {:noreply,
+       assign(socket,
+         tournament: %{tournament | officials: officials},
+         arbiter_search: nil,
+         officials_dirty: true
+       )}
+    else
+      _ -> {:noreply, socket}
     end
   end
 
@@ -423,6 +457,53 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
 
   defp put_official(tournament, key, value), do: Map.put(tournament.officials || %{}, key, value)
 
+  # Where each role keeps its FIDE ID in `officials`. The organizer's key
+  # predates the naming convention and is kept for every form that reads it.
+  defp official_id_key("chief_arbiter"), do: "chief_arbiter_fide_id"
+  defp official_id_key("organizer"), do: "organizer_id"
+
+  defp official_id_key("person_responsible_pairings"),
+    do: "person_responsible_pairings_fide_id"
+
+  defp official_id_key("deputy" <> n = role) when n in ["1", "2"], do: role <> "_fide_id"
+
+  defp official_id_key("arbiter" <> n = role) do
+    case Integer.parse(n) do
+      {i, ""} when i >= 1 -> role <> "_fide_id"
+      _ -> nil
+    end
+  end
+
+  defp official_id_key(_role), do: nil
+
+  defp unverified_key(role), do: official_id_key(role) <> "_unverified"
+
+  defp unverified?(tournament, role), do: o_get(tournament, unverified_key(role)) == "true"
+
+  defp unverified_field(role), do: "tournament[officials][#{unverified_key(role)}]"
+
+  defp clear_unverified(tournament, role) do
+    case official_id_key(role) do
+      nil -> tournament
+      key -> %{tournament | officials: Map.delete(tournament.officials || %{}, key <> "_unverified")}
+    end
+  end
+
+  # A blank flag is a pick that replaced a typed id; it is left out of the
+  # save rather than stored as an empty string forever.
+  defp drop_blank_unverified_flags(%{"officials" => officials} = params) when is_map(officials) do
+    officials =
+      officials
+      |> Enum.reject(fn {key, value} ->
+        String.ends_with?(key, "_unverified") and value != "true"
+      end)
+      |> Map.new()
+
+    Map.put(params, "officials", officials)
+  end
+
+  defp drop_blank_unverified_flags(params), do: params
+
   defp extra_arbiters_count(tournament),
     do: tournament |> o_get("extra_arbiters_count") |> parse_extra_count()
 
@@ -467,11 +548,15 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
       officials =
         Enum.reduce(n..count//1, tournament.officials || %{}, fn i, acc ->
           if i == count do
-            acc |> Map.delete("arbiter#{i}_name") |> Map.delete("arbiter#{i}_fide_id")
+            acc
+            |> Map.delete("arbiter#{i}_name")
+            |> Map.delete("arbiter#{i}_fide_id")
+            |> Map.delete("arbiter#{i}_fide_id_unverified")
           else
             acc
             |> move_key("arbiter#{i + 1}_name", "arbiter#{i}_name")
             |> move_key("arbiter#{i + 1}_fide_id", "arbiter#{i}_fide_id")
+            |> move_key("arbiter#{i + 1}_fide_id_unverified", "arbiter#{i}_fide_id_unverified")
           end
         end)
 
@@ -498,6 +583,7 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
           officials
           |> Map.delete("arbiter#{current}_name")
           |> Map.delete("arbiter#{current}_fide_id")
+          |> Map.delete("arbiter#{current}_fide_id_unverified")
         else
           officials
         end
@@ -520,6 +606,7 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:norms}
@@ -535,6 +622,9 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
           <p class="hint" style="margin-top: 0">
             {gettext(
               "The IT3, FA1, IA1 and IT4 FIDE report forms are filled in from these. FIDE identifies every official by FIDE ID, so type a name or an ID and pick the matching player. Pairing mode is always computerized, and the pairing program names whichever engine paired this tournament."
+            )}
+            {gettext(
+              "With no FIDE list on this machine, or nobody matching, type the FIDE ID in the ID box and take it as typed: it is used in the forms like any other, marked unverified here until you pick the official from a list."
             )}
           </p>
 
@@ -566,6 +656,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
                 name_value={@tournament.chief_arbiter}
                 id_field="tournament[officials][chief_arbiter_fide_id]"
                 id_value={o_get(@tournament, "chief_arbiter_fide_id")}
+                unverified_field={unverified_field("chief_arbiter")}
+                unverified={unverified?(@tournament, "chief_arbiter")}
                 search={@arbiter_search}
               />
               <.arbiter_combo
@@ -575,6 +667,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
                 name_value={@tournament.organizer}
                 id_field="tournament[officials][organizer_id]"
                 id_value={o_get(@tournament, "organizer_id")}
+                unverified_field={unverified_field("organizer")}
+                unverified={unverified?(@tournament, "organizer")}
                 search={@arbiter_search}
               />
               <.arbiter_combo
@@ -584,6 +678,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
                 name_value={o_get(@tournament, "person_responsible_pairings")}
                 id_field="tournament[officials][person_responsible_pairings_fide_id]"
                 id_value={o_get(@tournament, "person_responsible_pairings_fide_id")}
+                unverified_field={unverified_field("person_responsible_pairings")}
+                unverified={unverified?(@tournament, "person_responsible_pairings")}
                 search={@arbiter_search}
               />
               <label class="field">
@@ -614,6 +710,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
                   name_value={o_get(@tournament, "deputy#{n}_name")}
                   id_field={"tournament[officials][deputy#{n}_fide_id]"}
                   id_value={o_get(@tournament, "deputy#{n}_fide_id")}
+                  unverified_field={unverified_field("deputy#{n}")}
+                  unverified={unverified?(@tournament, "deputy#{n}")}
                   search={@arbiter_search}
                 />
                 <label class="field">
@@ -652,6 +750,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
                   name_value={o_get(@tournament, "arbiter#{n}_name")}
                   id_field={"tournament[officials][arbiter#{n}_fide_id]"}
                   id_value={o_get(@tournament, "arbiter#{n}_fide_id")}
+                  unverified_field={unverified_field("arbiter#{n}")}
+                  unverified={unverified?(@tournament, "arbiter#{n}")}
                   search={@arbiter_search}
                 />
                 <div class="field" style="align-self: end">

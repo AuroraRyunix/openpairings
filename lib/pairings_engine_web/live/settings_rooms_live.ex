@@ -33,7 +33,7 @@ defmodule PairingsEngineWeb.SettingsRoomsLive do
      |> attach_dirty_tracker()
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Settings · " <> gettext("Rooms"),
+       page_title: "#{tournament.name} · " <> gettext("Settings") <> " · " <> gettext("Rooms"),
        note: nil,
        error: nil,
        dirty: false,
@@ -172,6 +172,7 @@ defmodule PairingsEngineWeb.SettingsRoomsLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:rooms}

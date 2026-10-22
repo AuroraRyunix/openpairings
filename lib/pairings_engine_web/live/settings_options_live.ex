@@ -441,6 +441,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:options}

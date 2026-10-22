@@ -77,6 +77,21 @@ defmodule PairingsEngineWeb.SettingsSupport do
 
   `advanced` is nil on a page with nothing advanced in it, and the switch
   is not drawn there.
+
+  ## Leaving with unsaved edits
+
+  `guard` puts the `.UnsavedGuard` hook on the frame: once something is
+  typed into a form on the page (or a button inside one is pressed - the
+  tie-break arrows, "+ Add arbiter"), leaving asks first, both for a
+  page load (`beforeunload`, the browser's own wording) and for a link
+  inside the app, LiveView navigation included. Submitting a form forgets
+  its edits. A form that saves as it changes, or that is not a setting at
+  all, carries `data-unsaved-ignore`.
+
+  It is the browser's bookkeeping, not the server's `dirty` flag: that one
+  is set by every event, a collaborator's role change and a logo removal
+  included, and would ask about edits nobody made. Pages without
+  `attach_dirty_tracker/1` leave `guard` off; their forms save in place.
   """
   attr :tournament, :map, required: true
   attr :active, :any, required: true
@@ -85,12 +100,20 @@ defmodule PairingsEngineWeb.SettingsSupport do
   attr :show_status, :boolean, default: true
   attr :advanced, :map, default: nil
   attr :id, :string, default: "settings-page"
+  attr :guard, :boolean, default: false
   slot :subtitle_extra
   slot :inner_block, required: true
 
   def settings_page(assigns) do
     ~H"""
-    <div class="tset-page" id={@id}>
+    <div
+      class="tset-page"
+      id={@id}
+      phx-hook={@guard && ".UnsavedGuard"}
+      data-unsaved-message={
+        @guard && gettext("You have changes on this page that are not saved. Leave anyway?")
+      }
+    >
       <div class="page-header tset-header">
         <div>
           <h1>{@tournament.name}</h1>
@@ -102,7 +125,7 @@ defmodule PairingsEngineWeb.SettingsSupport do
           :if={@show_status}
           class={["badge", @tournament.status == "setup" && "muted"]}
         >
-          {@tournament.status}
+          {status_label(@tournament.status)}
         </span>
       </div>
 
@@ -144,8 +167,81 @@ defmodule PairingsEngineWeb.SettingsSupport do
         </div>
       </div>
     </div>
+    <script :type={Phoenix.LiveView.ColocatedHook} name=".UnsavedGuard">
+      // Remembers which forms on the page hold edits nobody saved, and asks
+      // before anything takes them away. Capture phase on window, so it runs
+      // before LiveView's own link handling and can stop it.
+      export default {
+        mounted() {
+          this.edited = new Set()
+
+          const trackedForm = (target) => {
+            const form = target && target.closest && target.closest("form")
+            if (!form || !this.el.contains(form)) return null
+            if (form.hasAttribute("data-unsaved-ignore")) return null
+            return form
+          }
+
+          this.onEdit = (e) => {
+            const form = trackedForm(e.target)
+            if (form) this.edited.add(form.id || form)
+          }
+
+          this.onSubmit = (e) => {
+            const form = trackedForm(e.target)
+            if (form) this.edited.delete(form.id || form)
+          }
+
+          this.onBeforeUnload = (e) => {
+            if (this.edited.size === 0) return
+            e.preventDefault()
+            e.returnValue = ""
+          }
+
+          this.onClick = (e) => {
+            const button = e.target.closest && e.target.closest("button[type=button]")
+            if (button) {
+              const form = trackedForm(button)
+              if (form) this.edited.add(form.id || form)
+              return
+            }
+
+            if (this.edited.size === 0 || e.defaultPrevented) return
+            if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return
+            const link = e.target.closest && e.target.closest("a[href]")
+            if (!link || link.target === "_blank" || link.hasAttribute("download")) return
+            const href = link.getAttribute("href")
+            if (!href || href.startsWith("#") || href.startsWith("javascript:")) return
+
+            if (window.confirm(this.el.dataset.unsavedMessage)) {
+              // Asked once; the page load that follows need not ask again.
+              this.edited.clear()
+            } else {
+              e.preventDefault()
+              e.stopImmediatePropagation()
+            }
+          }
+
+          this.el.addEventListener("input", this.onEdit)
+          this.el.addEventListener("change", this.onEdit)
+          this.el.addEventListener("submit", this.onSubmit)
+          window.addEventListener("beforeunload", this.onBeforeUnload)
+          window.addEventListener("click", this.onClick, true)
+        },
+        destroyed() {
+          window.removeEventListener("beforeunload", this.onBeforeUnload)
+          window.removeEventListener("click", this.onClick, true)
+        }
+      }
+    </script>
     """
   end
+
+  # The badge beside the heading. Same words as the Tournaments list.
+  defp status_label("setup"), do: gettext("setup")
+  defp status_label("running"), do: gettext("running")
+  defp status_label("finished"), do: gettext("finished")
+  defp status_label(other), do: other
 
   @doc """
   The rail of Settings pages, grouped the way an arbiter meets them:
@@ -1402,6 +1498,23 @@ defmodule PairingsEngineWeb.SettingsSupport do
       validation?.(:round_one_paired) ->
         gettext(
           "Not saved: round 1 is already paired, so round-1 absentees can no longer be switched between late entries and numbered-with-the-field. Doing so would renumber players in rounds already played."
+        )
+
+      validation?.(:type_after_pairing) ->
+        gettext(
+          "Not saved: round 1 is already paired, so the tournament format can no longer change. The rounds already played were made for this format; for another one, start a new tournament."
+        )
+
+      validation?.(:round_dates_order) ->
+        {_msg, opts} =
+          Enum.find_value(errors, fn {_field, {_msg, opts} = error} ->
+            if opts[:validation] == :round_dates_order, do: error
+          end)
+
+        gettext(
+          "Not saved: round %{round} is dated before round %{previous}. Round dates must run in round order; two rounds may share a date.",
+          round: opts[:round],
+          previous: opts[:previous]
         )
 
       validation?.(:team_keizer) ->

@@ -68,6 +68,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        page_title: "#{tournament.name} · " <> gettext("Settings"),
        tiebreaks: tournament.tiebreaks,
        fide_locked: Tournaments.fide_locked_fields(tournament),
+       type_locked?: Tournaments.round_one_paired?(tournament.id),
        note: nil,
        error: nil,
        dirty: false,
@@ -121,6 +122,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
            long_event_preview: nil,
            tiebreaks: tournament.tiebreaks,
            fide_locked: Tournaments.fide_locked_fields(tournament),
+           type_locked?: Tournaments.round_one_paired?(tournament.id),
            stale: false
          )
          |> assign_collaborators()}
@@ -192,6 +194,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
            long_event_preview: nil,
            tiebreaks: tournament.tiebreaks,
            fide_locked: Tournaments.fide_locked_fields(tournament),
+           type_locked?: Tournaments.round_one_paired?(tournament.id),
            note: gettext("Saved."),
            error: nil,
            dirty: false,
@@ -298,6 +301,85 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     end
   end
 
+  def handle_event(
+        "change_collaborator_role",
+        %{"collaborator_id" => id, "role" => role},
+        socket
+      ) do
+    case Tournaments.change_collaborator_role(
+           socket.assigns.current_scope,
+           socket.assigns.tournament,
+           id,
+           role
+         ) do
+      {:ok, collaborator} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "collaborator.role_changed",
+          %{email: collaborator.email, role: collaborator.role}
+        )
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           gettext("%{email} is now %{role}.",
+             email: collaborator.email,
+             role: collaborator_role_label(collaborator.role)
+           )
+         )
+         |> assign_collaborators()}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, collaborator_error_text(reason))
+         |> assign_collaborators()}
+    end
+  end
+
+  def handle_event("resend_invitation", %{"id" => id}, socket) do
+    case Tournaments.resend_invitation(
+           socket.assigns.current_scope,
+           socket.assigns.tournament,
+           id
+         ) do
+      {:ok, %{mail_status: :sent} = collaborator} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "collaborator.invitation_resent",
+          %{email: collaborator.email}
+        )
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           gettext("Invitation sent to %{email} again.", email: collaborator.email)
+         )
+         |> assign_collaborators()}
+
+      {:ok, collaborator} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           gettext("The e-mail could not be sent - share this link instead: %{link}",
+             link: url(~p"/invites/#{collaborator.invite_token}")
+           )
+         )
+         |> assign_collaborators()}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, collaborator_error_text(reason))
+         |> assign_collaborators()}
+    end
+  end
+
   ## ---------- Print logo (SWAR parity #14-16) ----------
 
   def handle_event("validate_logo", _params, socket), do: {:noreply, socket}
@@ -398,6 +480,29 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   end
 
   ## ---------- helpers ----------
+
+  # `Tournament.type_label/1` is English for the exports; this select is not.
+  defp type_label("swiss"), do: gettext("Swiss (individual)")
+  defp type_label("roundrobin"), do: gettext("Round robin (individual)")
+  defp type_label("team-swiss"), do: gettext("Swiss (teams)")
+  defp type_label("team-roundrobin"), do: gettext("Round robin (teams)")
+  defp type_label(other), do: Tournament.type_label(other)
+
+  defp collaborator_role_label("arbiter"), do: gettext("Arbiter")
+  defp collaborator_role_label(_editor), do: gettext("Editor")
+
+  defp collaborator_error_text(:not_found),
+    do: gettext("That collaborator is no longer on this tournament.")
+
+  defp collaborator_error_text(:bad_role), do: gettext("Pick editor or arbiter.")
+
+  defp collaborator_error_text(:already_accepted),
+    do: gettext("That invitation was already accepted - there is nothing to send.")
+
+  defp collaborator_error_text(:resent_recently),
+    do: gettext("That invitation went out less than a minute ago. Give the post a moment.")
+
+  defp collaborator_error_text(reason), do: error_text(reason)
 
   defp swap(list, index, delta) do
     target = index + delta
@@ -504,6 +609,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:tournament}
@@ -534,16 +640,22 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
               </.setting_field>
 
               <.setting_field label={gettext("Tournament format")}>
-                <select name="tournament[type]">
+                <select id="tournament-type" name="tournament[type]" disabled={@type_locked?}>
                   <option
                     :for={type <- Tournament.types()}
                     value={type}
                     selected={@tournament.type == type}
                   >
-                    {Tournament.type_label(type)}
+                    {type_label(type)}
                   </option>
                 </select>
               </.setting_field>
+
+              <p :if={@type_locked?} id="type-locked-note" class="hint" style="margin: 0">
+                {gettext(
+                  "The format is fixed now that round 1 is paired: the rounds already played were made for it. For another format, start a new tournament."
+                )}
+              </p>
 
               <.setting_field label={gettext("Number of rounds")} required>
                 <input
@@ -985,9 +1097,28 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   </td>
 
                   <td>
-                    <span class="badge muted" id={"collaborator-role-#{c.id}"}>
-                      {if c.role == "arbiter", do: gettext("Arbiter"), else: gettext("Editor")}
-                    </span>
+                    <form
+                      id={"collaborator-role-form-#{c.id}"}
+                      phx-change="change_collaborator_role"
+                      data-unsaved-ignore
+                      style="display: inline"
+                    >
+                      <input type="hidden" name="collaborator_id" value={c.id} />
+                      <select
+                        id={"collaborator-role-#{c.id}"}
+                        name="role"
+                        class="pe-select"
+                        style="width: auto"
+                        aria-label={gettext("Role of %{email}", email: c.email)}
+                      >
+                        <option value="editor" selected={c.role != "arbiter"}>
+                          {gettext("Editor")}
+                        </option>
+                        <option value="arbiter" selected={c.role == "arbiter"}>
+                          {gettext("Arbiter")}
+                        </option>
+                      </select>
+                    </form>
                     <span class={["badge", c.status != "accepted" && "muted"]}>
                       {if c.status == "accepted",
                         do: gettext("active"),
@@ -997,6 +1128,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
                   <td style="text-align: right">
                     <button
+                      :if={c.status != "accepted"}
+                      type="button"
+                      id={"resend-invitation-#{c.id}"}
+                      class="pe-btn"
+                      phx-click="resend_invitation"
+                      phx-value-id={c.id}
+                      phx-disable-with={gettext("Sending…")}
+                    >
+                      {gettext("Resend invitation")}
+                    </button>
+                    <button
+                      type="button"
                       class="pe-btn danger-link"
                       phx-click="remove_collaborator"
                       phx-value-id={c.id}
