@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/incident-response.schema.json",
-  "title": "POST /incidents/:iid/photo response (201)",
-  "description": "The incident, now with has_photo.",
+  "title": "POST /incidents/:iid/photo response (201), PATCH /incidents/:iid response (200)",
+  "description": "The incident: after a photo, with has_photo; after an amendment, with its new kind and note.",
   "type": "object",
   "additionalProperties": false,
   "required": [

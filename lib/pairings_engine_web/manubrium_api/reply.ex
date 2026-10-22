@@ -276,6 +276,21 @@ defmodule PairingsEngineWeb.ManubriumApi.Reply do
   def describe(:not_in_list),
     do: {404, "not_in_list", gettext("That player is not on the list.")}
 
+  def describe(:unknown_kind),
+    do: {422, "unknown_kind", gettext("Pick an incident type from the list.")}
+
+  def describe(:kind_not_allowed),
+    do:
+      {422, "kind_not_allowed",
+       gettext("This phone's code can only call the arbiter; that incident is not its to change.")}
+
+  def describe(:note_too_long),
+    do:
+      {422, "note_too_long",
+       gettext("The note is too long: at most %{max} characters.",
+         max: PairingsEngine.Incidents.note_max()
+       )}
+
   def describe(:not_found), do: {404, "not_found", gettext("Not found.")}
   def describe(:not_paired), do: {404, "not_paired", gettext("That round is not paired.")}
 

@@ -427,6 +427,8 @@ defmodule PairingsEngineWeb.Router do
 
     patch "/tournaments/:id/settings", SettingsController, :update
 
+    patch "/tournaments/:id/incidents/:incident_id", IncidentController, :update
+    delete "/tournaments/:id/incidents/:incident_id", IncidentController, :delete
     post "/tournaments/:id/incidents/:incident_id/photo", IncidentController, :attach_photo
     get "/tournaments/:id/incidents/:incident_id/photo", IncidentController, :photo
 

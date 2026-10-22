@@ -564,6 +564,23 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "category.renamed" => [%{"from" => "U12", "to" => "U12 girls", "players" => 4}],
     "incident.handled" => [%{"kind" => "illegal_move", "round" => 3, "board" => 7}],
     "incident.reopened" => [%{"kind" => "illegal_move", "round" => 3, "board" => 7}],
+    "incident.edited" => [
+      %{
+        "kind" => "time_added",
+        "round" => 3,
+        "board" => 7,
+        "changed_fields" => %{
+          "kind" => ["clock", "time_added"],
+          "note" => ["", "Two minutes to Black"]
+        }
+      },
+      %{
+        "kind" => "clock",
+        "round" => 3,
+        "board" => 7,
+        "changed_fields" => %{"note" => ["Flag fell", "Flag fell, both claimed"]}
+      }
+    ],
     "incident.deleted" => [
       %{"kind" => "clock", "round" => 3, "board" => 7, "note" => "Flag fell, both claimed"},
       %{"kind" => "clock", "round" => 3, "board" => 7, "note" => ""}
