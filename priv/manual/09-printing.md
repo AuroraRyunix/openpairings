@@ -56,7 +56,9 @@ uses the latest paired round, and the Pairings page prints the round you are
 looking at. In the address of a print page `?round=N` selects a round. The
 pairing list defaults to round 1 and the result cards to the latest paired
 round if you leave it out. A round that is not paired gives the answer *Round N
-has not been paired yet*, not another round. The standings print takes a
+has not been paired yet*, not another round. Such a refusal (and the
+next-round preview that has not been worked out) opens as a small page with the
+reason and a link back to the Print page, in the same tab. The standings print takes a
 round in the same way (`?round=N`) and then shows the standings as they stood
 after that round.
 

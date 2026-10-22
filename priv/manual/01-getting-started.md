@@ -139,7 +139,8 @@ tournaments (empty at first), with *New tournament* and the import buttons.
 
 The bar at the top of every page has:
 
-- **Tournaments** - the list of your tournaments.
+- **Tournaments** - the list of your tournaments. Inside a tournament this
+  first tab reads **Home** instead and leads to the same list.
 - **Tools** - the public arbiter tools (norm reports from uploaded files).
 - **Changelog** - what changed in each release.
 - **Help** - this manual. Inside a tournament it opens at the chapter that
