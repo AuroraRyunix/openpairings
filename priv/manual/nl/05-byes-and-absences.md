@@ -43,8 +43,6 @@ zoals uitgelegd in [Spelers en ratinglijsten](04-players-and-ratings.md):
 - Het menu op de kop van de kolom markeert iedereen in één keer aanwezig of
   afwezig; gebruik dit aan het begin van het evenement of het begin van een ronde.
 
-![Het menu van de aanwezigheidscel op de pagina Spelers met Afwezig en Aanwezig](screenshots/05-presence-cell-menu.png "Een speler afwezig zetten")
-
 Een afwezige speler wordt in die ronde niet gepaard. Hun afwezigheid wordt gescoord
 zoals ingesteld op de pagina Puntentelling (*Byes en afwezigheden*). De pagina
 Paringen en de afgedrukte paringslijst (optie *met afwezigenvak*) tonen de spelers
@@ -60,10 +58,10 @@ Een afwezigheid die de pagina Puntentelling als remise scoort, is een halvepunts
 
 Het programma helpt op twee manieren:
 
-- Wanneer het opslaan van het inschrijfformulier een speler een **tweede of latere
+- Wanneer het bewaren van het inschrijfformulier een speler een **tweede of latere
   halvepuntsbye** zou geven, toont het formulier een waarschuwing voor de betreffende
   rondes (*De regels staan een speler slechts één halvepuntsbye per toernooi toe*),
-  en vraagt de knop **Opslaan** *Toch opslaan?* De opslag gaat pas door nadat je
+  en vraagt de knop **Bewaren** *Toch bewaren?* Het bewaren gaat pas door nadat je
   bevestigt.
 - Het vakje **Geen bye van een half punt voor deze speler** (vroeger *Komt niet in
   aanmerking voor byes van een half punt*) markeert een speler met voorwaarden of
@@ -84,7 +82,7 @@ Staat het aan, dan toont het inschrijfformulier een regel voor elke ronde in
 **Afwezig in de rondes** die nog niet is gepaard, met drie keuzes: **Bye van een
 half punt**, **Bye van nul punt** en **Bye van een vol punt**. De keuze die de
 pagina Puntentelling zou geven, is al aangeduid (met de twee limieten erbij), dus
-voor de meeste afwezigheden is **Opslaan** de enige klik. Kies een andere waar het
+voor de meeste afwezigheden is **Bewaren** de enige klik. Kies een andere waar het
 antwoord verschilt.
 
 - De keuze blijft bij de ronde. Het paren van de ronde laat de speler erbuiten en
@@ -93,7 +91,7 @@ antwoord verschilt.
 - Het FIDE-rapport schrijft hem met de eigen letter, in record 240 zolang de ronde
   niet is gepaard, en een import van dat bestand brengt dezelfde bye terug.
 - De regels voor halvepuntsbyes hierboven tellen een gekozen halvepuntsbye mee: een
-  tweede vraagt *Toch opslaan?*, en een speler die niet in aanmerking komt, kan er
+  tweede vraagt *Toch bewaren?*, en een speler die niet in aanmerking komt, kan er
   geen krijgen. Voor zo'n speler is de nulpuntsbye vooraf aangeduid.
 - Een bye van een vol punt kiezen toont dezelfde melding als op de pagina Paringen:
   de paringsregels beschrijven hem niet, en hij moet uitzonderlijk blijven. De
@@ -156,8 +154,6 @@ In een gepaarde ronde laat de pagina Paringen je wijzigen wie tegen wie speelt, 
 wie niet meespeelt. Het menu *Wijzigingen met de hand* (rechtsklik op de naam van
 een speler in de ronde) biedt:
 
-![Het menu Wijzigingen met de hand, geopend op de naam van een speler in een gepaarde ronde](screenshots/05-hand-edits-menu.png "Het menu Wijzigingen met de hand")
-
 - **Markeren als afwezig voor deze ronde**: de plaats van de speler wordt
   leeggemaakt en de speler gaat naar de *Lijst met niet-spelenden*; met **Het
   byetype vragen bij elke afwezigheid** aan, vraagt de bevestiging welke bye het is
@@ -217,7 +213,7 @@ Vroeger had het formulier een vakje *Uitsluiten van de door de paring toegekende
 bye* naast een keuzelijst *Voorkeur voor de door de paring toegekende bye*, wat
 tegenstrijdigheden toeliet; wat bewaard was, wordt als dezelfde keuze gelezen. Een
 speler die bewaard staat als "krijgt hem nooit" *en* met een voorkeur, verschijnt als
-*Krijgt hem nooit*, met een melding, en opslaan van het formulier laat de voorkeur vallen
+*Krijgt hem nooit*, met een melding, en bewaren van het formulier laat de voorkeur vallen
 (de uitsluiting won altijd). De keuzes staan alleen in de lijst als hun schakelaar aan
 staat; een bewaarde waarde blijft in de lijst. In een FIDE-gehomologeerd toernooi worden
 de voorkeuren niet aangeboden en wordt een bewaarde als genegeerd getoond.

@@ -10,7 +10,7 @@ Instellingen, **Categorieën**:
 
 - **Nieuwe categorienaam** (bijvoorbeeld `U1800` of `65+`) voegt een categorie toe.
 - Elke categorie kan een **regel** hebben, elke combinatie van vijf voorwaarden: *rating vanaf*, *rating lager dan*, *leeftijd vanaf*, *jonger dan* en *alleen vrouwen*. Een categorie zonder regel is **handmatig toegewezen**. Geneste, gebande en gecombineerde categorieën kunnen allemaal zo geschreven worden. Leeftijd wordt geteld volgens de FIDE-conventie, per 1 januari van het jaar: de editor toont het geboortejaar dat een grens betekent ("jonger dan 16 = geboren in 2010 of later").
-- **Regels opslaan** bewaart de regels en de prijzen van de hele tabel in één keer en antwoordt *Regels opgeslagen.* Een regel waarvan *vanaf* niet lager is dan *lager dan* past bij niemand en wordt geweigerd. De knop die categorieën toekent, werkt vanuit de opgeslagen regels en wacht dus (*Sla eerst de regels op.*) zolang de tabel verschilt van wat is opgeslagen; ze vult elke categorie op basis van haar regel en zegt hoeveel spelers ze heeft toegekend, of dat niemand aangepast hoeft te worden.
+- **Regels bewaren** bewaart de regels en de prijzen van de hele tabel in één keer en antwoordt *Regels bewaard.* Een regel waarvan *vanaf* niet lager is dan *lager dan* past bij niemand en wordt geweigerd. De knop die categorieën toekent, werkt vanuit de bewaard regels en wacht dus (*Sla eerst de regels op.*) zolang de tabel verschilt van wat is bewaard; ze vult elke categorie op basis van haar regel en zegt hoeveel spelers ze heeft toegekend, of dat niemand aangepast hoeft te worden.
 - **Verwijderen** vraagt eerst om bevestiging. De regel en het aantal prijzen van de categorie gaan mee weg; de spelers houden de categorie op hun fiche, dus de naam opnieuw toevoegen brengt de toekenningen terug. Wat je in de tabel intypt, gaat niet verloren als iemand anders het toernooi wijzigt.
 - Een speler kan in meerdere categorieën zitten. Op de pagina Spelers wijst de categoriecel (rechtsklik of <kbd>Space</kbd>) categorieën één voor één toe, en de kop van die kolom wijst iedereen toe.
 - **Prijzen**: een optioneel aantal prijzen per categorie. De rangschikking van die categorie markeert de plaatsen die een prijs winnen. Dit is informatief; het programma verdeelt geen prijzen en past geen regel "één prijs per speler" toe.
@@ -25,8 +25,6 @@ Twee schakelaars op de pagina:
 > apart toernooi, wat een afwijking is van de FIDE-modus
 > ([FIDE-modus](02-fide-mode.md)).
 
-![De instellingenpagina Categorieën met de categorieregels, prijzen en de twee schakelaars](screenshots/11-categories-settings.png "Categorieregels en schakelaars")
-
 ## Normen en FIDE-formulieren {#norms-and-fide-forms}
 
 **Geavanceerd**, **Normen** maakt de officiële FIDE-formulieren als Excel-bestanden, ingevuld vanuit het toernooi:
@@ -39,13 +37,11 @@ Twee schakelaars op de pagina:
 
 De formulieren worden ingevuld met de functionarissen en arbiters onder Instellingen, **Functionarissen & normen**, de identificaties onder Instellingen, **FIDE**, en de spelerslijst ([Een toernooi instellen](03-tournament-setup.md)). Een banner zegt *Nog niet klaar om bij FIDE in te dienen* zolang iets vereists ontbreekt, en noemt wat.
 
-- Voor **FA1/IA1** neemt *Kies een arbiter* de kandidaat uit de officials van het evenement, of typ de naam, het FIDE-ID en de federatie van elke arbiter; er wordt niets opgeslagen.
+- Voor **FA1/IA1** neemt *Kies een arbiter* de kandidaat uit de officials van het evenement, of typ de naam, het FIDE-ID en de federatie van elke arbiter; er wordt niets bewaard.
 - Voor **IT4** wordt een speler opgenomen zodra een geclaimde titel voor hem is ingesteld (*Normgegevens bewerken*: de geclaimde titel, de normomschrijving, medaillepercentage, groep, deelnemende federaties, opmerkingen).
 - Een **gecombineerd rapport** (festival) voegt meerdere van je toernooien samen tot één rapport: kies de andere toernooien, één ervan als *hoofdtoernooi* (het levert de kop, het schema en de naam) en download de gecombineerde IT3, FA1 of IA1. Dubbele spelers over toernooien heen worden gedetecteerd.
 
 De formulieren gebruiken de FIDE-huisstijl voor namen (voornaam, ACHTERNAAM in hoofdletters).
-
-![De pagina Normen met de IT3-, FA1/IA1- en IT4-formulieren en de banner Nog niet klaar om bij FIDE in te dienen](screenshots/11-norms-forms.png "Geavanceerd, Normen")
 
 De pagina beoordeelt ook per speler of het evenement een titelnorm oplevert (FIDE
 B.01). Eén regel geldt alleen voor rondetoernooien: partijen tegen een **speler zonder
@@ -67,11 +63,11 @@ spelers werden beoordeeld.
 ### Normen zonder account {#norms-without-an-account}
 
 Het tabblad **Hulpmiddelen** in de bovenbalk opent een openbare pagina voor arbiters zonder account: upload `.swar`- of `.trf`-bestanden (tot tien, elk 5 MB), vul de officials in, en download de IT3-, FA1- en IA1-formulieren, gecombineerd over de bestanden.
-Niets wordt opgeslagen: de bestanden leven alleen in het geheugen zolang je werkt.
+Niets wordt bewaard: de bestanden leven alleen in het geheugen zolang je werkt.
 
 ## Geschiedenis (herstelpunten) {#history-restore-points}
 
-**Geavanceerd**, **Geschiedenis**. Een herstelpunt is een volledige kopie van het toernooi op één moment. Het programma maakt er automatisch één aan vóór een actie die moeilijk ongedaan te maken is (een ronde paren of ontpaaren, resultaten uit een bestand importeren, een forfait of score van een wedstrijd, een gewijzigde opstelling, een teruggetrokken ploeg, een overdracht) en vóór een bulkwijziging die met één klik veel spelers herschrijft (iedereen een categorie geven, iedereen aanwezig, afwezig of betaald zetten, **Categorieën toekennen**, de paringsnummers of startnummers opnieuw indelen, **Ratings vernieuwen** en de vernieuwing van spelersgegevens, de extrapunten-banden toepassen, de handmatige rangschikking opnieuw indelen, ploegen op rating ordenen). Elk punt draagt een label met wat er gaat gebeuren, bijvoorbeeld *Voor categorieën toe te kennen aan 24 spelers*. De nieuwste vijftig automatische punten worden bewaard; oudere worden opgeruimd. Druk op **Herstelpunt opslaan** (met een optionele naam, bijvoorbeeld *Einde dag 1*) om zelf een punt aan te maken: die worden nooit opgeruimd en tellen niet mee voor de vijftig.
+**Geavanceerd**, **Geschiedenis**. Een herstelpunt is een volledige kopie van het toernooi op één moment. Het programma maakt er automatisch één aan vóór een actie die moeilijk ongedaan te maken is (een ronde paren of ontpaaren, resultaten uit een bestand importeren, een forfait of score van een wedstrijd, een gewijzigde opstelling, een teruggetrokken team, een overdracht) en vóór een bulkwijziging die met één klik veel spelers herschrijft (iedereen een categorie geven, iedereen aanwezig, afwezig of betaald zetten, **Categorieën toekennen**, de paringsnummers of startnummers opnieuw indelen, **Ratings vernieuwen** en de vernieuwing van spelersgegevens, de extrapunten-banden toepassen, de handmatige rangschikking opnieuw indelen, teams op rating ordenen). Elk punt draagt een label met wat er gaat gebeuren, bijvoorbeeld *Voor categorieën toe te kennen aan 24 spelers*. De nieuwste vijftig automatische punten worden bewaard; oudere worden opgeruimd. Druk op **Herstelpunt bewaren** (met een optionele naam, bijvoorbeeld *Einde dag 1*) om zelf een punt aan te maken: die worden nooit opgeruimd en tellen niet mee voor de vijftig.
 
 **Terug naar dit punt** herstelt het toernooi naar dat moment.
 

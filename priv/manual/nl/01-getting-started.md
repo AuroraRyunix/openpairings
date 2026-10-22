@@ -11,7 +11,7 @@ OpenPairings beheert een schaaktoernooi van de opzet tot het rapport voor het
 rating-bureau:
 
 - Het paart Zwitserse toernooien (FIDE Dutch-systeem, C.04.3), Zwitserse
-  ploegentoernooien (C.04.6), rondetoernooien (Berger-tabellen, C.05) en
+  teamtoernooien (C.04.6), rondetoernooien (Berger-tabellen, C.05) en
   Keizer-toernooien.
 - Het houdt de spelers, de resultaten, de byes en de rangschikking bij, met de
   tiebreaks van FIDE's C.07.
@@ -32,7 +32,7 @@ rating-bureau:
 **Op je eigen computer (de desktopversie).** Eén persoon gebruikt het
 programma op één computer. Er is geen aanmelding: het programma start, opent
 je webbrowser op `http://localhost:4000` en je bent aangemeld als eigenaar van
-die computer. Je toernooien worden op die computer opgeslagen. Het programma
+die computer. Je toernooien worden op die computer bewaard. Het programma
 is alleen bereikbaar vanaf die computer, nooit via het netwerk.
 
 **Op een server (de onlineversie).** Het programma draait op een server en je
@@ -137,8 +137,6 @@ stoppen), `./openpairings.sh details --once` toont het één keer, om te plakken
 Open het programma. De eerste pagina is **Toernooien**: de lijst van je
 toernooien (aanvankelijk leeg), met *Nieuw toernooi* en de importknoppen.
 
-![De pagina Toernooien met enkele toernooien en de knoppen Nieuw toernooi en importeren bovenaan](screenshots/01-tournaments-list.png "De pagina Toernooien")
-
 De balk bovenaan elke pagina bevat:
 
 - **Toernooien** - de lijst van je toernooien. In een toernooi heet dit eerste
@@ -159,14 +157,12 @@ Binnen een toernooi toont de balk de eigen tabbladen van het toernooi:
 | Tabblad | Waarvoor het dient |
 | --- | --- |
 | Spelers | de inschrijvingen, ratings, aanwezigheid en het spelersrooster |
-| Ploegen | (alleen ploegentoernooien) ploegen, selecties, bordvolgorde |
+| Teams | (alleen teamtoernooien) teams, selecties, bordvolgorde |
 | Paringen | een ronde paren, resultaten invoeren, handmatige wijzigingen |
 | Stand | de rangschikking en de tiebreakkolommen |
 | Afdrukken | alle afdrukbare documenten |
 | Geavanceerd | Normen, Geschiedenis (herstelpunten), Auditlogboek, Paringsverantwoording, Badges |
 | Instellingen | de instellingen van het toernooi (meerdere pagina's) |
-
-![De tabbalk binnen een toernooi, met Spelers, Paringen, Stand, Afdrukken, Geavanceerd en Instellingen](screenshots/01-tournament-tabs.png "De tabbladen van het toernooi")
 
 *Verbindingen* (de ratinglijsten, back-ups, het publicatieadres) verschijnt in
 de balk op de pagina Toernooien, voor de beheerder van de installatie. Op een

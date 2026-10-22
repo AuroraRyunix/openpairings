@@ -80,9 +80,9 @@ defmodule PairingsEngineWeb.SettingsSupportTest do
       refute error_text({:pairing_crashed, 1, "U16"}) =~ "%{"
     end
 
-    test "uses je-form and ploeg, not the forbidden word" do
+    test "uses je-form and team, not the forbidden word" do
       assert error_text({:team_pairing, :budget_exhausted, 1}) =~ "Je kunt"
-      assert error_text({:team_pairing, :no_legal_pairing, 1}) =~ "ploeg"
+      assert error_text({:team_pairing, :no_legal_pairing, 1}) =~ "team"
 
       for reason <- [:budget_exhausted, :no_legal_pairing, :no_legal_bye, :pairing_crashed] do
         refute error_text({:team_pairing, reason, 1}) =~ "gerateerd"

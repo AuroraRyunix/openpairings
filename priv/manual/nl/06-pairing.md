@@ -12,8 +12,6 @@ knop die haar paart. De tabel heeft één rij per bord: het bordnummer, de witte
 speler, het resultaat en de zwarte speler. Een speler met een bye is een bord
 met *bye* en zonder zwarte speler.
 
-![De pagina Paringen met ronde 3 gepaard: rondeknoppen, de bordentabel en de knoppen van de ronde](screenshots/06-pairings-round-paired.png "Een gepaarde ronde op de pagina Paringen")
-
 Boven de tabel heeft de rondebalk één knop die opvalt, en welke dat is hangt af
 van hoe de ronde ervoor staat. Ernaast staan de twee of drie dingen die op dat
 moment tellen:
@@ -92,10 +90,10 @@ erop en bevestig. Het programma
 2. bouwt het toernooi op als TRF-bestand, controleert het en geeft het aan de
    engine,
 3. leest de paringen van de engine, nummert de borden, kent de byes toe en
-   slaat de ronde op.
+   bewaart de ronde.
 
 Bij een groot veld kan dit tot een minuut duren; de knop meldt dat terwijl het
-bezig is. De ronde wordt pas opgeslagen als het geheel is gelukt. Als de regels
+bezig is. De ronde wordt pas bewaard als het geheel is gelukt. Als de regels
 voor de overgebleven spelers geen wettige paring toelaten, meldt het programma
 dit en schrijft het niets weg.
 
@@ -196,7 +194,7 @@ twee.
 ### Rondes in een andere volgorde spelen {#playing-rounds-out-of-table-order}
 
 Moet de tabel in een andere volgorde worden gespeeld - de zaal is bezet, een
-ploeg kan dat weekend niet reizen - dan wisselt **Rondes wisselen…** in het
+team kan dat weekend niet reizen - dan wisselt **Rondes wisselen…** in het
 menu **Meer** van de rondebalk twee rondes: kies de twee rondenummers en *Wissel de rondes*. Hun
 borden ruilen van plaats, zodat de rondenummers de volgorde volgen waarin je
 echt speelt: ronde 4 is de vierde avond, hoe de tabel ze ook noemt, en de
@@ -208,7 +206,7 @@ twee opnieuw om het ongedaan te maken.
 Het wordt geweigerd zolang een van beide rondes een uitslag, een forfait, een
 uitgestelde partij of een speeldatum heeft, of een bye voor een speler die in
 die ronde aan een bord zit - de melding noemt de ronde. In een rondetoernooi voor
-ploegen wordt het ook geweigerd als een opgestelde speler de ronde waarheen de
+teams wordt het ook geweigerd als een opgestelde speler de ronde waarheen de
 borden zouden gaan niet kan spelen (afwezig, nog niet begonnen, teruggetrokken):
 de opstellingen zijn voor hun eigen ronde gemaakt, en de melding noemt de speler. Het wordt ook geweigerd
 in matchformaat, voordat het schema gepaard is, en als een van de twee gepaard
@@ -285,11 +283,11 @@ gewoon niet op de ladder.
 
 ## Teamtoernooien {#team-tournaments}
 
-Voor Zwitserse en rondetoernooien met ploegen paart **Ronde N paren** ploeg
-tegen ploeg: elke paring is een match, getoond in een tabel *Matches - ronde N*
+Voor Zwitserse en rondetoernooien met teams paart **Ronde N paren** team
+tegen team: elke paring is een match, getoond in een tabel *Matches - ronde N*
 boven de borden. De borden van een match worden bord tegen bord gespeeld (zie
-[Ploegen](13-teams.md)). Zwitsers met ploegen volgt C.04.6 en wordt gepaard door
-de ploegenengine van Ainalrami. Bij een groot veld draait die op de achtergrond
+[Teams](13-teams.md)). Zwitsers met teams volgt C.04.6 en wordt gepaard door
+de teamengine van Ainalrami. Bij een groot veld draait die op de achtergrond
 en toont de pagina dat ze bezig is.
 
 ## De paringsverantwoording (uitleg) {#the-pairing-rationale-explanation}
@@ -309,7 +307,7 @@ Voor een Zwitserse ronde die door Ainalrami is gepaard, toont de pagina
 - voor elke float en voor de bye de vraag *waarom deze speler en geen andere*.
   Open die om te zien wat elke andere kandidaat zou hebben gekost, in termen van
   de criteria van C.04.3, en of de keuze van de engine de beste is. De antwoorden
-  worden uitgewerkt wanneer je een vraag opent, en worden opgeslagen.
+  worden uitgewerkt wanneer je een vraag opent, en worden bewaard.
 
 Vaak zou een andere kandidaat helemaal niets gekost hebben: de paring waarin
 die speler doorschuift is *even goed volgens elke regel*. De regel zegt dat dan
@@ -322,7 +320,7 @@ bovenste helft tegen onderste helft in volgorde van paringsnummer, daarna de
 onderste helft herschikt, de kleinste wijziging eerst, daarna spelers gewisseld
 tussen de helften. Zo blijft de onderste helft zo dicht mogelijk bij de
 volgorde van de paringsnummers, en uiteindelijk beslissen dus de
-paringsnummers. Waar de opgeslagen gegevens het tonen, noemt het item de stap:
+paringsnummers. Waar de bewaarde gegevens het tonen, noemt het item de stap:
 welke speler uit de onderste helft overblijft, of dat het alternatief een
 uitwisseling tussen de helften nodig heeft. *De FIDE-formulering* geeft het
 artikel (C.04.3 3.8.1, met 4.2 voor transposities en 4.3 voor uitwisselingen).
@@ -355,11 +353,11 @@ stand.
 
 Kleuren volgen C.04.2 3.4: alleen partijen die echt gespeeld zijn tellen. Een
 forfait (gewonnen of verloren, door wie ook), een bye of een afwezigheid is geen
-kleur, en de verschuldigde kleur wordt bepaald alsof die ronden vooraan stonden -
+kleur, en de verschuldigde kleur wordt bepaald alsof die rondes vooraan stonden -
 een geschiedenis W Z *forfait* W telt als *u* W Z W. De kleine kleurvakjes naast
-een naam tonen de ronden zoals ze verliepen, de niet-gespeelde gestippeld; waar
+een naam tonen de rondes zoals ze verliepen, de niet-gespeelde gestippeld; waar
 dat afwijkt van hoe de regel het leest, volgt een strook **telt als** met de
-niet-gespeelde ronden vooraan. Hangt een verschuldigde kleur af van een
+niet-gespeelde rondes vooraan. Hangt een verschuldigde kleur af van een
 overgeslagen ronde, dan zegt de bordkaart welke, bijvoorbeeld *verwachte kleur
 Wit: laatst gespeelde partij was met Zwart (ronde 3 was een forfait en telt niet
 mee)*.
@@ -379,7 +377,7 @@ zouden hebben gegeven.
 Terwijl de laatste partijen van een Zwitserse ronde nog worden gespeeld, berekent
 **Volgende ronde voorvertonen** (op de pagina Paringen) de volgende ronde voor
 elke combinatie van de openstaande resultaten (zes of minder openstaande partijen;
-tot 729 combinaties) en slaat niets op. Elk bord wordt dan getoond als **vast**
+tot 729 combinaties) en bewaart niets. Elk bord wordt dan getoond als **vast**
 (hetzelfde in elke uitkomst: de naamkaartjes kunnen uit), **vast maar kan
 verschuiven** (het bordbereik is gegeven), **vast met open kleuren**, of **open**,
 met de spelers die erbij betrokken kunnen zijn en de partijen die het beslissen.
@@ -398,7 +396,7 @@ Het wissen van een resultaat berekent alleen de nieuwe combinaties opnieuw.
 Wanneer de naamkaartjes van de vaste borden worden uitgegeven, druk je in de
 voorvertoning op **Vaste borden aankondigen**. Het afdrukken van de vaste borden
 kondigt ze ook aan zolang **Afdrukken kondigt ze aan** is aangevinkt (dat staat
-standaard aan). Elk bord wordt opgeslagen met zijn nummer, wit en zwart, het
+standaard aan). Elk bord wordt bewaard met zijn nummer, wit en zwart, het
 tijdstip en wie het heeft aangekondigd, en het auditlogboek legt dit vast. De
 pagina Paringen toont dan hoeveel borden van de volgende ronde zijn aangekondigd;
 **Intrekken** verwijdert de aankondiging.
@@ -478,8 +476,6 @@ half is gemaakt, toont een banner dat. Een resultaat op een bord dat je wijzigt,
 wordt gewist; de bevestiging meldt dat. Elke wijziging wordt in het auditlogboek
 vastgelegd.
 
-![De bevestiging van een wijziging met de hand, met de borden vóór en na de wijziging](screenshots/06-hand-edit-confirmation.png "Een wisseling bevestigen")
-
 ### Regelwaarschuwingen bij het bewerken {#rule-warnings-while-editing}
 
 Voor een toernooi dat de controleur kan beoordelen (een individueel Nederlands
@@ -519,7 +515,7 @@ kleuren maar zonder de volgorde van de borden:
   borden nu met de engine overeenkomen. Het bestand dat *Versturen…* maakt,
   bevat alleen records, dus het heeft geen zo'n regel ([Versturen naar FIDE](10-fide-report.md)).
 - **De controleur kan de ronde niet beoordelen** (het is een controle op het
-  Nederlandse systeem, dus een ploegen-, rondetoernooi-, Keizer-, per-categorie- of
+  Nederlandse systeem, dus een teams-, rondetoernooi-, Keizer-, per-categorie- of
   Zwitsers-matchformaatronde valt buiten zijn bereik): als de borden verschillen van
   waar de sessie begon, wordt de wijziging vastgelegd zonder controle.
 
