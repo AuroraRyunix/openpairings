@@ -24,7 +24,7 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
       |> redirect(external: Keycloak.authorize_url(state))
     else
       conn
-      |> put_flash(:error, "Single sign-on isn't configured on this instance.")
+      |> put_flash(:error, gettext("Single sign-on isn't configured on this instance."))
       |> redirect(to: ~p"/users/log-in")
     end
   end
@@ -40,7 +40,7 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
     detail = params["error_description"] || params["error"]
 
     conn
-    |> put_flash(:error, "Single sign-on was cancelled (#{detail}).")
+    |> put_flash(:error, gettext("Single sign-on was cancelled (%{detail}).", detail: detail))
     |> redirect(to: ~p"/users/log-in")
   end
 
@@ -52,14 +52,14 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
       complete_login(conn, code)
     else
       conn
-      |> put_flash(:error, "Single sign-on session expired - please try again.")
+      |> put_flash(:error, gettext("Single sign-on session expired - please try again."))
       |> redirect(to: ~p"/users/log-in")
     end
   end
 
   def callback(conn, _params) do
     conn
-    |> put_flash(:error, "Single sign-on response was incomplete - please try again.")
+    |> put_flash(:error, gettext("Single sign-on response was incomplete - please try again."))
     |> redirect(to: ~p"/users/log-in")
   end
 
@@ -69,7 +69,7 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
          {:ok, identity} <- identity_from(claims),
          {:ok, user} <- Accounts.find_or_create_from_keycloak(identity) do
       conn
-      |> put_flash(:info, "Welcome!")
+      |> put_flash(:info, gettext("Welcome!"))
       |> UserAuth.log_in_user(user)
     else
       # The address on file already belongs to a different directory
@@ -85,7 +85,9 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
         conn
         |> put_flash(
           :error,
-          "This email address already belongs to an account linked to a different single sign-on identity. Contact support."
+          gettext(
+            "This email address already belongs to an account linked to a different single sign-on identity. Contact support."
+          )
         )
         |> redirect(to: ~p"/users/log-in")
 
@@ -97,7 +99,10 @@ defmodule PairingsEngineWeb.KeycloakAuthController do
         Logger.warning("02cloud SSO login failed: #{inspect(other)}")
 
         conn
-        |> put_flash(:error, "Single sign-on failed - please try again or contact support.")
+        |> put_flash(
+          :error,
+          gettext("Single sign-on failed - please try again or contact support.")
+        )
         |> redirect(to: ~p"/users/log-in")
     end
   end

@@ -185,6 +185,38 @@ defmodule PairingsEngineWeb.BadgeLiveTest do
       assert {:error, [[_, :too_large]]} = render_upload(too_big, "big.png")
     end
 
+    test "removing a photo asks first and says it was done", %{
+      conn: conn,
+      scope: scope,
+      event: event
+    } do
+      {:ok, badge} = Badges.create_badge(scope, event)
+      {:ok, _} = Badges.set_photo(scope, badge, png())
+      {:ok, lv, _html} = live(conn, ~p"/badges/#{event.id}/badge/#{badge.id}")
+
+      assert lv |> element("#clear-photo") |> render() =~ "data-confirm"
+      html = lv |> element("#clear-photo") |> render_click()
+      assert html =~ "The photo was removed."
+      assert Badges.photo(Repo.reload!(badge)) == nil
+    end
+
+    test "a badge or event deleted in another tab goes back with a notice", %{
+      conn: conn,
+      scope: scope,
+      event: event
+    } do
+      {:ok, badge} = Badges.create_badge(scope, event)
+      {:ok, _} = Badges.delete_badge(scope, badge)
+
+      assert {:error, {:live_redirect, %{to: to, flash: flash}}} =
+               live(conn, ~p"/badges/#{event.id}/badge/#{badge.id}")
+
+      assert to == ~p"/badges/#{event.id}"
+      assert flash["error"] =~ "That badge no longer exists."
+
+      assert {:error, {:live_redirect, %{to: "/badges"}}} = live(conn, ~p"/badges/0")
+    end
+
     test "fetches a photo from FIDE once, through the stub", %{
       conn: conn,
       scope: scope,
@@ -279,7 +311,9 @@ defmodule PairingsEngineWeb.BadgeLiveTest do
       other = user_fixture()
       conn = log_in_user(build_conn(), other)
 
-      assert_raise Ecto.NoResultsError, fn -> live(conn, ~p"/badges/#{event.id}") end
+      # The studio treats someone else's event like one that is gone: back to
+      # the list with a notice. The print and image routes stay a plain 404.
+      assert {:error, {:live_redirect, %{to: "/badges"}}} = live(conn, ~p"/badges/#{event.id}")
       assert_raise Ecto.NoResultsError, fn -> get(conn, ~p"/badges/#{event.id}/print") end
       refute has_element?(elem(live(conn, ~p"/badges"), 1), "a[href='/badges/#{event.id}']")
     end

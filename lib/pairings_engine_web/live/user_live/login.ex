@@ -291,7 +291,9 @@ defmodule PairingsEngineWeb.UserLive.Login do
        socket
        |> put_flash(
          :error,
-         "@#{PairingsEngine.Accounts.User.sso_domain()} accounts sign in with SSO."
+         gettext("@%{domain} accounts sign in with SSO.",
+           domain: PairingsEngine.Accounts.User.sso_domain()
+         )
        )
        |> push_navigate(to: ~p"/users/log-in")}
     else
@@ -332,7 +334,9 @@ defmodule PairingsEngineWeb.UserLive.Login do
       end
 
       info =
-        "If your email is in our system, you will receive instructions for logging in shortly."
+        gettext(
+          "If your email is in our system, you will receive instructions for logging in shortly."
+        )
 
       {:noreply,
        socket
@@ -343,8 +347,9 @@ defmodule PairingsEngineWeb.UserLive.Login do
        socket
        |> put_flash(
          :error,
-         "That's a lot of log-in links. Check your inbox (and spam folder), " <>
-           "then try again in a few minutes."
+         gettext(
+           "That's a lot of log-in links. Check your inbox (and spam folder), then try again in a few minutes."
+         )
        )
        |> push_navigate(to: ~p"/users/log-in")}
     end

@@ -57,7 +57,10 @@ defmodule PairingsEngineWeb.BackupController do
   def download(conn, %{"name" => name}) do
     cond do
       not Authz.may_administer?(conn.assigns.current_scope.user) ->
-        refuse(conn, :forbidden, "Only an administrator can download a backup.")
+        conn
+        |> put_status(:forbidden)
+        |> put_view(html: PairingsEngineWeb.ErrorHTML)
+        |> render("403.html")
 
       backup = find(name) ->
         Logger.info("Backup downloaded: #{Path.basename(backup.path)}")
@@ -71,7 +74,7 @@ defmodule PairingsEngineWeb.BackupController do
         |> send_download({:file, backup.path}, filename: Path.basename(backup.path))
 
       true ->
-        refuse(conn, :not_found, "No such backup.")
+        refuse(conn, ~p"/fide", gettext("That backup no longer exists."))
     end
   end
 
@@ -81,10 +84,9 @@ defmodule PairingsEngineWeb.BackupController do
   # encoding somebody thought of later.
   defp find(name), do: Enum.find(Backup.list(), &(Path.basename(&1.path) == name))
 
-  defp refuse(conn, status, message) do
+  defp refuse(conn, to, message) do
     conn
-    |> put_status(status)
-    |> put_view(html: PairingsEngineWeb.ErrorHTML)
-    |> text(message)
+    |> put_flash(:error, message)
+    |> redirect(to: to)
   end
 end

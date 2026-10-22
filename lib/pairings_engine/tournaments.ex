@@ -268,6 +268,15 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Like `get_owned_tournament_including_deleted!/2` but returns nil instead of
+  raising - a stale button for a tournament purged in another tab is a
+  notice, not a crash.
+  """
+  def get_owned_tournament_including_deleted(%Scope{} = scope, id) do
+    Repo.get_by(Tournament, id: id, user_id: scope.user.id)
+  end
+
+  @doc """
   Gets a tournament the scope's user is authorized to access - either
   because they own it, or because they collaborate on it (matched by
   `user_id`, or by `email` for a not-yet-linked pending invite; see
@@ -716,7 +725,9 @@ defmodule PairingsEngine.Tournaments do
       from c in Collaborator,
         join: t in assoc(c, :tournament),
         join: owner in assoc(t, :user),
-        where: c.status == "pending" and (c.user_id == ^user.id or c.email == ^email),
+        where:
+          c.status == "pending" and is_nil(t.deleted_at) and
+            (c.user_id == ^user.id or c.email == ^email),
         order_by: [desc: c.inserted_at],
         select: %{
           collaborator: c,
@@ -733,7 +744,9 @@ defmodule PairingsEngine.Tournaments do
   match the invitation's email (case-insensitively); returns
   `{:error, :email_mismatch}` otherwise, so a logged-in user can't accept an
   invite that was sent to someone else. Returns `{:error, :not_found}` if
-  the token/id doesn't match a pending row.
+  the token/id doesn't match a pending row, and `{:error, :tournament_deleted}`
+  when the tournament is in the recycle bin (nobody gains access to a
+  tournament its owner deleted).
 
   On success, sets `status: "accepted"`, links `user_id` to the scope's
   user, and clears `invite_token` (it's single-use). Broadcasts on both the
@@ -746,7 +759,8 @@ defmodule PairingsEngine.Tournaments do
   """
   def accept_invitation(%Scope{} = scope, token_or_id) do
     with %Collaborator{status: "pending"} = collaborator <- find_invitation(token_or_id),
-         true <- normalize_email(collaborator.email) == normalize_email(scope.user.email) do
+         true <- normalize_email(collaborator.email) == normalize_email(scope.user.email),
+         {:live, %Tournament{}} <- {:live, get_tournament(collaborator.tournament_id)} do
       collaborator
       |> Collaborator.changeset(%{status: "accepted", user_id: scope.user.id, invite_token: nil})
       |> Repo.update()
@@ -756,6 +770,7 @@ defmodule PairingsEngine.Tournaments do
       end)
     else
       false -> {:error, :email_mismatch}
+      {:live, nil} -> {:error, :tournament_deleted}
       _ -> {:error, :not_found}
     end
   end

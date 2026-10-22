@@ -28,6 +28,11 @@ defmodule PairingsEngineWeb.Layouts do
     "print" => "printing",
     "settings" => "tournament-setup",
     "categories" => "categories-and-norms",
+    "audit" => "categories-and-norms",
+    "history" => "categories-and-norms",
+    "fide" => "players-and-ratings",
+    "tools" => "categories-and-norms",
+    "features" => "getting-started",
     "norms" => "categories-and-norms",
     "teams" => "teams",
     "live" => "publishing"
@@ -154,7 +159,7 @@ defmodule PairingsEngineWeb.Layouts do
           class={tab_class(@active == "tournaments")}
           aria-current={@active == "tournaments" && "page"}
         >
-          {if @tournament, do: "Home", else: "Tournaments"}
+          {if @tournament, do: gettext("Home"), else: gettext("Tournaments")}
         </.link>
 
         <%= if @tournament do %>
@@ -245,16 +250,22 @@ defmodule PairingsEngineWeb.Layouts do
             </summary>
 
             <div class="topbar-menu-panel">
+              <%!-- The two navs list the same pages, in the same order; a page
+                    added to one belongs in the other (the Settings sub-nav,
+                    `SettingsSupport.core_groups/1`, is the reference). Export
+                    used to be reachable only from some OTHER settings page,
+                    and Group, Forbidden pairings, Live boards and Officials &
+                    norms from nowhere but the sub-nav. --%>
               <.link navigate={~p"/t/#{@tournament.id}/settings"} class="topbar-menu-item">
                 {gettext("Tournament")}
               </.link>
 
-              <.link navigate={~p"/t/#{@tournament.id}/settings/options"} class="topbar-menu-item">
-                {gettext("Options")}
+              <.link navigate={~p"/t/#{@tournament.id}/settings/group"} class="topbar-menu-item">
+                {gettext("Group")}
               </.link>
 
-              <.link navigate={~p"/t/#{@tournament.id}/settings/results"} class="topbar-menu-item">
-                {gettext("OpenResults")}
+              <.link navigate={~p"/t/#{@tournament.id}/settings/options"} class="topbar-menu-item">
+                {gettext("Options")}
               </.link>
 
               <.link navigate={~p"/t/#{@tournament.id}/settings/scoring"} class="topbar-menu-item">
@@ -280,17 +291,29 @@ defmodule PairingsEngineWeb.Layouts do
                 {gettext("Extra points")}
               </.link>
 
+              <.link
+                navigate={~p"/t/#{@tournament.id}/settings/restrictions"}
+                class="topbar-menu-item"
+              >
+                {gettext("Forbidden pairings")}
+              </.link>
+
+              <.link navigate={~p"/t/#{@tournament.id}/settings/results"} class="topbar-menu-item">
+                {gettext("OpenResults")}
+              </.link>
+
+              <.link navigate={~p"/t/#{@tournament.id}/settings/boards"} class="topbar-menu-item">
+                {gettext("Live boards")}
+              </.link>
+
               <.link navigate={~p"/t/#{@tournament.id}/settings/fide"} class="topbar-menu-item">
                 FIDE
               </.link>
 
-              <%!-- These three were in the Settings sub-nav but not in this
-                    menu, so the only way to reach Export was to open some
-                    OTHER settings page first and then find it in the row of
-                    tabs there - i.e. the entry was unreachable to anyone who
-                    did not already know it existed. The two navs list the
-                    same pages, in the same order; a page added to one
-                    belongs in the other. --%>
+              <.link navigate={~p"/t/#{@tournament.id}/settings/norms"} class="topbar-menu-item">
+                {gettext("Officials & norms")}
+              </.link>
+
               <.link navigate={~p"/t/#{@tournament.id}/settings/export"} class="topbar-menu-item">
                 {gettext("Export")}
               </.link>

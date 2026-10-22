@@ -72,14 +72,17 @@ defmodule PairingsEngine.Manual do
     :erlang.md5(:erlang.term_to_binary({files, screenshots})) != @files_hash
   end
 
-  render = fn file, index ->
+  render = fn file, index, locale ->
     base = Path.basename(file, ".md")
     slug = Regex.replace(~r/^\d+-/, base, "")
 
     rendered =
       file
       |> File.read!()
-      |> PairingsEngine.Manual.Markup.chapter(index, screenshot_dir: @screenshot_dir)
+      |> PairingsEngine.Manual.Markup.chapter(index,
+        screenshot_dir: @screenshot_dir,
+        locale: locale
+      )
 
     rendered
     |> Map.put(:slug, slug)
@@ -87,7 +90,7 @@ defmodule PairingsEngine.Manual do
     |> Map.put(:title, if(rendered.title == "", do: slug, else: rendered.title))
   end
 
-  @chapters for {file, index} <- Enum.with_index(@files, 1), do: render.(file, index)
+  @chapters for {file, index} <- Enum.with_index(@files, 1), do: render.(file, index, "en")
 
   # Per locale, in the English reading order; an untranslated chapter is the
   # English one.
@@ -98,7 +101,7 @@ defmodule PairingsEngine.Manual do
                    for {file, index} <- Enum.with_index(@files, 1) do
                      case by_name[Path.basename(file)] do
                        nil -> Enum.at(@chapters, index - 1)
-                       translated -> render.(translated, index)
+                       translated -> render.(translated, index, locale)
                      end
                    end
 

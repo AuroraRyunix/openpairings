@@ -32,7 +32,20 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     scope = socket.assigns.current_scope
-    event = Badges.get_event!(scope, id)
+
+    case Badges.get_event(scope, id) do
+      nil ->
+        {:ok,
+         socket
+         |> put_flash(:error, gettext("That badge event no longer exists."))
+         |> push_navigate(to: ~p"/badges")}
+
+      event ->
+        {:ok, mount_event(socket, event)}
+    end
+  end
+
+  defp mount_event(socket, event) do
     photo_limit = Image.limits(:photo).bytes
     logo_limit = Image.limits(:logo).bytes
 
@@ -63,7 +76,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         )
       end)
 
-    {:ok, socket}
+    socket
   end
 
   defp assign_event(socket, %Event{} = event) do
@@ -100,16 +113,25 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
   defp apply_action(socket, :edit, %{"badge_id" => badge_id}) do
     scope = socket.assigns.current_scope
     event = socket.assigns.event
-    badge = Badges.get_badge!(scope, event, badge_id)
-    ids = scope |> Badges.list_badges(event) |> Enum.map(& &1.id)
-    index = Enum.find_index(ids, &(&1 == badge.id)) || 0
 
-    socket
-    |> assign(:page_title, "#{Badge.display_name(badge)} · #{gettext("Badges")}")
-    |> assign(:prev_id, if(index > 0, do: Enum.at(ids, index - 1)))
-    |> assign(:next_id, Enum.at(ids, index + 1))
-    |> assign(:position, {index + 1, length(ids)})
-    |> assign_badge(badge)
+    case Badges.get_badge(scope, event, badge_id) do
+      nil ->
+        # Deleted in another tab (or a stale bookmark): back to the event.
+        socket
+        |> put_flash(:error, gettext("That badge no longer exists."))
+        |> push_patch(to: ~p"/badges/#{event.id}")
+
+      badge ->
+        ids = scope |> Badges.list_badges(event) |> Enum.map(& &1.id)
+        index = Enum.find_index(ids, &(&1 == badge.id)) || 0
+
+        socket
+        |> assign(:page_title, "#{Badge.display_name(badge)} · #{gettext("Badges")}")
+        |> assign(:prev_id, if(index > 0, do: Enum.at(ids, index - 1)))
+        |> assign(:next_id, Enum.at(ids, index + 1))
+        |> assign(:position, {index + 1, length(ids)})
+        |> assign_badge(badge)
+    end
   end
 
   defp apply_action(socket, :settings, _params) do
@@ -263,7 +285,11 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
 
   def handle_event("clear_photo", _params, socket) do
     {:ok, badge} = Badges.clear_photo(socket.assigns.current_scope, socket.assigns.badge)
-    {:noreply, assign_badge(socket, badge)}
+
+    {:noreply,
+     socket
+     |> assign_badge(badge)
+     |> put_flash(:info, gettext("The photo was removed."))}
   end
 
   def handle_event("revert_badge", _params, socket) do
@@ -414,7 +440,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
         String.to_existing_atom(slot)
       )
 
-    {:noreply, reload_event(socket)}
+    {:noreply, socket |> reload_event() |> put_flash(:info, gettext("The image was removed."))}
   end
 
   def handle_event("delete_event", _params, socket) do
@@ -1144,6 +1170,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                 type="button"
                 class="pe-btn danger-link self-start"
                 phx-click="clear_photo"
+                data-confirm={gettext("Remove the photo from this badge?")}
               >
                 {gettext("Remove photo")}
               </button>
@@ -1541,6 +1568,7 @@ defmodule PairingsEngineWeb.BadgeStudioLive do
                     id={"clear-logo-#{slot}"}
                     phx-click="clear_logo"
                     phx-value-slot={slot}
+                    data-confirm={gettext("Remove this image from the badge event?")}
                   >
                     {gettext("Remove")}
                   </button>

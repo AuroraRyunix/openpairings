@@ -156,9 +156,14 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
             "These tables fill in as the rounds are paired."
           )}
         </p>
+        <p>
+          <.link id="team-sheets-pairings-link" navigate={~p"/t/#{@tournament.id}/pairings"}>
+            {gettext("Go to Pairings")}
+          </.link>
+        </p>
       </div>
       <.cross_table :if={@live_action == :cross_table and @rounds_paired > 0} cross={@cross} />
-      <.rosters :if={@live_action == :rosters} rosters={@rosters} />
+      <.rosters :if={@live_action == :rosters} rosters={@rosters} tournament={@tournament} />
       <.board_prizes
         :if={@live_action == :board_prizes and @rounds_paired > 0}
         prizes={@prizes}
@@ -385,13 +390,23 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
 
   ## ---------- rosters ----------
 
+  defp player_status_label("withdrawn"), do: gettext("withdrawn")
+  defp player_status_label("expelled"), do: gettext("expelled")
+  defp player_status_label(other), do: other
+
   attr :rosters, :list, required: true
+  attr :tournament, :map, required: true
 
   defp rosters(assigns) do
     ~H"""
     <div :if={@rosters == []} class="card empty">
       <p>
         <strong>{gettext("No teams yet.")}</strong>
+      </p>
+      <p>
+        <.link id="team-rosters-teams-link" navigate={~p"/t/#{@tournament.id}/teams"}>
+          {gettext("Add teams")}
+        </.link>
       </p>
     </div>
 
@@ -428,7 +443,7 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
 
             <td>
               <strong>{p.name}</strong>
-              <span :if={p.status != "active"} class="hint">({p.status})</span>
+              <span :if={p.status != "active"} class="hint">({player_status_label(p.status)})</span>
             </td>
 
             <td class="num">{rating(p)}</td>
@@ -486,6 +501,11 @@ defmodule PairingsEngineWeb.TeamSheetsLive do
 
     <div :if={@prizes == []} id="board-prizes-empty" class="card empty">
       <p><strong>{gettext("No board results yet.")}</strong></p>
+      <p>
+        <.link id="board-prizes-pairings-link" navigate={~p"/t/#{@tournament.id}/pairings"}>
+          {gettext("Go to Pairings")}
+        </.link>
+      </p>
     </div>
 
     <div :for={b <- @prizes} id={"board-prize-#{b.board}"} class="card table-card">

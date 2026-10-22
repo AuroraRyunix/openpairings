@@ -73,7 +73,7 @@ defmodule PairingsEngineWeb.AdminLive do
 
   @impl true
   def mount(_params, _session, socket) do
-    {:ok, socket |> assign(page_title: "Admin", update_check: nil) |> load()}
+    {:ok, socket |> assign(page_title: gettext("Admin"), update_check: nil) |> load()}
   end
 
   @recent_activity_limit 20
@@ -136,26 +136,19 @@ defmodule PairingsEngineWeb.AdminLive do
 
     if editable?(socket.assigns, user) and not last_admin_demotion?(socket.assigns, user, role) do
       from_role = User.role(user) |> to_string()
-      {:ok, updated} = Accounts.set_role(user.email, role)
 
-      # Their open tabs were mounted under the old role; send them back
-      # through `RequireRole` rather than letting them find out on reload.
-      updated |> Accounts.list_user_sessions() |> UserAuth.disconnect_sessions()
+      case Accounts.set_role(user.email, role) do
+        {:ok, updated} ->
+          role_changed(socket, updated, from_role, role)
 
-      Logger.info(
-        "Role changed: #{updated.email} is now #{role} " <>
-          "(by #{socket.assigns.current_scope.user.email})"
-      )
+        {:error, reason} ->
+          Logger.warning("Role change for #{user.email} failed: #{inspect(reason)}")
 
-      Audit.log_system(socket.assigns.current_scope, "admin.role_changed", %{
-        email: updated.email,
-        changed_fields: %{role: [from_role, role]}
-      })
-
-      {:noreply,
-       socket
-       |> load()
-       |> put_flash(:info, gettext("%{email} is now %{role}", email: updated.email, role: role))}
+          {:noreply,
+           socket
+           |> assign(pending: nil)
+           |> put_flash(:error, gettext("The role could not be changed. Nothing was saved."))}
+      end
     else
       {:noreply,
        socket |> assign(pending: nil) |> put_flash(:error, refusal(socket.assigns, user))}
@@ -175,6 +168,27 @@ defmodule PairingsEngineWeb.AdminLive do
     else
       {:noreply, socket}
     end
+  end
+
+  defp role_changed(socket, updated, from_role, role) do
+    # Their open tabs were mounted under the old role; send them back
+    # through `RequireRole` rather than letting them find out on reload.
+    updated |> Accounts.list_user_sessions() |> UserAuth.disconnect_sessions()
+
+    Logger.info(
+      "Role changed: #{updated.email} is now #{role} " <>
+        "(by #{socket.assigns.current_scope.user.email})"
+    )
+
+    Audit.log_system(socket.assigns.current_scope, "admin.role_changed", %{
+      email: updated.email,
+      changed_fields: %{role: [from_role, role]}
+    })
+
+    {:noreply,
+     socket
+     |> load()
+     |> put_flash(:info, gettext("%{email} is now %{role}", email: updated.email, role: role))}
   end
 
   defp editable?(assigns, user) do
@@ -272,50 +286,52 @@ defmodule PairingsEngineWeb.AdminLive do
           )}
         </p>
 
-        <table class="pe-table">
-          <thead>
-            <tr>
-              <th>{gettext("Account")}</th>
+        <div class="card-table-wrap">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Account")}</th>
 
-              <th>{gettext("Role")}</th>
+                <th>{gettext("Role")}</th>
 
-              <th><span class="sr-only">{gettext("Actions")}</span></th>
-            </tr>
-          </thead>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
+              </tr>
+            </thead>
 
-          <tbody>
-            <tr :for={user <- @users}>
-              <td>
-                {user.email}
-                <span :if={user.id == @current_scope.user.id} class="hint">
-                  {gettext("(you)")}
-                </span>
+            <tbody>
+              <tr :for={user <- @users}>
+                <td>
+                  {user.email}
+                  <span :if={user.id == @current_scope.user.id} class="hint">
+                    {gettext("(you)")}
+                  </span>
 
-                <span :if={declared?(assigns, user)} class="hint">
-                  {gettext("(set in the server configuration)")}
-                </span>
-              </td>
+                  <span :if={declared?(assigns, user)} class="hint">
+                    {gettext("(set in the server configuration)")}
+                  </span>
+                </td>
 
-              <td>{role_label(user)}</td>
+                <td>{role_label(user)}</td>
 
-              <td class="num">
-                <div :if={editable?(assigns, user)} class="actions">
-                  <button
-                    :for={role <- User.roles()}
-                    :if={to_string(User.role(user)) != role}
-                    type="button"
-                    class="pe-btn"
-                    phx-click="ask"
-                    phx-value-id={user.id}
-                    phx-value-role={role}
-                  >
-                    {role_label(role)}
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <td class="num">
+                  <div :if={editable?(assigns, user)} class="actions">
+                    <button
+                      :for={role <- User.roles()}
+                      :if={to_string(User.role(user)) != role}
+                      type="button"
+                      class="pe-btn"
+                      phx-click="ask"
+                      phx-value-id={user.id}
+                      phx-value-role={role}
+                    >
+                      {role_label(role)}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
 
         <p :if={@declared != []} class="hint" style="margin-top: 12px">
           {gettext(
@@ -324,21 +340,40 @@ defmodule PairingsEngineWeb.AdminLive do
         </p>
       </div>
 
-      <div :if={@pending} class="set-card" style="border-color: var(--warn)">
-        <h2>{gettext("Change this role?")}</h2>
+      <div
+        :if={@pending}
+        id="role-modal"
+        class="modal-overlay"
+        phx-window-keydown="cancel"
+        phx-key="escape"
+      >
+        <div
+          class="modal-card"
+          phx-click-away="cancel"
+          style="max-width: 440px"
+          id="role-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="role-dialog-title"
+          tabindex="-1"
+          phx-hook="DialogFocus"
+          data-dialog
+        >
+          <h2 id="role-dialog-title">{gettext("Change this role?")}</h2>
 
-        <p>
-          {gettext("%{email} becomes %{role}.",
-            email: @pending.user.email,
-            role: role_label(@pending.role)
-          )}
-        </p>
+          <p>
+            {gettext("%{email} becomes %{role}.",
+              email: @pending.user.email,
+              role: role_label(@pending.role)
+            )}
+          </p>
 
-        <div class="actions">
-          <button type="button" class="pe-btn primary" phx-click="confirm">
-            {gettext("Change the role")}
-          </button>
-          <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
+          <div class="actions">
+            <button type="button" class="pe-btn primary" phx-click="confirm">
+              {gettext("Change the role")}
+            </button>
+            <button type="button" class="pe-btn" phx-click="cancel">{gettext("Cancel")}</button>
+          </div>
         </div>
       </div>
 

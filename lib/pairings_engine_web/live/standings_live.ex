@@ -31,7 +31,7 @@ defmodule PairingsEngineWeb.StandingsLive do
      socket
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Standings",
+       page_title: "#{tournament.name} · #{gettext("Standings")}",
        # `nil` until the ColumnPrefs hook reports back what's actually
        # stored in localStorage (see `show_col?/2`) - nil means "no
        # preference recorded yet", not "hide everything", so a visitor
@@ -82,7 +82,7 @@ defmodule PairingsEngineWeb.StandingsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -338,7 +338,11 @@ defmodule PairingsEngineWeb.StandingsLive do
   # means a stale tab or an event queued before the archive landed - say so
   # rather than crashing on the unmatched {:error, :archived}.
   defp archived_refusal(socket) do
-    put_flash(socket, :error, "This tournament is archived - unarchive it to make changes.")
+    put_flash(
+      socket,
+      :error,
+      gettext("This tournament is archived - unarchive it to make changes.")
+    )
   end
 
   defp do_manual_move(socket, tournament, player, direction) do
@@ -928,6 +932,11 @@ defmodule PairingsEngineWeb.StandingsLive do
 
       <div :if={@entries == [] and !@team?} class="card empty">
         <p><strong>{gettext("No players registered yet.")}</strong></p>
+        <p>
+          <.link id="standings-add-players" navigate={~p"/t/#{@tournament.id}/players"}>
+            {gettext("Add players")}
+          </.link>
+        </p>
       </div>
 
       <%!-- One paragraph per REASON, not per code: two tie-breaks dropped for

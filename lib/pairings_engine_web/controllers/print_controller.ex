@@ -658,7 +658,7 @@ defmodule PairingsEngineWeb.PrintController do
         tournament_info_html(tournament) <> player_card_body(entry, rows, totals, tournament)
       )
     else
-      _ -> send_resp(conn, 404, gettext("Player not found"))
+      _ -> print_error(conn, 404, tournament, gettext("Player not found"))
     end
   end
 
@@ -767,7 +767,7 @@ defmodule PairingsEngineWeb.PrintController do
     category = print_category(tournament, params)
 
     if round == nil do
-      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
+      print_error(conn, 404, tournament, gettext("Round %{n} has not been paired yet", n: number))
     else
       # Each player's score coming INTO this round - shown next to their
       # name, same as the live/public/projector pairing views.
@@ -849,7 +849,7 @@ defmodule PairingsEngineWeb.PrintController do
     category = print_category(tournament, params)
 
     if round == nil do
-      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
+      print_error(conn, 404, tournament, gettext("Round %{n} has not been paired yet", n: number))
     else
       # Alphabetical order is the whole point of this document, so unlike
       # pairing_list/2 above, fixed-table boards aren't moved - just
@@ -1007,9 +1007,10 @@ defmodule PairingsEngineWeb.PrintController do
 
     case PairingsEngine.NextRoundPreview.Cache.get(tournament.id, fingerprint) do
       nil ->
-        send_resp(
+        print_error(
           conn,
           409,
+          tournament,
           gettext(
             "The next-round preview is not up to date. Open it on the Pairings page, wait until it has finished, then print again."
           )
@@ -1180,7 +1181,12 @@ defmodule PairingsEngineWeb.PrintController do
 
     cond do
       requested_round != nil and Tournaments.get_round(tournament.id, requested_round) == nil ->
-        send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: requested_round))
+        print_error(
+          conn,
+          404,
+          tournament,
+          gettext("Round %{n} has not been paired yet", n: requested_round)
+        )
 
       # FIDE mode, the last round paired and a postponed game still open
       # (VCL4THP Q169): this sheet would be the final standings, and FIDE
@@ -1611,7 +1617,7 @@ defmodule PairingsEngineWeb.PrintController do
         else: []
 
     if round == nil or matches == [] do
-      send_resp(conn, 404, gettext("Round %{n} has no team matches", n: number))
+      print_error(conn, 404, tournament, gettext("Round %{n} has no team matches", n: number))
     else
       teams = tournament.id |> Tournaments.list_teams() |> Map.new(&{&1.id, &1})
       pairings = Map.new(round.pairings, &{&1.id, &1})
@@ -1721,7 +1727,12 @@ defmodule PairingsEngineWeb.PrintController do
 
     cond do
       requested != nil and Tournaments.get_round(tournament.id, requested) == nil ->
-        send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: requested))
+        print_error(
+          conn,
+          404,
+          tournament,
+          gettext("Round %{n} has not been paired yet", n: requested)
+        )
 
       # The team table is final standings too (VCL4THP Q169) - see
       # `standings/2`.
@@ -1811,7 +1822,12 @@ defmodule PairingsEngineWeb.PrintController do
 
     case games do
       :error ->
-        send_resp(conn, 404, gettext("That game is not a postponed game still to be played."))
+        print_error(
+          conn,
+          404,
+          tournament,
+          gettext("That game is not a postponed game still to be played.")
+        )
 
       {:ok, games} ->
         body =
@@ -1881,7 +1897,7 @@ defmodule PairingsEngineWeb.PrintController do
     category = print_category(tournament, params)
 
     if round == nil do
-      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
+      print_error(conn, 404, tournament, gettext("Round %{n} has not been paired yet", n: number))
     else
       pairings =
         round.pairings
@@ -1924,7 +1940,7 @@ defmodule PairingsEngineWeb.PrintController do
     category = print_category(tournament, params)
 
     if round == nil do
-      send_resp(conn, 404, gettext("Round %{n} has not been paired yet", n: number))
+      print_error(conn, 404, tournament, gettext("Round %{n} has not been paired yet", n: number))
     else
       sheets =
         round.pairings
@@ -2423,6 +2439,24 @@ defmodule PairingsEngineWeb.PrintController do
     conn
     |> put_resp_content_type("text/html")
     |> send_resp(200, html)
+  end
+
+  # A refusal that opens in a tab of its own (every document does): a bare
+  # line of text there is a dead end, so it is a small page with the reason
+  # and the way back to the list of documents. Status code unchanged.
+  @doc false
+  def print_error(conn, status, %Tournament{id: id}, message) do
+    html = """
+    <!doctype html><html lang="#{Gettext.get_locale(PairingsEngineWeb.Gettext)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>#{esc(message)}</title>
+    <style>body{font-family:system-ui,sans-serif;max-width:34rem;margin:15vh auto;padding:0 1.5rem;line-height:1.5}a{display:inline-block;margin-top:1rem}</style></head><body>
+    <main id="print-error"><p>#{esc(message)}</p>
+    <a id="print-error-back" href="/t/#{id}/print">#{esc(gettext("Back to Print documents"))}</a></main>
+    </body></html>
+    """
+
+    conn
+    |> put_resp_content_type("text/html")
+    |> send_resp(status, html)
   end
 
   @doc false

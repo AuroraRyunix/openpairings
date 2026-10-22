@@ -213,7 +213,12 @@ defmodule PairingsEngineWeb.TeamPrintController do
 
       case TeamSheets.match_sheets(tournament, number, opts) do
         :error ->
-          send_resp(conn, 404, gettext("Round %{n} has no team matches", n: number))
+          Print.print_error(
+            conn,
+            404,
+            tournament,
+            gettext("Round %{n} has no team matches", n: number)
+          )
 
         {:ok, %{sheets: sheets} = sheets_data} ->
           body = Enum.map_join(sheets, "", &match_sheet_html(&1, tournament, sheets_data))
@@ -351,7 +356,7 @@ defmodule PairingsEngineWeb.TeamPrintController do
         end
 
       if rosters == [] do
-        send_resp(conn, 404, gettext("No such team"))
+        Print.print_error(conn, 404, tournament, gettext("No such team"))
       else
         Print.print_page(
           conn,
@@ -459,7 +464,7 @@ defmodule PairingsEngineWeb.TeamPrintController do
     if Tournament.paired_as_teams?(tournament) do
       fun.(tournament)
     else
-      send_resp(conn, 404, gettext("This is not a team tournament"))
+      Print.print_error(conn, 404, tournament, gettext("This is not a team tournament"))
     end
   end
 end

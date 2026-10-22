@@ -181,6 +181,10 @@ defmodule PairingsEngineWeb.PrintControllerTest do
       conn = get(conn, ~p"/t/#{tournament.id}/print/pairings?round=3")
 
       assert conn.status == 404
+      # ... on a page with the reason and the way back, not a bare line of text
+      body = html_response(conn, 404)
+      assert body =~ "has not been paired yet"
+      assert body =~ ~s(id="print-error-back" href="/t/#{tournament.id}/print")
     end
 
     test "shows each player's score coming INTO the round, in brackets next to their name", %{

@@ -329,4 +329,52 @@ defmodule PairingsEngineWeb.UserSessionControllerTest do
       assert get_session(ok, :user_token)
     end
   end
+
+  describe "POST /users/update-password" do
+    test "outside sudo mode it goes back to log-in with a notice instead of crashing", %{
+      conn: conn,
+      user: user
+    } do
+      stale = DateTime.add(DateTime.utc_now(), -3600, :second)
+
+      conn =
+        conn
+        |> log_in_user(user, token_authenticated_at: stale)
+        |> post(~p"/users/update-password", %{
+          "user" => %{
+            "password" => "a-new-long-password",
+            "password_confirmation" => "a-new-long-password"
+          }
+        })
+
+      assert redirected_to(conn) == ~p"/users/log-in"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "re-authenticate"
+    end
+
+    test "a refused password goes back to settings with a notice", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> log_in_user(user)
+        |> post(~p"/users/update-password", %{
+          "user" => %{"password" => "short", "password_confirmation" => "other"}
+        })
+
+      assert redirected_to(conn) == ~p"/users/settings"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "could not be changed"
+    end
+  end
+
+  describe "in Dutch" do
+    test "the refusal flashes are translated", %{conn: conn, user: user} do
+      conn =
+        conn
+        |> get(~p"/locale/nl?redirect_to=/")
+        |> recycle()
+        |> post(~p"/users/log-in?mode=password", %{
+          "user" => %{"email" => user.email, "password" => "invalid_password"}
+        })
+
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) == "Ongeldig e-mailadres of wachtwoord"
+    end
+  end
 end

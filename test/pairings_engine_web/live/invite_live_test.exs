@@ -100,6 +100,60 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       assert %{status: "pending"} = hd(Tournaments.list_collaborators(tournament))
     end
 
+    test "the wrong-account page offers to switch account", %{scope: owner_scope} do
+      tournament = fixture(owner_scope)
+      invitee = lightweight_user()
+      stranger = lightweight_user()
+      {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, invitee.email)
+
+      {:ok, lv, _html} =
+        Phoenix.ConnTest.build_conn()
+        |> log_in_user(stranger)
+        |> live(~p"/invites/#{invite.invite_token}")
+
+      assert has_element?(lv, "#invite-switch-account")
+    end
+
+    test "the invitation says what the role allows", %{scope: owner_scope} do
+      tournament = fixture(owner_scope)
+      editor = lightweight_user()
+      arbiter = lightweight_user()
+      {:ok, e_invite} = Tournaments.add_collaborator(owner_scope, tournament, editor.email)
+
+      {:ok, a_invite} =
+        Tournaments.add_collaborator(owner_scope, tournament, arbiter.email, "arbiter")
+
+      {:ok, _lv, e_html} =
+        Phoenix.ConnTest.build_conn()
+        |> log_in_user(editor)
+        |> live(~p"/invites/#{e_invite.invite_token}")
+
+      {:ok, _lv, a_html} =
+        Phoenix.ConnTest.build_conn()
+        |> log_in_user(arbiter)
+        |> live(~p"/invites/#{a_invite.invite_token}")
+
+      assert e_html =~ "full editing access"
+      assert a_html =~ "enter results from your phone"
+      refute a_html =~ "full editing access"
+    end
+
+    test "the link of a deleted tournament says so instead of crashing", %{scope: owner_scope} do
+      tournament = fixture(owner_scope)
+      invitee = lightweight_user()
+      {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, invitee.email)
+      {:ok, _} = Tournaments.soft_delete_tournament(tournament)
+
+      {:ok, lv, html} =
+        Phoenix.ConnTest.build_conn()
+        |> log_in_user(invitee)
+        |> live(~p"/invites/#{invite.invite_token}")
+
+      assert has_element?(lv, "#invite-deleted")
+      assert html =~ "deleted by its owner"
+      refute has_element?(lv, "button", "Accept")
+    end
+
     test "an invalid token shows a not-found message", %{scope: owner_scope, conn: conn} do
       # `conn` here is already the owner's logged-in conn from
       # register_and_log_in_user - any authenticated user hitting a bogus
@@ -109,6 +163,7 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       {:ok, _lv, html} = live(conn, ~p"/invites/not-a-real-token")
 
       assert html =~ "Invitation not found"
+      assert html =~ "If you already accepted it"
     end
 
     test "a collaborator id in the URL reveals nothing - invitations are found by token only",

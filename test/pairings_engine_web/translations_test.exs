@@ -378,4 +378,23 @@ defmodule PairingsEngineWeb.TranslationsTest do
              "#{locale_of(path)}/#{Path.basename(path)} declares no Plural-Forms header"
     end
   end
+
+  test "the app's own changeset messages are in the errors catalogue" do
+    translate = &PairingsEngineWeb.CoreComponents.translate_error/1
+
+    Gettext.with_locale(PairingsEngineWeb.Gettext, @locale, fn ->
+      assert translate.({"must be a valid email address", []}) ==
+               "moet een geldig e-mailadres zijn"
+
+      assert translate.({"this pair is already forbidden", []}) == "dit paar is al verboden"
+      assert translate.({"choose at least two players", []}) == "kies minstens twee spelers"
+      assert translate.({"say which rounds", []}) == "zeg welke ronden"
+
+      assert translate.(
+               {"would need %{count} rounds, above the %{max}-round maximum",
+                [count: 20, max: 12]}
+             ) ==
+               "zou 20 ronden nodig hebben, boven het maximum van 12 ronden"
+    end)
+  end
 end

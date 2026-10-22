@@ -92,7 +92,7 @@ defmodule PairingsEngineWeb.HistoryLive do
      socket
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · History",
+       page_title: "#{tournament.name} · #{gettext("History")}",
        # Branches start OPEN and collapse on request; it is the CHANGES under
        # each point that are folded by default. A branch is a path you might
        # go back to, so hiding it by default hides the reason to be here.
@@ -119,7 +119,7 @@ defmodule PairingsEngineWeb.HistoryLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -188,7 +188,10 @@ defmodule PairingsEngineWeb.HistoryLive do
       {:noreply,
        socket
        |> assign(tournament: reload_tournament(socket), snapshot_label: "")
-       |> put_flash(:info, "Restore point saved - you can come back to this exact state.")
+       |> put_flash(
+         :info,
+         gettext("Restore point saved - you can come back to this exact state.")
+       )
        |> load_stream()}
     else
       {:error, reason} ->
@@ -196,7 +199,9 @@ defmodule PairingsEngineWeb.HistoryLive do
          put_flash(
            socket,
            :error,
-           "Could not save a restore point: #{SettingsSupport.error_text(reason)}"
+           gettext("Could not save a restore point: %{reason}",
+             reason: SettingsSupport.error_text(reason)
+           )
          )}
     end
   end
@@ -210,7 +215,10 @@ defmodule PairingsEngineWeb.HistoryLive do
   def handle_event("restore_start", %{"id" => id}, socket) do
     case Snapshots.get(socket.assigns.tournament.id, id) do
       nil ->
-        {:noreply, socket}
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("That restore point no longer exists."))
+         |> load_stream()}
 
       snapshot ->
         {:noreply,
@@ -305,7 +313,10 @@ defmodule PairingsEngineWeb.HistoryLive do
         socket =
           socket
           |> assign(tournament: restored, restore_target: nil, restore_confirm: "")
-          |> put_flash(:info, "Restored. The state you left is saved as a new restore point.")
+          |> put_flash(
+            :info,
+            gettext("Restored. The state you left is saved as a new restore point.")
+          )
 
         socket =
           if ambiguous == [],
@@ -318,7 +329,7 @@ defmodule PairingsEngineWeb.HistoryLive do
         {:noreply,
          socket
          |> assign(restore_target: nil, restore_confirm: "")
-         |> put_flash(:error, "This tournament is archived - unarchive it to restore.")}
+         |> put_flash(:error, gettext("This tournament is archived - unarchive it to restore."))}
 
       # Something was sent since the dialog opened: ask again, with the list.
       {:error, {:needs_acknowledgement, _ids}} ->
@@ -332,7 +343,10 @@ defmodule PairingsEngineWeb.HistoryLive do
         {:noreply,
          socket
          |> assign(restore_target: nil, restore_confirm: "")
-         |> put_flash(:error, "Could not restore: #{inspect(reason)}")}
+         |> put_flash(
+           :error,
+           gettext("Could not restore: %{reason}", reason: SettingsSupport.error_text(reason))
+         )}
     end
   end
 
@@ -477,22 +491,40 @@ defmodule PairingsEngineWeb.HistoryLive do
     do: short_headline(action, details || %{}, length(diff))
 
   defp short_headline("tournament.settings_updated", _details, n),
-    do: "Updated tournament settings - #{field_count(n)} changed."
+    do:
+      ngettext(
+        "Updated tournament settings - 1 field changed.",
+        "Updated tournament settings - %{count} fields changed.",
+        n
+      )
 
   defp short_headline("player.updated", details, n) do
     case details["player_name"] do
       name when is_binary(name) and name != "" ->
-        "Updated #{name} - #{field_count(n)} changed."
+        ngettext(
+          "Updated %{name} - 1 field changed.",
+          "Updated %{name} - %{count} fields changed.",
+          n,
+          name: name
+        )
 
       _ ->
-        "Updated a player - #{field_count(n)} changed."
+        ngettext(
+          "Updated a player - 1 field changed.",
+          "Updated a player - %{count} fields changed.",
+          n
+        )
     end
   end
 
-  defp short_headline(action, _details, n), do: "#{action} - #{field_count(n)} changed."
-
-  defp field_count(1), do: "1 field"
-  defp field_count(n), do: "#{n} fields"
+  defp short_headline(action, _details, n),
+    do:
+      ngettext(
+        "%{action} - 1 field changed.",
+        "%{action} - %{count} fields changed.",
+        n,
+        action: action
+      )
 
   defp snapshot_event(%{snapshot: snapshot} = entry) do
     manual? = snapshot.trigger == @manual_trigger
@@ -503,7 +535,7 @@ defmodule PairingsEngineWeb.HistoryLive do
       kind: "snapshot",
       action: snapshot.trigger,
       who: who(snapshot.user),
-      text: snapshot.summary || default_snapshot_text(manual?),
+      text: snapshot_text(snapshot.summary, manual?),
       diff: [],
       snapshot_id: snapshot.id,
       lane: entry.lane,
@@ -518,8 +550,12 @@ defmodule PairingsEngineWeb.HistoryLive do
     }
   end
 
-  defp default_snapshot_text(true), do: @manual_summary
-  defp default_snapshot_text(false), do: "Restore point saved."
+  # The summary of a hand-saved point without a label is stored in English;
+  # it is translated here, when it is read.
+  defp snapshot_text(@manual_summary, _manual?), do: gettext("Manual restore point")
+  defp snapshot_text(summary, _manual?) when is_binary(summary) and summary != "", do: summary
+  defp snapshot_text(_summary, true), do: gettext("Manual restore point")
+  defp snapshot_text(_summary, false), do: gettext("Restore point saved.")
 
   # `details["changed_fields"]` is `%{"field" => [before, after]}` - written
   # by `SettingsSupport.log_settings_change/3` and the player-update handler.
@@ -547,7 +583,7 @@ defmodule PairingsEngineWeb.HistoryLive do
     do: PairingsEngine.Accounts.User.display_label(user)
 
   defp who(%{email: email}) when is_binary(email), do: email
-  defp who(_), do: "System"
+  defp who(_), do: gettext("System")
 
   # An audit row can also outlive its account: the address it was written
   # under is kept in `details["former_actor"]` (see
@@ -570,8 +606,8 @@ defmodule PairingsEngineWeb.HistoryLive do
 
     prefix =
       case Date.diff(Date.utc_today(), date) do
-        0 -> "Today"
-        1 -> "Yesterday"
+        0 -> gettext("Today")
+        1 -> gettext("Yesterday")
         _ -> Calendar.strftime(date, "%-d %B %Y")
       end
 
@@ -584,11 +620,11 @@ defmodule PairingsEngineWeb.HistoryLive do
     field |> to_string() |> String.replace("_", " ")
   end
 
-  defp value_label(nil), do: {:empty, "not set"}
-  defp value_label(""), do: {:empty, "blank"}
-  defp value_label(true), do: {:value, "on"}
-  defp value_label(false), do: {:value, "off"}
-  defp value_label([]), do: {:empty, "not set"}
+  defp value_label(nil), do: {:empty, gettext("not set")}
+  defp value_label(""), do: {:empty, gettext("blank")}
+  defp value_label(true), do: {:value, gettext("on")}
+  defp value_label(false), do: {:value, gettext("off")}
+  defp value_label([]), do: {:empty, gettext("not set")}
   defp value_label(v), do: {:value, item_text(v)}
 
   # One recorded value as text. A list's items can be anything the settings
@@ -597,14 +633,18 @@ defmodule PairingsEngineWeb.HistoryLive do
   # History page down when such a change was opened. So no item is ever handed
   # to `to_string/1` unless it has a `String.Chars` implementation.
   defp item_text(v) when is_binary(v), do: v
-  defp item_text(true), do: "on"
-  defp item_text(false), do: "off"
+  defp item_text(true), do: gettext("on")
+  defp item_text(false), do: gettext("off")
   defp item_text(nil), do: "-"
   defp item_text(v) when is_list(v), do: Enum.map_join(v, ", ", &item_text/1)
 
   defp item_text(%{"fide_tournament_id" => id, "from_round" => from, "to_round" => to})
        when not is_map(id) and not is_list(id) do
-    "#{item_text(id)}: rounds #{item_text(from)}-#{item_text(to)}"
+    gettext("%{id}: rounds %{from}-%{to}",
+      id: item_text(id),
+      from: item_text(from),
+      to: item_text(to)
+    )
   end
 
   defp item_text(v) do
@@ -798,7 +838,9 @@ defmodule PairingsEngineWeb.HistoryLive do
           phx-click="restore_start"
           phx-value-id={@point.snapshot_id}
         >
-          {if @point.on_head_line, do: "Go back to here", else: "Switch to this branch"}
+          {if @point.on_head_line,
+            do: gettext("Go back to here"),
+            else: gettext("Switch to this branch")}
         </button>
 
         <button

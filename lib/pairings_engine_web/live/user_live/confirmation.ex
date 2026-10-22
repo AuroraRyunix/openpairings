@@ -115,7 +115,7 @@ defmodule PairingsEngineWeb.UserLive.Confirmation do
     else
       {:ok,
        socket
-       |> put_flash(:error, "Magic link is invalid or it has expired.")
+       |> put_flash(:error, gettext("Magic link is invalid or it has expired."))
        |> push_navigate(to: ~p"/users/log-in")}
     end
   end

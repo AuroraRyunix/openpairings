@@ -197,4 +197,14 @@ Tekst.
       assert [%{id: "a-heading", text: "Een kop"}] = html.toc
     end
   end
+
+  test "the labels the renderer adds follow the chapter's language" do
+    en = Manual.get("pairing", "en").html
+    nl = Manual.get("pairing", "nl").html
+
+    assert en =~ "manual-callout-title"
+    assert nl =~ "manual-callout-title"
+    refute nl =~ ~r/manual-callout-title">(<span[^>]*><\/span>)?Warning/
+    assert nl =~ ~r/manual-callout-title">(<span[^>]*><\/span>)?Waarschuwing/
+  end
 end

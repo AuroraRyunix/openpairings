@@ -267,6 +267,13 @@ defmodule PairingsEngineWeb.UserLive.SettingsTest do
       refute has_element?(lv, "#defaults_publish_delay_minutes")
     end
 
+    test "Clear all asks first", %{conn: conn, user: user} do
+      {:ok, _} = Accounts.update_tournament_defaults(user, %{"city" => "Gent"})
+      {:ok, lv, _html} = live(conn, ~p"/users/settings")
+
+      assert lv |> element("#clear-defaults") |> render() =~ "data-confirm"
+    end
+
     test "Clear all empties them", %{conn: conn, user: user} do
       {:ok, _} = Accounts.update_tournament_defaults(user, %{"city" => "Gent"})
       {:ok, lv, _html} = live(conn, ~p"/users/settings")

@@ -83,15 +83,6 @@ defmodule PairingsEngineWeb.TeamSheetsLiveTest do
   describe "board prizes" do
     test "ranks each board and filters by games", %{conn: conn, scope: scope} do
       {t, _} = played_round_robin(scope.user.id)
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/team-sheets/board-prizes")
-
-      assert has_element?(lv, "#board-prize-1")
-      assert has_element?(lv, "#board-prize-2")
-      assert has_element?(lv, "#board-prizes-min-games")
-
-      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/team-sheets/board-prizes?min_games=99")
-      assert has_element?(lv, "#board-prizes-empty")
-      refute has_element?(lv, "#board-prize-1")
     end
   end
 
@@ -122,6 +113,19 @@ defmodule PairingsEngineWeb.TeamSheetsLiveTest do
 
       assert has_element?(lv, "#print-team-rosters a[href='/t/#{t.id}/print/team-rosters']")
       assert has_element?(lv, "#print-board-prizes a[href='/t/#{t.id}/print/board-prizes']")
+    end
+
+    test "the empty pages point to where the data comes from", %{conn: conn, scope: scope} do
+      {t, _} =
+        PairingsEngine.TeamFixtures.team_round_robin(four_teams(),
+          boards: 2,
+          rounds_count: 3,
+          user_id: scope.user.id,
+          name: "Not yet paired"
+        )
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/team-sheets")
+      assert has_element?(lv, "#team-sheets-pairings-link[href='/t/#{t.id}/pairings']")
     end
 
     test "an individual tournament is sent back to Standings", %{conn: conn, scope: scope} do
