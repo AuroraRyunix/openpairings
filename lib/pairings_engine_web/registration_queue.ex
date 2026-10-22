@@ -68,6 +68,11 @@ defmodule PairingsEngineWeb.RegistrationQueue do
     assign(socket,
       queue: items,
       queue_national?: national?,
+      # Whether anything has been decided: the Players page keeps its entries
+      # card, and so its link to the Entries page, for as long as there is.
+      queue_decided?:
+        tournament.publish_to_openresults and Registrations.decided(tournament.id) != [],
+      queue_note_restore: socket.assigns[:queue_note_restore] || false,
       # Kept across reloads - a reload triggered by another screen must not
       # wipe the sentence the arbiter's own click just produced.
       queue_error: socket.assigns[:queue_error],
@@ -95,6 +100,7 @@ defmodule PairingsEngineWeb.RegistrationQueue do
            socket
            |> assign(
              queue_error: nil,
+             queue_note_restore: false,
              queue_note:
                gettext("Added %{name} to the entry list, marked not yet arrived.",
                  name: player.name
@@ -127,6 +133,7 @@ defmodule PairingsEngineWeb.RegistrationQueue do
            socket
            |> assign(
              queue_error: nil,
+             queue_note_restore: true,
              queue_note:
                gettext("Turned down %{name}. No player was created.",
                  name: Registration.name(discarded)

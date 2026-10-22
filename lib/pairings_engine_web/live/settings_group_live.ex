@@ -25,7 +25,10 @@ defmodule PairingsEngineWeb.SettingsGroupLive do
 
     {:ok,
      socket
-     |> assign(tournament: tournament, page_title: "#{tournament.name} · Settings · Group")
+     |> assign(
+       tournament: tournament,
+       page_title: "#{tournament.name} · " <> gettext("Settings") <> " · " <> gettext("Group")
+     )
      |> assign_group(nil)}
   end
 

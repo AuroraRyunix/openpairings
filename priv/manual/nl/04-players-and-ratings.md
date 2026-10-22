@@ -238,7 +238,9 @@ Sommige cellen openen een klein menu (rechtsklik, of <kbd>Space</kbd> /
 <kbd>Shift</kbd>+<kbd>F10</kbd> / de contextmenutoets op het toetsenbord): de
 aanwezigheidscel zet een speler aanwezig of afwezig, de cel *Betaald* zet de
 inschrijfstatus, de categoriecel kent categorieën toe, en de kop van de
-aanwezigheidskolom zet iedereen in één keer aanwezig of afwezig. De pijltjestoetsen
+aanwezigheidskolom zet iedereen in één keer aanwezig of afwezig. De kopmenu's (aanwezigheid,
+*Betaald* en categorie) vragen eerst om bevestiging, bewaren een herstelpunt en
+zeggen hoeveel spelers ze hebben gewijzigd. De pijltjestoetsen
 bewegen tussen de cellen; het celmenu wordt aan schermlezers aangekondigd met een
 zin die zegt wat de letter in de cel betekent.
 
@@ -257,12 +259,25 @@ Klik met de rechtermuisknop op de naam (of druk op de contextmenutoets) om de
 **Spelerskaart** te openen: de tegenstanders, kleuren en resultaten van de speler
 ronde voor ronde, met een afdrukknop en knoppen voor vorige en volgende.
 
+Het formulier **Spelersinschrijving** sluit met <kbd>Esc</kbd> of **Annuleren**.
+Een klik erbuiten sluit het niet meer, zodat ingetypte wijzigingen niet verloren
+gaan. Is de speler in een ander venster verwijderd, dan sluit het formulier en
+zegt dat. Een opzoeking in de FIDE-lijst neemt de speler via het FIDE-ID; een
+naam die bij meerdere FIDE-spelers past, vraagt om het FIDE-ID in plaats van de
+eerste te nemen, en **Nee** op de vraag over een gewijzigde naam zet het
+formulier terug zoals het voor de opzoeking was.
+
 ### Een speler verwijderen {#removing-a-player}
 
 > [!WARNING]
-> **Verwijderen** wist een speler. Een speler die al heeft gespeeld kan in de
-> FIDE-modus niet worden verwijderd als dat een ronde zou veranderen die niet meer
-> open is; zo'n speler wordt in plaats daarvan teruggetrokken (forfait).
+> **Verwijderen** wist een speler en vraagt eerst om bevestiging. Bij een speler
+> die gespeeld heeft, zegt de vraag in hoeveel partijen die zat: verwijderen
+> maakt zijn plek in die partijen leeg en verandert de resultaten van zijn
+> tegenstanders, en vlak ervoor wordt een herstelpunt bewaard. Wil je een speler
+> niet meer laten paren, trek hem dan terug in het bewerkvenster. Een speler die
+> al heeft gespeeld kan in de FIDE-modus niet worden verwijderd als dat een ronde
+> zou veranderen die niet meer open is; zo'n speler wordt in plaats daarvan
+> teruggetrokken (forfait).
 
 ## Ratings vernieuwen {#refreshing-ratings}
 

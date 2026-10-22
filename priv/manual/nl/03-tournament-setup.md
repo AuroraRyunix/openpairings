@@ -91,6 +91,7 @@ Nog twee dingen houden de pagina's kort:
 | Pagina | Getoond | Met *Geavanceerde instellingen tonen* |
 | --- | --- | --- |
 | Toernooi | naam, speelzaal, stad, federatie, organisator; toernooiformaat; aantal rondes; tiebreaks; Chess960 en het vinkje voor 30 dagen; delen | clubnummer van de organisator; hoe een ongerate speler in de tiebreaks telt; spelers die nog gelijk staan delen een plaats; logo |
+| Groep | dit toernooi bij de andere toernooien van zijn evenement in een groep zetten, of er weer uit halen | - |
 | Opties | paringssysteem, toernooirating, cycli (rondetoernooi), Keizer-topwaarde (Keizer), opstellingen (ploegen), type en speeltempo | engine, beginkleur, gelijke rating en titel, paringsnummers van laatkomers, afwezigen in ronde 1, acceleratie, de matchformaten, ploegrating en rating van een ongerate speler (ploegen), ander speeltempo |
 | Puntentelling | punten, matchpunten, uitgestelde partijen | de hele kaart *Byes en afwezigheden* (punten voor een overgeslagen ronde en de grenzen ervan, vrijwillig niet-gespeelde rondes, afwezigheden van laatkomers, het byetype vragen); bye, forfait en terugtrekking van een ploeg |
 | Data | één datum per ronde | - |
@@ -304,7 +305,7 @@ omgekeerde rondes al gepaard zijn, blijft dubbel.
 **Keizer-topwaarde**: de waarde van de hoogste trede van de Keizerladder, of leeg
 voor de automatische waarde.
 
-**Acceleratie.** Geen, of **Baku-acceleratie (FIDE C.04.7)**: het programma
+**Acceleratie.** Geen, of **Baku-versnelling (FIDE C.04.7)**: het programma
 berekent in de eerste ronden de virtuele punten van elke speler en geeft die
 ronde na ronde aan de engine. Het geldt alleen voor Zwitserse toernooien en kan
 niet meer worden gewijzigd zodra de eerste ronde is gepaard. Groep A wordt
@@ -313,7 +314,7 @@ geteld over de spelers die in ronde 1 gepaard zijn: wie in ronde 1 afwezig is
 paringsnummer bij aankomst, en dan zoals elke laatkomer (C.04.2 2.4): na het
 veld of volgens rating, zoals *Paringsnummers van laatkomers* zegt.
 
-**Zwitsers matchformaat.** Elke paring wordt twee keer achter elkaar gespeeld,
+**Matchformaat Zwitsers.** Elke paring wordt twee keer achter elkaar gespeeld,
 de tweede partij met omgekeerde kleuren. Het vereist een even aantal rondes (elke
 match telt twee rondes).
 
@@ -325,7 +326,7 @@ match telt twee rondes).
 volgorde van de ploegen, en de rating die wordt geteld voor een ongerate speler.
 Zie [Ploegen](13-teams.md).
 
-**Type en speeltempo.** Het type (Standaard, Rapid, Blitz) en de bedenktijd uit
+**Toernooitype & speeltempo.** Het type (Standaard, Rapid, Blitz) en de bedenktijd uit
 een lijst, of (geavanceerd) ingetypt bij *Ander speeltempo*. Het speeltempo wordt
 in het TRF-rapport geschreven.
 
@@ -354,7 +355,7 @@ rondes**, **De laatste rondes** (teruggeteld vanaf het aantal rondes) of **Van
 ronde … tot ronde …**. Een regel volgt de spelers zoals ze zijn wanneer een
 ronde gepaard wordt, dus een late instapper of een verbeterde club valt eronder
 zonder dat je de regel aanraakt. Elke regel toont wat hij nu doet, bijvoorbeeld
-*4 paren over 2 clubs*; **Bewerken** en **Verwijderen** werken ter plaatse.
+*4 paren over 2 clubs*; **Bewerken** en **Verwijderen** werken ter plaatse; **Verwijderen** vraagt eerst om bevestiging en noemt wat verdwijnt.
 
 **Spelers die elkaar niet mogen treffen.** Zoek op naam, club of federatie, vink
 twee of meer spelers aan en druk op **Deze N uit elkaar houden**. Twee spelers
@@ -486,12 +487,19 @@ twee soorten:
   rating; ze brengen de sterke spelers eerder bij elkaar.
 
 *Elo-banden* worden geschreven als `rating:bonus`-paren, gescheiden door komma's.
-**Banden op spelers toepassen** geeft elke speler de punten van zijn band; punten
+**Schijven toepassen op spelers** geeft elke speler de punten van zijn band; punten
 kunnen ook per speler worden ingetypt op de pagina Spelers. *Extra punten
 meetellen (stand en paring)* laat de rangschikking (en, bij een handicap, de
 paring) ze gebruiken; bij acceleratie heet de schakelaar *Accelerationspunten
 behouden in de eindrangschikking*. In het TRF-rapport verschijnen ze in record
 299.
+
+**Schijven toepassen op spelers** vraagt eerst om bevestiging en bewaart een
+herstelpunt, omdat het de extra punten overschrijft van elke speler bij wie een
+schijf past. **Een half punt afnemen** (alleen bij acceleratie) vraagt ook eerst
+om bevestiging, met vermelding van het ratingbereik, en bewaart een herstelpunt.
+Als de schijven in het formulier verschillen van de opgeslagen, zegt een hint
+dat je eerst moet opslaan. Opslaan antwoordt *Opgeslagen.* naast de knop.
 
 > [!FIDE] Afwijking van de FIDE-modus
 > Extra punten maken geen deel uit van de FIDE-regels; een ronde waarvoor de

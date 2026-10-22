@@ -43,7 +43,8 @@ defmodule PairingsEngineWeb.SettingsSupportTest do
     test "an unrecognised reason still names the round rather than crashing the page" do
       text = error_text({:team_pairing, {:invalid_option, :absent, [99]}, 2})
       assert text =~ "round 2"
-      assert text =~ "invalid_option"
+      refute text =~ "invalid_option"
+      assert text =~ "server log"
     end
   end
 

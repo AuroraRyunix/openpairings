@@ -28,6 +28,8 @@ defmodule PairingsEngineWeb.SettingsSupport do
   """
   use PairingsEngineWeb, :html
 
+  require Logger
+
   import Phoenix.LiveView, only: [attach_hook: 4]
 
   alias PairingsEngine.{Audit, Compliance, Tournaments}
@@ -1349,6 +1351,28 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def initial_colour_label("white"), do: gettext("White")
   def initial_colour_label("black"), do: gettext("Black")
 
+  defp team_reason_text(reason) do
+    Logger.warning("team pairing failed: #{inspect(reason)}")
+    gettext("see the server log for the details")
+  end
+
+  @doc """
+  A changeset field as a person says it, in the current language. A field
+  that has no entry here is humanised (`birth_year` -> `birth year`).
+  """
+  def changeset_field_label(:name), do: gettext("Name")
+  def changeset_field_label(:fide_id), do: gettext("FIDE ID")
+  def changeset_field_label(:fide_rating), do: gettext("FIDE rating")
+  def changeset_field_label(:national_rating), do: gettext("National rating")
+  def changeset_field_label(:national_id), do: gettext("National ID")
+  def changeset_field_label(:birth_year), do: gettext("Birth year")
+  def changeset_field_label(:federation), do: gettext("Federation")
+  def changeset_field_label(:email), do: gettext("Email")
+  def changeset_field_label(:club), do: gettext("Club")
+  def changeset_field_label(:title), do: gettext("Title")
+  def changeset_field_label(:sex), do: gettext("Sex")
+  def changeset_field_label(field), do: field |> to_string() |> String.replace("_", " ")
+
   @doc """
   Human-readable error string for whatever a context write returned.
 
@@ -1386,7 +1410,9 @@ defmodule PairingsEngineWeb.SettingsSupport do
         )
 
       true ->
-        Enum.map_join(errors, ", ", fn {field, {msg, _}} -> "#{field} #{msg}" end)
+        Enum.map_join(errors, ", ", fn {field, {msg, opts}} ->
+          "#{changeset_field_label(field)} #{PairingsEngineWeb.CoreComponents.translate_error({msg, opts})}"
+        end)
     end
   end
 
@@ -1674,14 +1700,14 @@ defmodule PairingsEngineWeb.SettingsSupport do
     do:
       gettext("The team pairing for round %{round} failed: %{reason}",
         round: round,
-        reason: inspect(reason)
+        reason: team_reason_text(reason)
       )
 
   def error_text({:team_pairing, other, round}),
     do:
       gettext("The team pairing for round %{round} failed: %{reason}",
         round: round,
-        reason: inspect(other)
+        reason: team_reason_text(other)
       )
 
   # The individual (Ainalrami) path's own crash guard
@@ -1768,8 +1794,35 @@ defmodule PairingsEngineWeb.SettingsSupport do
   def error_text(reason) when reason in [:tournament_quota, :import_quota],
     do: PairingsEngine.Quotas.message(reason)
 
-  def error_text(reason) when is_atom(reason),
-    do: reason |> to_string() |> String.replace("_", " ")
+  def error_text(:not_found), do: gettext("That is no longer there. Reload the page.")
+
+  def error_text(:invalid_player), do: gettext("That player is not in this tournament.")
+
+  def error_text(:not_in_round), do: gettext("Both players need a seat in the round.")
+
+  def error_text(:same_player), do: gettext("That needs two different players.")
+
+  def error_text(:not_paired), do: gettext("That round is not paired.")
+
+  def error_text(:invalid_paid_status),
+    do: gettext("That is not a payment status. Choose paid, not paid or gratis.")
+
+  def error_text(:invalid_range), do: gettext("That range is not valid.")
+
+  def error_text(:invalid_bands), do: gettext("Those bands are not valid. Check the numbers.")
+
+  def error_text(:duplicate_fide_id),
+    do: gettext("A player with this FIDE ID is already registered.")
+
+  def error_text(:results_locked),
+    do: gettext("Results are locked: they were finalised and sent.")
+
+  def error_text(:invalid_result), do: gettext("That is not a valid result.")
+
+  def error_text(reason) when is_atom(reason) do
+    Logger.warning("error_text: no sentence for #{inspect(reason)}")
+    gettext("That did not work. Nothing was changed.")
+  end
 
   def error_text(reason) when is_binary(reason), do: reason
 

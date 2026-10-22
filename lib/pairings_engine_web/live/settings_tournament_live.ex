@@ -31,21 +31,21 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   # fields), so editing them directly would just get overwritten on the
   # next save anyway. The Dates page shows the derived result.
   @general_fields [
-    {"name", "Tournament name", "text", true},
-    {"venue", "Venue", "text", false},
-    {"city", "City", "text", false},
-    {"federation", "Federation", "text", false},
-    {"organizer", "Organizer", "text", false},
-    {"organizer_club_number", "Organizer club nr / logo", "text", false}
+    {"name", gettext_noop("Tournament name"), "text", true},
+    {"venue", gettext_noop("Venue"), "text", false},
+    {"city", gettext_noop("City"), "text", false},
+    {"federation", gettext_noop("Federation"), "text", false},
+    {"organizer", gettext_noop("Organizer"), "text", false},
+    {"organizer_club_number", gettext_noop("Organizer club nr / logo"), "text", false}
   ]
 
   # SWAR §5.22 Tie-break Presets (TB_PERSONEL) - see the original SettingsLive
   # for the best-effort mapping rationale onto our own catalogue codes.
   @tb_presets [
-    {"fide_rr", "FIDE Round Robin", ~w(DE WIN SB KS)},
-    {"disparate_sw", "Disparate Swiss (wide rating range)", ~w(BHC1 BH SB)},
-    {"regular_sw", "Regular Swiss", ~w(BHC1 BH PS)},
-    {"old_sw", "Old Swiss (classic)", ~w(PS BH SB)}
+    {"fide_rr", gettext_noop("FIDE Round Robin"), ~w(DE WIN SB KS)},
+    {"disparate_sw", gettext_noop("Disparate Swiss (wide rating range)"), ~w(BHC1 BH SB)},
+    {"regular_sw", gettext_noop("Regular Swiss"), ~w(BHC1 BH PS)},
+    {"old_sw", gettext_noop("Old Swiss (classic)"), ~w(PS BH SB)}
   ]
 
   @impl true
@@ -65,7 +65,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        tournament: tournament,
        long_event_preview: nil,
        owner?: owner?,
-       page_title: "#{tournament.name} · Settings",
+       page_title: "#{tournament.name} · " <> gettext("Settings"),
        tiebreaks: tournament.tiebreaks,
        fide_locked: Tournaments.fide_locked_fields(tournament),
        note: nil,
@@ -110,7 +110,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -192,7 +192,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
            long_event_preview: nil,
            tiebreaks: tournament.tiebreaks,
            fide_locked: Tournaments.fide_locked_fields(tournament),
-           note: "Saved.",
+           note: gettext("Saved."),
            error: nil,
            dirty: false,
            stale: false
@@ -222,8 +222,10 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
         note =
           if collaborator.mail_status == :failed do
-            "Invite saved, but the email could not be sent - share this link manually: " <>
-              "/invites/#{collaborator.invite_token}"
+            gettext(
+              "Invite saved, but the email could not be sent - share this link manually: %{link}",
+              link: url(~p"/invites/#{collaborator.invite_token}")
+            )
           end
 
         {:noreply,
@@ -233,26 +235,29 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
       {:error, :blank_email} ->
         {:noreply,
-         assign(socket, collaborator_error: "Enter an email address", collaborator_note: nil)}
+         assign(socket,
+           collaborator_error: gettext("Enter an email address"),
+           collaborator_note: nil
+         )}
 
       {:error, :cannot_add_owner} ->
         {:noreply,
          assign(socket,
-           collaborator_error: "You already own this tournament",
+           collaborator_error: gettext("You already own this tournament"),
            collaborator_note: nil
          )}
 
       {:error, :already_added} ->
         {:noreply,
          assign(socket,
-           collaborator_error: "That email already has access",
+           collaborator_error: gettext("That email already has access"),
            collaborator_note: nil
          )}
 
       {:error, :not_owner} ->
         {:noreply,
          assign(socket,
-           collaborator_error: "Only the owner can manage collaborators",
+           collaborator_error: gettext("Only the owner can manage collaborators"),
            collaborator_note: nil
          )}
 
@@ -283,7 +288,10 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
           %{email: collaborator.email}
         )
 
-        {:noreply, assign_collaborators(socket)}
+        {:noreply,
+         socket
+         |> put_flash(:info, gettext("Removed %{email}.", email: collaborator.email))
+         |> assign_collaborators()}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, error_text(reason))}
@@ -323,13 +331,13 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         {:noreply,
          socket
          |> assign(tournament: tournament)
-         |> put_flash(:info, "Logo removed.")}
+         |> put_flash(:info, gettext("Logo removed."))}
 
       {:error, :archived} ->
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
       {:error, _changeset} ->
-        {:noreply, put_flash(socket, :error, "Could not remove the logo")}
+        {:noreply, put_flash(socket, :error, gettext("Could not remove the logo"))}
     end
   end
 
@@ -368,15 +376,16 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
             {:noreply,
              socket
              |> assign(tournament: tournament)
-             |> put_flash(:info, "Logo uploaded.")}
+             |> put_flash(:info, gettext("Logo uploaded."))}
 
           {:error, :invalid_image} ->
             {:noreply,
              put_flash(
                socket,
                :error,
-               "That file isn't a supported image. Only PNG, JPEG, GIF or WebP are accepted " <>
-                 "(SVG is not supported) - the file's actual content is checked, not just its name."
+               gettext(
+                 "That file isn't a supported image. Only PNG, JPEG, GIF or WebP are accepted (SVG is not supported) - the file's actual content is checked, not just its name."
+               )
              )}
 
           {:error, changeset} ->
@@ -384,7 +393,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         end
 
       [] ->
-        {:noreply, put_flash(socket, :error, "Choose an image file first")}
+        {:noreply, put_flash(socket, :error, gettext("Choose an image file first"))}
     end
   end
 
@@ -407,12 +416,20 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   # - rendering only the config's errors left the picked file looking accepted
   # while `consume_uploaded_entries` skipped it, so the logo silently never
   # arrived.
-  defp upload_error_label(:too_large), do: "Image is larger than 2 MB"
-  defp upload_error_label(:too_many_files), do: "One image at a time"
-  defp upload_error_label(:not_accepted), do: "Only PNG, JPEG, GIF and WebP images are accepted"
-  defp upload_error_label(other), do: inspect(other)
+  defp upload_error_label(:too_large), do: gettext("Image is larger than 2 MB")
+  defp upload_error_label(:too_many_files), do: gettext("One image at a time")
 
-  defp general_fields, do: @general_fields
+  defp upload_error_label(:not_accepted),
+    do: gettext("Only PNG, JPEG, GIF and WebP images are accepted")
+
+  defp upload_error_label(_other), do: gettext("That file could not be uploaded.")
+
+  defp general_fields,
+    do:
+      for(
+        {field, label, type, required} <- @general_fields,
+        do: {field, Gettext.gettext(PairingsEngineWeb.Gettext, label), type, required}
+      )
 
   # The advanced half of this page. The logo is advanced only while unused -
   # a tournament that has one shows the card whatever the switch says - so it
@@ -433,7 +450,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   # when it has something to show. The tie-break options and the logo card are advanced in every state.
   defp has_advanced?(_assigns), do: true
 
-  defp tb_presets, do: @tb_presets
+  defp tb_presets,
+    do:
+      for(
+        {key, label, methods} <- @tb_presets,
+        do: {key, Gettext.gettext(PairingsEngineWeb.Gettext, label), methods}
+      )
 
   defp tb_preset_match(tiebreaks) do
     Enum.find_value(@tb_presets, "personel", fn {key, _label, methods} ->
@@ -967,7 +989,9 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                       {if c.role == "arbiter", do: gettext("Arbiter"), else: gettext("Editor")}
                     </span>
                     <span class={["badge", c.status != "accepted" && "muted"]}>
-                      {if c.status == "accepted", do: "active", else: "invited (waiting for accept)"}
+                      {if c.status == "accepted",
+                        do: gettext("active"),
+                        else: gettext("invited (waiting for accept)")}
                     </span>
                   </td>
 
@@ -976,6 +1000,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                       class="pe-btn danger-link"
                       phx-click="remove_collaborator"
                       phx-value-id={c.id}
+                      data-confirm={
+                        gettext("Remove %{email}? They lose access to this tournament.",
+                          email: c.email
+                        )
+                      }
                     >
                       {gettext("Remove")}
                     </button>

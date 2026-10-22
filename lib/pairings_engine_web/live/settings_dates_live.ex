@@ -21,7 +21,9 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
   alias PairingsEngine.Tournaments
   alias PairingsEngine.Tournaments.Tournament
 
-  @weekday_names {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"}
+  @weekday_names {gettext_noop("Monday"), gettext_noop("Tuesday"), gettext_noop("Wednesday"),
+                  gettext_noop("Thursday"), gettext_noop("Friday"), gettext_noop("Saturday"),
+                  gettext_noop("Sunday")}
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -36,7 +38,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
      |> attach_dirty_tracker()
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Settings",
+       page_title: "#{tournament.name} · " <> gettext("Settings"),
        round_dates: pad_dates(tournament.round_dates, tournament.rounds_count),
        note: nil,
        error: nil,
@@ -58,7 +60,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -84,7 +86,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       |> List.wrap()
       |> pad_dates(socket.assigns.tournament.rounds_count)
 
-    {:noreply, assign(socket, round_dates: dates)}
+    {:noreply, assign(socket, round_dates: dates, note: nil)}
   end
 
   def handle_event("rd_calc", _params, socket) do
@@ -99,10 +101,13 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
     else
       {:error, _} ->
         {:noreply,
-         assign(socket, error: "Round 1's date must be a valid date before calculating the rest.")}
+         assign(socket,
+           error: gettext("Round 1's date must be a valid date before calculating the rest.")
+         )}
 
       _ ->
-        {:noreply, assign(socket, error: "Set round 1's date first, then calculate the rest.")}
+        {:noreply,
+         assign(socket, error: gettext("Set round 1's date first, then calculate the rest."))}
     end
   end
 
@@ -125,10 +130,13 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
     else
       {:error, _} ->
         {:noreply,
-         assign(socket, error: "Round 1's date must be a valid date before filling the rest.")}
+         assign(socket,
+           error: gettext("Round 1's date must be a valid date before filling the rest.")
+         )}
 
       _ ->
-        {:noreply, assign(socket, error: "Set round 1's date first, then fill in the rest.")}
+        {:noreply,
+         assign(socket, error: gettext("Set round 1's date first, then fill in the rest."))}
     end
   end
 
@@ -149,7 +157,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
          assign(socket,
            tournament: tournament,
            round_dates: pad_dates(tournament.round_dates, tournament.rounds_count),
-           note: "Saved.",
+           note: gettext("Saved."),
            error: nil,
            dirty: false,
            stale: false
@@ -177,7 +185,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
     dates = round_dates |> Enum.reject(&(&1 in [nil, ""])) |> Enum.sort()
 
     case dates do
-      [] -> "No dates set yet"
+      [] -> gettext("No dates set yet")
       [only] -> only
       dates -> "#{List.first(dates)} → #{List.last(dates)}"
     end
@@ -187,8 +195,14 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
   defp weekday_label(date) do
     case Date.from_iso8601(date) do
-      {:ok, parsed} -> elem(@weekday_names, Date.day_of_week(parsed) - 1)
-      {:error, _} -> nil
+      {:ok, parsed} ->
+        Gettext.gettext(
+          PairingsEngineWeb.Gettext,
+          elem(@weekday_names, Date.day_of_week(parsed) - 1)
+        )
+
+      {:error, _} ->
+        nil
     end
   end
 
@@ -244,7 +258,15 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
               <button type="button" class="pe-btn" phx-click="rd_calc">
                 {gettext("Calculate weekly from round 1")}
               </button>
-              <button type="button" class="pe-btn" phx-click="rd_clear">{gettext("Clear all")}</button>
+              <button
+                type="button"
+                id="rd-clear"
+                class="pe-btn"
+                phx-click="rd_clear"
+                data-confirm={gettext("Clear every round date?")}
+              >
+                {gettext("Clear all")}
+              </button>
             </div>
           </div>
 

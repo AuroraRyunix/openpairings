@@ -92,7 +92,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
     {:ok,
      socket
      |> assign(
-       page_title: "Arbiter tools - Norms",
+       page_title: gettext("Arbiter tools - Norms"),
        token: token,
        files: [],
        master_index: 0,
@@ -650,10 +650,10 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
 
   defp rounds_label(%{rounds_count: n}), do: n
 
-  defp upload_error_label(:too_large), do: "File is larger than 5 MB"
-  defp upload_error_label(:too_many_files), do: "Too many files - 10 at a time, max"
-  defp upload_error_label(:not_accepted), do: "That file type isn't accepted"
-  defp upload_error_label(other), do: inspect(other)
+  defp upload_error_label(:too_large), do: gettext("File is larger than 5 MB")
+  defp upload_error_label(:too_many_files), do: gettext("Too many files - 10 at a time, max")
+  defp upload_error_label(:not_accepted), do: gettext("That file type isn't accepted")
+  defp upload_error_label(_other), do: gettext("That file could not be uploaded.")
 
   # The overlay stores the chief arbiter's name under a different key from the
   # deputies', so roles ("chief_arbiter" / "deputyN") map to a name key here
@@ -1153,7 +1153,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           <div :for={n <- deputy_range()} class="form-grid">
             <.arbiter_combo
               role={"deputy#{n}"}
-              label={"Deputy #{n}"}
+              label={gettext("Deputy %{n}", n: n)}
               name_field={"overlay[deputy#{n}_name]"}
               name_value={Map.get(@overlay, "deputy#{n}_name", "")}
               id_field={"overlay[deputy#{n}_fide_id]"}
@@ -1178,7 +1178,7 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
           >
             <.arbiter_combo
               role={"arbiter#{n}"}
-              label={"Arbiter #{n}"}
+              label={gettext("Arbiter %{n}", n: n)}
               name_field={"overlay[arbiter#{n}_name]"}
               name_value={Map.get(@overlay, "arbiter#{n}_name", "")}
               id_field={"overlay[arbiter#{n}_fide_id]"}
@@ -1225,7 +1225,12 @@ defmodule PairingsEngineWeb.ToolsNormsLive do
               label={gettext("First name")}
               values={@candidate}
             />
-            <.overlay_input prefix="candidate" field="fide_id" label="FIDE ID" values={@candidate} />
+            <.overlay_input
+              prefix="candidate"
+              field="fide_id"
+              label={gettext("FIDE ID")}
+              values={@candidate}
+            />
             <.overlay_input
               prefix="candidate"
               field="federation"

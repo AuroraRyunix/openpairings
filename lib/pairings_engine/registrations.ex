@@ -68,6 +68,7 @@ defmodule PairingsEngine.Registrations do
   """
 
   import Ecto.Query
+  use Gettext, backend: PairingsEngineWeb.Gettext
 
   alias PairingsEngine.{Publishing, Repo, Tournaments}
   alias PairingsEngine.Publishing.Failure
@@ -248,7 +249,7 @@ defmodule PairingsEngine.Registrations do
     case reload(registration) do
       %Registration{status: "pending"} = fresh -> do_accept(fresh, opts)
       %Registration{status: status} -> {:error, already_decided(status)}
-      nil -> {:error, "that entry is no longer here"}
+      nil -> {:error, gettext("that entry is no longer here")}
     end
   end
 
@@ -260,7 +261,7 @@ defmodule PairingsEngine.Registrations do
       {:ok, player}
     else
       {:error, :duplicate_fide_id} ->
-        {:error, "somebody with that FIDE ID is already in this tournament"}
+        {:error, gettext("somebody with that FIDE ID is already in this tournament")}
 
       # `create_player/2` refuses through the same gate `ensure_available/1`
       # checked a moment ago, so this is only reached by losing a race with a
@@ -290,7 +291,7 @@ defmodule PairingsEngine.Registrations do
     case reload(registration) do
       %Registration{status: "pending"} = fresh -> decide(fresh, "discarded")
       %Registration{status: status} -> {:error, already_decided(status)}
-      nil -> {:error, "that entry is no longer here"}
+      nil -> {:error, gettext("that entry is no longer here")}
     end
   end
 
@@ -309,13 +310,13 @@ defmodule PairingsEngine.Registrations do
         decide(fresh, "pending")
 
       %Registration{status: "accepted"} ->
-        {:error, "this entry is already a player - delete the player instead"}
+        {:error, gettext("this entry is already a player - delete the player instead")}
 
       %Registration{} ->
-        {:error, "this entry is not discarded"}
+        {:error, gettext("this entry is not discarded")}
 
       nil ->
-        {:error, "that entry is no longer here"}
+        {:error, gettext("that entry is no longer here")}
     end
   end
 
@@ -389,7 +390,7 @@ defmodule PairingsEngine.Registrations do
   defp lost_the_race(id) do
     case Repo.get(Registration, id) do
       %Registration{status: status} -> already_decided(status)
-      nil -> "that entry is no longer here"
+      nil -> gettext("that entry is no longer here")
     end
   end
 
@@ -416,7 +417,11 @@ defmodule PairingsEngine.Registrations do
     end
   end
 
-  defp already_decided(status), do: "this entry has already been #{status}"
+  defp already_decided("accepted"), do: gettext("this entry has already been accepted")
+  defp already_decided("discarded"), do: gettext("this entry has already been discarded")
+
+  defp already_decided(status),
+    do: gettext("this entry has already been %{status}", status: status)
 
   ## ---------- gates ----------
 
@@ -435,20 +440,21 @@ defmodule PairingsEngine.Registrations do
   defp ensure_available(%Tournament{} = tournament) do
     cond do
       not Publishing.configured?() ->
-        {:error, "no OpenResults server is configured"}
+        {:error, gettext("no OpenResults server is configured")}
 
       # Public mode with no usable installation key: a pull would go out with
       # no credential - before registration, a request the arbiter never
       # agreed to; after a revocation, one the server already refused.
       not Publishing.can_send?() ->
-        {:error, "this computer has no working key for the results site yet - see Connections"}
+        {:error,
+         gettext("this computer has no working key for the results site yet - see Connections")}
 
       # Public mode, and no copy has reached the results site yet: the slug
       # is a placeholder, a slug minted on another server, or one minted and
       # never published - so the entry form was never reachable, there is
       # nothing to collect, and asking would at best be answered `not_owner`.
       Publishing.public_mode?() and not Publishing.on_site?(tournament) ->
-        {:error, "nothing of this tournament has reached the results site yet"}
+        {:error, gettext("nothing of this tournament has reached the results site yet")}
 
       # Deliberately NOT `publish_to_openresults`. That switch says whether
       # more will be SENT; this asks whether there is a queue to collect.
@@ -464,7 +470,7 @@ defmodule PairingsEngine.Registrations do
       # marked to publish but has not sent anything yet: it has no key, and
       # `key_headers/1` omits the header for exactly that case.
       not (tournament.publish_to_openresults or is_binary(tournament.openresults_key)) ->
-        {:error, "this tournament has nothing to do with the results site"}
+        {:error, gettext("this tournament has nothing to do with the results site")}
 
       refusal = write_refusal(tournament) ->
         refusal
@@ -476,7 +482,7 @@ defmodule PairingsEngine.Registrations do
 
   # A tournament deleted between the page rendering and the click. Nothing
   # to add a player to, so this is an error rather than a crash.
-  defp ensure_available(nil), do: {:error, "this tournament no longer exists"}
+  defp ensure_available(nil), do: {:error, gettext("this tournament no longer exists")}
 
   # `ensure_writable/1`'s answer as something a `cond` can bind, or `nil`
   # when the write may go ahead - the shape `Tournaments.write_refused/1`
@@ -500,10 +506,14 @@ defmodule PairingsEngine.Registrations do
   # one is word-for-word `Publishing`'s, on the same principle the gates
   # above already follow: an arbiter who has just read a refusal on the
   # settings page should not meet a second wording for the same fact here.
-  defp unwritable_message(:archived), do: "this tournament is archived - unarchive it first"
+  defp unwritable_message(:archived),
+    do: gettext("this tournament is archived - unarchive it first")
 
   defp unwritable_message(:handed_off),
-    do: "this tournament has been handed off to another copy of the app - take it back first"
+    do:
+      gettext(
+        "this tournament has been handed off to another copy of the app - take it back first"
+      )
 
   ## ---------- the pull ----------
 
@@ -638,7 +648,7 @@ defmodule PairingsEngine.Registrations do
   defp parse(entries) when is_list(entries), do: {:ok, entries}
 
   defp parse(_something_else),
-    do: {:error, "the server's reply was not a list of entries"}
+    do: {:error, gettext("the server's reply was not a list of entries")}
 
   defp store(%Tournament{} = tournament, entries) do
     pulled_at = DateTime.utc_now()
@@ -810,7 +820,9 @@ defmodule PairingsEngine.Registrations do
   # on a screen that has no form for it.
   defp changeset_message(changeset) do
     changeset
-    |> Ecto.Changeset.traverse_errors(fn {message, _opts} -> message end)
-    |> Enum.map_join("; ", fn {field, messages} -> "#{field} #{Enum.join(messages, ", ")}" end)
+    |> Ecto.Changeset.traverse_errors(&PairingsEngineWeb.CoreComponents.translate_error/1)
+    |> Enum.map_join("; ", fn {field, messages} ->
+      "#{PairingsEngineWeb.SettingsSupport.changeset_field_label(field)} #{Enum.join(messages, ", ")}"
+    end)
   end
 end

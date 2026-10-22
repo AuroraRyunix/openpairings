@@ -327,4 +327,16 @@ defmodule PairingsEngineWeb.NormsLiveTest do
       assert html =~ "Select at least one tournament above to enable the combined downloads."
     end
   end
+
+  describe "UX gaps" do
+    test "editing the norm of a player who is gone says so", %{conn: conn, scope: scope} do
+      {:ok, tournament} =
+        Tournaments.create_tournament(scope, %{"name" => "Norm gap", "type" => "swiss"})
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/norms")
+
+      html = render_click(lv, "edit_norm", %{"id" => "999999"})
+      assert html =~ "That player is no longer in this tournament."
+    end
+  end
 end

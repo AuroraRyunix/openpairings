@@ -46,7 +46,7 @@ defmodule PairingsEngineWeb.RegistrationsLive do
      socket
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Entries",
+       page_title: "#{tournament.name} · " <> gettext("Entries"),
        configured?: Publishing.configured?(),
        last_pull: nil,
        error: nil,
@@ -64,7 +64,7 @@ defmodule PairingsEngineWeb.RegistrationsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -109,12 +109,18 @@ defmodule PairingsEngineWeb.RegistrationsLive do
         {:ok, restored} ->
           {:noreply,
            socket
-           |> assign(error: nil, note: "#{Registration.name(restored)} is waiting again.")
+           |> assign(
+             error: nil,
+             note: gettext("%{name} is waiting again.", name: Registration.name(restored))
+           )
            |> load_entries()}
 
         {:error, message} ->
           {:noreply,
-           assign(socket, error: "Could not restore this entry: #{message}.", note: nil)}
+           assign(socket,
+             error: gettext("Could not restore this entry: %{reason}.", reason: message),
+             note: nil
+           )}
       end
     end)
   end
@@ -125,7 +131,7 @@ defmodule PairingsEngineWeb.RegistrationsLive do
   defp with_entry(socket, id, fun) do
     case Registrations.get(socket.assigns.tournament.id, id) do
       nil ->
-        {:noreply, assign(socket, error: "That entry is no longer here.", note: nil)}
+        {:noreply, assign(socket, error: gettext("That entry is no longer here."), note: nil)}
 
       registration ->
         fun.(registration)
@@ -138,10 +144,18 @@ defmodule PairingsEngineWeb.RegistrationsLive do
     |> assign(decided: Registrations.decided(socket.assigns.tournament.id))
   end
 
-  defp pull_note(0, 0), do: "Nothing has been submitted for this tournament yet."
-  defp pull_note(0, total), do: "Nothing new. All #{total} entries have already been dealt with."
-  defp pull_note(1, _total), do: "1 new entry."
-  defp pull_note(new, _total), do: "#{new} new entries."
+  defp pull_note(0, 0), do: gettext("Nothing has been submitted for this tournament yet.")
+
+  defp pull_note(0, total),
+    do:
+      ngettext(
+        "Nothing new. The 1 entry has already been dealt with.",
+        "Nothing new. All %{count} entries have already been dealt with.",
+        total
+      )
+
+  defp pull_note(new, _total),
+    do: ngettext("1 new entry.", "%{count} new entries.", new)
 
   defp received_label(at), do: RegistrationQueue.received_label(at)
 

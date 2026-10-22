@@ -46,7 +46,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
      |> attach_advanced()
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Settings · Export",
+       page_title: "#{tournament.name} · " <> gettext("Settings") <> " · " <> gettext("Export"),
        bel_swar_export?: Features.enabled?(socket.assigns.current_scope, "bel_swar_export"),
        bel_swar_publish?: Features.enabled?(socket.assigns.current_scope, "bel_swar_publish"),
        # Publishing to the federation's own public results site is gated on
@@ -564,7 +564,7 @@ defmodule PairingsEngineWeb.SettingsExportLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -728,6 +728,9 @@ defmodule PairingsEngineWeb.SettingsExportLive do
            :error,
            gettext("Not changed: this game was already sent in a postponed-games file.")
          )}
+
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply, put_flash(socket, :error, error_text(changeset))}
 
       {:error, reason} when is_atom(reason) ->
         {:noreply, put_flash(socket, :error, error_text(reason))}
@@ -1099,6 +1102,13 @@ defmodule PairingsEngineWeb.SettingsExportLive do
                   style="margin-left: 8px"
                   phx-click="report_not_played"
                   phx-value-id={game.pairing.id}
+                  data-confirm={
+                    gettext(
+                      "Report round %{round}, board %{board} as not played in this event? This cannot be undone.",
+                      round: game.round,
+                      board: game.pairing.display_board || game.pairing.board
+                    )
+                  }
                 >
                   {gettext("Not played in this event")}
                 </button>

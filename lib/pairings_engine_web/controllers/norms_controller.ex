@@ -31,6 +31,8 @@ defmodule PairingsEngineWeb.NormsController do
 
   use PairingsEngineWeb, :controller
 
+  require Logger
+
   alias PairingsEngine.{Standings, Tournaments}
   alias PairingsEngine.Norms.{Combine, Forms, XlsxFill}
 
@@ -134,12 +136,16 @@ defmodule PairingsEngineWeb.NormsController do
         |> send_resp(200, binary)
 
       {:error, reason} ->
+        Logger.error("Could not generate #{kind}: #{inspect(reason)}")
+
         conn
-        |> put_resp_content_type("text/plain")
-        |> send_resp(
-          500,
-          "Could not generate #{kind |> Atom.to_string() |> String.upcase()}: #{inspect(reason)}"
+        |> put_flash(
+          :error,
+          gettext("Could not generate the %{form} form. Nothing was downloaded.",
+            form: kind |> Atom.to_string() |> String.upcase()
+          )
         )
+        |> redirect(to: ~p"/t/#{tournament.id}/norms")
     end
   end
 end

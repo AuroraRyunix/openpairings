@@ -37,7 +37,8 @@ defmodule PairingsEngineWeb.TeamsLive do
        tournament: tournament,
        page_title: gettext("%{name} · Teams", name: tournament.name),
        note: nil,
-       error: nil
+       error: nil,
+       form_nonce: 0
      )
      |> load()}
   end
@@ -131,7 +132,11 @@ defmodule PairingsEngineWeb.TeamsLive do
           team_name: team.name
         })
 
-        {:noreply, socket |> ok(gettext("Team %{name} added.", name: team.name)) |> load()}
+        {:noreply,
+         socket
+         |> ok(gettext("Team %{name} added.", name: team.name))
+         |> assign(form_nonce: socket.assigns.form_nonce + 1)
+         |> load()}
 
       {:error, reason} ->
         {:noreply, fail(socket, reason)}
@@ -154,7 +159,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
       {:noreply, socket |> ok(gettext("Team %{name} saved.", name: updated.name)) |> load()}
     else
-      nil -> {:noreply, socket}
+      nil -> {:noreply, fail(socket, :not_found)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
@@ -168,7 +173,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
       {:noreply, socket |> ok(gettext("Team %{name} deleted.", name: team.name)) |> load()}
     else
-      nil -> {:noreply, socket}
+      nil -> {:noreply, fail(socket, :not_found)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
@@ -186,7 +191,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
       {:noreply, socket |> ok(moved_team_note(team, dir)) |> load()}
     else
-      nil -> {:noreply, socket}
+      nil -> {:noreply, fail(socket, :not_found)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
@@ -215,7 +220,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
       {:noreply, socket |> ok(note) |> load()}
     else
-      nil -> {:noreply, socket}
+      nil -> {:noreply, fail(socket, :not_found)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
       _ -> {:noreply, fail(socket, :bad_round)}
     end
@@ -226,7 +231,7 @@ defmodule PairingsEngineWeb.TeamsLive do
       socket.assigns.tournament,
       "team.seeding_changed",
       socket.assigns.current_scope,
-      summary: "Before ordering the teams by rating"
+      summary: gettext("Before ordering the teams by rating")
     )
 
     case Tournaments.seed_teams_by_rating(socket.assigns.tournament) do
@@ -261,7 +266,7 @@ defmodule PairingsEngineWeb.TeamsLive do
        |> ok(gettext("%{player} added to %{team}.", player: player.name, team: team.name))
        |> load()}
     else
-      nil -> {:noreply, socket}
+      nil -> {:noreply, fail(socket, :not_found)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
@@ -336,7 +341,7 @@ defmodule PairingsEngineWeb.TeamsLive do
 
       {:noreply, socket |> ok(moved_player_note(player, dir)) |> load()}
     else
-      nil -> {:noreply, socket}
+      nil -> {:noreply, fail(socket, :not_found)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
@@ -380,7 +385,7 @@ defmodule PairingsEngineWeb.TeamsLive do
     with %Team{} = team <- team(socket, id),
          {from, ""} <- Integer.parse(to_string(from)) do
       PairingsEngine.Snapshots.capture(t, "team.withdrawn", socket.assigns.current_scope,
-        summary: "Before withdrawing #{team.name}"
+        summary: gettext("Before withdrawing %{team}", team: team.name)
       )
 
       case Tournaments.withdraw_team(t, team, from) do
@@ -415,7 +420,7 @@ defmodule PairingsEngineWeb.TeamsLive do
       {:noreply,
        socket |> ok(gettext("%{team} is back in the event.", team: team.name)) |> load()}
     else
-      nil -> {:noreply, socket}
+      nil -> {:noreply, fail(socket, :not_found)}
       {:error, reason} -> {:noreply, fail(socket, reason)}
     end
   end
@@ -428,9 +433,12 @@ defmodule PairingsEngineWeb.TeamsLive do
   defp direction("up"), do: :up
   defp direction("down"), do: :down
 
-  defp ok(socket, note), do: assign(socket, note: note, error: nil)
+  # Floating flashes rather than a line at the top of the page: the buttons
+  # that answer here are far down a long list of teams.
+  defp ok(socket, note), do: socket |> put_flash(:info, note) |> assign(note: nil, error: nil)
 
-  defp fail(socket, reason), do: assign(socket, error: refusal(reason), note: nil)
+  defp fail(socket, reason),
+    do: socket |> put_flash(:error, refusal(reason)) |> assign(note: nil, error: nil)
 
   defp refusal(:team_scheduled),
     do:
@@ -631,17 +639,33 @@ defmodule PairingsEngineWeb.TeamsLive do
           <form id="create-team-form" phx-submit="create_team" class="form-grid">
             <label class="field">
               <span>{gettext("Team name")}</span>
-              <input type="text" name="team[name]" required maxlength="100" />
+              <input
+                type="text"
+                id={"create-team-name-#{@form_nonce}"}
+                name="team[name]"
+                required
+                maxlength="100"
+              />
             </label>
 
             <label class="field">
               <span>{gettext("Short name")}</span>
-              <input type="text" name="team[short_name]" maxlength="12" />
+              <input
+                type="text"
+                id={"create-team-short-#{@form_nonce}"}
+                name="team[short_name]"
+                maxlength="12"
+              />
             </label>
 
             <label class="field">
               <span>{gettext("Captain")}</span>
-              <input type="text" name="team[captain]" maxlength="100" />
+              <input
+                type="text"
+                id={"create-team-captain-#{@form_nonce}"}
+                name="team[captain]"
+                maxlength="100"
+              />
             </label>
 
             <div class="actions">
@@ -932,82 +956,84 @@ defmodule PairingsEngineWeb.TeamsLive do
           <% roster = Map.get(@rosters, team.id, []) %>
           <p :if={roster == []} class="hint">{gettext("No players on this team yet.")}</p>
 
-          <table :if={roster != []} class="pe-table">
-            <caption class="sr-only">{gettext("Board order of %{team}", team: team.name)}</caption>
+          <div :if={roster != []} class="card-table-wrap">
+            <table class="pe-table">
+              <caption class="sr-only">{gettext("Board order of %{team}", team: team.name)}</caption>
 
-            <thead>
-              <tr>
-                <th scope="col" class="num">{gettext("Board")}</th>
+              <thead>
+                <tr>
+                  <th scope="col" class="num">{gettext("Board")}</th>
 
-                <th scope="col">{gettext("Name")}</th>
+                  <th scope="col">{gettext("Name")}</th>
 
-                <th scope="col" class="num">Elo</th>
+                  <th scope="col" class="num">{gettext("Elo")}</th>
 
-                <th :if={@writable?} scope="col">
-                  <span class="sr-only">{gettext("Actions")}</span>
-                </th>
-              </tr>
-            </thead>
+                  <th :if={@writable?} scope="col">
+                    <span class="sr-only">{gettext("Actions")}</span>
+                  </th>
+                </tr>
+              </thead>
 
-            <tbody>
-              <tr :for={{player, board} <- Enum.with_index(roster, 1)}>
-                <td class="num">{board}</td>
+              <tbody>
+                <tr :for={{player, board} <- Enum.with_index(roster, 1)}>
+                  <td class="num">{board}</td>
 
-                <td>
-                  <strong>{player.name}</strong>
-                  <span :if={board > @tournament.team_boards} class="hint">
-                    {gettext("reserve")}
-                  </span>
-                </td>
+                  <td>
+                    <strong>{player.name}</strong>
+                    <span :if={board > @tournament.team_boards} class="hint">
+                      {gettext("reserve")}
+                    </span>
+                  </td>
 
-                <td class="num">{rating(player)}</td>
+                  <td class="num">{rating(player)}</td>
 
-                <td :if={@writable?} style="text-align: right; white-space: nowrap">
-                  <button
-                    :if={!@roster_locked?}
-                    type="button"
-                    class="pe-btn"
-                    phx-click="move_player"
-                    phx-value-player_id={player.id}
-                    phx-value-direction="up"
-                    data-confirm={@roster_warning? && roster_confirm()}
-                    disabled={board == 1}
-                    aria-label={gettext("Move %{player} to a higher board", player: player.name)}
-                  >
-                    ↑
-                  </button>
+                  <td :if={@writable?} style="text-align: right; white-space: nowrap">
+                    <button
+                      :if={!@roster_locked?}
+                      type="button"
+                      class="pe-btn"
+                      phx-click="move_player"
+                      phx-value-player_id={player.id}
+                      phx-value-direction="up"
+                      data-confirm={@roster_warning? && roster_confirm()}
+                      disabled={board == 1}
+                      aria-label={gettext("Move %{player} to a higher board", player: player.name)}
+                    >
+                      ↑
+                    </button>
 
-                  <button
-                    :if={!@roster_locked?}
-                    type="button"
-                    class="pe-btn"
-                    phx-click="move_player"
-                    phx-value-player_id={player.id}
-                    phx-value-direction="down"
-                    data-confirm={@roster_warning? && roster_confirm()}
-                    disabled={board == length(roster)}
-                    aria-label={gettext("Move %{player} to a lower board", player: player.name)}
-                  >
-                    ↓
-                  </button>
+                    <button
+                      :if={!@roster_locked?}
+                      type="button"
+                      class="pe-btn"
+                      phx-click="move_player"
+                      phx-value-player_id={player.id}
+                      phx-value-direction="down"
+                      data-confirm={@roster_warning? && roster_confirm()}
+                      disabled={board == length(roster)}
+                      aria-label={gettext("Move %{player} to a lower board", player: player.name)}
+                    >
+                      ↓
+                    </button>
 
-                  <button
-                    :if={!@roster_locked? or !MapSet.member?(@seated, player.id)}
-                    type="button"
-                    class="pe-btn"
-                    phx-click="remove_player"
-                    phx-value-player_id={player.id}
-                    data-confirm={@roster_warning? && roster_confirm()}
-                    aria-label={
-                      gettext("Take %{player} off %{team}", player: player.name, team: team.name)
-                    }
-                  >
-                    {gettext("Remove")}
-                  </button>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+                    <button
+                      :if={!@roster_locked? or !MapSet.member?(@seated, player.id)}
+                      type="button"
+                      class="pe-btn"
+                      phx-click="remove_player"
+                      phx-value-player_id={player.id}
+                      data-confirm={@roster_warning? && roster_confirm()}
+                      aria-label={
+                        gettext("Take %{player} off %{team}", player: player.name, team: team.name)
+                      }
+                    >
+                      {gettext("Remove")}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <form
             :if={@writable? and @unassigned != []}
