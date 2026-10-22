@@ -46,8 +46,8 @@ defmodule PairingsEngineWeb.NormsLive do
   # `PairingsEngineWeb.SettingsNormsLive`); read here for the report
   # blockers and the FA1 candidate picker.
   @deputy_fields [
-    {1, "1st deputy arbiter"},
-    {2, "2nd deputy arbiter"}
+    {1, gettext_noop("1st deputy arbiter")},
+    {2, gettext_noop("2nd deputy arbiter")}
   ]
 
   @impl true
@@ -62,7 +62,7 @@ defmodule PairingsEngineWeb.NormsLive do
      socket
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Norms",
+       page_title: "#{tournament.name} · " <> gettext("Norms"),
        editing_norm_player: nil,
        norm_form: %{},
        norm_error: nil,
@@ -100,7 +100,7 @@ defmodule PairingsEngineWeb.NormsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -127,10 +127,21 @@ defmodule PairingsEngineWeb.NormsLive do
 
   @impl true
   def handle_event("edit_norm", %{"id" => id}, socket) do
-    player = Tournaments.get_player!(socket.assigns.tournament.id, id)
+    case Tournaments.get_player(socket.assigns.tournament.id, id) do
+      nil ->
+        {:noreply,
+         socket
+         |> put_flash(:error, gettext("That player is no longer in this tournament."))
+         |> assign_players()}
 
-    {:noreply,
-     assign(socket, editing_norm_player: player, norm_form: norm_form(player), norm_error: nil)}
+      player ->
+        {:noreply,
+         assign(socket,
+           editing_norm_player: player,
+           norm_form: norm_form(player),
+           norm_error: nil
+         )}
+    end
   end
 
   def handle_event("close_norm", _params, socket) do
@@ -360,13 +371,13 @@ defmodule PairingsEngineWeb.NormsLive do
       if Tournaments.Tournament.fide_id_present?(tournament) do
         []
       else
-        ["FIDE tournament ID (set it on Settings → FIDE)"]
+        [gettext("FIDE tournament ID (set it on Settings → FIDE)")]
       end
 
     chief =
       cond do
-        blank?(tournament.chief_arbiter) -> ["Chief arbiter name"]
-        blank?(o_get(tournament, "chief_arbiter_fide_id")) -> ["Chief arbiter FIDE ID"]
+        blank?(tournament.chief_arbiter) -> [gettext("Chief arbiter name")]
+        blank?(o_get(tournament, "chief_arbiter_fide_id")) -> [gettext("Chief arbiter FIDE ID")]
         true -> []
       end
 
@@ -374,18 +385,18 @@ defmodule PairingsEngineWeb.NormsLive do
       for {n, label} <- @deputy_fields,
           not blank?(o_get(tournament, "deputy#{n}_name")),
           blank?(o_get(tournament, "deputy#{n}_fide_id")),
-          do: "#{label} FIDE ID"
+          do: gettext("%{role} FIDE ID", role: Gettext.gettext(PairingsEngineWeb.Gettext, label))
 
     extras =
       for n <- extra_arbiter_range(o_get(tournament, "extra_arbiters_count")),
           not blank?(o_get(tournament, "arbiter#{n}_name")),
           blank?(o_get(tournament, "arbiter#{n}_fide_id")),
-          do: "Arbiter #{n} FIDE ID"
+          do: gettext("Arbiter %{n} FIDE ID", n: n)
 
     emails =
       [
-        blank?(o_get(tournament, "chief_arbiter_email")) && "Chief arbiter e-mail",
-        blank?(o_get(tournament, "organizer_email")) && "Organizer e-mail"
+        blank?(o_get(tournament, "chief_arbiter_email")) && gettext("Chief arbiter e-mail"),
+        blank?(o_get(tournament, "organizer_email")) && gettext("Organizer e-mail")
       ]
       |> Enum.filter(& &1)
 
@@ -862,41 +873,43 @@ defmodule PairingsEngineWeb.NormsLive do
           </.rich_text>
         </p>
 
-        <table class="pe-table">
-          <thead>
-            <tr>
-              <th>{gettext("Name")}</th>
+        <div class="card-table-wrap">
+          <table class="pe-table">
+            <thead>
+              <tr>
+                <th>{gettext("Name")}</th>
 
-              <th>{gettext("Federation")}</th>
+                <th>{gettext("Federation")}</th>
 
-              <th>{gettext("Computed (B.01)")}</th>
+                <th>{gettext("Computed (B.01)")}</th>
 
-              <th>{gettext("Claimed title")}</th>
+                <th>{gettext("Claimed title")}</th>
 
-              <th><span class="sr-only">{gettext("Actions")}</span></th>
-            </tr>
-          </thead>
+                <th><span class="sr-only">{gettext("Actions")}</span></th>
+              </tr>
+            </thead>
 
-          <tbody>
-            <tr :for={p <- @players_by_relevance}>
-              <td>{p.name}</td>
+            <tbody>
+              <tr :for={p <- @players_by_relevance}>
+                <td>{p.name}</td>
 
-              <td>{p.federation}</td>
+                <td>{p.federation}</td>
 
-              <td title={norm_judgment_details(@norm_judgments[p.id])}>
-                {norm_judgment_label(@norm_judgments[p.id])}
-              </td>
+                <td title={norm_judgment_details(@norm_judgments[p.id])}>
+                  {norm_judgment_label(@norm_judgments[p.id])}
+                </td>
 
-              <td>{if claimed_title(p) == "", do: "-", else: claimed_title(p)}</td>
+                <td>{if claimed_title(p) == "", do: "-", else: claimed_title(p)}</td>
 
-              <td style="text-align: right">
-                <button class="pe-btn" phx-click="edit_norm" phx-value-id={p.id}>{gettext(
-                  "Edit norm data"
-                )}</button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <td style="text-align: right">
+                  <button class="pe-btn" phx-click="edit_norm" phx-value-id={p.id}>{gettext(
+                    "Edit norm data"
+                  )}</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <.norm_edit_modal

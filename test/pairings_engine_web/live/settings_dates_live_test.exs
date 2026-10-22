@@ -92,4 +92,27 @@ defmodule PairingsEngineWeb.SettingsDatesLiveTest do
     tournament = Tournaments.get_authorized_tournament!(scope, tournament.id)
     assert tournament.start_date == ""
   end
+
+  describe "UX gaps" do
+    test "Clear all asks first", %{conn: conn, scope: scope} do
+      tournament = create_tournament(scope, %{"round_dates" => ["2026-07-13"]})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/dates")
+
+      assert has_element?(lv, "#rd-clear[data-confirm]")
+    end
+
+    test "the Saved note goes away as soon as a date is edited again", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"round_dates" => ["2026-07-13"]})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/dates")
+
+      lv |> form("#round-dates-form") |> render_submit()
+      assert render(lv) =~ "Saved."
+
+      render_change(lv, "rd_update", %{"tournament" => %{"round_dates" => ["2026-07-14"]}})
+      refute render(lv) =~ "Saved."
+    end
+  end
 end

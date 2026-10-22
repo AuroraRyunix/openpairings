@@ -710,6 +710,7 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                     id={"remove-rule-#{rule.id}"}
                     phx-click="remove_rule"
                     phx-value-id={rule.id}
+                    data-confirm={gettext("Remove the rule \"%{rule}\"?", rule: rule_title(rule))}
                   >
                     {gettext("Remove")}
                   </button>
@@ -871,6 +872,11 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                   id={"remove-group-#{g.id}"}
                   phx-click="remove_rule"
                   phx-value-id={g.id}
+                  data-confirm={
+                    gettext("Remove the group %{players}?",
+                      players: Enum.map_join(g.player_ids, ", ", &name_of(@players_by_id, &1))
+                    )
+                  }
                 >
                   {gettext("Remove")}
                 </button>
@@ -907,6 +913,12 @@ defmodule PairingsEngineWeb.SettingsRestrictionsLive do
                   id={"remove-pair-#{fp.id}"}
                   phx-click="remove_pair"
                   phx-value-id={fp.id}
+                  data-confirm={
+                    gettext("Remove the forbidden pairing %{a} - %{b}?",
+                      a: fp.player_a.name,
+                      b: fp.player_b.name
+                    )
+                  }
                 >
                   {gettext("Remove")}
                 </button>

@@ -46,6 +46,7 @@ Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_we
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/pairings_live.ex:2341,F8A94D
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:348,C49B3A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:356,6FE4E90
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:364,1A8F14A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tools_norms_live.ex:296,5A91744
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2570,EA212F
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2605,3098428
@@ -110,11 +111,13 @@ XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6707,149F43E
 XSS.Raw: XSS,lib/pairings_engine_web/live/pairings_live.ex:6777,4F4D46B
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:916,111B9F9
 XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:928,7D98D70
+XSS.Raw: XSS,lib/pairings_engine_web/live/settings_boards_live.ex:929,539CCD1
 XSS.Raw: XSS,lib/pairings_engine_web/live/user_live/settings.ex:1361,7DB8DB5
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/badge_controller.ex:110,673A2CC
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/export_controller.ex:523,4F253E4
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/export_controller.ex:670,1CE83E2
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/norms_controller.ex:134,6E2856A
+XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/norms_controller.ex:136,603CDBC
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:661,72F2E6D
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:770,743AF47
 XSS.SendResp: XSS in `send_resp`,lib/pairings_engine_web/controllers/print_controller.ex:852,49530BD

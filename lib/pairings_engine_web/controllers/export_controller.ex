@@ -91,7 +91,7 @@ defmodule PairingsEngineWeb.ExportController do
 
       {:error, %Ainalrami.Trf.ValidationError{message: message}} ->
         conn
-        |> put_flash(:error, "Could not export TRF: #{message}")
+        |> put_flash(:error, gettext("Could not export TRF: %{reason}", reason: message))
         |> redirect(to: ~p"/t/#{tournament.id}/settings/export")
     end
   end

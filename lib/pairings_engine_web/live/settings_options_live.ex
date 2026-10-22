@@ -33,7 +33,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
      |> attach_fide_gate()
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Settings",
+       page_title: "#{tournament.name} · " <> gettext("Settings"),
        standard: tournament.standard,
        rate_of_play: tournament.rate_of_play,
        note: nil,
@@ -115,7 +115,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -171,7 +171,7 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
     current = socket.assigns.rate_of_play
     new_rate = if current in list, do: current, else: ""
 
-    {:noreply, assign(socket, standard: new_standard, rate_of_play: new_rate)}
+    {:noreply, assign(socket, standard: new_standard, rate_of_play: new_rate, note: nil)}
   end
 
   # The grandfathered "late entrants at the end" notice, answered
@@ -320,12 +320,16 @@ defmodule PairingsEngineWeb.SettingsOptionsLive do
   # looked up or refreshed. Nothing re-fetches it automatically (that would
   # mean a settings save silently rewriting player data) - just flag it so
   # the arbiter knows to re-run the refresh from the Players page.
-  defp save_note(%{standard: same}, %{standard: same}), do: "Saved."
+  defp save_note(%{standard: same}, %{standard: same}), do: gettext("Saved.")
 
   defp save_note(_before, tournament) do
-    "Saved. Tempo changed to #{RateOfPlay.standard_options() |> Map.new() |> Map.get(tournament.standard, tournament.standard)} " <>
-      "- FIDE ratings shown are still whichever cadence was last looked up; " <>
-      "refresh them from the Players page to pick up the new one."
+    gettext(
+      "Saved. Tempo changed to %{tempo} - FIDE ratings shown are still whichever cadence was last looked up; refresh them from the Players page to pick up the new one.",
+      tempo:
+        RateOfPlay.standard_options()
+        |> Map.new()
+        |> Map.get(tournament.standard, tournament.standard)
+    )
   end
 
   defp apply_rate_of_play_override(params) do

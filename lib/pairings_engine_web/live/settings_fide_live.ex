@@ -30,7 +30,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
      |> assign(
        tournament: tournament,
        ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
-       page_title: "#{tournament.name} · Settings",
+       page_title: "#{tournament.name} · " <> gettext("Settings"),
        rows: tournament.fide_id_ranges || [],
        may_load_lists?: Authz.may_administer?(socket.assigns.current_scope.user),
        note: nil,
@@ -64,7 +64,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -249,7 +249,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
            tournament: tournament,
            ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
            rows: tournament.fide_id_ranges || [],
-           note: "Saved.",
+           note: gettext("Saved."),
            error: nil,
            rating_note: nil,
            rating_error: nil,

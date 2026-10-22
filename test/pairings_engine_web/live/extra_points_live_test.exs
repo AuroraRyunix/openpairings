@@ -269,4 +269,45 @@ defmodule PairingsEngineWeb.ExtraPointsLiveTest do
       assert row.details["round"] == 1
     end
   end
+
+  describe "UX gaps" do
+    test "saving says Saved, and typed bands that differ from the saved ones say save first", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+      refute has_element?(lv, "#extra-points-save-first")
+
+      render_change(lv, "change_extra_points", %{
+        "tournament" => %{"extra_points_mode" => "handicap", "extra_points_bands" => "1400:1"}
+      })
+
+      assert has_element?(lv, "#extra-points-save-first")
+
+      lv |> form("#extra-points-form") |> render_submit()
+      assert render(lv) =~ "Saved."
+      refute has_element?(lv, "#extra-points-save-first")
+    end
+
+    test "applying the bands and removing half a point both ask first", %{
+      conn: conn,
+      scope: scope
+    } do
+      tournament = create_tournament(scope, %{"extra_points_mode" => "acceleration"})
+      {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings/extra-points")
+
+      assert has_element?(
+               lv,
+               "#apply-extra-points-bands[data-confirm*='A restore point is kept']"
+             )
+
+      render_change(lv, "reduce_change", %{"reduce" => %{"from" => "1500", "to" => "1900"}})
+
+      assert has_element?(
+               lv,
+               "#reduce-extra-points-button[data-confirm*='rated 1500 to 1900']"
+             )
+    end
+  end
 end

@@ -49,6 +49,10 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
   use Phoenix.Component
   use Gettext, backend: PairingsEngineWeb.Gettext
 
+  use Phoenix.VerifiedRoutes,
+    endpoint: PairingsEngineWeb.Endpoint,
+    router: PairingsEngineWeb.Router
+
   alias PairingsEngine.Fide.FidePlayer
   alias PairingsEngineWeb.Live.ArbiterCombo
 
@@ -104,6 +108,7 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             id={"arbiter-combo-#{@role}-name-results"}
             options={ArbiterCombo.results_for(@search, @role, :name)}
             role={@role}
+            empty={ArbiterCombo.empty_reason(@search, @role, :name)}
           />
         </div>
         <div class="search-wrap arbiter-combo-id">
@@ -122,13 +127,14 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             phx-change="arbiter_search"
             phx-debounce="300"
             autocomplete="off"
-            placeholder="FIDE ID"
+            placeholder={gettext("FIDE ID")}
             aria-label={gettext("%{role}: FIDE ID", role: @label)}
           />
           <.results
             id={"arbiter-combo-#{@role}-id-results"}
             options={ArbiterCombo.results_for(@search, @role, :id)}
             role={@role}
+            empty={ArbiterCombo.empty_reason(@search, @role, :id)}
           />
         </div>
       </div>
@@ -139,9 +145,18 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
   attr :id, :string, required: true
   attr :options, :list, required: true
   attr :role, :string, required: true
+  attr :empty, :atom, default: nil
 
   defp results(assigns) do
     ~H"""
+    <p :if={@options == [] and @empty} id={@id <> "-empty"} class="hint arbiter-combo-empty">
+      <%= if @empty == :no_list do %>
+        {gettext("The FIDE list isn't downloaded yet.")}
+        <.link navigate={~p"/fide"}>{gettext("Connections")}</.link>
+      <% else %>
+        {gettext("No FIDE player matches.")}
+      <% end %>
+    </p>
     <div :if={@options != []} id={@id} class="search-results">
       <button
         :for={fp <- @options}

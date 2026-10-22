@@ -49,7 +49,8 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
      socket
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Settings · Live boards",
+       page_title:
+         "#{tournament.name} · " <> gettext("Settings") <> " · " <> gettext("Live boards"),
        fresh: nil,
        relay_form: to_form(%{"key" => ""}, as: :relay)
      )
@@ -85,7 +86,7 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -979,100 +980,104 @@ defmodule PairingsEngineWeb.SettingsBoardsLive do
         </button>
       </div>
 
-      <table :if={@links != []} class="pe-table board-links" id={"#{@id}-list"}>
-        <thead>
-          <tr>
-            <th scope="col">{gettext("Code")}</th>
+      <div :if={@links != []} class="card-table-wrap">
+        <table class="pe-table board-links" id={"#{@id}-list"}>
+          <thead>
+            <tr>
+              <th scope="col">{gettext("Code")}</th>
 
-            <th scope="col">{gettext("Box")}</th>
+              <th scope="col">{gettext("Box")}</th>
 
-            <th scope="col">{gettext("Last contact")}</th>
+              <th scope="col">{gettext("Last contact")}</th>
 
-            <th scope="col" class="num">{gettext("Boards")}</th>
+              <th scope="col" class="num">{gettext("Boards")}</th>
 
-            <th scope="col" aria-label={gettext("Actions")}></th>
-          </tr>
-        </thead>
+              <th scope="col" aria-label={gettext("Actions")}></th>
+            </tr>
+          </thead>
 
-        <tbody>
-          <tr :for={link <- @links} id={"board-link-#{link.id}"}>
-            <td>
-              <code>…{link.secret_hint}</code>
-              <span class="hint">{Calendar.strftime(link.inserted_at, "%d-%m-%Y %H:%M")} UTC</span>
-              <%= if link.reach == "lan" do %>
-                <span class="badge" id={"board-link-reach-#{link.id}"}>{gettext("Network")}</span>
-                <span class="hint" id={"board-link-expiry-#{link.id}"}>
-                  <%= if BoardLink.expired?(link, @now) do %>
-                    <span class="board-mismatch-text">
-                      {gettext("Expired. Withdraw it and make a new one.")}
-                    </span>
-                  <% else %>
-                    <%= if link.expires_at do %>
-                      {gettext("%{address}, until %{date}",
-                        address: link.address,
-                        date: Calendar.strftime(link.expires_at, "%d-%m-%Y")
-                      )}
+          <tbody>
+            <tr :for={link <- @links} id={"board-link-#{link.id}"}>
+              <td>
+                <code>…{link.secret_hint}</code>
+                <span class="hint">{Calendar.strftime(link.inserted_at, "%d-%m-%Y %H:%M")} UTC</span>
+                <%= if link.reach == "lan" do %>
+                  <span class="badge" id={"board-link-reach-#{link.id}"}>{gettext("Network")}</span>
+                  <span class="hint" id={"board-link-expiry-#{link.id}"}>
+                    <%= if BoardLink.expired?(link, @now) do %>
+                      <span class="board-mismatch-text">
+                        {gettext("Expired. Withdraw it and make a new one.")}
+                      </span>
                     <% else %>
-                      {link.address}
+                      <%= if link.expires_at do %>
+                        {gettext("%{address}, until %{date}",
+                          address: link.address,
+                          date: Calendar.strftime(link.expires_at, "%d-%m-%Y")
+                        )}
+                      <% else %>
+                        {link.address}
+                      <% end %>
                     <% end %>
-                  <% end %>
-                </span>
+                  </span>
 
-                <span
-                  :if={stranded(link, @lan, @now)}
-                  class="board-mismatch-text"
-                  id={"board-link-stranded-#{link.id}"}
-                  role="alert"
+                  <span
+                    :if={stranded(link, @lan, @now)}
+                    class="board-mismatch-text"
+                    id={"board-link-stranded-#{link.id}"}
+                    role="alert"
+                  >
+                    {stranded(link, @lan, @now)}
+                  </span>
+                <% end %>
+              </td>
+
+              <td id={"board-link-box-#{link.id}"}>
+                <%= if link.box_name || link.box_version do %>
+                  {link.box_name || gettext("A box")}
+                  <span :if={link.box_version} class="hint">{link.box_version}</span>
+                <% else %>
+                  <span class="hint">-</span>
+                <% end %>
+              </td>
+
+              <td id={"board-link-seen-#{link.id}"}>
+                <%= cond do %>
+                  <% is_nil(link.last_seen_at) -> %>
+                    <span class="hint">{gettext("Never used")}</span>
+                  <% present?(link, @now) -> %>
+                    <span class="badge">{gettext("Connected")}</span>
+                  <% true -> %>
+                    {ago(link.last_seen_at, @now)}
+                <% end %>
+              </td>
+
+              <td class="num" id={"board-link-boards-#{link.id}"}>
+                {boards_here(link, @tournament)}
+              </td>
+
+              <td>
+                <button
+                  type="button"
+                  id={"board-link-revoke-#{link.id}"}
+                  class="pe-btn danger-link"
+                  phx-click="revoke_code"
+                  phx-value-id={link.id}
+                  data-confirm={
+                    gettext(
+                      "Withdraw the code ending in %{hint} (%{box})? The box that uses it is disconnected at its next request and needs a new code.",
+                      hint: link.secret_hint,
+                      box: link.box_name || gettext("no box has used it yet")
+                    )
+                  }
+                  disabled={!is_nil(@tournament.archived_at)}
                 >
-                  {stranded(link, @lan, @now)}
-                </span>
-              <% end %>
-            </td>
-
-            <td id={"board-link-box-#{link.id}"}>
-              <%= if link.box_name || link.box_version do %>
-                {link.box_name || gettext("A box")}
-                <span :if={link.box_version} class="hint">{link.box_version}</span>
-              <% else %>
-                <span class="hint">-</span>
-              <% end %>
-            </td>
-
-            <td id={"board-link-seen-#{link.id}"}>
-              <%= cond do %>
-                <% is_nil(link.last_seen_at) -> %>
-                  <span class="hint">{gettext("Never used")}</span>
-                <% present?(link, @now) -> %>
-                  <span class="badge">{gettext("Connected")}</span>
-                <% true -> %>
-                  {ago(link.last_seen_at, @now)}
-              <% end %>
-            </td>
-
-            <td class="num" id={"board-link-boards-#{link.id}"}>
-              {boards_here(link, @tournament)}
-            </td>
-
-            <td>
-              <button
-                type="button"
-                id={"board-link-revoke-#{link.id}"}
-                class="pe-btn danger-link"
-                phx-click="revoke_code"
-                phx-value-id={link.id}
-                data-confirm={
-                  gettext(
-                    "Withdraw this code? The box that uses it is disconnected at its next request and needs a new code."
-                  )
-                }
-                disabled={!is_nil(@tournament.archived_at)}
-              >
-                {gettext("Withdraw")}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  {gettext("Withdraw")}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <p :if={@links == []} class="hint" id={"#{@id}-none"}>{gettext("No code yet.")}</p>
 

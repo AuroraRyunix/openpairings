@@ -101,8 +101,24 @@ defmodule PairingsEngineWeb.Live.ArbiterCombo do
         []
       end
 
-    %{role: role, field: field, results: results}
+    %{role: role, field: field, results: results, query: String.trim(to_string(query))}
   end
+
+  @doc """
+  Why the box searched has nothing to show: `:no_list` when this machine has no
+  FIDE list at all, `:no_match` when it has one and the query matched nobody,
+  `nil` otherwise (another box, a short query, or results to show).
+  """
+  def empty_reason(%{role: role, field: field, results: [], query: query}, role, field)
+      when is_binary(query) do
+    cond do
+      String.length(query) < 2 -> nil
+      Fide.player_count() == 0 -> :no_list
+      true -> :no_match
+    end
+  end
+
+  def empty_reason(_search, _role, _field), do: nil
 
   @doc "Results to show under `role`'s `field` box - `[]` unless that's the box currently searched."
   def results_for(%{role: role, field: field, results: results}, role, field), do: results

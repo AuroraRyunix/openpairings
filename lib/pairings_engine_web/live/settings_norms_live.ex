@@ -34,8 +34,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   # tournament[officials][KEY] and stored in the :officials map (see
   # PairingsEngine.Tournaments.Tournament for the recognised keys).
   @officials_fields [
-    {"organizer_email", "Organizer e-mail", "text"},
-    {"chief_arbiter_email", "Chief arbiter e-mail", "text"}
+    {"organizer_email", gettext_noop("Organizer e-mail"), "text"},
+    {"chief_arbiter_email", gettext_noop("Chief arbiter e-mail"), "text"}
   ]
 
   # FIDE's own printed Certificaat only ranks 2 deputies by name ("1st/2nd
@@ -45,8 +45,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   # the template's own 2 spare rows before it ever has to grow the sheet
   # (see `PairingsEngine.Norms.ItThreeExpand`).
   @deputy_fields [
-    {1, "1st deputy arbiter"},
-    {2, "2nd deputy arbiter"}
+    {1, gettext_noop("1st deputy arbiter")},
+    {2, gettext_noop("2nd deputy arbiter")}
   ]
 
   @impl true
@@ -77,7 +77,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
        # typed beside it are still unsaved.
        officials_dirty: false,
        stale: false,
-       arbiter_search: nil
+       arbiter_search: nil,
+       typed_officials: nil
      )
      |> assign_big_swiss()}
   end
@@ -110,7 +111,7 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -124,8 +125,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   # The dirty tracker has already set `dirty`; nothing else to do per
   # keystroke, and no reason to touch the database for it.
   @impl true
-  def handle_event("officials_change", _params, socket),
-    do: {:noreply, assign(socket, officials_dirty: true)}
+  def handle_event("officials_change", params, socket),
+    do: {:noreply, socket |> keep_typed_officials(params) |> assign(officials_dirty: true)}
 
   def handle_event("save_officials", %{"tournament" => params}, socket) do
     params =
@@ -151,7 +152,25 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   # deputy1/deputy2. Adding/removing only touches the in-memory
   # `@tournament`, same as a pick - "Save officials" persists it, the count
   # travelling through that save as a hidden input.
+  def handle_event("remove_arbiter", %{"n" => n}, socket) do
+    case Integer.parse(to_string(n)) do
+      {n, ""} when n >= 1 ->
+        socket = apply_typed_officials(socket)
+
+        {:noreply,
+         assign(socket,
+           tournament: remove_arbiter_at(socket.assigns.tournament, n),
+           officials_dirty: true
+         )}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
   def handle_event("add_arbiter", _params, socket) do
+    socket = apply_typed_officials(socket)
+
     {:noreply,
      assign(socket,
        tournament: bump_extra_arbiters(socket.assigns.tournament, 1),
@@ -160,6 +179,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   end
 
   def handle_event("remove_last_arbiter", _params, socket) do
+    socket = apply_typed_officials(socket)
+
     {:noreply,
      assign(socket,
        tournament: bump_extra_arbiters(socket.assigns.tournament, -1),
@@ -181,7 +202,9 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
         query = ArbiterCombo.target_value(params)
 
         {:noreply,
-         assign(socket,
+         socket
+         |> keep_typed_officials(params)
+         |> assign(
            arbiter_search: ArbiterCombo.search(role, field, query),
            officials_dirty: true
          )}
@@ -194,6 +217,8 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
         {:noreply, socket}
 
       fp ->
+        socket = apply_typed_officials(socket)
+
         {:noreply,
          assign(socket,
            tournament: apply_arbiter_pick(socket.assigns.tournament, role, fp),
@@ -237,8 +262,50 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
 
   ## ---------- officials helpers ----------
 
-  defp officials_fields, do: @officials_fields
-  defp deputy_fields, do: @deputy_fields
+  defp officials_fields,
+    do: for({key, label, type} <- @officials_fields, do: {key, translate_label(label), type})
+
+  defp deputy_fields, do: for({n, label} <- @deputy_fields, do: {n, translate_label(label)})
+
+  defp translate_label(label), do: Gettext.gettext(PairingsEngineWeb.Gettext, label)
+
+  # What is typed in the officials form is remembered as it is typed - in a
+  # small assign nothing renders, so a keystroke still costs no re-render of
+  # the page around the form - and folded into the tournament on screen
+  # when something re-renders the form from it (adding an arbiter, removing
+  # one, picking a result). Without that the text typed since the last save
+  # went back to what was saved. The extra-arbiters count is left out: add
+  # and remove own it.
+  defp keep_typed_officials(socket, %{"tournament" => params}) when is_map(params),
+    do: assign(socket, typed_officials: params)
+
+  defp keep_typed_officials(socket, _params), do: socket
+
+  defp apply_typed_officials(%{assigns: %{typed_officials: params}} = socket)
+       when is_map(params) do
+    tournament = socket.assigns.tournament
+
+    typed =
+      params
+      |> Map.get("officials", %{})
+      |> Map.delete("extra_arbiters_count")
+
+    tournament =
+      tournament
+      |> then(fn t ->
+        if is_binary(params["chief_arbiter"]),
+          do: %{t | chief_arbiter: params["chief_arbiter"]},
+          else: t
+      end)
+      |> then(fn t ->
+        if is_binary(params["organizer"]), do: %{t | organizer: params["organizer"]}, else: t
+      end)
+      |> then(fn t -> %{t | officials: Map.merge(t.officials || %{}, typed)} end)
+
+    assign(socket, tournament: tournament, typed_officials: nil)
+  end
+
+  defp apply_typed_officials(socket), do: socket
 
   defp o_get(tournament, key), do: Map.get(tournament.officials || %{}, key, "")
 
@@ -257,11 +324,11 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
     chief =
       if not blank?(Map.get(params, "chief_arbiter")) and
            blank?(Map.get(officials, "chief_arbiter_fide_id")),
-         do: ["Chief arbiter"],
+         do: [gettext("Chief arbiter")],
          else: []
 
     deputies =
-      for {n, label} <- @deputy_fields,
+      for {n, label} <- deputy_fields(),
           not blank?(Map.get(officials, "deputy#{n}_name")),
           blank?(Map.get(officials, "deputy#{n}_fide_id")),
           do: label
@@ -270,7 +337,7 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
       for n <- extra_arbiter_range(Map.get(officials, "extra_arbiters_count")),
           not blank?(Map.get(officials, "arbiter#{n}_name")),
           blank?(Map.get(officials, "arbiter#{n}_fide_id")),
-          do: "Arbiter #{n}"
+          do: gettext("Arbiter %{n}", n: n)
 
     chief ++ deputies ++ extras
   end
@@ -285,8 +352,10 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
   end
 
   defp id_required_message(missing) do
-    "Every official needs a FIDE ID - type their name or FIDE ID above and pick the matching " <>
-      "result. Missing for: #{Enum.join(missing, ", ")}."
+    gettext(
+      "Every official needs a FIDE ID - type their name or FIDE ID above and pick the matching result. Missing for: %{who}.",
+      who: Enum.join(missing, ", ")
+    )
   end
 
   defp save_officials(socket, base, params) do
@@ -298,7 +367,7 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
          assign(socket,
            tournament: tournament,
            loaded: tournament,
-           officials_note: "Saved.",
+           officials_note: gettext("Saved."),
            officials_error: nil,
            dirty: false,
            officials_dirty: false,
@@ -387,6 +456,36 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
 
   defp clamp_officials_extra_arbiters(params), do: params
 
+  # Takes arbiter `n` out and moves every later one up a place, so the keys
+  # stay `arbiter1..arbiterN` with no hole.
+  defp remove_arbiter_at(tournament, n) do
+    count = extra_arbiters_count(tournament)
+
+    if n > count do
+      tournament
+    else
+      officials =
+        Enum.reduce(n..count//1, tournament.officials || %{}, fn i, acc ->
+          if i == count do
+            acc |> Map.delete("arbiter#{i}_name") |> Map.delete("arbiter#{i}_fide_id")
+          else
+            acc
+            |> move_key("arbiter#{i + 1}_name", "arbiter#{i}_name")
+            |> move_key("arbiter#{i + 1}_fide_id", "arbiter#{i}_fide_id")
+          end
+        end)
+
+      %{tournament | officials: Map.put(officials, "extra_arbiters_count", count - 1)}
+    end
+  end
+
+  defp move_key(map, from, to) do
+    case Map.fetch(map, from) do
+      {:ok, value} -> Map.put(map, to, value)
+      :error -> Map.delete(map, to)
+    end
+  end
+
   defp bump_extra_arbiters(tournament, delta) do
     current = extra_arbiters_count(tournament)
     new_count = clamp_extra_count(current + delta)
@@ -430,7 +529,6 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
           <PairingsEngineWeb.Components.ManualLink.manual_link topic={:norms_settings} />
         </:subtitle_extra>
         <.stale_banner stale={@stale} />
-
         <div class="card" id="officials-card">
           <h2>{gettext("Officials")}</h2>
 
@@ -549,13 +647,27 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
               >
                 <.arbiter_combo
                   role={"arbiter#{n}"}
-                  label={"Arbiter #{n}"}
+                  label={gettext("Arbiter %{n}", n: n)}
                   name_field={"tournament[officials][arbiter#{n}_name]"}
                   name_value={o_get(@tournament, "arbiter#{n}_name")}
                   id_field={"tournament[officials][arbiter#{n}_fide_id]"}
                   id_value={o_get(@tournament, "arbiter#{n}_fide_id")}
                   search={@arbiter_search}
                 />
+                <div class="field" style="align-self: end">
+                  <button
+                    type="button"
+                    id={"remove-arbiter-#{n}"}
+                    class="pe-btn danger-link"
+                    phx-click="remove_arbiter"
+                    phx-value-n={n}
+                    data-confirm={
+                      gettext("Remove arbiter %{n}? The arbiters after it move up.", n: n)
+                    }
+                  >
+                    {gettext("Remove arbiter %{n}", n: n)}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -587,9 +699,11 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
               <button type="submit" id="officials-save" class="pe-btn primary">
                 {gettext("Save officials")}
               </button>
+
               <span :if={@officials_note} class="ok-note tset-saved" role="status">
                 <.icon name="hero-check-micro" class="size-4" /> {@officials_note}
               </span>
+
               <span :if={@officials_error} class="error-note tset-error" role="alert">
                 {@officials_error}
               </span>
@@ -633,6 +747,7 @@ defmodule PairingsEngineWeb.SettingsNormsLive do
           <h3 style="margin: 18px 0 4px; font-size: 14px">
             {gettext("Big open Swiss (B.01 1.4.3 d)")}
           </h3>
+
           <p id="big-swiss-status" class="hint" style="margin: 0">
             {big_swiss_text(@big_swiss)}
           </p>
