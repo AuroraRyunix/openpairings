@@ -29,7 +29,7 @@ defmodule PairingsEngine.Incidents do
   """
   import Ecto.Query
 
-  alias PairingsEngine.{Audit, RateLimit, Repo}
+  alias PairingsEngine.{Audit, RateLimit, Repo, Tournaments}
   alias PairingsEngine.Incidents.{Incident, Photo}
   alias PairingsEngine.Mobile.Enrollment
   alias PairingsEngine.Tournaments.Pairing
@@ -268,6 +268,84 @@ defmodule PairingsEngine.Incidents do
 
       {:ok, updated}
     end
+  end
+
+  @doc """
+  Marks incident `incident_id` of `tournament_id` handled (`true`) or open
+  again (`false`), with an audit row under `scope`. A handled incident stays
+  on the list, unhighlighted; nothing about it is lost.
+
+  `{:ok, incident}` or `{:error, :not_found | :archived | :handed_off}`.
+  """
+  def set_handled(tournament_id, incident_id, handled?, scope) do
+    with :ok <- Tournaments.ensure_writable(tournament_id),
+         %Incident{} = incident <- get(tournament_id, incident_id) || {:error, :not_found} do
+        at = if handled?, do: DateTime.utc_now() |> DateTime.truncate(:second)
+        updated = Repo.update!(Ecto.Changeset.change(incident, handled_at: at))
+
+        # Two literal calls rather than one with a computed action: the
+        # audit page's tests read the codes straight off the source.
+        if handled?,
+          do: Audit.log(tournament_id, scope, "incident.handled", summary(incident)),
+          else: Audit.log(tournament_id, scope, "incident.reopened", summary(incident))
+
+        announce(tournament_id, incident.round_number)
+        {:ok, updated}
+    end
+  end
+
+  @doc """
+  Removes incident `incident_id` of `tournament_id`, and its photo with it,
+  leaving an audit row under `scope` that still says what it was - the
+  incident goes, the record of it having existed does not.
+
+  `{:ok, incident}` or `{:error, :not_found | :archived | :handed_off}`.
+  """
+  def delete(tournament_id, incident_id, scope) do
+    with :ok <- Tournaments.ensure_writable(tournament_id),
+         %Incident{} = incident <- get(tournament_id, incident_id) || {:error, :not_found} do
+        Repo.delete!(incident)
+
+        Audit.log(
+          tournament_id,
+          scope,
+          "incident.deleted",
+          Map.merge(summary(incident), %{
+            note: incident.note,
+            white: incident.white_name,
+            black: incident.black_name,
+            photo: incident.has_photo
+          })
+        )
+
+        announce(tournament_id, incident.round_number)
+        {:ok, incident}
+    end
+  end
+
+  defp get(tournament_id, incident_id) do
+    case Integer.parse(to_string(incident_id)) do
+      {id, ""} -> Repo.get_by(Incident, id: id, tournament_id: tournament_id)
+      _ -> nil
+    end
+  end
+
+  defp summary(incident),
+    do: %{
+      incident_id: incident.id,
+      kind: incident.kind,
+      round: incident.round_number,
+      board: incident.board
+    }
+
+  # The same message a new incident sends, so every page that counts them
+  # (the list, the Pairings page's line) recounts without a clause of its own.
+  defp announce(tournament_id, round_number) do
+    Phoenix.PubSub.broadcast(
+      PairingsEngine.PubSub,
+      topic(tournament_id),
+      {:incident_logged, tournament_id, round_number}
+    )
   end
 
   @doc """

@@ -44,6 +44,7 @@ defmodule PairingsEngineWeb.AuditLive do
 
   alias PairingsEngine.{Audit, Tournaments}
   alias PairingsEngine.Pairing, as: Engine
+  import PairingsEngineWeb.Components.LocalTime, only: [local_time: 1]
 
   @per_page 50
 
@@ -123,7 +124,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.rating_correction pibe.correction
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
         pairing.announcement_compared pairing.announcement_acknowledged incident.logged
-        incident.photo_added)},
+        incident.photo_added incident.handled incident.reopened incident.deleted)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.late_entry_numbering_kept
         tournament.fide_compliance_lost
@@ -1520,6 +1521,39 @@ defmodule PairingsEngineWeb.AuditLive do
         kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
       )
 
+  def describe("incident.handled", d),
+    do:
+      gettext("Marked the incident on board %{board} (round %{round}) handled: %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+  def describe("incident.reopened", d),
+    do:
+      gettext("Opened the incident on board %{board} (round %{round}) again: %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+  # The incident row is gone; this line is what is left of it, so it keeps
+  # the note - the one part an arbiter might need to read back later.
+  def describe("incident.deleted", d) do
+    what =
+      gettext("Removed the incident on board %{board} (round %{round}): %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+    note =
+      if is_binary(d["note"]) and d["note"] != "",
+        do: gettext("Note: %{note}", note: d["note"])
+
+    sentences([what, note])
+  end
+
   def describe("collaborator.accepted", d),
     do: gettext("Accepted the collaboration invite (%{email}).", email: value(d, "email"))
 
@@ -2835,7 +2869,8 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def actor_title(_entry), do: nil
 
-  @doc "Formats an audit row's `inserted_at` for display."
+  @doc "Formats an audit row's `inserted_at` for display (UTC, unlabelled - the
+  trail itself uses `LocalTime`)."
   def format_time(%NaiveDateTime{} = ndt), do: Calendar.strftime(ndt, "%Y-%m-%d %H:%M")
   def format_time(%DateTime{} = dt), do: Calendar.strftime(dt, "%Y-%m-%d %H:%M")
   def format_time(other), do: to_string(other)
@@ -2992,7 +3027,9 @@ defmodule PairingsEngineWeb.AuditLive do
             </tr>
 
             <tr :for={entry <- @entries}>
-              <td style="white-space: nowrap">{format_time(entry.inserted_at)}</td>
+              <td style="white-space: nowrap">
+                <.local_time id={"audit-at-#{entry.id}"} at={entry.inserted_at} />
+              </td>
 
               <td title={actor_title(entry)}>{actor(entry)}</td>
 

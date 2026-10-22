@@ -353,6 +353,41 @@ defmodule PairingsEngine.RatingLists do
     Repo.one(from l in CustomList, where: fragment("lower(?)", l.name) == ^key, limit: 1)
   end
 
+  @doc """
+  Renames custom list `id` to `name`. Sequences name a list by its id
+  (`custom:<id>`), never by its name, so every tournament that reads it keeps
+  reading it - which is the whole reason this is a rename and not a delete
+  and a reload.
+
+  `{:ok, list, old_name}` or `{:error, :not_found | :blank | :too_long | :taken}`.
+  A name differing only in case from the list's own is allowed.
+  """
+  def rename_list(id, name) when is_binary(name) do
+    name = String.trim(name)
+
+    with %CustomList{} = list <- get_list(id) || {:error, :not_found},
+         :ok <- check_new_name(list, name) do
+      {:ok, renamed} = list |> Ecto.Changeset.change(name: name) |> Repo.update()
+      {:ok, renamed, list.name}
+    end
+  end
+
+  defp check_new_name(list, name) do
+    cond do
+      name == "" ->
+        {:error, :blank}
+
+      String.length(name) > 80 ->
+        {:error, :too_long}
+
+      true ->
+        case existing_list(name) do
+          %CustomList{id: id} when id != list.id -> {:error, :taken}
+          _ -> :ok
+        end
+    end
+  end
+
   @doc "Deletes a custom list and its players."
   def delete_list(id) do
     case get_list(id) do

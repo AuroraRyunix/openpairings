@@ -4,9 +4,11 @@ defmodule PairingsEngineWeb.IncidentsLive do
   Manubrium, docs/manubrium.md - logged at the boards, newest first,
   optionally one round at a time (`?round=N`).
 
-  Read-only, and live: a helper's "arbiter call" is no use to an arbiter who
-  reads it at the end of the round, so a new one appears here as it
-  arrives. A photo taken with the incident is shown small and opens full
+  Live: a helper's "arbiter call" is no use to an arbiter who reads it at
+  the end of the round, so a new one appears here as it arrives. Each can be
+  marked handled - it stays, unhighlighted, because an arbiter call that is
+  still lit up three rounds later is a fire alarm nobody can switch off - or
+  removed behind a confirm. Both are audit-logged. A photo taken with the incident is shown small and opens full
   size, from `PairingsEngineWeb.IncidentPhotoController` - behind the same
   sign-in as this page, and nowhere else.
   """
@@ -15,6 +17,9 @@ defmodule PairingsEngineWeb.IncidentsLive do
   alias PairingsEngine.Incidents
   alias PairingsEngine.Tournaments
   alias PairingsEngineWeb.Components.Manubrium
+  alias PairingsEngineWeb.SettingsSupport
+
+  import PairingsEngineWeb.Components.LocalTime, only: [local_time: 1]
 
   @impl true
   def mount(%{"id" => id}, _session, socket) do
@@ -47,6 +52,53 @@ defmodule PairingsEngineWeb.IncidentsLive do
   def handle_info({:incident_logged, _tournament_id, _round}, socket),
     do: {:noreply, load(socket)}
 
+  @impl true
+  def handle_event("toggle_handled", %{"id" => id}, socket) do
+    %{tournament: t, current_scope: scope} = socket.assigns
+    handled? = not handled?(socket, id)
+
+    case Incidents.set_handled(t.id, id, handled?, scope) do
+      {:ok, incident} ->
+        message =
+          if handled?,
+            do: gettext("Board %{board}: marked handled.", board: incident.board),
+            else: gettext("Board %{board}: open again.", board: incident.board)
+
+        {:noreply, socket |> put_flash(:info, message) |> load()}
+
+      {:error, reason} ->
+        {:noreply, socket |> put_flash(:error, refusal(reason)) |> load()}
+    end
+  end
+
+  def handle_event("delete_incident", %{"id" => id}, socket) do
+    %{tournament: t, current_scope: scope} = socket.assigns
+
+    case Incidents.delete(t.id, id, scope) do
+      {:ok, incident} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           gettext("The incident on board %{board} (round %{round}) was removed.",
+             board: incident.board,
+             round: incident.round_number
+           )
+         )
+         |> load()}
+
+      {:error, reason} ->
+        {:noreply, socket |> put_flash(:error, refusal(reason)) |> load()}
+    end
+  end
+
+  defp handled?(socket, id) do
+    Enum.any?(socket.assigns.incidents, &(to_string(&1.id) == to_string(id) and &1.handled_at))
+  end
+
+  defp refusal(:not_found), do: gettext("That incident is no longer there.")
+  defp refusal(reason), do: SettingsSupport.error_text(reason)
+
   defp load(socket) do
     %{tournament: t, round: round} = socket.assigns
 
@@ -61,8 +113,6 @@ defmodule PairingsEngineWeb.IncidentsLive do
   defp player_name(nil, ""), do: "-"
   defp player_name(nil, snapshot), do: snapshot
   defp player_name(player, _snapshot), do: player.name
-
-  defp at(%DateTime{} = dt), do: Calendar.strftime(dt, "%d %b %H:%M")
 
   defp source(%{user: %PairingsEngine.Accounts.User{} = user}),
     do: PairingsEngine.Accounts.User.display_label(user)
@@ -134,15 +184,21 @@ defmodule PairingsEngineWeb.IncidentsLive do
               <th>{gettext("Note")}</th>
               <th>{gettext("Photo")}</th>
               <th>{gettext("From")}</th>
+              <th><span class="sr-only">{gettext("Actions")}</span></th>
             </tr>
           </thead>
           <tbody>
             <tr
               :for={i <- @incidents}
               id={"incident-#{i.id}"}
-              class={[i.kind == "arbiter_call" && "incident-call"]}
+              class={[
+                i.handled_at && "incident-handled",
+                i.kind == "arbiter_call" && is_nil(i.handled_at) && "incident-call"
+              ]}
             >
-              <td>{at(i.occurred_at)}</td>
+              <td>
+                <.local_time id={"incident-at-#{i.id}"} at={i.occurred_at} format="stamp" />
+              </td>
               <td class="num">{i.round_number}</td>
               <td class="num">{i.board}</td>
               <td><strong>{Manubrium.kind_label(i.kind)}</strong></td>
@@ -171,6 +227,40 @@ defmodule PairingsEngineWeb.IncidentsLive do
                 </a>
               </td>
               <td class="hint">{source(i)}</td>
+              <td class="incident-actions">
+                <button
+                  type="button"
+                  id={"incident-handled-#{i.id}"}
+                  class={["pe-btn", i.handled_at && "is-on"]}
+                  phx-click="toggle_handled"
+                  phx-value-id={i.id}
+                  aria-pressed={to_string(not is_nil(i.handled_at))}
+                  disabled={not is_nil(@tournament.archived_at)}
+                >
+                  <.icon
+                    name={if i.handled_at, do: "hero-check-circle-solid", else: "hero-check-circle"}
+                    class="w-4 h-4"
+                  />
+                  {if i.handled_at, do: gettext("Handled"), else: gettext("Mark handled")}
+                </button>
+                <button
+                  type="button"
+                  id={"incident-delete-#{i.id}"}
+                  class="pe-btn danger-link"
+                  phx-click="delete_incident"
+                  phx-value-id={i.id}
+                  disabled={not is_nil(@tournament.archived_at)}
+                  data-confirm={
+                    gettext(
+                      "Remove the incident on board %{board} (round %{round}), with its note and photo? The audit trail keeps a line saying it existed; the incident itself cannot be brought back.",
+                      board: i.board,
+                      round: i.round_number
+                    )
+                  }
+                >
+                  {gettext("Remove")}
+                </button>
+              </td>
             </tr>
           </tbody>
         </table>

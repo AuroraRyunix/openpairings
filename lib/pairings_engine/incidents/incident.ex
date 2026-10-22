@@ -31,6 +31,10 @@ defmodule PairingsEngine.Incidents.Incident do
     # A photo is in `PairingsEngine.Incidents.Photo`, one at most; this says
     # whether there is one without loading it.
     field :has_photo, :boolean, default: false
+    # When the arbiter marked it dealt with; nil while it is open. Desk-only:
+    # the phones' incident list (`ManubriumApi.Json.incident/1`) does not
+    # carry it, so the contract did not move.
+    field :handled_at, :utc_datetime
 
     belongs_to :tournament, PairingsEngine.Tournaments.Tournament
     belongs_to :pairing, PairingsEngine.Tournaments.Pairing

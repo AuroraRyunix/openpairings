@@ -93,6 +93,7 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
               `Publishing`: see `detail/1` for why the sentence and the
               headline above it now come from the same place. --%>
         <p :if={not @compact} class="conn-detail">{detail(@status)}</p>
+        <.raw_reason :if={not @compact} reason={@status[:reason]} id_prefix="conn" />
 
         <p class="conn-detail conn-facts">
           <span :if={@status.endpoint}>{host(@status.endpoint)}</span>
@@ -304,6 +305,11 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   @red_codes ~w(installation_suspended installation_revoked tournament_limit
                 snapshot_too_large not_owner tournament_hidden address_blocked
                 tournament_deleted moved)
+
+  # Every server code `reason_sentence/1` has words for; anything else gets
+  # the generic sentence and the raw term behind a disclosure.
+  @worded_codes ~w(unauthorized rate_limited publishing_paused storage_low
+                   registration_closed) ++ @red_codes
 
   # Amber while work is in flight, whatever the connection says: "connected,
   # and eight tournaments are still waiting" is not a green situation.
@@ -658,15 +664,68 @@ defmodule PairingsEngineWeb.Components.ConnectionStatus do
   defp reason_sentence({:unreachable, :econnrefused}),
     do: gettext("The connection was refused - is the server running?")
 
-  defp reason_sentence({:unreachable, other}),
-    do: gettext("Could not connect (%{reason}).", reason: technical(other))
+  defp reason_sentence({:unreachable, _other}),
+    do: gettext("Could not connect to the results site.")
 
   # Last resort, for a reason or a server code with no sentence yet. This
   # renders in the top bar of every page, so a missing clause must not raise -
-  # a crash here is every page down for as long as the reason persists. It is
-  # deliberately technical, so the gap is visible rather than papered over.
-  defp reason_sentence({_state, detail}),
-    do: gettext("Could not confirm the connection (%{reason}).", reason: technical(detail))
+  # a crash here is every page down for as long as the reason persists. The
+  # sentence is plain; the term itself sits one click away in `raw_reason/1`,
+  # still visible to whoever has to report the gap, no longer the first thing
+  # an arbiter reads mid-round.
+  defp reason_sentence({_state, _detail}),
+    do:
+      gettext(
+        "Could not confirm the connection, for a reason this version has no words for yet. Results are kept and sent once it clears."
+      )
+
+  @doc """
+  The raw term behind a reason `reason_sentence/1` only has a generic
+  sentence for, or nil when the sentence already says everything.
+  """
+  def raw_term(reason) do
+    if known_reason?(reason) do
+      nil
+    else
+      case reason do
+        {_state, detail} -> technical(detail)
+        other -> technical(other)
+      end
+    end
+  end
+
+  # Every reason with a sentence of its own. Kept beside `reason_sentence/1`
+  # on purpose: a clause added there and not here only costs a redundant
+  # disclosure, never a missing one.
+  defp known_reason?({:unconfigured, _}), do: true
+  defp known_reason?({:refused, {:rejected, _status, nil, _detail}}), do: true
+
+  defp known_reason?({:refused, {:rejected, _status, code, _detail}}),
+    do: code in @worded_codes
+
+  defp known_reason?({:unreachable, r}) when r in [:timeout, :closed, :nxdomain, :econnrefused],
+    do: true
+
+  defp known_reason?(nil), do: true
+  defp known_reason?(_), do: false
+
+  attr :reason, :any, default: nil
+  attr :id_prefix, :string, default: "conn"
+
+  @doc """
+  A "Technical detail" disclosure with the raw reason, rendered only when the
+  sentence above it is the generic one.
+  """
+  def raw_reason(assigns) do
+    assigns = assign(assigns, :term, raw_term(assigns.reason))
+
+    ~H"""
+    <details :if={@term} id={"#{@id_prefix}-raw-reason"} class="conn-raw">
+      <summary>{gettext("Technical detail")}</summary>
+      <code>{@term}</code>
+    </details>
+    """
+  end
 
   # The status and the server's code are what somebody can look up; the
   # server's `detail` is an English sentence meant for logs.
