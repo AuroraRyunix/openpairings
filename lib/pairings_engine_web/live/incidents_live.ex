@@ -119,57 +119,62 @@ defmodule PairingsEngineWeb.IncidentsLive do
         )}
       </p>
 
-      <table :if={@incidents != []} id="incidents" class="pe-table">
-        <thead>
-          <tr>
-            <th>{gettext("Time")}</th>
-            <th class="num">{gettext("Round")}</th>
-            <th class="num">{gettext("Board")}</th>
-            <th>{gettext("What")}</th>
-            <th>{gettext("Players")}</th>
-            <th>{gettext("Note")}</th>
-            <th>{gettext("Photo")}</th>
-            <th>{gettext("From")}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            :for={i <- @incidents}
-            id={"incident-#{i.id}"}
-            class={[i.kind == "arbiter_call" && "incident-call"]}
-          >
-            <td>{at(i.occurred_at)}</td>
-            <td class="num">{i.round_number}</td>
-            <td class="num">{i.board}</td>
-            <td><strong>{Manubrium.kind_label(i.kind)}</strong></td>
-            <td>
-              {player_name(i.white_player, i.white_name)} - {player_name(
-                i.black_player,
-                i.black_name
-              )}
-            </td>
-            <td>{i.note}</td>
-            <td>
-              <a
-                :if={i.has_photo}
-                href={~p"/t/#{@tournament.id}/incidents/#{i.id}/photo"}
-                target="_blank"
-                rel="noopener"
-                id={"incident-photo-#{i.id}"}
-                class="incident-photo"
-              >
-                <img
-                  src={~p"/t/#{@tournament.id}/incidents/#{i.id}/photo"}
-                  alt={gettext("Photo of board %{board}", board: i.board)}
-                  loading="lazy"
-                  width="72"
-                />
-              </a>
-            </td>
-            <td class="hint">{source(i)}</td>
-          </tr>
-        </tbody>
-      </table>
+      <%!-- Eight columns: on a phone the card scrolls sideways, the page
+            does not. The note is the one cell worth reading in full, so it
+            wraps instead of stretching the table to the next county. --%>
+      <div :if={@incidents != []} id="incidents-card" class="card table-card">
+        <table id="incidents" class="pe-table">
+          <thead>
+            <tr>
+              <th>{gettext("Time")}</th>
+              <th class="num">{gettext("Round")}</th>
+              <th class="num">{gettext("Board")}</th>
+              <th>{gettext("What")}</th>
+              <th>{gettext("Players")}</th>
+              <th>{gettext("Note")}</th>
+              <th>{gettext("Photo")}</th>
+              <th>{gettext("From")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              :for={i <- @incidents}
+              id={"incident-#{i.id}"}
+              class={[i.kind == "arbiter_call" && "incident-call"]}
+            >
+              <td>{at(i.occurred_at)}</td>
+              <td class="num">{i.round_number}</td>
+              <td class="num">{i.board}</td>
+              <td><strong>{Manubrium.kind_label(i.kind)}</strong></td>
+              <td>
+                {player_name(i.white_player, i.white_name)} - {player_name(
+                  i.black_player,
+                  i.black_name
+                )}
+              </td>
+              <td style="white-space: normal; min-width: 12rem;">{i.note}</td>
+              <td>
+                <a
+                  :if={i.has_photo}
+                  href={~p"/t/#{@tournament.id}/incidents/#{i.id}/photo"}
+                  target="_blank"
+                  rel="noopener"
+                  id={"incident-photo-#{i.id}"}
+                  class="incident-photo"
+                >
+                  <img
+                    src={~p"/t/#{@tournament.id}/incidents/#{i.id}/photo"}
+                    alt={gettext("Photo of board %{board}", board: i.board)}
+                    loading="lazy"
+                    width="72"
+                  />
+                </a>
+              </td>
+              <td class="hint">{source(i)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </Layouts.app>
     """
   end

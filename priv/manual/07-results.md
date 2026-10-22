@@ -122,9 +122,10 @@ and can then enter results for that tournament only, without an account.
 - A phone can be limited to a range of boards.
 
 The code expires after 24 hours and can be revoked at any time on the same
-card. The phone's screen shows the players' ratings and scores, has a lock
-that guards against accidental taps, and its own theme switch. A phone
-cannot reach anything else in the program.
+card. **Revoke** asks first: a phone using the code is signed out at once and
+needs a new code to come back. The phone's screen shows the players'
+ratings and scores, has a lock that guards against accidental taps, and its
+own theme switch. A phone cannot reach anything else in the program.
 
 **On the desktop install** the program answers only this computer until you
 switch on **Let phones on this network connect** in the same dialog and pick

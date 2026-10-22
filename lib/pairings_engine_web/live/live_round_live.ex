@@ -192,7 +192,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
@@ -336,10 +336,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
   # Label for a byes-table row's `type` - distinct from the "bye" badge
   # shown for a pairing-allocated bye (a real Pairing row), since these
   # never appear in round.pairings (see Tournaments.list_byes_for_round/2).
-  defp bye_type_label("requested-half"), do: "requested half-point bye"
-  defp bye_type_label("requested-zero"), do: "requested zero-point bye"
-  defp bye_type_label("absent"), do: "absent"
-  defp bye_type_label("full-point"), do: "full-point bye"
+  defp bye_type_label("requested-half"), do: gettext("requested half-point bye")
+  defp bye_type_label("requested-zero"), do: gettext("requested zero-point bye")
+  defp bye_type_label("absent"), do: gettext("absent")
+  defp bye_type_label("full-point"), do: gettext("full-point bye")
   defp bye_type_label(other), do: other
 
   defp format_tb(value) when is_float(value) do
@@ -584,7 +584,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
             <tr>
               <th>{gettext("Player")}</th>
 
-              <th style="text-align: center; width: 220px">Bye</th>
+              <th style="text-align: center; width: 220px">{gettext("Bye")}</th>
             </tr>
           </thead>
 
@@ -594,11 +594,10 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
               <td style="text-align: center">
                 <span class="badge">
-                  {bye_type_label(bye.type)} ({Standings.bye_points_for_row(
-                    bye,
-                    @tournament,
-                    @absent_counts
-                  )} pt)
+                  {gettext("%{label} (%{points} pt)",
+                    label: bye_type_label(bye.type),
+                    points: Standings.bye_points_for_row(bye, @tournament, @absent_counts)
+                  )}
                 </span>
               </td>
             </tr>
@@ -620,9 +619,9 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
               <th>{gettext("Name")}</th>
 
-              <th class="num">Elo</th>
+              <th class="num">{gettext("Elo")}</th>
 
-              <th class="num">Pts</th>
+              <th class="num">{gettext("Pts")}</th>
 
               <th :for={code <- @tournament.tiebreaks} class="num" title={tb_name(code)}>
                 {code}
@@ -664,7 +663,7 @@ defmodule PairingsEngineWeb.LiveRoundLive do
 
               <th>{gettext("Name")}</th>
 
-              <th class="num">Elo</th>
+              <th class="num">{gettext("Elo")}</th>
 
               <th class="num">{gettext("Value")}</th>
 

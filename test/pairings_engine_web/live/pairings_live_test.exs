@@ -759,7 +759,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     render_upload(csv, "results.csv")
     html = lv |> form("#results-csv-import-form", %{}) |> render_submit()
 
-    assert html =~ "Imported 2 results."
+    assert html =~ "Imported 2 results for round"
 
     round = Tournaments.get_round(tournament.id, 1)
     assert Enum.find(round.pairings, &(&1.board == 1)).result == "1-0"
@@ -819,11 +819,11 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
     html = lv |> form("#results-csv-import-form", %{}) |> render_submit()
 
     assert html =~ "Still uploading"
-    refute html =~ "Imported 2 results."
+    refute html =~ "Imported 2 results for round"
 
     render_upload(csv, "results.csv", 50)
 
-    assert render(lv) =~ "Imported 2 results."
+    assert render(lv) =~ "Imported 2 results for round"
     round = Tournaments.get_round(tournament.id, 1)
     assert Enum.find(round.pairings, &(&1.board == 1)).result == "1-0"
 
@@ -1660,7 +1660,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       })
 
       html = render_click(lv, "apply_confirm", %{})
-      assert html =~ "Could not apply that change"
+      assert html =~ "That board number is already taken"
 
       round = Tournaments.get_round(t.id, 1)
       board9_pairings = Enum.filter(round.pairings, &(&1.board == 9))
@@ -1812,7 +1812,7 @@ defmodule PairingsEngineWeb.PairingsLiveTest do
       render_click(lv, "stage_delete_pairing", %{"pairing-id" => to_string(board1.id)})
       html = render_click(lv, "apply_confirm", %{})
 
-      assert html =~ "Could not apply that change"
+      assert html =~ "Only the last board of the round can be deleted."
       assert Repo.get(Pairing, board1.id)
     end
 

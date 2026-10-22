@@ -377,7 +377,7 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       # characterisation of the defect, not a specification: keying on the
       # real column is exactly what made transcribing a sheet land results
       # on the wrong games.
-      assert {:error, ["board 5: no such board in round 1"]} =
+      assert {:error, [{:no_such_board, 5, 1}]} =
                ResultsImport.apply_import(t, 1, [{5, "0-1"}])
 
       assert result_by_real_board(round.id)[5] == ""
@@ -404,9 +404,8 @@ defmodule PairingsEngine.FixedBoardCollisionTest do
       # The arbiter's most faithful transcription of a sheet showing two rows
       # numbered 1 is two lines starting "1," - and it is rejected at parse
       # time, so no half-applied round can result.
-      assert {:error, [reason]} = ResultsImport.parse_text("1,1-0\n1,0-1\n")
-      assert reason =~ "board 1"
-      assert reason =~ "more than once"
+      assert {:error, [{:duplicate_board, 1, _lines}]} =
+               ResultsImport.parse_text("1,1-0\n1,0-1\n")
 
       assert result_by_real_board(round.id) == %{1 => "", 2 => "", 3 => "", 4 => "", 5 => ""}
       assert {:ok, 0} = ResultsImport.apply_import(t, 1, [])

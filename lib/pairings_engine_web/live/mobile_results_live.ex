@@ -224,7 +224,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     if id == socket.assigns.mobile_enrollment.id do
       {:noreply,
        socket
-       |> put_flash(:error, "This phone's access has been ended by the arbiter.")
+       |> put_flash(:error, gettext("This phone's access has been ended by the arbiter."))
        |> redirect(to: ~p"/m")}
     else
       {:noreply, socket}
@@ -453,7 +453,9 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                     put_flash(
                       socket,
                       :error,
-                      "This tournament is archived - the arbiter needs to unarchive it before results can be entered."
+                      gettext(
+                        "This tournament is archived - the arbiter needs to unarchive it before results can be entered."
+                      )
                     )
 
                   # The other half of the write gate, and the one that can
@@ -465,7 +467,9 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                     put_flash(
                       socket,
                       :error,
-                      "This tournament has been handed to another machine - the arbiter needs to take it back before results can be entered."
+                      gettext(
+                        "This tournament has been handed to another machine - the arbiter needs to take it back before results can be entered."
+                      )
                     )
 
                   # A postponed game given a decisive result. Every round
@@ -505,7 +509,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
                     )
 
                   {:error, _reason} ->
-                    put_flash(socket, :error, "Could not save that result.")
+                    put_flash(socket, :error, gettext("Could not save that result."))
                 end
 
               {:noreply, load_round(socket, socket.assigns.round_number)}
@@ -523,7 +527,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
     else
       {:noreply,
        socket
-       |> put_flash(:error, "This phone's access was ended by the arbiter.")
+       |> put_flash(:error, gettext("This phone's access was ended by the arbiter."))
        |> redirect(to: ~p"/m")}
     end
   end
@@ -665,7 +669,7 @@ defmodule PairingsEngineWeb.MobileResultsLive do
   # reading of one of its two reasons. This was `archived_at` alone, so a
   # tournament handed to another machine still rendered its result buttons
   # enabled: the write was correctly refused server-side, but only after a
-  # helper had tapped it, and only as "Could not save that result."
+  # helper had tapped it, and only as gettext("Could not save that result.")
   defp read_only?(tournament), do: Tournaments.ensure_writable(tournament) != :ok
 
   # The audit row lives with the queued path's in `Mobile.log_result/6`, so

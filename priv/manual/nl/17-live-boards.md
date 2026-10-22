@@ -329,7 +329,9 @@ gemeld op dat moment uit OpenPairings verwijderd: ze horen bij partijen die
 niet meer bestaan. Hetzelfde geldt voor een bord dat je verwijdert, een
 ploegopstelling die een bord laat vallen, en een herstelpunt dat de paring niet
 heeft. Het auditlogboek krijgt één regel met het aantal verwijderde partijen.
-Het kastje houdt zijn eigen kopie en zijn eigen PGN. Een partij waarvan de
+Het kastje houdt zijn eigen kopie en zijn eigen PGN. Een partijpagina die open
+staat wanneer haar partij verdwijnt, stuurt je terug naar de ronde op de pagina
+Paringen, met *Die partij zit niet meer in dit toernooi.* Een partij waarvan de
 paring alleen naar een ander bord verhuisde, of een andere speler kreeg, blijft
 bewaard. Ga je terug naar een herstelpunt van vóór het opnieuw paren, dan
 komen de oude paringen terug met hun partijen zoals ze stonden toen het punt

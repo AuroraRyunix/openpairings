@@ -31,15 +31,25 @@ defmodule PairingsEngineWeb.PairingExplainLive do
   @impl true
   def mount(%{"id" => id, "round" => round}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
-    round_number = String.to_integer(round)
 
-    # A team Swiss was paired team against team (C.04.6): the individual
-    # analysis below would explain boards the engine never decided on. Its
-    # page is the team engine's own account.
-    if Tournament.team_swiss?(tournament) do
-      {:ok, mount_team(socket, tournament, round_number)}
-    else
-      mount_individual(socket, tournament, round_number)
+    # A hand-typed URL is the only way a non-number gets here; it used to
+    # crash the page instead of sending the arbiter back to it.
+    case parse_id(round) do
+      {:ok, round_number} when round_number >= 1 ->
+        # A team Swiss was paired team against team (C.04.6): the individual
+        # analysis below would explain boards the engine never decided on.
+        # Its page is the team engine's own account.
+        if Tournament.team_swiss?(tournament) do
+          {:ok, mount_team(socket, tournament, round_number)}
+        else
+          mount_individual(socket, tournament, round_number)
+        end
+
+      _ ->
+        {:ok,
+         socket
+         |> put_flash(:error, gettext("There is no such round."))
+         |> push_navigate(to: ~p"/t/#{tournament.id}/pairings")}
     end
   end
 
@@ -868,9 +878,7 @@ defmodule PairingsEngineWeb.PairingExplainLive do
      |> assign(busy: nil)
      |> put_flash(
        :error,
-       gettext("The alternatives could not be worked out (%{reason}). Nothing was changed.",
-         reason: inspect(reason)
-       )
+       skip_text(reason)
      )}
   end
 
@@ -891,6 +899,29 @@ defmodule PairingsEngineWeb.PairingExplainLive do
        :error,
        gettext("That did not finish - nothing was changed. The server log has the reason.")
      )}
+  end
+
+  # Why the alternatives were not worked out, in a sentence. The raw term
+  # used to be pasted into the flash, which was informative in the way a
+  # stack trace is informative.
+  defp skip_text(:no_such_round),
+    do: gettext("This round is no longer paired. Nothing was changed.")
+
+  defp skip_text(:hand_edited),
+    do:
+      gettext(
+        "This round's boards were changed by hand, so its account stays the engine's original decision. \"What if?\" still judges it live. Nothing was changed."
+      )
+
+  defp skip_text(:no_boards),
+    do: gettext("This round has no boards to work out alternatives for. Nothing was changed.")
+
+  defp skip_text(reason) do
+    Logger.warning("working out the alternatives was skipped: #{inspect(reason)}")
+
+    gettext(
+      "The alternatives could not be worked out. Nothing was changed; the server log has the reason."
+    )
   end
 
   defp parse_id(value) when is_binary(value) do

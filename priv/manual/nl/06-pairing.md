@@ -167,9 +167,11 @@ spelers worden genummerd ([De spelers van een rondetoernooi
 nummeren](#numbering-the-players-of-a-round-robin)); daarna paart het.
 
 > [!WARNING]
-> Het schema kan achteraf niet meer worden gewijzigd, en spelers die later worden
-> toegevoegd, staan er niet in. Alleen de volgorde waarin de rondes worden
-> gespeeld kan nog veranderen: zie [Rondes in een andere volgorde
+> Het schema kan achteraf niet meer worden bewerkt, en spelers die later worden
+> toegevoegd, staan er niet in. Het kan alleen ongedaan gemaakt worden door te
+> ontparen, van de laatste ronde terug ([Een ronde ongedaan
+> maken](#undoing-a-round)). De volgorde waarin de rondes worden gespeeld kan
+> nog veranderen: zie [Rondes in een andere volgorde
 > spelen](#playing-rounds-out-of-table-order).
 
 De rondes volgen de Berger-tabellen van FIDE (C.05). Bij een oneven aantal
@@ -422,7 +424,8 @@ de pagina Paringen bij een gepaarde ronde de knop **Chess960-stelling trekken**.
 Die trekt willekeurig een van de 960 startstellingen (elk even waarschijnlijk),
 toont het nummer en de stukken van de eerste rij, en drukt die af met de paringen
 van de ronde. Een ronde krijgt één stelling: de trekking kan niet worden herhaald
-totdat een stelling bevalt, en een tweede poging wordt geweigerd. De trekking
+totdat een stelling bevalt, en een tweede poging wordt geweigerd - daarom vraagt
+de knop eerst *Nu de Chess960-stelling voor ronde N trekken?*. De trekking
 wordt in het auditlogboek opgenomen.
 
 ## Een paring met de hand wijzigen {#changing-a-pairing-by-hand}
@@ -441,6 +444,8 @@ naam tegen elkaar gespeeld. Het programma noemt dit een
 - Een sessie op een ronde **begint** met **Meer**, **Paringen met de hand
   aanpassen**, of impliciet met de eerste wijziging met de hand in de ronde. Zolang
   ze open is, toont een banner *Wijzigingen met de hand aan ronde N zijn open*,
+  die je eraan herinnert hoe je er een maakt (rechtsklik, of tik op een
+  aanraakscherm, op een speler aan een bord of in de lijst met niet-spelenden),
   met de knop **Handmatige aanpassingen afronden**.
 - Wijzigingen met de hand maak je met het menu **Wijzigingen met de hand**:
   klik met de rechtermuisknop op een speler (of druk op de toets voor het
@@ -578,8 +583,13 @@ en worden op dezelfde manier beoordeeld.
 
 > [!WARNING] Ontparen verwijdert resultaten
 > **Meer**, **Ronde ontparen** (alleen bij de laatste gepaarde ronde getoond)
-> verwijdert die ronde en elk resultaat erin, na een bevestiging. Het programma
-> maakt eerst een herstelpunt ([Accounts, delen en overdracht](16-accounts-and-handoff.md)).
+> verwijdert die ronde en elk resultaat erin, na een bevestiging die precies zegt
+> wat er weggaat: de resultaten van de ronde, bij een matchformaat ook de andere
+> ronde van de match, en de paringsnummers als er geen ronde zou overblijven. Het
+> programma maakt eerst een herstelpunt, dat je terugvindt onder **Geavanceerd**,
+> **Geschiedenis** ([Herstelpunten](11-categories-and-norms.md#history-restore-points)). Daarna
+> zegt de pagina *Ronde N ontpaard. Er is een herstelpunt bewaard.* en toont ze
+> de laatste ronde die nog gepaard is.
 
 Bij een Zwitsers matchformaat horen de twee rondes van een match bij elkaar. Een
 ronde die naar het ratingkantoor is verstuurd, kan niet worden ontpaard.

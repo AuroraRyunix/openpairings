@@ -252,6 +252,11 @@ defmodule PairingsEngineWeb.Components.PhoneQr do
                         class="pe-btn danger-link"
                         phx-click="revoke_enrollment"
                         phx-value-id={e.id}
+                        data-confirm={
+                          gettext(
+                            "Revoke this phone code? A phone using it is signed out at once; it needs a new code to come back."
+                          )
+                        }
                       >
                         {gettext("Revoke")}
                       </button>

@@ -352,6 +352,20 @@ defmodule PairingsEngineWeb.BoardLinkLiveTest do
       assert has_element?(lv, "#board-game-download-box")
     end
 
+    test "a game unpaired while it is open goes back to its round, and says why", %{
+      conn: conn,
+      tournament: t,
+      boards: [board1 | _]
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/games/#{board1.game_uid}")
+      number = Repo.preload(board1, :round).round.number
+      :ok = PairingsEngine.Pairing.delete_round(t.id, number)
+
+      {path, flash} = assert_redirect(lv)
+      assert path == "/t/#{t.id}/pairings?round=#{number}"
+      assert flash["error"] =~ "no longer in this tournament"
+    end
+
     test "a game that is not in the tournament sends you back to the pairings", %{
       conn: conn,
       tournament: t
