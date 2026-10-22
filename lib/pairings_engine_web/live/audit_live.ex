@@ -107,7 +107,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.result_cleared pairing.result_clear_attempted pairing.round_deleted
         pairing.result_confirmed pairing.result_rejected
         pairing.tpn_order_accepted
-        pairing.chess960_drawn pairing.rounds_swapped pairing.results_imported pairing.players_swapped pairing.player_substituted
+        pairing.chess960_drawn pairing.chess960_redrawn pairing.rounds_swapped pairing.schedule_unpaired pairing.results_imported pairing.players_swapped pairing.player_substituted
         pairing.seat_vacated pairing.bye_awarded pairing.seat_filled pairing.pool_paired
         pairing.deleted pairing.hidden pairing.unhidden pairing.pairings_published
         pairing.pairings_unpublished pairing.results_published pairing.results_unpublished
@@ -118,7 +118,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.missing_recorded_postponed pairing.postponed_date_set pairing.played_on_set
         pairing.postponed_not_played
         pairing.bye_exclusion_overridden pairing.bye_passed_over pairing.bye_preference
-        pairing.mpa_started pairing.mpa_finished pairing.round_created_by_hand
+        pairing.mpa_started pairing.mpa_finished pairing.mpa_discarded pairing.round_created_by_hand
         pairing.full_point_bye_awarded pairing.full_point_bye_withdrawn
         pairing.rating_correction pibe.correction
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
@@ -864,6 +864,23 @@ defmodule PairingsEngineWeb.AuditLive do
         round: value(d, "round")
       )
 
+  def describe("pairing.chess960_redrawn", d),
+    do:
+      gettext(
+        "Drew the Chess960 position for round %{round} again: %{position}, in place of %{previous}.",
+        position: PairingsEngine.Chess960.label(%{chess960_position: d["position"]}),
+        previous: PairingsEngine.Chess960.label(%{chess960_position: d["previous"]}),
+        round: value(d, "round")
+      )
+
+  def describe("pairing.schedule_unpaired", d),
+    do:
+      ngettext(
+        "Unpaired the whole round-robin schedule: %{count} round.",
+        "Unpaired the whole round-robin schedule: %{count} rounds.",
+        count(d, "rounds")
+      )
+
   def describe("standings.lots_drawn", d),
     do:
       ngettext(
@@ -994,6 +1011,13 @@ defmodule PairingsEngineWeb.AuditLive do
 
   def describe("pairing.mpa_started", d),
     do: gettext("Started hand edits to round %{round}.", round: value(d, "round"))
+
+  def describe("pairing.mpa_discarded", d),
+    do:
+      gettext(
+        "Discarded the hand edits to round %{round}: its boards went back to how they were when the hand edits started.",
+        round: value(d, "round")
+      )
 
   def describe("pairing.mpa_finished", %{"pibe" => line} = d) when is_binary(line),
     do:

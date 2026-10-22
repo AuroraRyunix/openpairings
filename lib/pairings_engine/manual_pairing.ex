@@ -35,6 +35,17 @@ defmodule PairingsEngine.ManualPairing do
   it again replaces its PIBE, or removes it when the boards now match - at
   most one per round, and unpairing the round removes it with the round.
 
+  ## Changing one's mind (discard)
+
+  A session also remembers the round as it stood when it opened - every
+  board and the round's bye rows (`restore_record/1`) - so `discard/1` can
+  put it back and close the session, as if the hand edits had never
+  happened. Only while nothing in the round is decided: a result describes
+  a game on the boards as they are now, and the boards being put back are
+  not those. A round that had results when the session opened records no
+  way back at all. The Pairings page also takes a restore point when a
+  session opens, for anything wider than one round.
+
   An individual, single-pool Swiss is checked by the Dutch system's engine.
   A round robin paired by hand (VCL4THP Q100, `RoundRobin.by_hand?/1`) is
   held to its own round of the Berger table instead, and to the round-robin
@@ -52,6 +63,23 @@ defmodule PairingsEngine.ManualPairing do
 
   alias PairingsEngine.{ManualRoundRobin, Pairing, Repo, RoundRobin, Tournaments}
   alias PairingsEngine.Tournaments.{Player, Round, Tournament}
+  alias PairingsEngine.Tournaments.Pairing, as: PairingRow
+
+  # The columns of a board a hand edit can change, and what `discard/1`
+  # writes back. Results and postponements are not among them: a round
+  # with any is not discarded.
+  @restored_fields [
+    :id,
+    :board,
+    :display_board,
+    :display_special,
+    :white_player_id,
+    :black_player_id,
+    :result,
+    :match_id,
+    :hidden,
+    :game_uid
+  ]
 
   @c2_reasons [:pairing_bye, :forfeit_win, :full_point_bye]
 
@@ -86,13 +114,22 @@ defmodule PairingsEngine.ManualPairing do
 
   @doc """
   Opens a session on `round`, remembering `before` (its boards in the shape
-  of `boards/1`; the round's own by default) as where it started. Does
-  nothing when one is already open. `{:ok, true}` when this opened it,
+  of `boards/1`; the round's own by default) as where it started, and
+  `record` (`restore_record/1`, read now by default) as what `discard/1`
+  puts back. Does nothing when one is already open. `{:ok, true}` when this opened it,
   `{:ok, false}` when one was already open.
   """
-  def start(%Round{} = round, before \\ nil) do
+  def start(%Round{} = round, before \\ nil, record \\ :read) do
     with :ok <- Tournaments.ensure_writable(round.tournament_id) do
-      session = %{"before" => before || boards(round)}
+      record =
+        case record do
+          :read -> restore_record(round)
+          %{} -> record
+          # `:open` from a caller whose round was stale, or nil: no way back.
+          _ -> nil
+        end
+
+      session = %{"before" => before || boards(round), "restore" => record}
 
       {count, _} =
         Repo.update_all(
@@ -102,6 +139,207 @@ defmodule PairingsEngine.ManualPairing do
 
       if count == 1, do: Tournaments.broadcast_tournament_change(round.tournament_id, :rounds)
       {:ok, count == 1}
+    end
+  end
+
+  @doc """
+  The round as `discard/1` would put it back: its boards (the columns a
+  hand edit can change, ids and game identities included) and its bye
+  rows, read from the database now, as a map that a JSON column keeps.
+  `nil` when something in the round is already decided - a session opened
+  on such a round has no way back but the restore point.
+
+  Read it BEFORE the first hand edit when that edit is what opens the
+  session (`start/3`'s `record`): afterwards it would remember the edit.
+  """
+  def restore_record(%Round{} = round) do
+    if Tournaments.results_recorded?(round.tournament_id, round.number) do
+      nil
+    else
+      pairings =
+        Repo.all(
+          from p in PairingRow,
+            where: p.round_id == ^round.id,
+            order_by: p.board,
+            select: map(p, ^@restored_fields)
+        )
+
+      byes =
+        Repo.all(
+          from b in "byes",
+            where: b.tournament_id == ^round.tournament_id and b.round == ^round.number,
+            order_by: b.player_id,
+            select: %{player_id: b.player_id, type: b.type}
+        )
+
+      %{
+        "pairings" => Enum.map(pairings, &stringify/1),
+        "byes" => Enum.map(byes, &stringify/1)
+      }
+    end
+  end
+
+  defp stringify(map), do: Map.new(map, fn {k, v} -> {to_string(k), v} end)
+
+  @doc """
+  Whether `round`'s open session can still be discarded: it remembers where
+  it started and nothing in the round is decided.
+  """
+  def discardable?(%Round{mpa_session: %{"restore" => %{"pairings" => _}}} = round),
+    do: not Tournaments.results_recorded?(round.tournament_id, round.number)
+
+  def discardable?(_round), do: false
+
+  @doc """
+  Puts `round` back as its open session found it - boards and bye rows -
+  and closes the session without touching the round's MPA PIBE (whatever
+  an earlier session recorded stands).
+
+  The one way back from a round's hand edits, for every caller: the
+  Pairings page's "Discard hand edits" and anything else that wants an
+  undo (a phone, say) call this and log the audit row themselves
+  (`pairing.mpa_discarded`, with the round number) - the scope that did it
+  is theirs to know, not this module's.
+
+  Takes the round, or the tournament and a round number; the round is read
+  again from the database either way, so a stale struct cannot discard a
+  session that has since closed or moved on. `{:ok, round}` with the round
+  as it now stands, or `{:error, reason}`: `:no_round` when there is no
+  such round, `:no_session` when none is open, `:no_way_back` for a
+  session that remembers nothing to go back to, `:has_results` once
+  something in the round is decided, `:stale` when a remembered player is
+  no longer the tournament's, and `Tournaments.ensure_writable/1`'s
+  refusals (`:archived`, ...).
+  """
+  @spec discard(%Round{} | %Tournament{}, pos_integer() | nil) ::
+          {:ok, %Round{}} | {:error, atom()}
+  def discard(round_or_tournament, round_number \\ nil)
+
+  def discard(%Tournament{} = tournament, round_number) when is_integer(round_number) do
+    case Repo.one(
+           from r in Round,
+             where: r.tournament_id == ^tournament.id and r.number == ^round_number
+         ) do
+      nil -> {:error, :no_round}
+      round -> do_discard(round)
+    end
+  end
+
+  def discard(%Round{id: id}, nil) do
+    case Repo.get(Round, id) do
+      nil -> {:error, :no_round}
+      round -> do_discard(round)
+    end
+  end
+
+  defp do_discard(%Round{} = round) do
+    with :ok <- Tournaments.ensure_writable(round.tournament_id),
+         {:ok, record} <- remembered(round),
+         :ok <- no_results(round),
+         :ok <- players_still_here(round, record) do
+      {:ok, :ok} =
+        Repo.transaction(fn ->
+          put_back_pairings(round, record["pairings"])
+
+          Repo.delete_all(
+            from b in "byes",
+              where: b.tournament_id == ^round.tournament_id and b.round == ^round.number
+          )
+
+          Repo.insert_all(
+            "byes",
+            Enum.map(record["byes"], fn b ->
+              %{
+                tournament_id: round.tournament_id,
+                player_id: b["player_id"],
+                round: round.number,
+                type: b["type"]
+              }
+            end)
+          )
+
+          # What a box reported for a board that is no longer there.
+          PairingsEngine.BoardLink.prune_games(round.tournament_id)
+
+          Repo.update_all(
+            from(r in Round,
+              where: r.id == ^round.id,
+              update: [set: [mpa_session: fragment("NULL")]]
+            ),
+            []
+          )
+
+          :ok
+        end)
+
+      Tournaments.invalidate_manual_ranking(round.tournament_id)
+      Tournaments.broadcast_tournament_change(round.tournament_id, :rounds)
+      Tournaments.refresh_status!(round.tournament_id)
+      {:ok, Repo.get!(Round, round.id)}
+    end
+  end
+
+  defp remembered(%Round{mpa_session: %{"restore" => %{"pairings" => p, "byes" => b} = r}})
+       when is_list(p) and is_list(b),
+       do: {:ok, r}
+
+  defp remembered(%Round{mpa_session: %{}}), do: {:error, :no_way_back}
+  defp remembered(_round), do: {:error, :no_session}
+
+  defp no_results(round) do
+    if Tournaments.results_recorded?(round.tournament_id, round.number),
+      do: {:error, :has_results},
+      else: :ok
+  end
+
+  # Ids remembered in a JSON column are only as good as the rows they name.
+  # Nothing carries a session across an export, but a remembered id that
+  # is no longer this tournament's player is refused, not seated.
+  defp players_still_here(round, record) do
+    ids =
+      (Enum.flat_map(record["pairings"], &[&1["white_player_id"], &1["black_player_id"]]) ++
+         Enum.map(record["byes"], & &1["player_id"]))
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    known =
+      Repo.one(
+        from p in Player,
+          where: p.tournament_id == ^round.tournament_id and p.id in ^ids,
+          select: count(p.id)
+      )
+
+    if known == length(ids), do: :ok, else: {:error, :stale}
+  end
+
+  # Rows still in the round are written back in place (their ids, and so
+  # their game identities, stay); rows the hand edits added go; rows they
+  # deleted come back, under their old id when nobody has taken it since.
+  defp put_back_pairings(round, remembered) do
+    current =
+      from(p in PairingRow, where: p.round_id == ^round.id, select: p.id)
+      |> Repo.all()
+      |> MapSet.new()
+
+    remembered_ids = Enum.map(remembered, & &1["id"])
+
+    Repo.delete_all(
+      from p in PairingRow, where: p.round_id == ^round.id and p.id not in ^remembered_ids
+    )
+
+    for row <- remembered do
+      fields = for f <- @restored_fields -- [:id, :game_uid], do: {f, row[to_string(f)]}
+
+      if MapSet.member?(current, row["id"]) do
+        Repo.update_all(from(p in PairingRow, where: p.id == ^row["id"]), set: fields)
+      else
+        identity =
+          if Repo.exists?(from p in PairingRow, where: p.id == ^row["id"]),
+            do: [],
+            else: [id: row["id"], game_uid: row["game_uid"]]
+
+        Repo.insert_all(PairingRow, [Map.new([{:round_id, round.id} | identity ++ fields])])
+      end
     end
   end
 
