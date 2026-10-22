@@ -4,6 +4,7 @@
   "files": [
     "board-link-create-request.schema.json",
     "board-link-create-response.schema.json",
+    "board-link-revoke-response.schema.json",
     "board-links-response.schema.json",
     "board-verdict-response.schema.json",
     "byes-request.schema.json",
@@ -14,6 +15,7 @@
     "error.schema.json",
     "examples/board-link-create-request.json",
     "examples/board-link-create-response.json",
+    "examples/board-link-revoke-response.json",
     "examples/board-links-response.json",
     "examples/board-verdict-response.confirmed.json",
     "examples/board-verdict-response.json",
@@ -25,6 +27,8 @@
     "examples/error.conflict.json",
     "examples/error.invalid-code.json",
     "examples/error.json",
+    "examples/error.link-not-found.json",
+    "examples/error.refused.json",
     "examples/expected-request.json",
     "examples/finish-edits-request.json",
     "examples/finish-edits-response.json",
@@ -48,6 +52,7 @@
     "examples/round-response.json",
     "examples/settings-request.json",
     "examples/settings-response.json",
+    "examples/sign-out-response.json",
     "examples/standings-response.json",
     "examples/standings-response.keizer.json",
     "examples/sync-request.json",
@@ -58,6 +63,7 @@
     "examples/tournament-response.arbiter.json",
     "examples/tournament-response.json",
     "examples/tournaments-response.json",
+    "examples/unpair-response.json",
     "expected-request.schema.json",
     "finish-edits-request.schema.json",
     "finish-edits-response.schema.json",
@@ -76,6 +82,7 @@
     "round-response.schema.json",
     "settings-request.schema.json",
     "settings-response.schema.json",
+    "sign-out-response.schema.json",
     "standings-response.schema.json",
     "sync-request.schema.json",
     "sync-response.schema.json",
@@ -83,6 +90,7 @@
     "tournament-create-response.schema.json",
     "tournament-options-response.schema.json",
     "tournament-response.schema.json",
-    "tournaments-response.schema.json"
+    "tournaments-response.schema.json",
+    "unpair-response.schema.json"
   ]
 }

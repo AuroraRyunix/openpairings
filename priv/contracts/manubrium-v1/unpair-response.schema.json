@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/unpair-response.schema.json",
+  "title": "DELETE /tournaments/:id/rounds/:n response",
+  "description": "The latest round's pairings removed (with a match-format Swiss, the round before it too): 204 No Content, empty body. Described here as {status, body} because there is no JSON to describe; the provider test records the real status and body. Refusals (error.schema.json): 422 refused unless it is the latest round, or when its games went out in a TRF; 403/404 as for any desk route.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "body"
+  ],
+  "properties": {
+    "status": {
+      "const": 204
+    },
+    "body": {
+      "const": "",
+      "description": "Nothing: do not parse it as JSON."
+    }
+  }
+}

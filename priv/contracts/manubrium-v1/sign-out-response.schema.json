@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/sign-out-response.schema.json",
+  "title": "DELETE /me response",
+  "description": "This phone's token withdrawn: 204 No Content, empty body; every later request with it is 401. Described here as {status, body} because there is no JSON to describe; the provider test records the real status and body.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "body"
+  ],
+  "properties": {
+    "status": {
+      "const": 204
+    },
+    "body": {
+      "const": "",
+      "description": "Nothing: do not parse it as JSON."
+    }
+  }
+}

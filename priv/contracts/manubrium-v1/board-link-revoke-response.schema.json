@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/board-link-revoke-response.schema.json",
+  "title": "DELETE /tournaments/:id/board-links/:lid response",
+  "description": "The hall-box code withdrawn: 204 No Content, empty body. Described here as {status, body} because there is no JSON to describe; the provider test records the real status and body. Refusals (error.schema.json): 404 link_not_found (no such code on this tournament, or not a number); 403/404 as for any desk route.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status",
+    "body"
+  ],
+  "properties": {
+    "status": {
+      "const": 204
+    },
+    "body": {
+      "const": "",
+      "description": "Nothing: do not parse it as JSON."
+    }
+  }
+}

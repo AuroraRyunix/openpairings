@@ -194,7 +194,8 @@ defmodule PairingsEngineWeb.ManubriumContractTest do
       me = conn |> phone(answer["token"]) |> get(@api <> "/me") |> json_response(200)
       record_example(@contract, "me-response", me)
 
-      assert conn |> phone(answer["token"]) |> delete(@api <> "/me") |> response(204) == ""
+      signed_out = conn |> phone(answer["token"]) |> delete(@api <> "/me")
+      record_example(@contract, "sign-out-response", no_content(signed_out))
     end
   end
 
@@ -548,10 +549,47 @@ defmodule PairingsEngineWeb.ManubriumContractTest do
       record_example(@contract, "board-links-response", links)
       assert length(links["links"]) == 2
 
-      assert conn
-             |> phone(token)
-             |> delete(base <> "/board-links/#{plain["link"]["id"]}")
-             |> response(204) == ""
+      revoked = conn |> phone(token) |> delete(base <> "/board-links/#{plain["link"]["id"]}")
+      record_example(@contract, "board-link-revoke-response", no_content(revoked))
+
+      again =
+        conn
+        |> phone(token)
+        |> delete(base <> "/board-links/#{plain["link"]["id"]}")
+        |> json_response(404)
+
+      record_example(@contract, "error.link-not-found", again)
     end
+  end
+
+  describe "unpairing" do
+    test "only the latest round, and it answers nothing", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = tournament(owner, 4)
+      base = @api <> "/tournaments/#{t.id}"
+
+      conn |> phone(token) |> post(base <> "/rounds", %{}) |> json_response(201)
+
+      for p <- games(Tournaments.get_tournament!(t.id)),
+          do: {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
+
+      conn |> phone(token) |> post(base <> "/rounds", %{}) |> json_response(201)
+
+      refused = conn |> phone(token) |> delete(base <> "/rounds/1") |> json_response(422)
+      record_example(@contract, "error.refused", refused)
+
+      unpaired = conn |> phone(token) |> delete(base <> "/rounds/2")
+      record_example(@contract, "unpair-response", no_content(unpaired))
+      refute Tournaments.get_round(t.id, 2)
+    end
+  end
+
+  # A 204 described the only way JSON can: its status and its (empty) body.
+  defp no_content(conn) do
+    assert conn.status == 204
+    %{"status" => conn.status, "body" => conn.resp_body}
   end
 end
