@@ -357,7 +357,8 @@
           "required": ["open", "pibe"],
           "properties": {
             "open": { "type": "boolean" },
-            "pibe": { "type": ["string", "null"], "description": "The MPA PIBE line recorded for the round." }
+            "pibe": { "type": ["string", "null"], "description": "The MPA PIBE line recorded for the round." },
+            "discardable": { "type": "boolean", "description": "Hand edits are open and can still be discarded (POST /rounds/:n/edits/discard): the session remembers where it began and nothing in the round is decided. Absent from servers older than the route; read absent as false." }
           }
         },
         "results": { "type": "array", "items": { "type": "string" }, "description": "The result codes an arbiter may enter." }

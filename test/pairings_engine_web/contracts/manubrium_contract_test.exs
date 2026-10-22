@@ -29,6 +29,7 @@ defmodule PairingsEngineWeb.ManubriumContractTest do
     board-link-create-request.json
     byes-request.json
     connect-request.json
+    discard-edits-request.json
     edit-request.json
     expected-request.json
     finish-edits-request.json
@@ -438,6 +439,7 @@ defmodule PairingsEngineWeb.ManubriumContractTest do
       assert_valid!(@contract, "round-response.schema.json", edited)
       assert edited["round"]["hand_edits"]["open"]
 
+      assert edited["round"]["hand_edits"]["discardable"]
       # Without the PIBE acknowledged the checker may ask first.
       case conn |> phone(token) |> post(base <> "/rounds/1/edits/finish", %{}) do
         %{status: 409} = asked ->
@@ -454,6 +456,70 @@ defmodule PairingsEngineWeb.ManubriumContractTest do
         answered ->
           record_example(@contract, "finish-edits-response", json_response(answered, 200))
       end
+    end
+  end
+
+  describe "discarding hand edits" do
+    test "the round goes back, and a second discard has nothing to discard", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = tournament(owner, 4)
+      base = @api <> "/tournaments/#{t.id}"
+      conn |> phone(token) |> post(base <> "/rounds", %{}) |> json_response(201)
+      [b1, b2] = games(Tournaments.get_tournament!(t.id))
+
+      before =
+        Enum.map(
+          games(Tournaments.get_tournament!(t.id)),
+          &{&1.white_player_id, &1.black_player_id}
+        )
+
+      swap = %{
+        "edit" => %{"kind" => "swap", "a" => b1.white_player_id, "b" => b2.white_player_id}
+      }
+
+      case conn |> phone(token) |> post(base <> "/rounds/1/edits", swap) do
+        %{status: 409} = asked ->
+          ack = json_response(asked, 409)["confirm"]
+
+          conn
+          |> phone(token)
+          |> post(base <> "/rounds/1/edits", Map.put(swap, "acknowledged", ack))
+          |> json_response(200)
+
+        answered ->
+          json_response(answered, 200)
+      end
+
+      body = request("discard-edits-request.json")
+      assert_valid!(@contract, "discard-edits-request.schema.json", body)
+
+      discarded =
+        conn
+        |> phone(token)
+        |> post(base <> "/rounds/1/edits/discard", body)
+        |> json_response(200)
+
+      assert_valid!(@contract, "round-response.schema.json", discarded)
+      refute discarded["round"]["hand_edits"]["open"]
+      refute discarded["round"]["hand_edits"]["discardable"]
+
+      assert Enum.map(
+               games(Tournaments.get_tournament!(t.id)),
+               &{&1.white_player_id, &1.black_player_id}
+             ) ==
+               before
+
+      again =
+        conn
+        |> phone(token)
+        |> post(base <> "/rounds/1/edits/discard", %{})
+        |> json_response(409)
+
+      assert again["error"] == "no_hand_edits"
+      assert_valid!(@contract, "error.schema.json", again)
     end
   end
 

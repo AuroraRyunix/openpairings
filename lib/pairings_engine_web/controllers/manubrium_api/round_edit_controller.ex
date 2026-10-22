@@ -17,6 +17,7 @@ defmodule PairingsEngineWeb.ManubriumApi.RoundEditController do
 
   alias PairingsEngine.Mobile.PhoneResults
   alias PairingsEngine.Tournaments
+  alias PairingsEngine.Tournaments.Tournament
   alias PairingsEngineWeb.DeskActions
   alias PairingsEngineWeb.ManubriumApi.{Json, Reply}
 
@@ -84,6 +85,36 @@ defmodule PairingsEngineWeb.ManubriumApi.RoundEditController do
 
         {:error, {:needs_acknowledgement, ids, info}} ->
           needs_acknowledgement(conn, ids, %{checker: info})
+
+        {:error, reason} ->
+          Reply.refuse(conn, reason)
+      end
+    else
+      {:halt, conn} -> conn
+    end
+  end
+
+  @doc """
+  POST /tournaments/:id/rounds/:number/edits/discard - the desk's "Discard
+  hand edits": the round as its hand edits found it, and the session
+  closed, while nothing in the round is decided. Answers the round.
+  """
+  def discard(conn, %{"id" => id, "number" => number}) do
+    with {:ok, t, _role} <- Reply.tournament(conn, id, :desk),
+         {:ok, n} <- round_number(conn, number),
+         {:ok, round} <- fetch_round(conn, t, n),
+         :ok <- individual(conn, t) do
+      case DeskActions.discard_hand_edits(t, conn.assigns.current_scope, round, %{via: "mobile"}) do
+        {:ok, _round} ->
+          json(conn, %{
+            round: Json.round(Tournaments.get_tournament!(t.id), Tournaments.get_round(t.id, n))
+          })
+
+        {:error, :no_session} ->
+          Reply.refuse(conn, :no_hand_edits)
+
+        {:error, :no_round} ->
+          Reply.refuse(conn, :not_paired)
 
         {:error, reason} ->
           Reply.refuse(conn, reason)
@@ -243,5 +274,13 @@ defmodule PairingsEngineWeb.ManubriumApi.RoundEditController do
       {:ok, n} -> {:ok, n}
       :error -> {:halt, Reply.error(conn, 400, "bad_request", gettext("Not a number."))}
     end
+  end
+
+  # Team events' hand edits count for matches; they stay at the desk, as
+  # every other hand edit does (`DeskActions.hand_edit/5`).
+  defp individual(conn, t) do
+    if Tournament.team?(t) or Tournament.paired_as_teams?(t),
+      do: {:halt, Reply.refuse(conn, :team_event)},
+      else: :ok
   end
 end
