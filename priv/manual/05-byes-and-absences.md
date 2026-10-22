@@ -48,8 +48,6 @@ explained in [Players and rating lists](04-players-and-ratings.md):
 - The menu on the header of the column marks everybody present or absent at
   once; use this at the start of the event or the start of a round.
 
-![The presence cell menu on the Players page with Absent and Present](screenshots/05-presence-cell-menu.png "Setting a player absent")
-
 An absent player is not paired in that round. Their absence is scored as set
 on the Scoring page (*Byes and absences*). The Pairings page and the printed
 pairing list (option *with absentees section*) list the players who are not
@@ -160,8 +158,6 @@ without an opponent scores half of his own rung.
 In a paired round, the Pairings page lets you change who plays whom or who
 sits out. The *Hand edits* menu (right-click a player's name in the round)
 offers:
-
-![The Hand edits menu opened on a player's name in a paired round](screenshots/05-hand-edits-menu.png "The Hand edits menu")
 
 
 - **Mark absent for this round**: the player's seat is emptied and the

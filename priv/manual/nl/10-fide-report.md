@@ -40,8 +40,6 @@ met haar borden en haar status:
 | *Klaar om te versturen* | Elk bord heeft een resultaat. |
 | *Verstuurd* | De ronde is verstuurd; de datum en een ontvangstcode worden getoond (bijvoorbeeld `R5·7F2A`). |
 
-![De pagina Exporteren, sectie TRF, met rondes in de statussen Wordt gespeeld, Klaar om te versturen en Verstuurd](screenshots/10-export-trf-rounds.png "Rondes en hun status op de pagina Exporteren")
-
 Vink de rondes aan die je wilt en druk op:
 
 - **Versturen…** - maakt het bestand voor het ratingbureau, downloadt het naar je computer en **markeert elke partij
@@ -104,7 +102,7 @@ Zo wordt de partij niet twee keer gerate en ook niet verloren; zie hieronder.
 ## Uitgestelde partijen {#postponed-games}
 
 In de FIDE-modus wordt geen bestand verstuurd of gekopieerd dat de ronde van
-een uitgestelde partij zonder resultaat bevat. Een bestand met alleen de ronden
+een uitgestelde partij zonder resultaat bevat. Een bestand met alleen de rondes
 ervoor wordt gewoon gemaakt, zoals de kopie in de ratinginbox van een eerder
 verstuurde ronde. De pagina Exporteren toont de
 openstaande partijen: voer elk resultaat in, of druk op **Niet gespeeld in dit

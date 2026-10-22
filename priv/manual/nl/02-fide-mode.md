@@ -26,7 +26,7 @@ Een nieuw toernooi begint met de instellingen die de FIDE-regels beschrijven:
 Zodra de eerste ronde is gepaard, **vergrendelt** de FIDE-modus de instellingen
 die bepalen wat al is gebeurd. De vergrendelde instellingen zijn: het aantal
 rondes (en het aantal cycli van een rondetoernooi), de punten voor winst, remise
-en verlies, de matchpunten van een ploegentoernooi, de waarde van de door de
+en verlies, de matchpunten van een teamtoernooi, de waarde van de door de
 paring toegekende bye, de acceleratie, het paringssysteem en de tiebreaklijst.
 Hun velden op de instellingenpagina's zijn grijs. Er is in de FIDE-modus geen
 knop *Ontgrendelen* voor deze velden (buiten de FIDE-modus heeft de andere
@@ -44,14 +44,14 @@ ontdekte fout na het toernooi wordt gecorrigeerd, en alleen in het
 ratingrapport. Het resultaat van een uitgestelde partij kan altijd worden
 ingevoerd.
 
-In een ploegentoernooi liggen de selecties van de ploegen en de bordvolgorden
+In een teamtoernooi liggen de selecties van de teams en de bordvolgorden
 vast zodra ronde 1 is gepaard (een nieuwe speler kan nog wel als reserve
-onderaan een ploeg worden toegevoegd).
+onderaan een team worden toegevoegd).
 
 De FIDE-modus maakt **geen TRF en geen eindstand zolang een uitgestelde partij
 geen resultaat heeft**. Elke TRF-download en elk bestand van *Versturen…* dat
 haar ronde bevat, en de stand na de laatste ronde, worden geweigerd, met de
-openstaande partijen erbij. Een bestand met alleen de ronden ervoor wordt nog
+openstaande partijen erbij. Een bestand met alleen de rondes ervoor wordt nog
 wel gemaakt.
 Voer hun resultaten in, of leg een partij vast als **niet gespeeld in dit
 toernooi** (Instellingen, Exporteren); dat haalt het toernooi uit de
@@ -109,7 +109,7 @@ Er zijn twee manieren om eruit te gaan, en beide stellen dezelfde twee vragen.
 
 - **Bewust:** Instellingen, **FIDE**, **FIDE-modus verlaten…**
 - **Door een handeling die in de FIDE-modus niet is toegestaan.** Dat zijn: een
-  instellingenpagina (Opties, Puntentelling) opslaan met een instelling uit de
+  instellingenpagina (Opties, Puntentelling) bewaren met een instelling uit de
   lijst hierboven (Keizer, het Zwitserse matchformaat, laatkomers achter het
   veld, uitgestelde partijen anders geteld, een remise of de bye meer waard dan een winst); het inschakelen
   van *Elke categorie apart paren* op de pagina Categorieën; en op een knop
@@ -131,13 +131,11 @@ FIDE-checklist voor toernooibehandelaars Niveau 4 noemt):
    dialoogvenster.
 2. *In de FIDE-modus blijven?* **Ja, in de FIDE-modus blijven** sluit het
    dialoogvenster; **Nee, FIDE-modus verlaten** voert uit wat je vroeg: de
-   instellingen worden opgeslagen, de schakelaar wordt aangezet, of de ronde
+   instellingen worden bewaard, de schakelaar wordt aangezet, of de ronde
    wordt gepaard.
 
-![Het dialoogvenster FIDE-modus verlaten bij de eerste stap, met een lijst van wat het toernooi uit de FIDE-modus haalt](screenshots/02-leave-fide-mode-dialog.png "De eerste vraag van het dialoogvenster FIDE-modus verlaten")
-
 Annuleren bij beide stappen verandert niets: de instellingen worden niet
-opgeslagen en de ronde wordt niet gepaard. De tweede vraag somt op wat verlaten
+bewaard en de ronde wordt niet gepaard. De tweede vraag somt op wat verlaten
 doet:
 
 - **Het is definitief.** Het toernooi kan nooit meer terug naar de FIDE-modus,
@@ -170,4 +168,3 @@ functionarissen (hoofdarbiter, hulparbiters) en het type evenement voor
 titelnormen worden ingevoerd onder **Functionarissen & normen**; zie [Een toernooi instellen](03-tournament-setup.md) en
 [Versturen naar FIDE](10-fide-report.md).
 
-![De FIDE-pagina van de instellingen met het toernooi-ID, de evenementcode en het vakje voor homologatie](screenshots/02-settings-fide-page.png "Instellingen, FIDE")

@@ -27,13 +27,14 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # both languages spell the same (`is`, `in`, `was`, `per`, `extra`, `via`,
   # `gratis` - the Players page's own label for a free entry in both), chess
   # and software loanwords the catalogue keeps (`bye`, `rating`, `logo`,
-  # `link`, `token`, `computer`, `label`), identifiers (`FIDE`, `SWAR`, `guid`), and
+  # `link`, `token`, `computer`, `label`, and `team` - the Dutch glossary
+  # prefers it to `ploeg`), identifiers (`FIDE`, `SWAR`, `guid`), and
   # labels whose Dutch msgstr is currently the English word: the `Support`
   # role and the phone access levels (see
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token label
              computer guid swar trf json csv fide id elo keizer support deputy helper pibe
-             chess960 chess rnbqkbnr javafo ainalrami live incident)
+             chess960 chess rnbqkbnr javafo ainalrami live incident team teams)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list

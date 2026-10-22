@@ -124,8 +124,6 @@ handler checklist calls Level 4):
    **No, leave FIDE mode** carries out what you asked: the settings are
    saved, the toggle is switched on, or the round is paired.
 
-![The Leave FIDE mode dialog at its first step, listing what takes the tournament out of FIDE mode](screenshots/02-leave-fide-mode-dialog.png "The first question of the Leave FIDE mode dialog")
-
 Cancelling at either step changes nothing: the settings are not saved and
 the round is not paired. The second question lists what leaving does:
 
@@ -157,4 +155,3 @@ becomes a required field. The officials (chief arbiter, deputies) and the
 event type for title norms are entered under **Officials & norms**; see
 [Tournament set-up](03-tournament-setup.md) and [Sending to FIDE](10-fide-report.md).
 
-![The FIDE page of the settings with the tournament ID, event code and the homologated tick box](screenshots/02-settings-fide-page.png "Settings, FIDE")
