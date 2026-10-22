@@ -15,8 +15,16 @@ Settings, **Categories**:
   categories can all be written this way. Age is counted by the FIDE
   convention, as of 1 January of the year: the editor shows the birth year
   that a limit means ("under 16 = born 2010 or later").
-- The button that assigns categories fills each category from its rule and
-  says how many of the players it assigned, or that nobody needs changing.
+- **Save rules** keeps the rules and the prizes of the whole table at once and
+  answers *Rules saved.* A rule whose *from* is not below its *below* matches
+  nobody and is refused. The button that assigns categories works from the
+  saved rules, so it waits (*Save the rules first.*) while the table differs
+  from what is saved; it fills each category from its rule and says how many
+  of the players it assigned, or that nobody needs changing.
+- **Remove** asks first. The rule and the prize count of the category go with
+  it; the players keep the category on file, so adding the same name again
+  brings the assignments back. Typing in the table is not lost when someone
+  else changes the tournament.
 - A player can be in several categories. On the Players page the category
   cell (right-click or <kbd>Space</kbd>) assigns categories one at a time, and the
   header of that column assigns everybody.
@@ -104,7 +112,7 @@ one moment. The program takes one automatically before an action that is hard
 to undo (pairing or unpairing a round, importing results from a file, a forfeit
 or score of a match, a changed line-up, a withdrawn team, a hand-off) and
 before a bulk change that rewrites many players with one click (giving
-everyone a category, **Assign categories**, re-seeding the pairing numbers or the
+everyone a category, everyone present, absent or paid, **Assign categories**, re-seeding the pairing numbers or the
 starting numbers, **Refresh ratings** and the player-data refresh, applying the
 extra-points bands, re-seeding the manual ranking, ordering teams by rating).
 Each is labelled with what is about to happen, for example *Before assigning
