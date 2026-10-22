@@ -564,6 +564,27 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "incident.photo_added" => [
       %{"kind" => "illegal_move", "round" => 3, "board" => 7, "via" => "mobile"}
     ],
+    "incident.edited" => [
+      %{
+        "kind" => "time_added",
+        "round" => 3,
+        "board" => 7,
+        "changed_fields" => %{
+          "kind" => ["clock", "time_added"],
+          "note" => ["", "Two minutes to Black"]
+        }
+      },
+      %{
+        "kind" => "clock",
+        "round" => 3,
+        "board" => 7,
+        "changed_fields" => %{"note" => ["Flag fell", "Flag fell, both claimed"]}
+      }
+    ],
+    "incident.deleted" => [
+      %{"kind" => "clock", "round" => 3, "board" => 7, "note" => "Flag fell, both claimed"},
+      %{"kind" => "clock", "round" => 3, "board" => 7, "note" => ""}
+    ],
     "pairing.result_confirmed" => [
       %{
         "round" => 2,

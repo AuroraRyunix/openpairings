@@ -360,8 +360,9 @@ anyone else, arbiters included. Every incident is also an audit row
 
 * Incident report: print and PDF per round or tournament, and carried in
   the export/hand-off envelope.
-* Arbiter-side incident editing: add from the desk, amend a note, mark
-  resolved, delete one logged by mistake.
+* Arbiter-side incident editing at the desk: add one, mark it resolved.
+  Amending and deleting one are in the full app (below, "Amending and
+  deleting an incident").
 * Push notifications for "arbiter call" (Push API, VAPID keys).
 * Clock times entered from the phone.
 * Background Sync API to send while the app is closed.
@@ -415,6 +416,7 @@ the hall pages already call:
 | mid-event settings | `DeskActions.update_settings/3` (`Tournaments.update_tournament/2`, locks included) | the Settings pages |
 | a Lite phone's result | `Mobile.PhoneResults.confirm/5`, `reject/5` | the hall's clear, for the rejection |
 | an incident's photo afterwards | `Incidents.attach_photo/4` (`check_photo/1`) | Lite's photo in the queue |
+| amending or deleting an incident | `Incidents.update/4`, `delete/3` (`permit_kind/2` for the code's level) | the desk's incident list |
 
 Where the desk would open a dialog and ask - the pairing-number question,
 the FIDE departure guard, bye exclusions, a round of hand edits in
@@ -595,6 +597,22 @@ the incident's photo row in the tournament's own database, one per incident
 `private, no-store`, to the organiser and editors only - the people the
 desk's incidents page shows it to. An arbiter's phone can send a photo; it
 cannot read one back.
+
+### Amending and deleting an incident
+
+`PATCH /incidents/:iid` takes `{kind?, note?}` - one left out stays as it
+is - and answers `200 {incident}`; `DELETE /incidents/:iid` removes it and
+its photo and answers `204`. Allowed to whoever may log one: the organiser,
+an editor or an arbiter (`:hall`), through the device's own phone code, and
+only for a kind that code's level may log - checked for the kind the
+incident has and the kind it is given, so a code that may only call the
+arbiter cannot reach anything else this way (`422 kind_not_allowed`). The
+same checks as logging: `422 unknown_kind`, `422 note_too_long` (280);
+`404 not_found`; `409 archived` / `handed_off`. Both are audited under the
+account: `incident.edited` with `changed_fields` (each `[was, now]`), and
+`incident.deleted` keeping the note, the players and whether there was a
+photo - the incident goes, the line saying it existed does not. Both are
+announced on the incidents topic, so the desk's list recounts.
 
 ### Token model
 
