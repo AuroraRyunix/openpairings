@@ -2640,7 +2640,7 @@ msgstr "Terug"
 #: lib/pairings_engine_web/controllers/print_controller.ex:1989
 #: lib/pairings_engine_web/controllers/print_controller.ex:2203
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:324
-#: lib/pairings_engine_web/desk_actions.ex:1047
+#: lib/pairings_engine_web/desk_actions.ex:1064
 #: lib/pairings_engine_web/live/live_round_live.ex:469
 #: lib/pairings_engine_web/live/match_live.ex:338
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:480
@@ -4019,7 +4019,7 @@ msgstr "Wanneer"
 #: lib/pairings_engine_web/controllers/print_controller.ex:1988
 #: lib/pairings_engine_web/controllers/print_controller.ex:2202
 #: lib/pairings_engine_web/controllers/team_print_controller.ex:323
-#: lib/pairings_engine_web/desk_actions.ex:1046
+#: lib/pairings_engine_web/desk_actions.ex:1063
 #: lib/pairings_engine_web/live/live_round_live.ex:465
 #: lib/pairings_engine_web/live/match_live.ex:338
 #: lib/pairings_engine_web/live/next_round_preview_panel.ex:478
@@ -6122,7 +6122,7 @@ msgstr "%{direction} twee rondes geleden"
 msgid "%{name} (bye)"
 msgstr "%{name} (bye)"
 
-#: lib/pairings_engine_web/desk_actions.ex:1049
+#: lib/pairings_engine_web/desk_actions.ex:1066
 #: lib/pairings_engine_web/live/pairing_explain_live.ex:1080
 #: lib/pairings_engine_web/live/pairings_live.ex:3881
 #, elixir-autogen, elixir-format
@@ -11544,7 +11544,7 @@ msgstr "als niet gespeeld in het verslag van haar ronde - klaar voor het bestand
 #: lib/pairings_engine/federations/bel/swar_merge.ex:987
 #: lib/pairings_engine_web/components/sent_receipt.ex:109
 #: lib/pairings_engine_web/components/sent_receipt.ex:110
-#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:138
+#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:169
 #: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:297
 #: lib/pairings_engine_web/controllers/mobile_app_controller.ex:292
 #: lib/pairings_engine_web/controllers/mobile_app_controller.ex:293
@@ -15793,19 +15793,19 @@ msgstr "Dit 3-2-1-bestand heeft rondes (%{rounds}) met een bye die als winst of 
 msgid "SWAR keeps its own point values only for its \"3-2-1\" type, so the file is a 3-2-1 tournament with this tournament's values, scored by that type's rules - by SWAR, and by OpenPairings when it is imported back: a zero-point bye is worth the bye value, an absence nothing, and a 0-0 nothing."
 msgstr "SWAR bewaart eigen puntwaarden enkel voor zijn type \"3-2-1\", dus het bestand is een 3-2-1-toernooi met de waarden van dit toernooi, geteld volgens de regels van dat type - door SWAR, en door OpenPairings wanneer het terug wordt ingelezen: een bye van nul punten is de byewaarde waard, een afwezigheid niets, en een 0-0 niets."
 
-#: lib/pairings_engine_web/desk_actions.ex:959
+#: lib/pairings_engine_web/desk_actions.ex:976
 #: lib/pairings_engine_web/live/pairings_live.ex:3888
 #, elixir-autogen, elixir-format
 msgid "%{a} and %{b} already played each other, in round %{round}."
 msgstr "%{a} en %{b} speelden al tegen elkaar, in ronde %{round}."
 
-#: lib/pairings_engine_web/desk_actions.ex:966
+#: lib/pairings_engine_web/desk_actions.ex:983
 #: lib/pairings_engine_web/live/pairings_live.ex:3896
 #, elixir-autogen, elixir-format
 msgid "%{a} and %{b} are a prohibited pairing."
 msgstr "%{a} en %{b} zijn een verboden paring."
 
-#: lib/pairings_engine_web/desk_actions.ex:1001
+#: lib/pairings_engine_web/desk_actions.ex:1018
 #: lib/pairings_engine_web/live/pairings_live.ex:3934
 #, elixir-autogen, elixir-format
 msgid "%{a} and %{b} both get the colour opposite to the one they are due."
@@ -15846,19 +15846,19 @@ msgid_plural "%{count} records assigning match points outside the scoring (recor
 msgstr[0] "%{count} record dat matchpunten buiten de puntentelling toekent (record 299) werd niet geïmporteerd."
 msgstr[1] "%{count} records die matchpunten buiten de puntentelling toekennen (record 299) werden niet geïmporteerd."
 
-#: lib/pairings_engine_web/desk_actions.ex:980
+#: lib/pairings_engine_web/desk_actions.ex:997
 #: lib/pairings_engine_web/live/pairings_live.ex:3913
 #, elixir-autogen, elixir-format
 msgid "%{name} already had a full-point bye, so may not get the pairing-allocated bye."
 msgstr "%{name} had al een bye van een vol punt en mag dus de door de paring toegekende bye niet krijgen."
 
-#: lib/pairings_engine_web/desk_actions.ex:969
+#: lib/pairings_engine_web/desk_actions.ex:986
 #: lib/pairings_engine_web/live/pairings_live.ex:3902
 #, elixir-autogen, elixir-format
 msgid "%{name} already had a pairing-allocated bye."
 msgstr "%{name} had al een door de paring toegekende bye."
 
-#: lib/pairings_engine_web/desk_actions.ex:973
+#: lib/pairings_engine_web/desk_actions.ex:990
 #: lib/pairings_engine_web/live/pairings_live.ex:3906
 #, elixir-autogen, elixir-format
 msgid "%{name} already won a game by forfeit, so may not get the pairing-allocated bye."
@@ -15869,13 +15869,13 @@ msgstr "%{name} won al een partij reglementair en mag dus de door de paring toeg
 msgid "%{name} deleted."
 msgstr "%{name} verwijderd."
 
-#: lib/pairings_engine_web/desk_actions.ex:987
+#: lib/pairings_engine_web/desk_actions.ex:1004
 #: lib/pairings_engine_web/live/pairings_live.ex:3920
 #, elixir-autogen, elixir-format
 msgid "%{name} gets %{colour} for the third game running, before the last round."
 msgstr "%{name} krijgt voor de derde partij op rij %{colour}, vóór de laatste ronde."
 
-#: lib/pairings_engine_web/desk_actions.ex:994
+#: lib/pairings_engine_web/desk_actions.ex:1011
 #: lib/pairings_engine_web/live/pairings_live.ex:3927
 #, elixir-autogen, elixir-format
 msgid "%{name} gets a colour difference of more than two, before the last round."
@@ -18089,19 +18089,19 @@ msgstr "Geen bestand: in de FIDE-modus bevat geen enkele TRF een ronde met een u
 msgid "This TRF file has the symbol \"%{symbol}\" in round %{round} of %{player} (starting rank %{rank}), a round with no opponent (0000). An unknown result is a game whose result is missing; with nobody on the other side there is no game, so the file cannot be read. Correct that round in the file (a bye or absence code, or the opponent's number) and import it again."
 msgstr "Dit TRF-bestand heeft het symbool \"%{symbol}\" in ronde %{round} van %{player} (startrang %{rank}), een ronde zonder tegenstander (0000). Een onbekend resultaat is een partij waarvan het resultaat ontbreekt; zonder iemand aan de andere kant is er geen partij, dus het bestand kan niet worden gelezen. Verbeter die ronde in het bestand (een bye- of afwezigheidscode, of het nummer van de tegenstander) en importeer het opnieuw."
 
-#: lib/pairings_engine_web/desk_actions.ex:1009
+#: lib/pairings_engine_web/desk_actions.ex:1026
 #: lib/pairings_engine_web/live/pairings_live.ex:3942
 #, elixir-autogen, elixir-format
 msgid "%{a} and %{b} already meet in round %{round}, in the same cycle."
 msgstr "%{a} en %{b} ontmoeten elkaar al in ronde %{round}, in dezelfde cyclus."
 
-#: lib/pairings_engine_web/desk_actions.ex:1017
+#: lib/pairings_engine_web/desk_actions.ex:1034
 #: lib/pairings_engine_web/live/pairings_live.ex:3971
 #, elixir-autogen, elixir-format
 msgid "%{name} gets %{colour} for the third round running."
 msgstr "%{name} krijgt voor de derde ronde op rij %{colour}."
 
-#: lib/pairings_engine_web/desk_actions.ex:1024
+#: lib/pairings_engine_web/desk_actions.ex:1041
 #: lib/pairings_engine_web/live/pairings_live.ex:3950
 #, elixir-autogen, elixir-format
 msgid "%{name} is not in the round robin's table, so plays nobody else in it."
@@ -18147,13 +18147,13 @@ msgstr "De Berger-tabel paart"
 msgid "The round is created with no boards and every player in its not-playing list. Pair two players at a time from there; a player you leave off the boards sits the round out with the round robin's zero-point bye. Finish the hand edits when it is done."
 msgstr "De ronde wordt aangemaakt zonder borden, met elke speler in de lijst met niet-spelenden. Paar van daaruit telkens twee spelers; een speler die je buiten de borden laat, rust die ronde uit met de bye van nul punten van het rondetoernooi. Rond de handmatige aanpassingen af als je klaar bent."
 
-#: lib/pairings_engine_web/desk_actions.ex:1030
+#: lib/pairings_engine_web/desk_actions.ex:1047
 #: lib/pairings_engine_web/live/pairings_live.ex:3956
 #, elixir-autogen, elixir-format
 msgid "The rounds left in cycle %{cycle} can no longer pair everyone who has not met yet exactly once."
 msgstr "De resterende rondes van cyclus %{cycle} kunnen niet meer iedereen die elkaar nog niet ontmoette precies één keer paren."
 
-#: lib/pairings_engine_web/desk_actions.ex:1037
+#: lib/pairings_engine_web/desk_actions.ex:1054
 #: lib/pairings_engine_web/live/pairings_live.ex:3963
 #, elixir-autogen, elixir-format
 msgid "The rounds left in cycle %{cycle} do not match the opponents still to meet for: %{names}. Not everyone can meet everyone exactly once in this cycle."
@@ -19967,7 +19967,7 @@ msgid "The results site"
 msgstr "De uitslagensite"
 
 #: lib/pairings_engine_web/live/settings_boards_live.ex:307
-#: lib/pairings_engine_web/manubrium_api/reply.ex:256
+#: lib/pairings_engine_web/manubrium_api/reply.ex:277
 #, elixir-autogen, elixir-format
 msgid "There are already %{max} codes. Withdraw one you no longer use first."
 msgstr "Er zijn al %{max} codes. Trek er eerst een in die je niet meer gebruikt."
@@ -20329,7 +20329,7 @@ msgid "Boxes elsewhere on this network"
 msgstr "Kastjes elders op dit netwerk"
 
 #: lib/pairings_engine_web/live/settings_boards_live.ex:131
-#: lib/pairings_engine_web/manubrium_api/reply.ex:261
+#: lib/pairings_engine_web/manubrium_api/reply.ex:282
 #, elixir-autogen, elixir-format
 msgid "Boxes on the network cannot connect right now."
 msgstr "Kastjes op het netwerk kunnen nu niet verbinden."
@@ -23292,7 +23292,7 @@ msgid "No such tournament on this account."
 msgstr "Dit account heeft zo'n toernooi niet."
 
 #: lib/pairings_engine_web/controllers/manubrium_api/incident_controller.ex:176
-#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:244
+#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:275
 #: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:413
 #, elixir-autogen, elixir-format
 msgid "Not a number."
@@ -23303,12 +23303,12 @@ msgstr "Geen getal."
 msgid "Not cleared: the board now says %{current}, entered elsewhere."
 msgstr "Niet gewist: het bord staat nu op %{current}, elders ingevoerd."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:305
+#: lib/pairings_engine_web/manubrium_api/reply.ex:326
 #, elixir-autogen, elixir-format
 msgid "Not done."
 msgstr "Niet gedaan."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:294
+#: lib/pairings_engine_web/manubrium_api/reply.ex:315
 #, elixir-autogen, elixir-format
 msgid "Not found."
 msgstr "Niet gevonden."
@@ -23363,7 +23363,7 @@ msgstr "De stand wordt pas gepubliceerd als een ronde, en elke ronde ervoor, vol
 msgid "Team events are paired at the desk."
 msgstr "Teamtoernooien worden op de computer gepaard."
 
-#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:232
+#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:263
 #: lib/pairings_engine_web/controllers/manubrium_api/tournament_controller.ex:302
 #, elixir-autogen, elixir-format
 msgid "That board no longer exists."
@@ -23380,7 +23380,7 @@ msgid "That is enough codes for one hour. Try again later."
 msgstr "Dat zijn genoeg codes voor één uur. Probeer het later opnieuw."
 
 #: lib/pairings_engine_web/live/settings_support.ex:1806
-#: lib/pairings_engine_web/manubrium_api/reply.ex:295
+#: lib/pairings_engine_web/manubrium_api/reply.ex:316
 #, elixir-autogen, elixir-format
 msgid "That round is not paired."
 msgstr "Die ronde is niet gepaard."
@@ -23435,12 +23435,12 @@ msgstr "Er is een foto nodig."
 msgid "Added a photo to the incident on board %{board} (round %{round}): %{kind}."
 msgstr "Foto toegevoegd aan het incident op bord %{board} (ronde %{round}): %{kind}."
 
-#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:174
+#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:205
 #, elixir-autogen, elixir-format
 msgid "An edit is needed."
 msgstr "Er is een wijziging nodig."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:214
+#: lib/pairings_engine_web/manubrium_api/reply.ex:235
 #, elixir-autogen, elixir-format
 msgid "Both seats on that board are taken."
 msgstr "Beide plaatsen op dat bord zijn bezet."
@@ -23450,33 +23450,33 @@ msgstr "Beide plaatsen op dat bord zijn bezet."
 msgid "Confirmed the result %{result} on board %{board} of round %{round} (%{white} - %{black}), entered from the phone \"%{phone}\"."
 msgstr "Resultaat %{result} bevestigd op bord %{board} van ronde %{round} (%{white} - %{black}), ingevoerd via de telefoon \"%{phone}\"."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:200
+#: lib/pairings_engine_web/manubrium_api/reply.ex:221
 #, elixir-autogen, elixir-format
 msgid "Not a bye type."
 msgstr "Geen soort bye."
 
-#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:169
-#: lib/pairings_engine_web/manubrium_api/reply.ex:197
+#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:200
+#: lib/pairings_engine_web/manubrium_api/reply.ex:218
 #, elixir-autogen, elixir-format
 msgid "Not an edit this app knows."
 msgstr "Geen wijziging die deze app kent."
 
-#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:137
+#: lib/pairings_engine_web/controllers/manubrium_api/round_edit_controller.ex:168
 #, elixir-autogen, elixir-format
 msgid "Not done: the board now says %{current}, entered elsewhere."
 msgstr "Niet gedaan: het bord staat nu op %{current}, elders ingevoerd."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:217
+#: lib/pairings_engine_web/manubrium_api/reply.ex:238
 #, elixir-autogen, elixir-format
 msgid "Only the round's last board can be removed."
 msgstr "Alleen het laatste bord van de ronde kan weg."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:239
+#: lib/pairings_engine_web/manubrium_api/reply.ex:260
 #, elixir-autogen, elixir-format
 msgid "Pick tie-breaks from the tournament's own list, each once."
 msgstr "Kies tiebreaks uit de eigen lijst van het toernooi, elk één keer."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:194
+#: lib/pairings_engine_web/manubrium_api/reply.ex:215
 #, elixir-autogen, elixir-format
 msgid "Pick two different players."
 msgstr "Kies twee verschillende spelers."
@@ -23486,58 +23486,58 @@ msgstr "Kies twee verschillende spelers."
 msgid "Rejected the result %{result} on board %{board} of round %{round} (%{white} - %{black}), entered from the phone \"%{phone}\"; the board is blank again."
 msgstr "Resultaat %{result} afgewezen op bord %{board} van ronde %{round} (%{white} - %{black}), ingevoerd via de telefoon \"%{phone}\"; het bord is weer leeg."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:211
+#: lib/pairings_engine_web/manubrium_api/reply.ex:232
 #, elixir-autogen, elixir-format
 msgid "That board has no empty seat to resolve."
 msgstr "Dat bord heeft geen lege plaats."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:208
+#: lib/pairings_engine_web/manubrium_api/reply.ex:229
 #, elixir-autogen, elixir-format
 msgid "That board is already a bye."
 msgstr "Dat bord is al een bye."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:220
+#: lib/pairings_engine_web/manubrium_api/reply.ex:241
 #, elixir-autogen, elixir-format
 msgid "That board number was taken in the meantime."
 msgstr "Dat bordnummer is intussen bezet."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:242
+#: lib/pairings_engine_web/manubrium_api/reply.ex:263
 #, elixir-autogen, elixir-format
 msgid "That incident already has a photo."
 msgstr "Dat incident heeft al een foto."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:248
+#: lib/pairings_engine_web/manubrium_api/reply.ex:269
 #, elixir-autogen, elixir-format
 msgid "That is not a JPEG photo."
 msgstr "Dat is geen JPEG-foto."
 
 #: lib/pairings_engine_web/live/settings_support.ex:1800
-#: lib/pairings_engine_web/manubrium_api/reply.ex:226
+#: lib/pairings_engine_web/manubrium_api/reply.ex:247
 #, elixir-autogen, elixir-format
 msgid "That player is not in this tournament."
 msgstr "Die speler hoort niet bij dit toernooi."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:191
+#: lib/pairings_engine_web/manubrium_api/reply.ex:212
 #, elixir-autogen, elixir-format
 msgid "That player or board is not in this round."
 msgstr "Die speler of dat bord hoort niet bij deze ronde."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:223
+#: lib/pairings_engine_web/manubrium_api/reply.ex:244
 #, elixir-autogen, elixir-format
 msgid "That player was given a board in the meantime."
 msgstr "Die speler heeft intussen een bord gekregen."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:234
+#: lib/pairings_engine_web/manubrium_api/reply.ex:255
 #, elixir-autogen, elixir-format
 msgid "That result cannot be cleared from here."
 msgstr "Dat resultaat kan hier niet gewist worden."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:231
+#: lib/pairings_engine_web/manubrium_api/reply.ex:252
 #, elixir-autogen, elixir-format
 msgid "That result did not come from a phone, or was dealt with already."
 msgstr "Dat resultaat kwam niet van een telefoon, of is al afgehandeld."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:245
+#: lib/pairings_engine_web/manubrium_api/reply.ex:266
 #, elixir-autogen, elixir-format
 msgid "The photo is too large."
 msgstr "De foto is te groot."
@@ -23547,7 +23547,7 @@ msgstr "De foto is te groot."
 msgid "This round has no hand edits open."
 msgstr "Deze ronde heeft geen openstaande handmatige wijzigingen."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:205
+#: lib/pairings_engine_web/manubrium_api/reply.ex:226
 #, elixir-autogen, elixir-format
 msgid "This tournament does not ask the bye type; a player is marked absent."
 msgstr "Dit toernooi vraagt niet naar de soort bye; een speler wordt afwezig gemeld."
@@ -23582,7 +23582,7 @@ msgstr "Noem de lijst en de speler: een FIDE-ID of een nationale ID."
 msgid "No such code on this tournament."
 msgstr "Die code hoort niet bij dit toernooi."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:271
+#: lib/pairings_engine_web/manubrium_api/reply.ex:292
 #, elixir-autogen, elixir-format
 msgid "Pick a bye kind this tournament offers."
 msgstr "Kies een soort bye die dit toernooi aanbiedt."
@@ -23592,17 +23592,17 @@ msgstr "Kies een soort bye die dit toernooi aanbiedt."
 msgid "Search the FIDE list, or the Belgian list where it is switched on."
 msgstr "Zoek in de FIDE-lijst, of in de Belgische lijst waar die aanstaat."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:274
+#: lib/pairings_engine_web/manubrium_api/reply.ex:295
 #, elixir-autogen, elixir-format
 msgid "That player is already in this tournament."
 msgstr "Die speler zit al in dit toernooi."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:277
+#: lib/pairings_engine_web/manubrium_api/reply.ex:298
 #, elixir-autogen, elixir-format
 msgid "That player is not on the list."
 msgstr "Die speler staat niet op de lijst."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:266
+#: lib/pairings_engine_web/manubrium_api/reply.ex:287
 #, elixir-autogen, elixir-format
 msgid "That round is already paired. A paired round's byes are changed on the round itself."
 msgstr "Die ronde is al gepaard. De byes van een gepaarde ronde wijzig je in de ronde zelf."
@@ -25932,7 +25932,7 @@ msgstr "Eerst stond er: %{kind}."
 msgid "Note was: %{was}. Now: %{now}"
 msgstr "Opmerking eerst: %{was}. Nu: %{now}"
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:280
+#: lib/pairings_engine_web/manubrium_api/reply.ex:301
 #, elixir-autogen, elixir-format
 msgid "Pick an incident type from the list."
 msgstr "Kies een soort incident uit de lijst."
@@ -25942,12 +25942,12 @@ msgstr "Kies een soort incident uit de lijst."
 msgid "Removed the incident on board %{board} (round %{round}): %{kind}."
 msgstr "Incident verwijderd op bord %{board} (ronde %{round}): %{kind}."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:290
+#: lib/pairings_engine_web/manubrium_api/reply.ex:311
 #, elixir-autogen, elixir-format
 msgid "The note is too long: at most %{max} characters."
 msgstr "De opmerking is te lang: hoogstens %{max} tekens."
 
-#: lib/pairings_engine_web/manubrium_api/reply.ex:285
+#: lib/pairings_engine_web/manubrium_api/reply.ex:306
 #, elixir-autogen, elixir-format
 msgid "This phone's code can only call the arbiter; that incident is not its to change."
 msgstr "De code van deze telefoon kan alleen de arbiter roepen; dat incident aanpassen hoort daar niet bij."
@@ -26042,6 +26042,21 @@ msgid "Unpaired the whole round-robin schedule: %{count} round."
 msgid_plural "Unpaired the whole round-robin schedule: %{count} rounds."
 msgstr[0] "Ontpaarde het hele Bergerschema: %{count} ronde."
 msgstr[1] "Ontpaarde het hele Bergerschema: %{count} rondes."
+
+#: lib/pairings_engine_web/manubrium_api/reply.ex:207
+#, elixir-autogen, elixir-format
+msgid "A player the round would go back to is no longer in the tournament. Change the boards by hand."
+msgstr "Een speler naar wie de ronde terug zou gaan, zit niet meer in het toernooi. Pas de borden met de hand aan."
+
+#: lib/pairings_engine_web/manubrium_api/reply.ex:200
+#, elixir-autogen, elixir-format
+msgid "A result was entered in this round since the hand edits began, so they can no longer be discarded. Change the boards by hand."
+msgstr "Sinds de handmatige aanpassingen begonnen, is er in deze ronde een uitslag ingevoerd, dus ze kunnen niet meer verworpen worden. Pas de borden met de hand aan."
+
+#: lib/pairings_engine_web/manubrium_api/reply.ex:193
+#, elixir-autogen, elixir-format
+msgid "These hand edits began on a round that already had results, so there is nothing to go back to. Change the boards by hand, or use the restore point at the desk."
+msgstr "Deze handmatige aanpassingen begonnen in een ronde die al uitslagen had, dus er is niets om naar terug te gaan. Pas de borden met de hand aan, of gebruik het herstelpunt aan de tafel."
 
 #: lib/pairings_engine_web/live/players_live.ex:3357
 #, elixir-autogen, elixir-format

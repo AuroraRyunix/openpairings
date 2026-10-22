@@ -230,7 +230,11 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
         |> Enum.map(fn e ->
           %{player: player(e.player, scores), type: e.type, absent: e.absent? == true}
         end),
-      hand_edits: %{open: ManualPairing.open?(round), pibe: round.mpa_pibe},
+      hand_edits: %{
+        open: ManualPairing.open?(round),
+        pibe: round.mpa_pibe,
+        discardable: ManualPairing.discardable?(round)
+      },
       results: Results.entry_codes() -- [""]
     }
   end

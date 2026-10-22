@@ -1,0 +1,9 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/discard-edits-request.schema.json",
+  "title": "POST /tournaments/:id/rounds/:n/edits/discard request",
+  "description": "Discard hand edits: the round put back as it stood when its hand edits began (boards and byes), and the session closed - the desk's own 'Discard hand edits'. Only while round.hand_edits.discardable is true: a session open and nothing in the round decided. No body is needed. Answered with round-response.schema.json (200). Refusals (error.schema.json): 409 no_hand_edits (no session open), 409 no_way_back (the session began on a round that already had results; the restore point at the desk is the way back), 409 has_results (a result was entered since), 409 stale, 409 archived / handed_off, 409 desk_only for team events; 403/404 as for any desk route.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {}
+}
