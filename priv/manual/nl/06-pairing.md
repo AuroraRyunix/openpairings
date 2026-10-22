@@ -38,7 +38,8 @@ Al de rest zit in **Meer**, aan het einde van de balk, in groepen:
 - **Weergaven**: **Lokale weergave**, **Telefoon-QR** (een groot venster met de QR-codes om
   met een telefoon te scannen) en, voor een gepubliceerd
   toernooi, **Publieke pagina**;
-- **Gevarenzone**: **Ronde ontparen**, alleen op de laatst gepaarde ronde.
+- **Gevarenzone**: **Ronde ontparen**, alleen op de laatst gepaarde ronde, en
+  in een round robin zonder enige uitslag, **Het hele schema ontparen**.
 
 Voor een ronde gepaard is, bevat Meer de weergaven (en *Rondes wisselen…*). Je
 bedient het ook met het toetsenbord: de pijltjestoetsen gaan door het menu,
@@ -421,10 +422,15 @@ Als **Chess960** is aangevinkt op de pagina Instellingen van het toernooi, toont
 de pagina Paringen bij een gepaarde ronde de knop **Chess960-stelling trekken**.
 Die trekt willekeurig een van de 960 startstellingen (elk even waarschijnlijk),
 toont het nummer en de stukken van de eerste rij, en drukt die af met de paringen
-van de ronde. Een ronde krijgt één stelling: de trekking kan niet worden herhaald
-totdat een stelling bevalt, en een tweede poging wordt geweigerd - daarom vraagt
-de knop eerst *Nu de Chess960-stelling voor ronde N trekken?*. De trekking
-wordt in het auditlogboek opgenomen.
+van de ronde. De knop vraagt eerst *Nu de Chess960-stelling voor ronde N
+trekken?*, en de trekking wordt in het auditlogboek opgenomen.
+
+Zolang de ronde nog geen uitslag heeft - voor de verkeerde ronde getrokken, of
+getrokken voor de borden klaarstonden - trekt **Stelling opnieuw trekken** naast
+de stelling een nieuwe, na een bevestiging die de vervangen stelling noemt. Het
+auditlogboek houdt beide bij: trekken tot er een bevalt kan dus, maar met
+getuigen. Zodra een partij van de ronde een uitslag heeft (of uitgesteld is, of
+een speeldatum heeft) verdwijnt de knop en blijft de stelling staan.
 
 ## Een paring met de hand wijzigen {#changing-a-pairing-by-hand}
 
@@ -444,7 +450,11 @@ naam tegen elkaar gespeeld. Het programma noemt dit een
   ze open is, toont een banner *Wijzigingen met de hand aan ronde N zijn open*,
   die je eraan herinnert hoe je er een maakt (rechtsklik, of tik op een
   aanraakscherm, op een speler aan een bord of in de lijst met niet-spelenden),
-  met de knop **Handmatige aanpassingen afronden**.
+  met de knoppen **Handmatige aanpassingen verwerpen** en **Handmatige
+  aanpassingen afronden**.
+- Een sessie openen bewaart een herstelpunt van de ronde zoals ze was, dat je
+  terugvindt onder **Geavanceerd**, **Geschiedenis**
+  ([Herstelpunten](11-categories-and-norms.md#history-restore-points)).
 - Wijzigingen met de hand maak je met het menu **Wijzigingen met de hand**:
   klik met de rechtermuisknop op een speler (of druk op de toets voor het
   contextmenu) op de pagina Paringen. Het menu biedt, afhankelijk van wat je hebt
@@ -469,6 +479,12 @@ heeft.
 - De sessie **eindigt** pas wanneer je op **Handmatige aanpassingen afronden**
   drukt. De volgende ronde kan niet worden gepaard zolang een sessie open is, zodat
   de controle hieronder niet kan worden overgeslagen door door te gaan.
+- Met **Handmatige aanpassingen verwerpen** bedenk je je: na een bevestiging
+  gaan de borden en de lijst met niet-spelenden terug naar hoe ze waren toen
+  de sessie begon, en eindigt de sessie zonder de controle hieronder. Dat kan
+  alleen zolang geen partij van de ronde een uitslag heeft; daarna pas je de
+  borden opnieuw met de hand aan of ga je terug naar het herstelpunt. Het
+  auditlogboek houdt het verwerpen bij.
 
 Elke wijziging toont eerst een bevestiging met de borden vóór en na de wijziging,
 die je accepteert of annuleert (<kbd>Escape</kbd> annuleert). Terwijl een wijziging
@@ -589,6 +605,14 @@ en worden op dezelfde manier beoordeeld.
 
 Bij een Zwitsers matchformaat horen de twee rondes van een match bij elkaar. Een
 ronde die naar het ratingkantoor is verstuurd, kan niet worden ontpaard.
+
+Een round robin die te vroeg gepaard is - het deelnemersveld veranderde, de
+verkeerde spelers stonden erin - hoef je niet ronde per ronde vanaf de laatste
+te ontparen. Zolang geen partij in het schema een uitslag heeft, verwijdert
+**Meer**, **Het hele schema ontparen** elke gepaarde ronde, met haar borden en
+byes, na een bevestiging en een herstelpunt. De spelers houden hun
+paringsnummers; paar het schema opnieuw wanneer het veld klopt. Het
+auditlogboek houdt bij hoeveel rondes er weggingen.
 
 Ronde 1 van een individueel Zwitsers toernooi ontparen - zodat er geen ronde
 overblijft - neemt ook de paringsnummers terug die die ronde heeft toegekend. De
