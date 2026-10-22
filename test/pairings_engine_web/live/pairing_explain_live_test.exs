@@ -148,6 +148,19 @@ defmodule PairingsEngineWeb.PairingExplainLiveTest do
       assert Enum.sort(Enum.map(rationale.score_groups, & &1.score)) == [0.0, 1.0, 2.0]
     end
 
+    test "a round that is not a number goes back to the pairings, with a reason", %{
+      conn: conn,
+      scope: scope
+    } do
+      {t, _players} = three_round_swiss(scope)
+
+      assert {:error, {:live_redirect, %{to: to, flash: flash}}} =
+               live(conn, ~p"/t/#{t.id}/pairings/abc/explain")
+
+      assert to == "/t/#{t.id}/pairings"
+      assert flash["error"] =~ "no such round"
+    end
+
     test "a round paired on game points alone has no note", %{conn: conn, scope: scope} do
       t = round_one_only(scope)
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings/1/explain")
