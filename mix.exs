@@ -313,7 +313,7 @@ defmodule PairingsEngine.MixProject do
 
   def cli do
     [
-      preferred_envs: [precommit: :test]
+      preferred_envs: [precommit: :test, "test.e2e": :test]
     ]
   end
 
@@ -368,6 +368,18 @@ defmodule PairingsEngine.MixProject do
         do: " --migrations-path #{inspect(path)}"
   end
 
+  # E2E=1 is what test/test_helper.exs looks for to give the endpoint a
+  # listener and start Playwright; set here, before `test` requires it.
+  #
+  # build_structure/0 again because the assets were just built into priv/:
+  # where _build holds a COPY of priv rather than a symlink (Windows without
+  # developer mode), the server would otherwise serve the copy from before.
+  defp test_e2e(args) do
+    Mix.Project.build_structure()
+    System.put_env("E2E", "1")
+    Mix.Task.run("test", ["--only", "e2e" | args])
+  end
+
   defp migrate_alias do
     case plugin_migration_args() do
       "" -> []
@@ -390,6 +402,13 @@ defmodule PairingsEngine.MixProject do
       {:phoenix_live_view, "~> 1.2.0"},
       {:lazy_html, ">= 0.1.0", only: :test},
       {:ex_json_schema, "~> 0.11", only: :test},
+      # Browser end-to-end tests (test/e2e/, tagged :e2e, not in a plain
+      # `mix test`): PhoenixTest's API driving a real Chromium through
+      # Playwright, inside ExUnit and the SQL Sandbox. See docs/e2e.md.
+      {:phoenix_test_playwright, "~> 0.18.0", only: :test, runtime: false},
+      # Its remote mode, for Windows: Erlang cannot spawn Playwright's
+      # cli.js there, so the browser runs in `playwright run-server` instead.
+      {:websockex, "~> 0.5.1", only: :test},
       {:phoenix_live_dashboard, "~> 0.8.3"},
       {:esbuild, "~> 0.10", runtime: Mix.env() == :dev},
       {:tailwind, "~> 0.5", runtime: Mix.env() == :dev},
@@ -473,6 +492,9 @@ defmodule PairingsEngine.MixProject do
         "esbuild pairings_engine --minify",
         "phx.digest"
       ],
+      # The browser tests only (test/e2e): a real endpoint, a real Chromium.
+      # Never part of a plain `mix test` or `precommit`. See docs/e2e.md.
+      "test.e2e": ["assets.setup", "assets.build", &test_e2e/1],
       precommit: [
         "compile --warnings-as-errors",
         "deps.unlock --unused",

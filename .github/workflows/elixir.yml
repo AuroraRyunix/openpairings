@@ -87,3 +87,84 @@ jobs:
       run: mix test
       env:
         SKIP_MISSING_ARTIFACTS: swar_fixture,snapshot_fixtures,bbppairings
+
+  e2e:
+    # The browser tests (test/e2e, docs/e2e.md): the real endpoint, a real
+    # headless Chromium driven by Playwright, the SQL Sandbox underneath. A
+    # job of its own so the ordinary suite above is not waiting on a browser
+    # download, and so a red here says "a page broke" rather than "something
+    # in seven thousand tests did".
+    name: Browser tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+      with:
+        elixir-version: '1.20'
+        otp-version: '29.0'
+
+    - name: Restore dependencies and build cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          deps
+          _build
+        # Its own key: this job also keeps the asset build (tailwind, esbuild)
+        # in _build, which the job above never makes.
+        key: ${{ runner.os }}-mix-e2e-${{ hashFiles('mix.lock') }}
+        restore-keys: ${{ runner.os }}-mix-e2e-
+
+    # Keyed on the lockfile, which pins Playwright, which pins the browser
+    # build: a Playwright bump is a cache miss and a fresh download, never a
+    # driver talking to a browser it does not know.
+    - name: Restore the Playwright browser cache
+      id: browsers
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/ms-playwright
+        key: ${{ runner.os }}-playwright-${{ hashFiles('e2e/package-lock.json') }}
+
+    - name: Install Playwright
+      # Node comes with the runner image; Playwright needs 18 or later.
+      working-directory: e2e
+      run: npm ci --no-audit --no-fund
+
+    - name: Download the browser
+      if: steps.browsers.outputs.cache-hit != 'true'
+      working-directory: e2e
+      run: npx playwright install chromium-headless-shell
+
+    - name: Install the browser's system libraries
+      # Not cached: they are apt packages, and the cache above only holds the
+      # browser itself.
+      working-directory: e2e
+      run: npx playwright install-deps chromium-headless-shell
+
+    - name: Install dependencies
+      run: mix deps.get --check-locked
+
+    - name: Run the browser tests
+      # A failure runs the failed tests once more with a Playwright trace and
+      # a screenshot each, for the artifact below; the step stays red either
+      # way, because the first run already said so.
+      run: |
+        mix test.e2e && exit 0
+        PW_TRACE=true PW_SCREENSHOT=true mix test.e2e --failed || true
+        exit 1
+      env:
+        SKIP_MISSING_ARTIFACTS: swar_fixture,snapshot_fixtures,bbppairings
+
+    - name: Keep the traces of a failed run
+      if: failure()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: e2e-traces
+        # Open one with `npx playwright show-trace <file>`, or drop it on
+        # https://trace.playwright.dev.
+        path: _build/e2e/
+        if-no-files-found: ignore
+        retention-days: 7
