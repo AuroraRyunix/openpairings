@@ -189,7 +189,33 @@ end
 exclude_tags = for {tag, _reason, _count} <- missing, do: tag
 
 # `:bench` is never a test: test/bench/ prints timings, run with `--include bench`.
-ExUnit.start(max_cases: 1, exclude: [:bench | exclude_tags])
+# `:e2e` drives a real browser against a real listener: `mix test.e2e` only.
+ExUnit.start(max_cases: 1, exclude: [:bench, :e2e | exclude_tags])
+
+# The browser tests (test/e2e, docs/e2e.md). `mix test.e2e` sets E2E=1; an
+# ordinary run leaves the endpoint without a listener and Playwright unstarted,
+# so it neither needs Node nor claims a port.
+if System.get_env("E2E") in ~w(1 true) do
+  endpoint = PairingsEngineWeb.Endpoint
+  port = String.to_integer(System.get_env("E2E_PORT", "4012"))
+  config = Application.get_env(:pairings_engine, endpoint, [])
+
+  Application.put_env(
+    :pairings_engine,
+    endpoint,
+    config
+    |> Keyword.put(:server, true)
+    |> Keyword.update(:http, [port: port], &Keyword.put(&1, :port, port))
+    |> Keyword.update(:url, [host: "localhost", port: port], &Keyword.put(&1, :port, port))
+  )
+
+  # one_for_one, so this restarts the endpoint alone, now reading the config above.
+  :ok = Supervisor.terminate_child(PairingsEngine.Supervisor, endpoint)
+  {:ok, _} = Supervisor.restart_child(PairingsEngine.Supervisor, endpoint)
+
+  {:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
+  Application.put_env(:phoenix_test, :base_url, endpoint.url())
+end
 
 # While the Sandbox is still in its default automatic mode, so the deletes
 # commit: rows an earlier process committed to this database outside the

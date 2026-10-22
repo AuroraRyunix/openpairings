@@ -1,0 +1,12 @@
+{
+  "name": "openpairings-e2e",
+  "private": true,
+  "description": "Playwright for the browser tests (test/e2e, via phoenix_test_playwright) and the read-only smoke check (smoke.mjs). See docs/e2e.md.",
+  "type": "module",
+  "scripts": {
+    "smoke": "node smoke.mjs"
+  },
+  "devDependencies": {
+    "playwright": "1.64.1"
+  }
+}

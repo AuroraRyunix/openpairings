@@ -51,6 +51,7 @@ pairings_engine-*.tar
 # Node/npm leftovers
 npm-debug.log
 /assets/node_modules/
+/e2e/node_modules/
 *.log
 
 # Database files
