@@ -36,3 +36,7 @@
 priv/bbppairings/bbpPairings-linux binary
 priv/bbppairings/bbpPairings-windows.exe binary
 *.swift text eol=lf
+
+# Vendored cross-repo contracts are copies the drift check compares byte for
+# byte with the provider's; no line-ending normalisation, in either direction.
+priv/contracts/vendor/** -text

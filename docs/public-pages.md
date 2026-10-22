@@ -295,6 +295,27 @@ has no login, so there is no authority to steal.
 `test/pairings_engine_web/csp_framing_test.exs` pins framing off as
 unconditional.
 
+## The contract with OpenResults
+
+What OpenPairings sends to OpenResults and what it reads back is OpenResults'
+contract, `publish-v1`, owned and published by that repository. A byte-identical
+copy lives in `priv/contracts/vendor/openresults/publish-v1/`; the list of
+vendored contracts is `priv/contracts/vendor/contracts.json`.
+
+- `mix contracts.check` fetches the provider's current copy and fails, naming
+  each file added, removed or changed, when ours differs. CI runs it on every
+  push and pull request and once a day (`.github/workflows/contracts.yml`), so
+  a change on the OpenResults side turns this repository red even in a week
+  nobody commits here.
+- `mix contracts.sync` rewrites the vendored copy. Then run the tests.
+- `test/pairings_engine/contracts/openresults_publish_contract_test.exs`
+  (offline, part of `mix test`) holds the code to the copy: every snapshot the
+  contract fixtures build, and the installation, mint and relay-key bodies as
+  the real callers send them, validate against the request schemas; every
+  response example, errors included, goes through the real handling and
+  means what the provider says; and every `error` code this app dispatches on
+  by name must still be one the provider can send.
+
 ## What is deliberately not here
 
 - **No login, and no per-user anything.** Nothing on the results site knows
