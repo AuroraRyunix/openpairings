@@ -1,0 +1,18 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/incident-update-request.schema.json",
+  "title": "PATCH /tournaments/:id/incidents/:iid request",
+  "description": "An incident amended: its kind, its note, or both; a field left out stays as it is. Who may: whoever may log one (owner, editor or arbiter), and only a kind this phone's level may log - for the new kind and for the old one. Answered with incident-response.schema.json (200). Refusals (error.schema.json): 404 not_found, 422 unknown_kind / kind_not_allowed / note_too_long, 409 archived / handed_off.",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["illegal_move", "clock", "device", "complaint", "time_added", "game_rewound", "arbiter_call", "other"]
+    },
+    "note": {
+      "type": "string",
+      "maxLength": 280
+    }
+  }
+}

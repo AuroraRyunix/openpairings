@@ -29,7 +29,7 @@ defmodule PairingsEngine.Incidents do
   """
   import Ecto.Query
 
-  alias PairingsEngine.{Audit, RateLimit, Repo}
+  alias PairingsEngine.{Audit, RateLimit, Repo, Tournaments}
   alias PairingsEngine.Incidents.{Incident, Photo}
   alias PairingsEngine.Mobile.Enrollment
   alias PairingsEngine.Tournaments.Pairing
@@ -268,6 +268,103 @@ defmodule PairingsEngine.Incidents do
 
       {:ok, updated}
     end
+  end
+
+  @doc """
+  Amends incident `incident_id` of `tournament_id`: `attrs` may carry `:kind`
+  and `:note`; one left out stays as it is. The same checks a new one meets
+  (`kinds/0`, `note_max/0`); who may touch which kind is the caller's
+  business (`permit_kind/2`, for the old kind and the new). An audit row
+  under `scope` with what changed, before and after - an incident is a
+  report, and a report rewritten without a trace is a different report.
+
+  `{:ok, incident}` or `{:error, :not_found | :unknown_kind | :note_too_long
+  | :archived | :handed_off}`.
+  """
+  def update(tournament_id, incident_id, attrs, scope) do
+    with :ok <- Tournaments.ensure_writable(tournament_id),
+         %Incident{} = incident <- get(tournament_id, incident_id) || {:error, :not_found},
+         kind = Map.get(attrs, :kind) || incident.kind,
+         note = attrs |> Map.get(:note, incident.note) |> to_string() |> String.trim(),
+         :ok <- if(kind in @kinds, do: :ok, else: {:error, :unknown_kind}),
+         :ok <- check_note(note) do
+      changed =
+        for {field, now} <- [kind: kind, note: note],
+            Map.fetch!(incident, field) != now,
+            into: %{},
+            do: {field, [Map.fetch!(incident, field), now]}
+
+      if changed == %{} do
+        {:ok, incident}
+      else
+        updated = Repo.update!(Ecto.Changeset.change(incident, kind: kind, note: note))
+
+        Audit.log(
+          tournament_id,
+          scope,
+          "incident.edited",
+          Map.merge(summary(updated), %{changed_fields: changed, via: "mobile"})
+        )
+
+        announce(tournament_id, incident.round_number)
+        {:ok, updated}
+      end
+    end
+  end
+
+  @doc """
+  Removes incident `incident_id` of `tournament_id`, and its photo with it,
+  leaving an audit row under `scope` that still says what it was - the
+  incident goes, the record of it having existed does not.
+
+  `{:ok, incident}` or `{:error, :not_found | :archived | :handed_off}`.
+  """
+  def delete(tournament_id, incident_id, scope) do
+    with :ok <- Tournaments.ensure_writable(tournament_id),
+         %Incident{} = incident <- get(tournament_id, incident_id) || {:error, :not_found} do
+      Repo.delete!(incident)
+
+      Audit.log(
+        tournament_id,
+        scope,
+        "incident.deleted",
+        Map.merge(summary(incident), %{
+          note: incident.note,
+          white: incident.white_name,
+          black: incident.black_name,
+          photo: incident.has_photo
+        })
+      )
+
+      announce(tournament_id, incident.round_number)
+      {:ok, incident}
+    end
+  end
+
+  @doc "Incident `incident_id` of `tournament_id`, or nil."
+  def get(tournament_id, incident_id) do
+    case Integer.parse(to_string(incident_id)) do
+      {id, ""} -> Repo.get_by(Incident, id: id, tournament_id: tournament_id)
+      _ -> nil
+    end
+  end
+
+  defp summary(incident),
+    do: %{
+      incident_id: incident.id,
+      kind: incident.kind,
+      round: incident.round_number,
+      board: incident.board
+    }
+
+  # The same message a new incident sends, so every page that counts them
+  # (the list, the Pairings page's line) recounts without a clause of its own.
+  defp announce(tournament_id, round_number) do
+    Phoenix.PubSub.broadcast(
+      PairingsEngine.PubSub,
+      topic(tournament_id),
+      {:incident_logged, tournament_id, round_number}
+    )
   end
 
   @doc """

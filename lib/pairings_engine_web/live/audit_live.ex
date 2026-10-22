@@ -123,7 +123,7 @@ defmodule PairingsEngineWeb.AuditLive do
         pairing.rating_correction pibe.correction
         pairing.boards_announced pairing.announcement_withdrawn pairing.announcement_checked
         pairing.announcement_compared pairing.announcement_acknowledged incident.logged
-        incident.photo_added)},
+        incident.photo_added incident.edited incident.deleted)},
     {"settings", ~w(tournament.settings_updated tournament.locked_field_changed
         tournament.late_entry_numbering_kept
         tournament.fide_compliance_lost
@@ -1520,6 +1520,61 @@ defmodule PairingsEngineWeb.AuditLive do
         round: value(d, "round"),
         kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
       )
+
+  # Before and after, both: the point of an amended report is that the
+  # first version is still readable somewhere.
+  def describe("incident.edited", d) do
+    what =
+      gettext("Amended the incident on board %{board} (round %{round}): %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+    changed = if is_map(d["changed_fields"]), do: d["changed_fields"], else: %{}
+
+    kind =
+      case changed["kind"] do
+        [was, _now] ->
+          gettext("It was: %{kind}.",
+            kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(was))
+          )
+
+        _ ->
+          nil
+      end
+
+    note =
+      case changed["note"] do
+        [was, now] ->
+          gettext("Note was: %{was}. Now: %{now}",
+            was: if(was in [nil, ""], do: gettext("none"), else: was),
+            now: if(now in [nil, ""], do: gettext("none"), else: now)
+          )
+
+        _ ->
+          nil
+      end
+
+    sentences([what, kind, note])
+  end
+
+  # The incident row is gone; this line is what is left of it, so it keeps
+  # the note - the one part an arbiter might need to read back later.
+  def describe("incident.deleted", d) do
+    what =
+      gettext("Removed the incident on board %{board} (round %{round}): %{kind}.",
+        board: value(d, "board"),
+        round: value(d, "round"),
+        kind: PairingsEngineWeb.Components.Manubrium.kind_label(to_string(d["kind"]))
+      )
+
+    note =
+      if is_binary(d["note"]) and d["note"] != "",
+        do: gettext("Note: %{note}", note: d["note"])
+
+    sentences([what, note])
+  end
 
   def describe("collaborator.accepted", d),
     do: gettext("Accepted the collaboration invite (%{email}).", email: value(d, "email"))
