@@ -158,9 +158,10 @@ players are numbered ([Numbering the players of a round
 robin](#numbering-the-players-of-a-round-robin)); after that, it pairs.
 
 > [!WARNING]
-> The schedule cannot be changed afterwards and players added later are
-> not in it. Only the order its rounds are played in can still change:
-> see [Playing rounds out of table order](#playing-rounds-out-of-table-order).
+> The schedule cannot be edited afterwards and players added later are
+> not in it. It can only be undone by unpairing, from the last round back
+> ([Undoing a round](#undoing-a-round)). The order its rounds are played in
+> can still change: see [Playing rounds out of table order](#playing-rounds-out-of-table-order).
 
 The rounds follow FIDE's Berger tables (C.05); for an odd number of
 players each player sits out one round per cycle with a zero-point bye;
@@ -394,8 +395,9 @@ shows, for a paired round, the button **Draw Chess960 position**. It draws one
 of the 960 starting positions at random (each is equally likely), shows its
 number and the pieces of the first rank, and prints it with the round's
 pairings. A round gets one position: the draw cannot be repeated until a
-position pleases, and a second attempt is refused. The draw is written to the
-audit trail.
+position pleases, and a second attempt is refused - which is why the button
+asks *Draw the Chess960 position for round N now?* first. The draw is written
+to the audit trail.
 
 ## Changing a pairing by hand
 
@@ -412,8 +414,9 @@ name. The program calls it a
 
 - A session on a round **starts** with **More**, **Edit pairings by hand**,
   or implicitly with the first hand edit of the round. While it is open, a
-  banner says *Hand edits to round N are open* and carries the button
-  **Finish hand edits**.
+  banner says *Hand edits to round N are open*, reminds you how to make one
+  (right-click, or tap on a touch screen, a player on a board or in the
+  not-playing list) and carries the button **Finish hand edits**.
 - Hand edits are made with the **Hand edits** menu: right-click a player (or
   press the context-menu key) on the Pairings page. The menu offers,
   according to what you clicked:
@@ -541,8 +544,13 @@ the same way, and are judged the same.
 
 > [!WARNING] Unpairing deletes results
 > **More**, **Unpair round** (shown on the last paired round only) deletes that
-> round and every result in it, after a confirmation. The program takes a
-> restore point first ([Accounts, sharing and hand-off](16-accounts-and-handoff.md)).
+> round and every result in it, after a confirmation that says exactly what
+> goes: the round's results, in a match format the other round of the match
+> too, and, when no round would be left, the pairing numbers. The program
+> takes a restore point first, which you find under **Advanced**, **History**
+> ([Restore points](11-categories-and-norms.md#history-restore-points)). Afterwards the page says
+> *Round N unpaired. A restore point was saved.* and shows the last round that
+> is still paired.
 
 In a Swiss match format the two rounds of a match go together. A round that
 has been sent to the rating office cannot be unpaired.

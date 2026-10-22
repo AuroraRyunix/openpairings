@@ -119,6 +119,8 @@ kan daarna resultaten voor dat toernooi invoeren, zonder account.
 - Een telefoon kan worden beperkt tot een reeks borden.
 
 De code verloopt na 24 uur en kan op elk moment worden ingetrokken op dezelfde kaart.
+**Intrekken** vraagt het eerst: een telefoon die de code gebruikt, wordt meteen
+afgemeld en heeft een nieuwe code nodig om terug te komen.
 Het scherm van de telefoon toont de ratings en scores van de spelers, heeft een
 slot dat tegen per ongeluk aantikken beschermt, en een eigen wisselaar voor het
 thema. Een telefoon kan niets anders in het programma bereiken.
