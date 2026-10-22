@@ -1,0 +1,33 @@
+name: Pin drift
+
+# Weekly, and by hand: is this repo pinning a sibling at a version older than
+# the sibling's latest release? Red means yes. It is a reminder with a name on
+# it, not a gate on merging: it runs on a schedule, not on pull requests that
+# touch code. See .github/scripts/check-sibling-pins.sh, which is the same file
+# in every repo of the family.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1' # Mondays, 06:00 UTC
+  workflow_dispatch:
+  # Only when the check itself changes, so a change to it is tried before it
+  # is trusted.
+  pull_request:
+    paths:
+      - '.github/workflows/pin-drift.yml'
+      - '.github/scripts/check-sibling-pins.sh'
+
+permissions:
+  contents: read
+
+jobs:
+  pins:
+    name: Sibling pins
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compare pins with the latest releases
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/scripts/check-sibling-pins.sh
