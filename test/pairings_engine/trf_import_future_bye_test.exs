@@ -130,6 +130,18 @@ defmodule PairingsEngine.TrfImportFutureByeTest do
     end
   end
 
+  # Swar's spelling of the same thing: `XXZ` names the players absent from
+  # the round about to be paired. Ainalrami before 0.44.1 dropped the line,
+  # and the import with it, so the absentee arrived as present.
+  test "an XXZ line imports as a zero-point bye for the next round" do
+    text = file(:engine, %{}, false) <> "XXZ 6\r\n"
+
+    tournament = import!(text)
+    assert Pairing.paired_rounds_count(tournament.id) == 1
+    assert round_2_byes(tournament) == %{"Foxtrot" => "requested-zero"}
+    assert by_name(tournament)["Foxtrot"].absent_rounds == "2"
+  end
+
   test "the confirm step lists the byes it kept" do
     assert {:ok, report} = TrfImport.review(file(:engine))
 

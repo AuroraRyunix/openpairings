@@ -28,7 +28,10 @@ drag-and-drop area.
 creates a complete tournament: the header data (name, city, federation,
 dates, time control, arbiters, round dates), the players with their FIDE IDs,
 ratings, titles and birth dates, the rounds, the pairings, the results and the
-byes. The starting rank of the file becomes the pairing number. The type of the
+byes. A bye or absence the file records for the round not yet paired (a 240
+record, or the `XXZ` line SWAR writes for the players absent from the next
+round) comes in as a bye for that round, so the next round leaves those
+players out. The starting rank of the file becomes the pairing number. The type of the
 tournament is taken from the file (Swiss, round robin, team). The unknown result `?`
 comes back as a postponed game, worth what the file's `X` (record 162) says an
 unknown result is worth - a draw when the file says nothing. An `X` that is a

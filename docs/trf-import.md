@@ -186,6 +186,7 @@ the one that left. What a file says now lands where it belongs:
 | `250` / `XXA` | `acceleration`, when Baku reproduces the file's numbers; otherwise `extra_points_mode` `"acceleration"`, `rounds.virtual_points` and `players.extra_points` |
 | `260` / `XXP` | `forbidden_pairings` rows, every pair within each group |
 | `240` | `byes` rows, for a round the file has not paired |
+| `XXZ` | `byes` rows (`requested-zero`) for the round about to be paired - Swar's absentees, read by Ainalrami 0.44.1 and later as a `Z` in that column |
 | `299` (untyped) | `players.extra_points`, and `count_extra_points` with them |
 
 A code this app has no system for - Dubov, Burstein, a `CUSTOM_*`, a team
