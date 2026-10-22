@@ -565,8 +565,9 @@ reported for a game is in the round, beside the result: each board has
 updated_at}` (`BoardLink.summaries/1`). `mismatch` is
 `BoardLink.compare/2`'s red case: a board result that differs from the
 entered one, a forfeit compared by who got the point. `status` is the
-box's `waiting`, `live` or `finished`; `moves_count` counts full moves,
-not plies.
+box's `waiting`, `live` or `finished` (a closed list); `moves_count` counts
+full moves, not plies: the move the game has reached, ceil(plies / 2), so
+1.e4 e5 2.Nf3 is 2.
 
 `GET /tournaments/:id/board-links` lists the codes that reach the tournament,
 its own and its group's: `{links: [{id, kind, label, hint, reach, created_at,
@@ -574,9 +575,9 @@ last_seen_at}]}`, `kind` `tournament` or `group`, `reach` `lan` (a desktop
 copy's code for a box on its network) or `server`, `label` what the box
 called itself or else the code's last four characters (`hint`). Account
 codes are the account's business and are not listed. `POST` makes a code
-for this tournament (`{where: "lan"}` asks for a network code on a desktop
-copy, as the Boards page does; `409 lan_unusable` when the listener cannot
-take one) and answers `201 {link, code}`, `code` the full connect code the
+for this tournament (`{link: {label}}` names it, at most 80 characters;
+`{where: "lan"}` asks for a network code on a desktop copy, as the Boards
+page does; `409 lan_unusable` when the listener cannot take one) and answers `201 {link, code}`, `code` the full connect code the
 box scans or types (`<address>/api/boards/v1#oplt_...`), shown this once.
 Eight at most (`409 too_many_codes`). `DELETE /board-links/:lid` withdraws
 one (`204`; `404 link_not_found`). The organiser and editors only.
@@ -684,7 +685,7 @@ All under `/api/manubrium/v1`, JSON, errors as
 | `PATCH /tournaments/:id/players/:pid` | desk | `{player: {basic fields, withdrawn, present, absent, absent_rounds: [n], bye_types}, acknowledged}` | `{player}`; `409 needs_acknowledgement` |
 | `PUT /tournaments/:id/players/:pid/byes` | desk | `{byes: [{round, kind}], acknowledged}` | `{player}`; `422 round_paired`, `422 unknown_bye_kind`, `409 needs_acknowledgement` |
 | `GET /tournaments/:id/board-links` | desk | | `{links: [{id, kind, label, hint, reach, created_at, last_seen_at}]}` |
-| `POST /tournaments/:id/board-links` | desk | `{where?: "lan"}` | `201 {link, code}`; `409 too_many_codes`, `409 lan_unusable` |
+| `POST /tournaments/:id/board-links` | desk | `{link?: {label}, where?: "lan"}` | `201 {link, code}`; `409 too_many_codes`, `409 lan_unusable` |
 | `DELETE /tournaments/:id/board-links/:lid` | desk | | `204`; `404 link_not_found` |
 
 A sync entry is Lite's entry without the `enrollment` field (the server
@@ -700,6 +701,32 @@ For the app's web bundle on a developer's screen, `config/dev.exs` lists the
 Vite dev server's origins (`:manubrium_dev_origins`) and
 `PairingsEngineWeb.Plugs.ManubriumDevCors` answers their preflights. No
 other config sets it; the installed app needs no CORS at all.
+
+### The contract
+
+The table above is prose; the contract the app is held to is
+`priv/contracts/manubrium-v1/`: a JSON Schema (draft-07) for every request
+and answer (`<message>.schema.json`, shared shapes in `common.schema.json`),
+examples of each under `examples/` - the answers recorded from the real
+controllers - and an `index.json` listing every file.
+`test/pairings_engine_web/contracts/manubrium_contract_test.exs` checks every
+answer the API gives against its schema, every example against its schema,
+sends every request example to the real endpoint, and holds `index.json` to
+the directory. Answers are `additionalProperties: false`, so a new field
+fails the test until the schema has it.
+
+- A change to the API changes the schema and the examples **in the same
+  pull request**. `CONTRACTS_WRITE_EXAMPLES=1 mix test
+  test/pairings_engine_web/contracts` rewrites the recorded examples; read
+  the diff before committing it.
+- Adding something is an edit to v1 in place. Removing or renaming a field,
+  narrowing a value or changing a unit is a new directory, `manubrium-v2`,
+  and v1 stays until the app has moved.
+- The Manubrium app vendors a byte-identical copy and checks it against
+  this one daily (`npm run contracts:check`), so a change here reaches its
+  CI even when nobody touches the app.
+
+The photo (`GET /incidents/:iid/photo`) is a JPEG and stays outside it.
 
 ### Not built yet
 

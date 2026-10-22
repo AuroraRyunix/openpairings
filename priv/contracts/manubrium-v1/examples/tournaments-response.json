@@ -1,0 +1,26 @@
+{
+  "tournaments": [
+    {
+      "city": "Ghent",
+      "end_date": "2026-11-08",
+      "id": 1,
+      "name": "Autumn Open",
+      "paired_rounds": 0,
+      "role": "owner",
+      "rounds_count": 5,
+      "start_date": "2026-11-07",
+      "status": "setup"
+    },
+    {
+      "city": "Ghent",
+      "end_date": "2026-11-15",
+      "id": 2,
+      "name": "Contract Open 31682",
+      "paired_rounds": 1,
+      "role": "owner",
+      "rounds_count": 3,
+      "start_date": "2026-11-01",
+      "status": "running"
+    }
+  ]
+}

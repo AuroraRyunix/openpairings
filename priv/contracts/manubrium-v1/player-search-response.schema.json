@@ -1,0 +1,93 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/player-search-response.schema.json",
+  "title": "GET /tournaments/:id/player-search response",
+  "description": "?q= (at least 3 characters, else 422 query_too_short) &source=fide|bel (422 unknown_source). At most 25 hits.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "results"
+  ],
+  "properties": {
+    "results": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "fide_id",
+          "national_id",
+          "name",
+          "federation",
+          "title",
+          "sex",
+          "birth_year",
+          "fide_rating",
+          "national_rating",
+          "club",
+          "already_in"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": [
+              "fide",
+              "bel"
+            ]
+          },
+          "fide_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "national_id": {
+            "type": [
+              "string",
+              "integer",
+              "null"
+            ]
+          },
+          "name": {
+            "type": "string"
+          },
+          "federation": {
+            "$ref": "common.schema.json#/definitions/text_or_null"
+          },
+          "title": {
+            "$ref": "common.schema.json#/definitions/text_or_null"
+          },
+          "sex": {
+            "$ref": "common.schema.json#/definitions/text_or_null"
+          },
+          "birth_year": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "fide_rating": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "national_rating": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "club": {
+            "$ref": "common.schema.json#/definitions/text_or_null"
+          },
+          "already_in": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

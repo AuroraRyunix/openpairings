@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/games-request.schema.json",
+  "title": "POST /tournaments/:id/games request",
+  "description": "Games of one tournament: `{games: [...]}` (at most 64; what Alnasl sends) or a single game report on its own.",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "games"
+      ],
+      "properties": {
+        "games": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {
+            "$ref": "common.schema.json#/definitions/game_report"
+          }
+        }
+      }
+    },
+    {
+      "$ref": "common.schema.json#/definitions/game_report"
+    }
+  ]
+}

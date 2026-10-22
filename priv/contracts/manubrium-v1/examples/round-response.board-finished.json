@@ -1,0 +1,113 @@
+{
+  "round": {
+    "boards": [
+      {
+        "black": {
+          "id": 3,
+          "name": "Player 3",
+          "rating": 2050,
+          "score": 0.0,
+          "title": null
+        },
+        "board": 1,
+        "board_report": {
+          "mismatch": false,
+          "moves_count": 2,
+          "result": "0-1",
+          "status": "finished",
+          "updated_at": "2026-10-22T06:27:49Z"
+        },
+        "bye": false,
+        "clearable": false,
+        "empty": false,
+        "id": 1,
+        "label": "1",
+        "phone": null,
+        "result": "",
+        "vacant": false,
+        "white": {
+          "id": 1,
+          "name": "Player 1",
+          "rating": 2150,
+          "score": 0.0,
+          "title": null
+        }
+      },
+      {
+        "black": {
+          "id": 2,
+          "name": "Player 2",
+          "rating": 2100,
+          "score": 0.0,
+          "title": null
+        },
+        "board": 2,
+        "board_report": null,
+        "bye": false,
+        "clearable": true,
+        "empty": false,
+        "id": 2,
+        "label": "2",
+        "phone": {
+          "at": "2026-10-22T06:27:49Z",
+          "by": "Hall phone",
+          "state": "unconfirmed"
+        },
+        "result": "1-0",
+        "vacant": false,
+        "white": {
+          "id": 4,
+          "name": "Player 4",
+          "rating": 2000,
+          "score": 0.0,
+          "title": null
+        }
+      },
+      {
+        "black": null,
+        "board": 3,
+        "board_report": null,
+        "bye": true,
+        "clearable": false,
+        "empty": false,
+        "id": 3,
+        "label": "3",
+        "phone": null,
+        "result": "bye",
+        "vacant": false,
+        "white": {
+          "id": 5,
+          "name": "Player 5",
+          "rating": 1950,
+          "score": 0.0,
+          "title": null
+        }
+      }
+    ],
+    "byes": [],
+    "hand_edits": {
+      "open": false,
+      "pibe": null
+    },
+    "latest": true,
+    "number": 1,
+    "pool": [],
+    "publish_level": 0,
+    "results": [
+      "1-0",
+      "1/2-1/2",
+      "0-1",
+      "1/2-0",
+      "0-1/2",
+      "1-0FF",
+      "0-1FF",
+      "0-0FF",
+      "0-0",
+      "1-0U",
+      "0-1U",
+      "1/2-1/2U",
+      "*W",
+      "*B"
+    ]
+  }
+}

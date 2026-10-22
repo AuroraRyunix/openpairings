@@ -1,0 +1,9 @@
+{
+  "player": {
+    "from": {
+      "source": "fide",
+      "fide_id": 4000001
+    },
+    "start_round": 2
+  }
+}

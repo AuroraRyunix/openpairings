@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/round-response.schema.json",
+  "title": "A round",
+  "description": "GET /tournaments/:id/rounds/:n, POST /tournaments/:id/rounds (201, the round just paired) and POST /rounds/:n/edits all answer this.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "round"
+  ],
+  "properties": {
+    "round": {
+      "$ref": "common.schema.json#/definitions/round"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/error.schema.json",
+  "title": "Error",
+  "description": "Every refusal of /api/boards/v1 (and of POST /grant): dispatch on `error`; `detail` is for a log. 401 unauthorized, 404 tournament_not_found, 409 pairing_gone / pairing_changed, 422 invalid_request / not_a_game, 429 rate_limited (with Retry-After), 401 invalid_grant on /grant. A desktop copy's network listener adds 404 not_found and 403 forbidden.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "detail"
+  ],
+  "properties": {
+    "error": {
+      "type": "string"
+    },
+    "detail": {
+      "type": "string"
+    }
+  }
+}

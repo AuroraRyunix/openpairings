@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/finish-edits-response.schema.json",
+  "title": "POST /rounds/:n/edits/finish response",
+  "description": "The PIBE line recorded (null when the checker agreed) and the round as it now is.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "pibe",
+    "round"
+  ],
+  "properties": {
+    "pibe": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "round": {
+      "$ref": "common.schema.json#/definitions/round"
+    }
+  }
+}

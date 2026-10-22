@@ -1,0 +1,88 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/error.schema.json",
+  "title": "Error",
+  "description": "Every refusal of the Manubrium API (any 4xx, and 503 engine_busy): `error` is the code the app matches on, `message` a sentence shown as it is. Some refusals add fields: `confirm` (+ `summary`, `warnings` or `checker`) on 409 needs_acknowledgement, `current` on 409 conflict.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "error",
+    "message"
+  ],
+  "properties": {
+    "error": {
+      "type": "string",
+      "description": "The machine-readable code, e.g. tournament_not_found, arbiter_role, needs_acknowledgement, conflict, unauthorized, rate_limited, bad_request."
+    },
+    "message": {
+      "type": "string"
+    },
+    "confirm": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "409 needs_acknowledgement: the ids to send back in `acknowledged`. Not sent by POST /rounds (pairing), whose questions arrive in the tournament's next_round.warnings instead."
+    },
+    "summary": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "Hand edit: what the edit does, as the desk's dialog says it."
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Hand edit: the pairing rules the new boards break."
+    },
+    "checker": {
+      "type": "object",
+      "description": "Finishing hand edits: the pairing checker's verdict.",
+      "additionalProperties": false,
+      "required": [
+        "checked",
+        "line",
+        "missing",
+        "added",
+        "warnings"
+      ],
+      "properties": {
+        "checked": {
+          "type": "boolean"
+        },
+        "line": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The PIBE line that would be recorded."
+        },
+        "missing": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "current": {
+      "type": "string",
+      "description": "409 conflict: what the board says now (\"\" for no result)."
+    }
+  }
+}

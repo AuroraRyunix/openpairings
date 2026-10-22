@@ -1,0 +1,18 @@
+{
+  "results": [
+    {
+      "applied": false,
+      "game": "5c28e7731cc96eef0de3dff3f0035af8",
+      "reason": "duplicate",
+      "seq": 1,
+      "status": "ok"
+    },
+    {
+      "detail": "game e91dd5ef6fe3ad1d7d580629b473a62d is no longer between these two players, or the colours changed",
+      "error": "pairing_changed",
+      "game": "e91dd5ef6fe3ad1d7d580629b473a62d",
+      "status": "error"
+    }
+  ],
+  "status": "ok"
+}

@@ -1,0 +1,59 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/settings-request.schema.json",
+  "title": "PATCH /tournaments/:id/settings request",
+  "description": "Mid-event settings. Fields outside this list are ignored, not refused; a locked field is 422.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "settings"
+  ],
+  "properties": {
+    "settings": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [],
+      "properties": {
+        "rounds_count": {
+          "type": [
+            "integer",
+            "string"
+          ]
+        },
+        "tiebreaks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "time_control": {
+          "type": "string"
+        },
+        "chief_arbiter": {
+          "type": "string"
+        },
+        "deputy_arbiter": {
+          "type": "string"
+        },
+        "venue": {
+          "type": "string"
+        },
+        "city": {
+          "type": "string"
+        },
+        "bye_value": {
+          "type": [
+            "number",
+            "string"
+          ]
+        },
+        "ask_bye_type": {
+          "type": "boolean"
+        },
+        "shared_places": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

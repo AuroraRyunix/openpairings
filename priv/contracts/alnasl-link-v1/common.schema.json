@@ -1,0 +1,249 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/common.schema.json",
+  "title": "Board link v1: shared definitions",
+  "description": "Shapes the other files of alnasl-link-v1 refer to. Built by PairingsEngineWeb.BoardLinkController and PairingsEngine.BoardLink(.Document); the prose contract is docs/board-link-api.md.",
+  "definitions": {
+    "game_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "description": "The game's id (`rounds[].boards[].game`): the key for everything, stable for the life of the pairing. Never key on the board number."
+    },
+    "player_id": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "tournament_state": {
+      "type": "string",
+      "enum": [
+        "setup",
+        "running",
+        "finished"
+      ]
+    },
+    "game_status": {
+      "type": "string",
+      "enum": [
+        "waiting",
+        "live",
+        "finished"
+      ],
+      "description": "waiting: board set up, nothing played; live: moves being played; finished. The same three values OpenPairings passes on to the Manubrium app as board_report.status."
+    },
+    "seen_result": {
+      "enum": [
+        null,
+        "1-0",
+        "1/2-1/2",
+        "0-1"
+      ],
+      "description": "The result the board saw. A request may also send \"*\" (or \"\") for none; answers use null."
+    },
+    "game_report": {
+      "type": "object",
+      "description": "One game as the box saw it: the whole game every time. Fields the server does not know are ignored.",
+      "additionalProperties": true,
+      "required": [
+        "game",
+        "white",
+        "black",
+        "seq"
+      ],
+      "properties": {
+        "game": {
+          "$ref": "#/definitions/game_id"
+        },
+        "white": {
+          "$ref": "#/definitions/player_id"
+        },
+        "black": {
+          "$ref": "#/definitions/player_id"
+        },
+        "seq": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991,
+          "description": "The box's own counter for this game; only grows. Higher is stored, equal is a duplicate, lower is stale."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "waiting",
+            "live",
+            "finished"
+          ],
+          "description": "Default live."
+        },
+        "moves": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9+#=-]{2,10}$"
+          },
+          "description": "The game so far in SAN, one entry per PLY, from the start position (or start_fen). Default []."
+        },
+        "move_clocks": {
+          "type": "array",
+          "maxItems": 1000,
+          "items": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 360000000
+              }
+            ]
+          },
+          "description": "One entry per ply: the mover's clock in ms after the move, null where unknown. Exactly as many entries as `moves`."
+        },
+        "white_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 360000000
+        },
+        "black_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 360000000
+        },
+        "running": {
+          "enum": [
+            null,
+            "white",
+            "black",
+            "none"
+          ]
+        },
+        "result": {
+          "enum": [
+            null,
+            "",
+            "*",
+            "1-0",
+            "1/2-1/2",
+            "0-1"
+          ],
+          "description": "The result the board saw; null, \"\" or \"*\" for none. Never entered as the tournament's result."
+        },
+        "reconstructed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "guessed": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "rewritten": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2000
+        },
+        "start_fen": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 100
+        },
+        "pgn": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "At most 100 000 bytes."
+        },
+        "replace": {
+          "type": "boolean",
+          "description": "true: store whatever seq is held (the arbiter's say-so)."
+        }
+      }
+    },
+    "game_answer": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "game",
+            "applied",
+            "seq"
+          ],
+          "properties": {
+            "status": {
+              "const": "ok"
+            },
+            "game": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "applied": {
+              "type": "boolean"
+            },
+            "seq": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The seq OpenPairings holds after the request."
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "duplicate",
+                "stale"
+              ],
+              "description": "Only when applied is false."
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "game",
+            "error",
+            "detail"
+          ],
+          "properties": {
+            "status": {
+              "const": "error"
+            },
+            "game": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "error": {
+              "type": "string",
+              "enum": [
+                "invalid_request",
+                "not_a_game",
+                "pairing_gone",
+                "pairing_changed"
+              ]
+            },
+            "detail": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

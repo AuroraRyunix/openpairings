@@ -1,0 +1,444 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/tournament-response.schema.json",
+  "title": "GET /tournaments/:id response",
+  "description": "Everything the box needs for one tournament. ETag is the version; If-None-Match gives 304.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "tournament",
+    "current_round",
+    "players",
+    "rounds",
+    "openresults"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "tournament": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "site",
+        "city",
+        "federation",
+        "start_date",
+        "end_date",
+        "rounds",
+        "state",
+        "team_event",
+        "boards_per_match",
+        "chess960",
+        "live_boards",
+        "display",
+        "time_control"
+      ],
+      "properties": {
+        "id": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "name": {
+          "type": "string"
+        },
+        "site": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The venue, else the city, else null: the PGN Site tag."
+        },
+        "city": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "federation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "start_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "end_date": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rounds": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "description": "Rounds planned."
+        },
+        "state": {
+          "$ref": "common.schema.json#/definitions/tournament_state"
+        },
+        "team_event": {
+          "type": "boolean"
+        },
+        "boards_per_match": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "chess960": {
+          "type": "boolean"
+        },
+        "live_boards": {
+          "type": "boolean"
+        },
+        "display": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "rating",
+            "title",
+            "federation"
+          ],
+          "properties": {
+            "rating": {
+              "type": "boolean"
+            },
+            "title": {
+              "type": "boolean"
+            },
+            "federation": {
+              "type": "boolean"
+            }
+          }
+        },
+        "time_control": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "text",
+            "kind",
+            "pgn",
+            "periods",
+            "increment_seconds",
+            "increment_from_move"
+          ],
+          "properties": {
+            "text": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "kind": {
+              "enum": [
+                null,
+                "standard",
+                "rapid",
+                "blitz"
+              ]
+            },
+            "pgn": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "The PGN TimeControl value, or null when it cannot be expressed. Never guessed."
+            },
+            "periods": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "moves",
+                      "seconds"
+                    ],
+                    "properties": {
+                      "moves": {
+                        "type": [
+                          "integer",
+                          "null"
+                        ],
+                        "description": "null: to the end of the game."
+                      },
+                      "seconds": {
+                        "type": "integer",
+                        "minimum": 0
+                      }
+                    }
+                  }
+                }
+              ]
+            },
+            "increment_seconds": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            },
+            "increment_from_move": {
+              "type": [
+                "integer",
+                "null"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "current_round": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "description": "The round to have on the boards; null before round 1 is paired."
+    },
+    "players": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "no",
+          "name",
+          "title",
+          "rating",
+          "federation",
+          "fide_id",
+          "team"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/definitions/player_id"
+          },
+          "no": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "The pairing number."
+          },
+          "name": {
+            "type": "string"
+          },
+          "title": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "rating": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "federation": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "fide_id": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "team": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "rounds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "number",
+          "date",
+          "state",
+          "chess960_position",
+          "boards"
+        ],
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "date": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "current",
+              "finished",
+              "upcoming"
+            ]
+          },
+          "chess960_position": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 0,
+            "maximum": 959
+          },
+          "boards": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "game",
+                "board",
+                "label",
+                "kind",
+                "white",
+                "black",
+                "result"
+              ],
+              "properties": {
+                "game": {
+                  "$ref": "common.schema.json#/definitions/game_id"
+                },
+                "board": {
+                  "type": "integer"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string",
+                  "enum": [
+                    "game",
+                    "forfeit",
+                    "bye"
+                  ]
+                },
+                "white": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "common.schema.json#/definitions/player_id"
+                    }
+                  ]
+                },
+                "black": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "common.schema.json#/definitions/player_id"
+                    }
+                  ]
+                },
+                "result": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The ARBITER's result as entered, or null. Not a closed list: a box must not depend on it being complete."
+                },
+                "match": {
+                  "type": "object",
+                  "description": "Team events only.",
+                  "additionalProperties": false,
+                  "required": [
+                    "number",
+                    "board",
+                    "team_a",
+                    "team_b"
+                  ],
+                  "properties": {
+                    "number": {
+                      "type": "integer"
+                    },
+                    "board": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "team_a": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "team_b": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "openresults": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "server_url",
+            "slug",
+            "relay_key"
+          ],
+          "properties": {
+            "server_url": {
+              "type": "string",
+              "description": "No trailing slash."
+            },
+            "slug": {
+              "type": "string"
+            },
+            "relay_key": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "description": "null while OpenPairings holds none: then do not post to the results site."
+            }
+          }
+        }
+      ]
+    }
+  }
+}

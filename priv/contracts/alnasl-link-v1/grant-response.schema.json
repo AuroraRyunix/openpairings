@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/grant-response.schema.json",
+  "title": "POST /grant response",
+  "description": "The account code, the first time, within 120 seconds. Every other answer is 401 invalid_grant.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "code",
+    "kind"
+  ],
+  "properties": {
+    "code": {
+      "type": "string",
+      "pattern": "^https?://[^#]+/api/boards/v1#oplu_"
+    },
+    "kind": {
+      "const": "account"
+    }
+  }
+}

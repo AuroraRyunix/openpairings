@@ -1,0 +1,487 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/common.schema.json",
+  "title": "Manubrium API v1: shared definitions",
+  "description": "The shapes the other files of manubrium-v1 refer to (`common.schema.json#/definitions/<name>`). Built by PairingsEngineWeb.ManubriumApi.Json and the controllers under lib/pairings_engine_web/controllers/manubrium_api/. Not a message of its own.",
+  "definitions": {
+    "id": {
+      "description": "A database id: a positive whole number.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "timestamp": {
+      "description": "ISO 8601 / RFC 3339, UTC, with its zone (`Z`): 2026-11-07T14:32:05Z. Never a naive time.",
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"
+    },
+    "text_or_null": {
+      "description": "Text, or null where nothing was set. An empty string is sent as null where the server says so, but a client should treat both as nothing.",
+      "type": ["string", "null"]
+    },
+    "date_or_null": {
+      "description": "YYYY-MM-DD as the arbiter typed it, or null.",
+      "type": ["string", "null"]
+    },
+    "role": {
+      "description": "This account's role on the tournament.",
+      "type": "string",
+      "enum": ["owner", "editor", "arbiter"]
+    },
+    "capability": {
+      "description": "What the app may offer: owner and editor get all seven, an arbiter results and incidents.",
+      "type": "string",
+      "enum": ["results", "incidents", "pair", "publish", "players", "standings", "settings"]
+    },
+    "tournament_status": {
+      "type": "string",
+      "enum": ["setup", "running", "finished"]
+    },
+    "pairing_system": {
+      "type": "string",
+      "enum": ["swiss", "round_robin", "keizer"]
+    },
+    "publish_level": {
+      "description": "How much of a round is public: 0 nothing, 1 pairings, 2 pairings and results, 3 those and the standings after it.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 3
+    },
+    "bye_kind": {
+      "description": "A requested bye's kind. requested-half, requested-zero and full-point where the tournament asks the bye type; absent where it does not.",
+      "type": "string",
+      "enum": ["requested-half", "requested-zero", "full-point", "absent"]
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "version", "api", "desktop"],
+      "properties": {
+        "name": { "const": "OpenPairings" },
+        "version": { "type": "string", "description": "The OpenPairings release, e.g. 0.101.3." },
+        "api": { "const": 1, "description": "The API version. A different number means a different contract directory." },
+        "desktop": { "type": "boolean", "description": "A desktop copy (local mode) rather than a hosted server." }
+      }
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "platform"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "type": ["string", "null"] },
+        "platform": { "type": ["string", "null"] }
+      }
+    },
+    "user": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["email", "name"],
+      "properties": {
+        "email": { "type": "string" },
+        "name": { "type": ["string", "null"] }
+      }
+    },
+    "tournament_line": {
+      "description": "One line of the tournament list.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "role", "status", "start_date", "end_date", "city", "rounds_count", "paired_rounds"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "type": "string" },
+        "role": { "$ref": "#/definitions/role" },
+        "status": { "$ref": "#/definitions/tournament_status" },
+        "start_date": { "$ref": "#/definitions/date_or_null" },
+        "end_date": { "$ref": "#/definitions/date_or_null" },
+        "city": { "$ref": "#/definitions/text_or_null" },
+        "rounds_count": { "type": ["integer", "null"] },
+        "paired_rounds": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "warning": {
+      "description": "Something pairing the next round would do that the desk would show (postponed games). `confirm: true` ids must be sent back in `acknowledged` for the pairing to go ahead.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "confirm", "message"],
+      "properties": {
+        "id": { "type": "string" },
+        "confirm": { "type": "boolean" },
+        "message": { "type": "string" }
+      }
+    },
+    "tiebreak_option": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["code", "name"],
+      "properties": {
+        "code": { "type": "string" },
+        "name": { "type": "string" }
+      }
+    },
+    "settings": {
+      "description": "The settings worth reading from a phone. `editable`, `configured_tiebreaks` and `tiebreak_options` only for the owner and editors.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type", "venue", "city", "federation", "start_date", "end_date", "chief_arbiter", "deputy_arbiter",
+        "time_control", "rounds_count", "round_dates", "tiebreaks", "fide_rated", "postponed_games",
+        "ask_bye_type", "shared_places", "bye_value", "publish_mode", "points"
+      ],
+      "properties": {
+        "type": { "type": "string", "enum": ["swiss", "roundrobin", "team-swiss", "team-roundrobin"] },
+        "venue": { "$ref": "#/definitions/text_or_null" },
+        "city": { "$ref": "#/definitions/text_or_null" },
+        "federation": { "$ref": "#/definitions/text_or_null" },
+        "start_date": { "$ref": "#/definitions/date_or_null" },
+        "end_date": { "$ref": "#/definitions/date_or_null" },
+        "chief_arbiter": { "$ref": "#/definitions/text_or_null" },
+        "deputy_arbiter": { "$ref": "#/definitions/text_or_null" },
+        "time_control": { "$ref": "#/definitions/text_or_null" },
+        "rounds_count": { "type": ["integer", "null"] },
+        "round_dates": { "type": "array", "items": { "type": "string" } },
+        "tiebreaks": { "type": "array", "items": { "type": "string" }, "description": "Tie-break codes as applied (what does not apply dropped)." },
+        "fide_rated": { "type": "boolean" },
+        "postponed_games": { "type": "boolean" },
+        "ask_bye_type": { "type": "boolean" },
+        "shared_places": { "type": "boolean" },
+        "bye_value": { "type": ["number", "null"], "description": "Points for a pairing-allocated bye." },
+        "publish_mode": { "type": "string" },
+        "points": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["win", "draw", "loss"],
+          "properties": {
+            "win": { "type": ["number", "null"] },
+            "draw": { "type": ["number", "null"] },
+            "loss": { "type": ["number", "null"] }
+          }
+        },
+        "editable": {
+          "type": "array",
+          "description": "The fields PATCH /settings may change now (locked ones left out).",
+          "items": {
+            "type": "string",
+            "enum": ["rounds_count", "tiebreaks", "time_control", "chief_arbiter", "deputy_arbiter", "venue", "city", "bye_value", "ask_bye_type", "shared_places"]
+          }
+        },
+        "configured_tiebreaks": { "type": "array", "items": { "type": "string" } },
+        "tiebreak_options": { "type": "array", "items": { "$ref": "#/definitions/tiebreak_option" } }
+      }
+    },
+    "tournament": {
+      "description": "One tournament, for the tournament screen. Not a superset of tournament_line: dates and city are in `settings`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "role", "can", "status", "read_only", "archived", "handed_off", "pairing_system", "team",
+        "rounds_count", "paired_rounds", "rounds", "next_round", "settings", "bye_kinds", "openresults_url"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "type": "string" },
+        "role": { "$ref": "#/definitions/role" },
+        "can": { "type": "array", "items": { "$ref": "#/definitions/capability" } },
+        "status": { "$ref": "#/definitions/tournament_status" },
+        "read_only": { "type": "boolean" },
+        "archived": { "type": "boolean" },
+        "handed_off": { "type": "boolean" },
+        "pairing_system": { "$ref": "#/definitions/pairing_system" },
+        "team": { "type": "boolean" },
+        "rounds_count": { "type": ["integer", "null"] },
+        "paired_rounds": { "type": "integer", "minimum": 0 },
+        "rounds": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["number", "publish_level", "missing_results"],
+            "properties": {
+              "number": { "type": "integer", "minimum": 1 },
+              "publish_level": { "$ref": "#/definitions/publish_level" },
+              "missing_results": { "type": "integer", "minimum": 0 }
+            }
+          }
+        },
+        "next_round": {
+          "description": "Null for an arbiter (only the desk's roles pair).",
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["number", "blocker", "warnings"],
+              "properties": {
+                "number": { "type": "integer", "minimum": 1 },
+                "blocker": {
+                  "description": "Why the next round cannot be paired from the phone, or null when it can.",
+                  "enum": [null, "all_rounds_paired", "setup_incomplete", "desk_only", "read_only"]
+                },
+                "warnings": { "type": "array", "items": { "$ref": "#/definitions/warning" } }
+              }
+            }
+          ]
+        },
+        "settings": { "$ref": "#/definitions/settings" },
+        "bye_kinds": {
+          "description": "The kinds of requested bye this tournament takes, for PUT /players/:pid/byes.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "label", "points"],
+            "properties": {
+              "id": { "$ref": "#/definitions/bye_kind" },
+              "label": { "type": "string" },
+              "points": { "type": ["number", "null"], "description": "What the bye is worth, before any limit." }
+            }
+          }
+        },
+        "openresults_url": { "$ref": "#/definitions/text_or_null" }
+      }
+    },
+    "board_player": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "title", "rating", "score"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "type": "string" },
+        "title": { "$ref": "#/definitions/text_or_null" },
+        "rating": { "type": ["integer", "null"] },
+        "score": { "type": "number", "description": "Points coming into this round, as a printed pairing sheet shows them." }
+      }
+    },
+    "phone": {
+      "description": "A result entered on a Manubrium Lite phone (/m): waiting for the arbiter's word, or confirmed. Null when the board's result did not come from one.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["by", "state", "at"],
+          "properties": {
+            "by": { "type": ["string", "null"], "description": "The Lite phone's label." },
+            "state": { "type": "string", "enum": ["unconfirmed", "confirmed"] },
+            "at": { "$ref": "#/definitions/timestamp" }
+          }
+        }
+      ]
+    },
+    "board_report": {
+      "description": "What a hall board (Alnasl) reported for this game: shown beside the result, never entered. Null when nothing was reported or no box is connected.",
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["status", "result", "mismatch", "moves_count", "updated_at"],
+          "properties": {
+            "status": {
+              "description": "The box's state of the game. Closed set: waiting (board set up, nothing played), live (moves are being played), finished. There is no `playing`.",
+              "type": "string",
+              "enum": ["waiting", "live", "finished"]
+            },
+            "result": {
+              "description": "The result the board saw, or null for none.",
+              "enum": [null, "1-0", "1/2-1/2", "0-1"]
+            },
+            "mismatch": { "type": "boolean", "description": "The board's result differs from the entered one (a forfeit compared by who got the point)." },
+            "moves_count": {
+              "description": "FULL MOVES, not plies: the number of the move the game has reached, ceil(plies / 2). 1.e4 e5 2.Nf3 (3 plies) is 2; 0 plies is 0. Never null.",
+              "type": "integer",
+              "minimum": 0
+            },
+            "updated_at": { "$ref": "#/definitions/timestamp" }
+          }
+        }
+      ]
+    },
+    "board": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "board", "label", "white", "black", "bye", "vacant", "empty", "result", "clearable", "phone", "board_report"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id", "description": "The pairing id: what results, edits, clear/confirm/reject name." },
+        "board": { "type": ["integer", "null"] },
+        "label": { "type": "string", "description": "The table as printed: usually the board number, a fixed table otherwise." },
+        "white": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/board_player" }] },
+        "black": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/board_player" }] },
+        "bye": { "type": "boolean" },
+        "vacant": { "type": "boolean", "description": "One seat empty and no bye: waits for a player or a bye." },
+        "empty": { "type": "boolean", "description": "Both seats empty." },
+        "result": { "type": "string", "description": "The entered result code, \"\" for none, \"bye\" for a bye." },
+        "clearable": { "type": "boolean" },
+        "phone": { "$ref": "#/definitions/phone" },
+        "board_report": { "$ref": "#/definitions/board_report" }
+      }
+    },
+    "round": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["number", "latest", "publish_level", "boards", "byes", "pool", "hand_edits", "results"],
+      "properties": {
+        "number": { "type": "integer", "minimum": 1 },
+        "latest": { "type": "boolean" },
+        "publish_level": { "$ref": "#/definitions/publish_level" },
+        "boards": { "type": "array", "items": { "$ref": "#/definitions/board" } },
+        "byes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["player", "type"],
+            "properties": {
+              "player": { "$ref": "#/definitions/board_player" },
+              "type": { "type": "string" }
+            }
+          }
+        },
+        "pool": {
+          "description": "Everyone not on a board, and why.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["player", "type", "absent"],
+            "properties": {
+              "player": { "$ref": "#/definitions/board_player" },
+              "type": { "type": ["string", "null"] },
+              "absent": { "type": "boolean" }
+            }
+          }
+        },
+        "hand_edits": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["open", "pibe"],
+          "properties": {
+            "open": { "type": "boolean" },
+            "pibe": { "type": ["string", "null"], "description": "The MPA PIBE line recorded for the round." }
+          }
+        },
+        "results": { "type": "array", "items": { "type": "string" }, "description": "The result codes an arbiter may enter." }
+      }
+    },
+    "player_brief": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "name", "title", "rating"],
+          "properties": {
+            "id": { "$ref": "#/definitions/id" },
+            "name": { "type": "string" },
+            "title": { "$ref": "#/definitions/text_or_null" },
+            "rating": { "type": ["integer", "null"] }
+          }
+        }
+      ]
+    },
+    "standings": {
+      "description": "Keizer standings send only `tiebreaks` (empty) and `rows`; every other system adds `tiebreaks_through` and `rounds_paired`.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tiebreaks", "rows"],
+      "properties": {
+        "tiebreaks_through": { "type": "integer", "minimum": 0, "description": "Tie-breaks count rounds 1..this (the complete ones); points count every result entered." },
+        "rounds_paired": { "type": "integer", "minimum": 0 },
+        "tiebreaks": { "type": "array", "items": { "$ref": "#/definitions/tiebreak_option" } },
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rank", "player", "points", "tiebreaks"],
+            "properties": {
+              "rank": { "type": ["string", "integer", "null"], "description": "As shown: \"3\", or \"3=\" for a shared place; an integer in Keizer." },
+              "player": { "$ref": "#/definitions/player_brief" },
+              "points": { "type": ["number", "null"] },
+              "tiebreaks": { "type": "object", "additionalProperties": { "type": ["number", "null"] }, "description": "By tie-break code." }
+            }
+          }
+        }
+      }
+    },
+    "bye": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["round", "kind"],
+      "properties": {
+        "round": { "type": "integer", "minimum": 1 },
+        "kind": { "$ref": "#/definitions/bye_kind" }
+      }
+    },
+    "player": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id", "name", "title", "sex", "federation", "club", "birth_year", "fide_id", "fide_rating", "national_rating",
+        "rating", "pairing_number", "start_round", "status", "absent", "present", "absent_rounds", "byes"
+      ],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "name": { "type": "string" },
+        "title": { "$ref": "#/definitions/text_or_null" },
+        "sex": { "$ref": "#/definitions/text_or_null" },
+        "federation": { "$ref": "#/definitions/text_or_null" },
+        "club": { "$ref": "#/definitions/text_or_null" },
+        "birth_year": { "type": ["integer", "null"] },
+        "fide_id": { "type": ["integer", "null"] },
+        "fide_rating": { "type": ["integer", "null"] },
+        "national_rating": { "type": ["integer", "null"] },
+        "rating": { "type": ["integer", "null"] },
+        "pairing_number": { "type": ["integer", "null"] },
+        "start_round": { "type": ["integer", "null"] },
+        "status": { "type": "string", "enum": ["active", "withdrawn", "expelled"] },
+        "absent": { "type": "boolean", "description": "Absent for the whole event." },
+        "present": { "type": "boolean", "description": "Checked in: not absent." },
+        "absent_rounds": { "type": "array", "items": { "type": "integer" } },
+        "byes": { "type": "array", "items": { "$ref": "#/definitions/bye" } }
+      }
+    },
+    "incident": {
+      "description": "An incident as the desk's list shows it. The photo itself is GET /tournaments/:id/incidents/:iid/photo, image/jpeg, outside this contract.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "round", "board", "kind", "note", "white", "black", "occurred_at", "by", "has_photo"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "round": { "type": "integer" },
+        "board": { "type": ["integer", "null"] },
+        "kind": { "type": "string", "enum": ["illegal_move", "clock", "device", "complaint", "time_added", "game_rewound", "arbiter_call", "other"] },
+        "note": { "type": "string" },
+        "white": { "type": ["string", "null"] },
+        "black": { "type": ["string", "null"] },
+        "occurred_at": { "$ref": "#/definitions/timestamp" },
+        "by": { "type": ["string", "null"] },
+        "has_photo": { "type": "boolean" }
+      }
+    },
+    "board_link": {
+      "description": "A hall-box connect code (Alnasl), never its secret.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "label", "hint", "reach", "created_at", "last_seen_at"],
+      "properties": {
+        "id": { "$ref": "#/definitions/id" },
+        "kind": { "type": "string", "enum": ["tournament", "group"] },
+        "label": { "type": "string", "description": "The name given when the code was made, else what the box called itself, else the code's last four characters." },
+        "hint": { "type": ["string", "null"], "description": "The code's last four characters." },
+        "reach": { "type": "string", "enum": ["lan", "server"] },
+        "created_at": { "$ref": "#/definitions/timestamp" },
+        "last_seen_at": { "oneOf": [{ "type": "null" }, { "$ref": "#/definitions/timestamp" }] }
+      }
+    },
+    "acknowledged": {
+      "description": "Ids of questions the arbiter answered yes to. Unknown ids are ignored.",
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "expected": {
+      "description": "What the board said when the arbiter tapped (\"\" for no result): compare-and-set.",
+      "type": "string"
+    }
+  }
+}

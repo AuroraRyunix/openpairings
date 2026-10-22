@@ -1,0 +1,33 @@
+{
+  "contract": "alnasl-link",
+  "version": 1,
+  "files": [
+    "box-request.schema.json",
+    "box-response.schema.json",
+    "common.schema.json",
+    "error.schema.json",
+    "examples/box-request.json",
+    "examples/box-response.json",
+    "examples/error.invalid-grant.json",
+    "examples/error.json",
+    "examples/error.pairing-changed.json",
+    "examples/error.unauthorized.json",
+    "examples/games-request.json",
+    "examples/games-request.single.json",
+    "examples/games-response.json",
+    "examples/games-response.mixed.json",
+    "examples/games-response.single.json",
+    "examples/grant-request.json",
+    "examples/grant-response.json",
+    "examples/link-response.account.json",
+    "examples/link-response.json",
+    "examples/tournament-response.json",
+    "examples/tournament-response.published.json",
+    "games-request.schema.json",
+    "games-response.schema.json",
+    "grant-request.schema.json",
+    "grant-response.schema.json",
+    "link-response.schema.json",
+    "tournament-response.schema.json"
+  ]
+}

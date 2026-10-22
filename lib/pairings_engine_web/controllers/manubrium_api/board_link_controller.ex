@@ -33,8 +33,9 @@ defmodule PairingsEngineWeb.ManubriumApi.BoardLinkController do
   end
 
   @doc """
-  POST /tournaments/:id/board-links - `{where: "lan"}` optional: a new code
-  for this tournament. The answer carries the full connect code, once.
+  POST /tournaments/:id/board-links - `{where: "lan"}` and `{link: {label}}`
+  optional: a new code for this tournament, named `label` if the phone gave
+  it one. The answer carries the full connect code, once.
   `where: "lan"` asks for a code for a box on a desktop copy's network, as
   the Boards page's "for a box on this network" does; anywhere else it is
   an ordinary code.
@@ -42,7 +43,7 @@ defmodule PairingsEngineWeb.ManubriumApi.BoardLinkController do
   def create(conn, %{"id" => id} = params) do
     with {:ok, t, _role} <- Reply.tournament(conn, id, :desk),
          {:ok, lan} <- lan(conn, params["where"]) do
-      opts = if lan, do: [lan: lan.base_url], else: []
+      opts = [label: label(params)] ++ if(lan, do: [lan: lan.base_url], else: [])
 
       case BoardLink.create_link(conn.assigns.current_scope, t, opts) do
         {:ok, link, secret} ->
@@ -73,6 +74,11 @@ defmodule PairingsEngineWeb.ManubriumApi.BoardLinkController do
   end
 
   defp lan(_conn, _where), do: {:ok, nil}
+
+  # The app has always sent a name for the code; until the contract caught
+  # it, nobody was listening.
+  defp label(%{"link" => %{"label" => label}}) when is_binary(label), do: label
+  defp label(_params), do: nil
 
   @doc "DELETE /tournaments/:id/board-links/:link_id - withdraws a code."
   def delete(conn, %{"id" => id, "link_id" => link_id}) do

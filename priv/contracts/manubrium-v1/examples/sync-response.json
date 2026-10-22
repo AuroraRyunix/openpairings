@@ -1,0 +1,16 @@
+{
+  "results": [
+    {
+      "cid": "6f1c2a7e-0b9d-4e55-9a3c-2d8f1e0a4b11",
+      "message": "Board 1: saved.",
+      "reason": "saved",
+      "status": "saved"
+    },
+    {
+      "cid": "0d4e8b3a-5c21-4f7a-8e19-7b6a2c9d3e44",
+      "message": "Board 1: incident logged.",
+      "reason": "saved",
+      "status": "saved"
+    }
+  ]
+}

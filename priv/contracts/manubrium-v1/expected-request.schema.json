@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/expected-request.schema.json",
+  "title": "Clear, confirm or reject a board's result",
+  "description": "POST /rounds/:n/boards/:pairing/clear, /confirm and /reject: what the board said when tapped. 409 conflict (with `current`) when it has changed since.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "expected"
+  ],
+  "properties": {
+    "expected": {
+      "$ref": "common.schema.json#/definitions/expected"
+    }
+  }
+}

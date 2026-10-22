@@ -17,6 +17,12 @@ Each entry is tagged so a version can be skimmed:
 
 ## [Unreleased]
 
+- [Verified] **The Manubrium API and the board link now have machine-readable contracts.** `priv/contracts/manubrium-v1/` and `priv/contracts/alnasl-link-v1/` hold a JSON Schema for every request and answer, with examples taken from what the server really sends, and the test suite checks the server against them on every run. The phone app and the hall box keep a copy and check it daily, so the next time one side renames a status or counts moves differently, a build goes red instead of a board in a playing hall going quiet. Board statuses are a closed list (`waiting`, `live`, `finished`) and `moves_count` is written down as full moves, which is what it was all along; it just was not written down where anyone would trip over it.
+
+- [Fix] **A hall-box code made from the phone keeps the name you gave it.** The Manubrium app has always asked for a name when making a code for a box, sent it, and watched the server ignore it in favour of the code's last four characters. The contract noticed in about four seconds. The name is now kept and listed.
+
+- [Fix] **The time a phone's result was entered carries its time zone.** It was the one timestamp in the Manubrium API sent without a `Z`, which a phone reads as its own local time: an hour or two out anywhere east of Greenwich, and quietly so.
+
 ## [0.101.3] - 2026-10-21
 
 - [Removed] **Plug-ins can no longer draw over every page.** The one plug-in that did used it for a single face in a single theme for two accounts, and that face has retired. A hook with no callers is a door left open onto nothing, so it went with it; the Tom W theme stays, for everyone, as before.

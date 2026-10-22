@@ -1,0 +1,17 @@
+{
+  "results": [
+    {
+      "applied": true,
+      "game": "e91dd5ef6fe3ad1d7d580629b473a62d",
+      "seq": 41,
+      "status": "ok"
+    },
+    {
+      "applied": true,
+      "game": "5c28e7731cc96eef0de3dff3f0035af8",
+      "seq": 1,
+      "status": "ok"
+    }
+  ],
+  "status": "ok"
+}

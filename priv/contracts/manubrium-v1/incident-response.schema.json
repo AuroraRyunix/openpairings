@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/incident-response.schema.json",
+  "title": "POST /incidents/:iid/photo response (201)",
+  "description": "The incident, now with has_photo.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "incident"
+  ],
+  "properties": {
+    "incident": {
+      "$ref": "common.schema.json#/definitions/incident"
+    }
+  }
+}

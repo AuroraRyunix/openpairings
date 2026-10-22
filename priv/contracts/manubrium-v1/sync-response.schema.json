@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/sync-response.schema.json",
+  "title": "POST /tournaments/:id/sync response",
+  "description": "One answer per entry, in order. `saved` and `refused` are final; `retry` means ask again later (the entry stays queued).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "results"
+  ],
+  "properties": {
+    "results": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cid",
+          "status",
+          "reason",
+          "message"
+        ],
+        "properties": {
+          "cid": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "saved",
+              "refused",
+              "retry"
+            ]
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why, as a code (e.g. conflict, no_board, revoked, rate_limited)."
+          },
+          "message": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "A sentence for the person holding the phone."
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,279 @@
+{
+  "tournament": {
+    "archived": false,
+    "bye_kinds": [
+      {
+        "id": "absent",
+        "label": "Absent",
+        "points": 0.0
+      }
+    ],
+    "can": [
+      "results",
+      "incidents",
+      "pair",
+      "publish",
+      "players",
+      "standings",
+      "settings"
+    ],
+    "handed_off": false,
+    "id": 2,
+    "name": "Contract Open 31682",
+    "next_round": {
+      "blocker": null,
+      "number": 2,
+      "warnings": []
+    },
+    "openresults_url": null,
+    "paired_rounds": 1,
+    "pairing_system": "swiss",
+    "read_only": false,
+    "role": "owner",
+    "rounds": [
+      {
+        "missing_results": 1,
+        "number": 1,
+        "publish_level": 0
+      }
+    ],
+    "rounds_count": 3,
+    "settings": {
+      "ask_bye_type": false,
+      "bye_value": 1.0,
+      "chief_arbiter": null,
+      "city": "Ghent",
+      "configured_tiebreaks": [
+        "BHC1",
+        "BH",
+        "SB",
+        "DE",
+        "WIN",
+        "PS"
+      ],
+      "deputy_arbiter": null,
+      "editable": [
+        "time_control",
+        "chief_arbiter",
+        "deputy_arbiter",
+        "venue",
+        "city",
+        "ask_bye_type",
+        "shared_places"
+      ],
+      "end_date": "2026-11-15",
+      "federation": null,
+      "fide_rated": false,
+      "points": {
+        "draw": 0.5,
+        "loss": 0.0,
+        "win": 1.0
+      },
+      "postponed_games": false,
+      "publish_mode": "manual",
+      "round_dates": [
+        "2026-11-01",
+        "2026-11-08",
+        "2026-11-15"
+      ],
+      "rounds_count": 3,
+      "shared_places": false,
+      "start_date": "2026-11-01",
+      "tiebreak_options": [
+        {
+          "code": "BH",
+          "name": "Buchholz"
+        },
+        {
+          "code": "BHC1",
+          "name": "Buchholz Cut-1"
+        },
+        {
+          "code": "BHC2",
+          "name": "Buchholz Cut-2"
+        },
+        {
+          "code": "MBH",
+          "name": "Median Buchholz"
+        },
+        {
+          "code": "SB",
+          "name": "Sonneborn-Berger"
+        },
+        {
+          "code": "DE",
+          "name": "Direct encounter"
+        },
+        {
+          "code": "WIN",
+          "name": "Number of wins"
+        },
+        {
+          "code": "WON",
+          "name": "Number of games won over the board"
+        },
+        {
+          "code": "BPG",
+          "name": "Games played with Black"
+        },
+        {
+          "code": "PS",
+          "name": "Progressive score"
+        },
+        {
+          "code": "KS",
+          "name": "Koya system"
+        },
+        {
+          "code": "ARO",
+          "name": "Average rating of opponents"
+        },
+        {
+          "code": "AROC1",
+          "name": "Average rating of opponents, Cut-1"
+        },
+        {
+          "code": "BH/M2",
+          "name": "Median Buchholz, Median-2"
+        },
+        {
+          "code": "FB",
+          "name": "Fore Buchholz"
+        },
+        {
+          "code": "FB/C1",
+          "name": "Fore Buchholz Cut-1"
+        },
+        {
+          "code": "FB/C2",
+          "name": "Fore Buchholz Cut-2"
+        },
+        {
+          "code": "FB/M1",
+          "name": "Fore Median Buchholz"
+        },
+        {
+          "code": "FB/M2",
+          "name": "Fore Median Buchholz, Median-2"
+        },
+        {
+          "code": "AOB",
+          "name": "Average of opponents' Buchholz"
+        },
+        {
+          "code": "AOB/F",
+          "name": "Average of opponents' Fore Buchholz"
+        },
+        {
+          "code": "SB/C1",
+          "name": "Sonneborn-Berger Cut-1"
+        },
+        {
+          "code": "SB/C2",
+          "name": "Sonneborn-Berger Cut-2"
+        },
+        {
+          "code": "PS/C1",
+          "name": "Progressive score Cut-1"
+        },
+        {
+          "code": "PS/C2",
+          "name": "Progressive score Cut-2"
+        },
+        {
+          "code": "KS/L1",
+          "name": "Koya system, limit 50% + 1/2"
+        },
+        {
+          "code": "KS/L2",
+          "name": "Koya system, limit 50% + 1"
+        },
+        {
+          "code": "KS/L-1",
+          "name": "Koya system, limit 50% - 1/2"
+        },
+        {
+          "code": "KS/L-2",
+          "name": "Koya system, limit 50% - 1"
+        },
+        {
+          "code": "DE/P",
+          "name": "Direct encounter, forfeits counted"
+        },
+        {
+          "code": "BWG",
+          "name": "Games won with Black"
+        },
+        {
+          "code": "REP",
+          "name": "Rounds effectively played"
+        },
+        {
+          "code": "STD",
+          "name": "Standard points"
+        },
+        {
+          "code": "TPN",
+          "name": "Tournament pairing number"
+        },
+        {
+          "code": "TPN/R",
+          "name": "Tournament pairing number, reversed"
+        },
+        {
+          "code": "ARO/C2",
+          "name": "Average rating of opponents, Cut-2"
+        },
+        {
+          "code": "ARO/M1",
+          "name": "Average rating of opponents, Median-1"
+        },
+        {
+          "code": "ARO/M2",
+          "name": "Average rating of opponents, Median-2"
+        },
+        {
+          "code": "TPR",
+          "name": "Tournament performance rating"
+        },
+        {
+          "code": "PTP",
+          "name": "Perfect tournament performance"
+        },
+        {
+          "code": "APRO",
+          "name": "Average performance rating of opponents"
+        },
+        {
+          "code": "APPO",
+          "name": "Average perfect performance of opponents"
+        },
+        {
+          "code": "RTNG",
+          "name": "Tournament rating"
+        },
+        {
+          "code": "RTNG/R",
+          "name": "Tournament rating, reversed"
+        },
+        {
+          "code": "EXT",
+          "name": "External value"
+        }
+      ],
+      "tiebreaks": [
+        "BHC1",
+        "BH",
+        "SB",
+        "DE",
+        "WIN",
+        "PS"
+      ],
+      "time_control": null,
+      "type": "swiss",
+      "venue": null
+    },
+    "status": "running",
+    "team": false
+  }
+}

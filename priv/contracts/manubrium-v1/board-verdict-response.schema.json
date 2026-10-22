@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/board-verdict-response.schema.json",
+  "title": "Clear, confirm or reject response",
+  "description": "`cleared` for /clear, `confirmed` for /confirm, `rejected` for /reject (the board is then cleared).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "status"
+  ],
+  "properties": {
+    "status": {
+      "type": "string",
+      "enum": [
+        "cleared",
+        "confirmed",
+        "rejected"
+      ]
+    }
+  }
+}

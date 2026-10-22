@@ -1,0 +1,116 @@
+{
+  "current_round": 1,
+  "openresults": {
+    "server_url": "https://results.example.org",
+    "slug": "k3v9x2",
+    "relay_key": "orrk_0123456789abcdef"
+  },
+  "players": [
+    {
+      "federation": "BEL",
+      "fide_id": null,
+      "id": 1,
+      "name": "Player 1",
+      "no": 1,
+      "rating": 1990,
+      "team": null,
+      "title": null
+    },
+    {
+      "federation": "BEL",
+      "fide_id": null,
+      "id": 2,
+      "name": "Player 2",
+      "no": 2,
+      "rating": 1980,
+      "team": null,
+      "title": null
+    },
+    {
+      "federation": "BEL",
+      "fide_id": null,
+      "id": 3,
+      "name": "Player 3",
+      "no": 3,
+      "rating": 1970,
+      "team": null,
+      "title": null
+    },
+    {
+      "federation": "BEL",
+      "fide_id": null,
+      "id": 4,
+      "name": "Player 4",
+      "no": 4,
+      "rating": 1960,
+      "team": null,
+      "title": null
+    }
+  ],
+  "rounds": [
+    {
+      "boards": [
+        {
+          "black": 2,
+          "board": 1,
+          "game": "e91dd5ef6fe3ad1d7d580629b473a62d",
+          "kind": "game",
+          "label": "1",
+          "result": null,
+          "white": 1
+        },
+        {
+          "black": 4,
+          "board": 2,
+          "game": "5c28e7731cc96eef0de3dff3f0035af8",
+          "kind": "game",
+          "label": "2",
+          "result": null,
+          "white": 3
+        }
+      ],
+      "chess960_position": null,
+      "date": "2026-10-12",
+      "number": 1,
+      "state": "current"
+    }
+  ],
+  "tournament": {
+    "boards_per_match": null,
+    "chess960": false,
+    "city": "Somewhere",
+    "display": {
+      "federation": true,
+      "rating": true,
+      "title": true
+    },
+    "end_date": null,
+    "federation": null,
+    "id": 1,
+    "live_boards": false,
+    "name": "Board Link Open",
+    "rounds": 3,
+    "site": "Somewhere",
+    "start_date": "2026-10-12",
+    "state": "setup",
+    "team_event": false,
+    "time_control": {
+      "increment_from_move": 1,
+      "increment_seconds": 30,
+      "kind": "standard",
+      "periods": [
+        {
+          "moves": 40,
+          "seconds": 5400
+        },
+        {
+          "moves": null,
+          "seconds": 1800
+        }
+      ],
+      "pgn": "40/5400+30:1800+30",
+      "text": "90min/40moves+30min/end+30sec/move from move 1"
+    }
+  },
+  "version": "d1a01fe10964582d4cb8"
+}

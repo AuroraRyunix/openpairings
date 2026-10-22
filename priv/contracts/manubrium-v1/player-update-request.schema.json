@@ -1,0 +1,106 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/player-update-request.schema.json",
+  "title": "PATCH /tournaments/:id/players/:pid request",
+  "description": "Changes to one player. `withdrawn` true withdraws, false re-enters; `present` false marks absent for the event (check-in); `absent_rounds` the rounds asked off; `bye_types` {\"round\": kind}. 409 needs_acknowledgement (sent_round_changed, second_half_bye): ask, then send again with `acknowledged`.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "player"
+  ],
+  "properties": {
+    "player": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "title": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sex": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "fide_id": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "fide_rating": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "national_rating": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "federation": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "club": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "birth_year": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "withdrawn": {
+          "type": "boolean"
+        },
+        "present": {
+          "type": "boolean"
+        },
+        "absent": {
+          "type": "boolean"
+        },
+        "absent_rounds": {
+          "type": [
+            "array",
+            "string"
+          ],
+          "items": {
+            "type": "integer"
+          }
+        },
+        "bye_types": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string",
+            "enum": [
+              "requested-half",
+              "requested-zero",
+              "full-point"
+            ]
+          }
+        }
+      }
+    },
+    "acknowledged": {
+      "$ref": "common.schema.json#/definitions/acknowledged"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "player": {
+    "absent": true,
+    "absent_rounds": [],
+    "birth_year": 2004,
+    "byes": [],
+    "club": "Example Chess Club",
+    "federation": "BEL",
+    "fide_id": null,
+    "fide_rating": 2050,
+    "id": 5,
+    "name": "Late, Lena",
+    "national_rating": 0,
+    "pairing_number": null,
+    "present": false,
+    "rating": 2050,
+    "sex": "F",
+    "start_round": 2,
+    "status": "active",
+    "title": "WFM"
+  }
+}

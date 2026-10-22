@@ -253,7 +253,7 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       empty: is_nil(p.white_player_id) and is_nil(p.black_player_id),
       result: p.result || "",
       clearable: not bye? and p.result not in [nil, ""] and Tournaments.result_clearable?(p),
-      phone: phone && %{by: phone.label, state: phone.state, at: phone.at},
+      phone: phone && %{by: phone.label, state: phone.state, at: utc(phone.at)},
       board_report: board_report(p, report)
     }
   end
@@ -425,6 +425,12 @@ defmodule PairingsEngineWeb.ManubriumApi.Json do
       has_photo: i.has_photo
     }
   end
+
+  # The audit trail's clock is naive UTC. Sent naive, a phone reads it as
+  # its own local time - an hour or two out in Europe, and nobody notices
+  # until it matters. Every other timestamp here already says `Z`.
+  defp utc(%NaiveDateTime{} = at), do: DateTime.from_naive!(at, "Etc/UTC")
+  defp utc(at), do: at
 
   defp blank_nil(""), do: nil
   defp blank_nil(v), do: v

@@ -1,0 +1,22 @@
+{
+  "links": [
+    {
+      "created_at": "2026-10-22T06:27:49Z",
+      "hint": "fh-U",
+      "id": 1,
+      "kind": "tournament",
+      "label": "Hall A, boards 1-6",
+      "last_seen_at": null,
+      "reach": "server"
+    },
+    {
+      "created_at": "2026-10-22T06:27:49Z",
+      "hint": "2YWI",
+      "id": 2,
+      "kind": "tournament",
+      "label": "…2YWI",
+      "last_seen_at": null,
+      "reach": "server"
+    }
+  ]
+}

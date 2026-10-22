@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/board-links-response.schema.json",
+  "title": "GET /tournaments/:id/board-links response",
+  "description": "The connect codes that reach the tournament: its own and its group's.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "links"
+  ],
+  "properties": {
+    "links": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/definitions/board_link"
+      }
+    }
+  }
+}

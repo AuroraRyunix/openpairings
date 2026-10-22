@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/grant-request.schema.json",
+  "title": "POST /grant request",
+  "description": "Trades a one-time grant (from the account consent page's redirect) for an account code. No Authorization header: the grant is the credential.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "grant"
+  ],
+  "properties": {
+    "grant": {
+      "type": "string"
+    }
+  }
+}

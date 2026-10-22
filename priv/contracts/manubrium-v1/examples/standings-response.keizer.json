@@ -1,0 +1,51 @@
+{
+  "standings": {
+    "rows": [
+      {
+        "player": {
+          "id": 1,
+          "name": "Player 1",
+          "rating": 2150,
+          "title": null
+        },
+        "points": 0.0,
+        "rank": 1,
+        "tiebreaks": {}
+      },
+      {
+        "player": {
+          "id": 2,
+          "name": "Player 2",
+          "rating": 2100,
+          "title": null
+        },
+        "points": 0.0,
+        "rank": 2,
+        "tiebreaks": {}
+      },
+      {
+        "player": {
+          "id": 3,
+          "name": "Player 3",
+          "rating": 2050,
+          "title": null
+        },
+        "points": 0.0,
+        "rank": 3,
+        "tiebreaks": {}
+      },
+      {
+        "player": {
+          "id": 4,
+          "name": "Player 4",
+          "rating": 2000,
+          "title": null
+        },
+        "points": 0.0,
+        "rank": 4,
+        "tiebreaks": {}
+      }
+    ],
+    "tiebreaks": []
+  }
+}

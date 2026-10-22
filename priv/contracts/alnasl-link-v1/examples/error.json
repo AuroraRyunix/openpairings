@@ -1,0 +1,4 @@
+{
+  "detail": "this code does not reach a tournament with that id",
+  "error": "tournament_not_found"
+}
