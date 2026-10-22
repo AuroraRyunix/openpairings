@@ -2,7 +2,7 @@
 
 Ainalrami is de engine die elke Zwitserse ronde in OpenPairings paart. Het
 volgt het Nederlandse FIDE-systeem (C.04.3, zoals het geldt sinds 1 februari
-2026), paart Zwitserse ploegentoernooien (C.04.6) en berekent de
+2026), paart Zwitserse teamtoernooien (C.04.6) en berekent de
 FIDE-tiebreaks (C.07). Het is ook een programma op zich, dat je vanaf de
 opdrachtregel gebruikt, dat TRF-bestanden leest en schrijft (TRF16 en FIDE's
 TRF26) en dezelfde opdrachtregel aanneemt als JaVaFo.

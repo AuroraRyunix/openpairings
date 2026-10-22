@@ -105,7 +105,7 @@ msgid "Baku acceleration cannot be combined with extra points in the pairing (ex
 msgstr "Baku-acceleratie kan niet gecombineerd worden met extra punten in de paring (extra punten in acceleratiemodus, of meegeteld in handicapmodus)"
 
 msgid "Keizer cannot pair team against team. Choose Swiss or Round robin for a team tournament."
-msgstr "Keizer kan geen ploeg tegen ploeg paren. Kies Zwitsers of Rondetoernooi voor een ploegentoernooi."
+msgstr "Keizer kan geen team tegen team paren. Kies Zwitsers of Rondetoernooi voor een teamtoernooi."
 
 msgid "cannot be changed after round 4 has been paired (FIDE C.04.2.B.3)"
 msgstr "kan niet meer gewijzigd worden nadat ronde 4 gepaard is (FIDE C.04.2.B.3)"
@@ -135,7 +135,7 @@ msgid "match format is not yet supported together with more than one cycle (rr_c
 msgstr "het matchformaat wordt nog niet ondersteund samen met meer dan één cyclus (rr_cycles > 1)"
 
 msgid "match format requires an even number of rounds (each match is 2 rounds)"
-msgstr "het matchformaat vraagt een even aantal ronden (elke match telt 2 ronden)"
+msgstr "het matchformaat vraagt een even aantal rondes (elke match telt 2 rondes)"
 
 msgid "must be a comma-separated list of \"rating:bonus\" pairs, e.g. \"1400:1, 1600:0.5\""
 msgstr "moet een met komma's gescheiden lijst van paren \"rating:bonus\" zijn, bv. \"1400:1, 1600:0.5\""
@@ -150,7 +150,7 @@ msgid "must be a map of category name to prize count"
 msgstr "moet een overzicht zijn van categorienaam naar aantal prijzen"
 
 msgid "must be a team in this tournament"
-msgstr "moet een ploeg van dit toernooi zijn"
+msgstr "moet een team van dit toernooi zijn"
 
 msgid "must be a three-letter FIDE federation code"
 msgstr "moet een FIDE-federatiecode van drie letters zijn"
@@ -186,10 +186,10 @@ msgid "must not contain quotes, slashes or control characters"
 msgstr "mag geen aanhalingstekens, schuine strepen of stuurtekens bevatten"
 
 msgid "must stay 2: round %{round} was paired with the first cycle's last two rounds reversed, which only a double round robin does"
-msgstr "moet 2 blijven: ronde %{round} werd gepaard met de laatste twee ronden van de eerste cyclus omgedraaid, wat enkel een dubbel rondetoernooi doet"
+msgstr "moet 2 blijven: ronde %{round} werd gepaard met de laatste twee rondes van de eerste cyclus omgedraaid, wat enkel een dubbel rondetoernooi doet"
 
 msgid "needs the rounds, e.g. \"3,5\" or \"2-4\""
-msgstr "heeft de ronden nodig, bv. \"3,5\" of \"2-4\""
+msgstr "heeft de rondes nodig, bv. \"3,5\" of \"2-4\""
 
 msgid "pairing by category is not yet supported together with Baku acceleration"
 msgstr "paren per categorie wordt nog niet ondersteund samen met Baku-acceleratie"
@@ -201,10 +201,10 @@ msgid "pairing by category requires categories to be enabled first"
 msgstr "paren per categorie vraagt dat eerst categorieën ingeschakeld worden"
 
 msgid "say how many rounds"
-msgstr "zeg hoeveel ronden"
+msgstr "zeg hoeveel rondes"
 
 msgid "say which rounds"
-msgstr "zeg welke ronden"
+msgstr "zeg welke rondes"
 
 msgid "this pair is already forbidden"
 msgstr "dit paar is al verboden"
@@ -214,8 +214,8 @@ msgstr "gebruik paren ronde:rating vanaf ronde 2, zoals 5:1850, 9:1872"
 
 msgid "would end the schedule after round %{count}, but %{paired} rounds are already paired"
 msgid_plural "would end the schedule after round %{count}, but %{paired} rounds are already paired"
-msgstr[0] "zou het schema eindigen na ronde %{count}, maar %{paired} ronden zijn al gepaard"
-msgstr[1] "zou het schema eindigen na ronde %{count}, maar %{paired} ronden zijn al gepaard"
+msgstr[0] "zou het schema eindigen na ronde %{count}, maar %{paired} rondes zijn al gepaard"
+msgstr[1] "zou het schema eindigen na ronde %{count}, maar %{paired} rondes zijn al gepaard"
 
 msgid "would end the schedule after round %{count}, but a round up to there was swapped with one after it; swap them back first"
 msgid_plural "would end the schedule after round %{count}, but a round up to there was swapped with one after it; swap them back first"
@@ -224,5 +224,5 @@ msgstr[1] "zou het schema eindigen na ronde %{count}, maar een ronde tot daar we
 
 msgid "would need %{count} rounds, above the %{max}-round maximum"
 msgid_plural "would need %{count} rounds, above the %{max}-round maximum"
-msgstr[0] "zou %{count} ronde nodig hebben, boven het maximum van %{max} ronden"
-msgstr[1] "zou %{count} ronden nodig hebben, boven het maximum van %{max} ronden"
+msgstr[0] "zou %{count} ronde nodig hebben, boven het maximum van %{max} rondes"
+msgstr[1] "zou %{count} rondes nodig hebben, boven het maximum van %{max} rondes"

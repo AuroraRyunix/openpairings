@@ -156,8 +156,6 @@ be opened as an ordinary backup.
 > While a tournament is handed off, **Send…** for the rating report is refused
 > on the locked copy, so that only one machine can send.
 
-![The tournament list with the Hand off action and a handed-off tournament marked read-only](screenshots/16-handoff-list.png "The Tournaments page with a hand-off")
-
 ## Backups and restore points
 
 - **Restore points** are copies of one tournament, taken automatically before

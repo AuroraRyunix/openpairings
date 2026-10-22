@@ -22,8 +22,6 @@ layout. The arrow keys walk through the other values without saving every one
 on the way; a second click on the field opens the list, for the results that
 have no digit.
 
-![The results column of a round with the result list open on one board](screenshots/07-result-entry.png "Entering results on the Pairings page")
-
 ### With the mouse or a phone
 
 Choose the result from the list. On a phone or a narrow screen each board

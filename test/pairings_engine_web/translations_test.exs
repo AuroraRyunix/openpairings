@@ -388,13 +388,13 @@ defmodule PairingsEngineWeb.TranslationsTest do
 
       assert translate.({"this pair is already forbidden", []}) == "dit paar is al verboden"
       assert translate.({"choose at least two players", []}) == "kies minstens twee spelers"
-      assert translate.({"say which rounds", []}) == "zeg welke ronden"
+      assert translate.({"say which rounds", []}) == "zeg welke rondes"
 
       assert translate.(
                {"would need %{count} rounds, above the %{max}-round maximum",
                 [count: 20, max: 12]}
              ) ==
-               "zou 20 ronden nodig hebben, boven het maximum van 12 ronden"
+               "zou 20 rondes nodig hebben, boven het maximum van 12 rondes"
     end)
   end
 end
