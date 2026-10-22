@@ -27,7 +27,10 @@ bestandskiezer of een gebied waarin je een bestand kunt slepen.
 **Een TRF-toernooi importeren** leest een `.trf`-bestand in TRF26- of TRF16-formaat en
 maakt een volledig toernooi: de kopgegevens (naam, plaats, federatie, datums,
 bedenktijd, arbiters, rondedatums), de spelers met hun FIDE-ID's, ratings, titels en
-geboortedata, de rondes, de paringen, de resultaten en de byes. De startrangschikking
+geboortedata, de rondes, de paringen, de resultaten en de byes. Een bye of afwezigheid
+die het bestand voor de nog niet gepaarde ronde vermeldt (een record 240, of de
+`XXZ`-regel die SWAR schrijft voor de spelers die in de volgende ronde afwezig zijn),
+komt binnen als bye voor die ronde, zodat de volgende ronde die spelers overslaat. De startrangschikking
 van het bestand wordt het paringsnummer. Het type van het toernooi wordt uit het
 bestand overgenomen (Zwitsers, rondetoernooi, teams). Het onbekende resultaat `?`
 komt terug als uitgestelde partij, zoveel waard als de `X` van het bestand (record
