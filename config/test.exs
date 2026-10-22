@@ -39,12 +39,41 @@ config :pairings_engine, PairingsEngine.Repo,
   # contention class.
   journal_mode: :wal
 
-# We don't run a server during test. If one is required,
-# you can enable the server option below.
+# We don't run a server during test. The browser tests (test/e2e, run with
+# `mix test.e2e`) need one, and test_helper.exs restarts the endpoint with a
+# listener of its own for exactly that run - see docs/e2e.md.
 config :pairings_engine, PairingsEngineWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "pvH767c4NpJA7cEv3gBFslC2O29nDsnCZNvv7fSnGIm7h/wTvwcIc3G7KdCyu4mm",
   server: false
+
+# The browser tests' driver. Playwright itself lives in e2e/ (its own
+# package.json, so assets/ stays free of node_modules); traces and
+# screenshots of a failed CI run land under _build so nothing is committed by
+# accident.
+config :phoenix_test,
+  otp_app: :pairings_engine,
+  playwright: [
+    assets_dir: "e2e",
+    browser_pools: [[id: :default_pool, size: 1]],
+    timeout: to_timeout(second: 10),
+    browser_launch_timeout: to_timeout(second: 30),
+    trace: System.get_env("PW_TRACE", "false") in ~w(1 true),
+    trace_dir: "_build/e2e/traces",
+    screenshot: System.get_env("PW_SCREENSHOT", "false") in ~w(1 true),
+    screenshot_dir: "_build/e2e/screenshots",
+    # A LiveView can outlive its test by a few milliseconds; the sandbox's
+    # owner waits that long before taking the connection away.
+    ecto_sandbox_stop_owner_delay: 100
+  ]
+
+# On Windows, where Erlang cannot spawn Playwright's driver (a .js file), the
+# browser runs in `npx playwright run-server` and the tests connect to it.
+# Only when set, since the option refuses a nil; `config` merges it into the
+# list above.
+if ws_endpoint = System.get_env("PLAYWRIGHT_WS_ENDPOINT") do
+  config :phoenix_test, playwright: [ws_endpoint: ws_endpoint]
+end
 
 # Disable swoosh api client as it is only required for production adapters.
 config :swoosh, :api_client, false

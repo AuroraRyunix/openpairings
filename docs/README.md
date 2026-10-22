@@ -20,6 +20,9 @@ everything the app does and what is planned next.
 - [Restore drill, 2026-09-13](restore-drill-2026-09-13.md) - the first
   restore drill of both apps: what a restore gives back, what it undoes,
   and why each step of the procedure is there.
+- [Browser tests and the smoke check](e2e.md) - the Playwright tests of
+  the critical flows (`mix test.e2e`) and the read-only check to point at a
+  deployed server.
 - [Standalone binaries](binaries.md) - Burrito single-file executables.
 - [Theme packs](theme-packs.md) - writing a theme as an installable folder:
   the format, what the scanner refuses, the tokens, and how to check one.
