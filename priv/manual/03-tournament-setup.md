@@ -56,6 +56,11 @@ groups: **Set-up** (Tournament, Group, Options, Scoring, Dates, Rooms, Categorie
 Extra points, Forbidden pairings), **Publishing** (OpenResults, Live boards) and
 **Reporting** (FIDE, Export, About).
 
+A page with a **Save** button remembers what you typed. Leaving it with edits
+not saved - a link, the menu, closing the tab - asks first; saving forgets the
+question. Controls that save the moment they change, such as a collaborator's
+role, do not count as unsaved edits.
+
 ### Common and advanced settings
 
 Each page first shows what nearly every tournament sets. The rest waits
@@ -115,8 +120,19 @@ it, for the rest.
 **General.** Name (required), venue, city, federation, organiser, and
 (advanced) the organiser's club number. **Tournament format** is the type: Swiss
 (individual), Round robin (individual), Swiss (teams), Round robin (teams).
+Once round 1 is paired the format is fixed, with a sentence saying so and no
+*Unlock*: the rounds already played were made for it, and for another format
+you start a new tournament.
 **Number of rounds** can be changed until the first round is paired (in a
 round robin the number follows from the players and cycles).
+
+**Organiser.** This page owns the organiser: the name and its FIDE ID, picked
+from the FIDE list the same way as an official (type a name or an ID and pick
+the result). Without a list on the computer, or with nobody matching, an ID
+typed in the ID box can be taken as typed and is marked *unverified*. When the
+name is changed without picking again, the page warns that the FIDE ID belongs
+to the old name, and saving clears it rather than pinning it on somebody else.
+The Officials and norms page shows the organiser, with a link back here.
 
 **Tie-breaks.** Described in [Standings and tie-breaks](08-standings-and-tiebreaks.md).
 With *Show advanced settings* this card also holds *How an unrated player is
@@ -137,8 +153,10 @@ ratings as later ratings from a round instead of replacing the starting rating
 pairing numbers never change because of them. When the round dates span more
 than 30 days and the tick is off, the card says so.
 
-**Share / Team.** The owner can invite other arbiters by e-mail address (see
-[Accounts, sharing and hand-off](16-accounts-and-handoff.md)).
+**Share / Team.** The owner can invite other arbiters by e-mail address,
+change a collaborator's role (Editor or Arbiter) with the select beside the
+name, and **Resend invitation** to someone who has not accepted yet (at most
+once a minute; see [Accounts, sharing and hand-off](16-accounts-and-handoff.md)).
 
 **Logo** (advanced until a logo is set). A PNG, JPEG, GIF or WebP image of at
 most 2 MB, stored with the tournament and printed on the documents.
@@ -377,6 +395,11 @@ wishes, and the page says so.
 **Points** for a win (default 1), a draw (½) and a loss (0), and the value of
 the **pairing-allocated bye** (default: a win).
 
+Outside FIDE mode these can still be changed after round 1, to fix a mistake.
+Once rounds are paired, a changed value shows a warning before you save: new
+points re-score every round already played, and standings, tie-breaks and
+anything published move with them.
+
 > [!FIDE] Scoring
 > In FIDE mode these cannot be changed after round 1, and a value in which a
 > draw or the bye is worth more than a win marks the tournament as departing
@@ -422,6 +445,10 @@ One date for each round:
 The dates are used on the printed lists, the TRF report
 (record 132), the match result sheets and the results site. The start and end
 date of the tournament are derived from them.
+
+The dates must follow the rounds: a round dated before an earlier round is
+refused, naming both rounds. Two rounds may share a date (the double round on a
+Saturday), and a blank date is not out of order.
 
 ## Rooms page
 
@@ -483,13 +510,17 @@ hint says to save first. Saving answers *Saved.* beside the button.
 
 ## Officials and norms page
 
-**Officials.** The chief arbiter, the organiser, the person responsible for
+**Officials.** The chief arbiter, the person responsible for
 the pairings, two ranked deputy arbiters and as many further arbiters as the
 event had (*+ Add arbiter*), the chief arbiter's and organiser's e-mail
 addresses, the IT4 event type and the link to the pairings web page, and four
 special remarks for the IT3. Type a name or a FIDE ID and pick the matching
 player: every official needs a FIDE ID, and a save with a named official
-without one is refused, because FIDE bounces such a report. The IT3, FA1, IA1
+without one is refused, because FIDE bounces such a report. With no FIDE list
+on the computer, or nobody matching, type the ID in the ID box and press
+*Use ... as typed (unverified)*: the forms use it like any other, and the page
+marks it *unverified* until the official is picked from a list. The organiser
+is shown here read-only; it is set on the Tournament page. The IT3, FA1, IA1
 and IT4 forms on the Norms page are filled in from these
 ([Categories and norms](11-categories-and-norms.md)).
 
@@ -524,7 +555,7 @@ mix.
 ## Locks
 
 After the first round is paired some settings are locked because they decide
-what already happened: the pairing system and engine, the match formats, the
+what already happened: the tournament format (which has no *Unlock*), the pairing system and engine, the match formats, the
 pairing by category, the absence scoring, the initial colour and (team events)
 the boards per match and line-up rules. In FIDE mode the list is longer; see
 [FIDE mode](02-fide-mode.md).

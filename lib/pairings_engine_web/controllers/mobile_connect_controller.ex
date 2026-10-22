@@ -71,7 +71,7 @@ defmodule PairingsEngineWeb.MobileConnectController do
           )
 
         reason when reason in [:archived, :handed_off, :local_mode] ->
-          Tournaments.refusal_message(reason, gettext("connecting a phone"))
+          Tournaments.refusal_message(reason, pgettext("refusal", "connecting a phone"))
 
         :not_authorized ->
           gettext("That tournament is not one you work in.")

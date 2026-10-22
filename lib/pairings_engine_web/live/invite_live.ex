@@ -174,13 +174,13 @@ defmodule PairingsEngineWeb.InviteLive do
         <div class="card">
           <%= cond do %>
             <% is_nil(@invitation) -> %>
-              <h1>{gettext("Invitation not found")}</h1>
+              <h1 id="invite-not-found">{gettext("Invitation not found")}</h1>
 
               <p :if={@deleted?} id="invite-deleted" class="hint">
                 {gettext("This tournament was deleted by its owner.")}
               </p>
 
-              <p :if={not @deleted?} class="hint">
+              <p :if={not @deleted?} id="invite-used-or-invalid" class="hint">
                 {gettext("This invitation link is invalid, has already been used, or was declined.")}
                 {gettext("If you already accepted it, the tournament is on your Tournaments page.")}
               </p>

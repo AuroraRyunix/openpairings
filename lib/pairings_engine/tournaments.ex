@@ -7,6 +7,12 @@ defmodule PairingsEngine.Tournaments do
   """
 
   import Ecto.Query
+
+  # For `refusal_message/2` alone: a sentence the UI renders as-is has to
+  # arrive in the reader's language, and there is one Gettext backend (see
+  # the same reasoning in `PairingsEngine.Features`).
+  use Gettext, backend: PairingsEngineWeb.Gettext
+
   alias PairingsEngine.Audit
   alias PairingsEngine.BusyWrite
   alias PairingsEngine.Categories
@@ -661,6 +667,80 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
+  Changes a collaborator's role (`"editor"` / `"arbiter"`), pending or
+  accepted. Owner-only and writable-only, for the same reasons as
+  `add_collaborator/4`: the roster belongs to the copy that is live.
+
+  Returns `{:ok, collaborator}`, or `{:error, :not_owner | :not_found |
+  :bad_role | :archived | :handed_off}`. Picking the role it already has is
+  not an error, merely a short trip to the database and back.
+  """
+  def change_collaborator_role(
+        %Scope{} = scope,
+        %Tournament{} = tournament,
+        collaborator_id,
+        role
+      ) do
+    with :ok <- ensure_roster_owner(scope, tournament),
+         true <- role in Collaborator.roles() || {:error, :bad_role},
+         %Collaborator{} = collaborator <-
+           Repo.get_by(Collaborator, id: collaborator_id, tournament_id: tournament.id) ||
+             {:error, :not_found} do
+      collaborator
+      |> Collaborator.changeset(%{role: role})
+      |> Repo.update()
+      |> tap_ok(fn updated ->
+        broadcast_tournament_change(tournament.id, :collaborators)
+        # An editor sees the tournament in their list; an arbiter does not.
+        if updated.user_id, do: broadcast_user_tournaments(updated.user_id)
+      end)
+    end
+  end
+
+  # How long a pending invitation must sit before it may be e-mailed again.
+  # Not a grand anti-abuse scheme, just enough that a double click or an
+  # impatient owner cannot turn somebody's inbox into a mailing list.
+  @resend_cooldown_seconds 60
+
+  @doc """
+  E-mails a still-pending invitation again, through the same path
+  `add_collaborator/4` uses, with the same link (the token does not change,
+  so the first e-mail keeps working too). Owner-only and writable-only.
+
+  Returns `{:ok, collaborator}` with `mail_status` `:sent` or `:failed`, or
+  `{:error, :not_owner | :not_found | :already_accepted | :resent_recently |
+  :archived | :handed_off}`. `:resent_recently` means the invitation was
+  sent or re-sent less than a minute ago.
+  """
+  def resend_invitation(%Scope{} = scope, %Tournament{} = tournament, collaborator_id) do
+    with :ok <- ensure_roster_owner(scope, tournament),
+         %Collaborator{} = collaborator <-
+           Repo.get_by(Collaborator, id: collaborator_id, tournament_id: tournament.id) ||
+             {:error, :not_found},
+         true <- collaborator.status == "pending" || {:error, :already_accepted},
+         true <- resend_allowed?(collaborator) || {:error, :resent_recently} do
+      # `updated_at` doubles as "last sent": touching it starts the cooldown.
+      {:ok, touched} =
+        collaborator
+        |> Ecto.Changeset.change(updated_at: DateTime.utc_now(:second))
+        |> Repo.update()
+
+      {:ok, %{touched | mail_status: deliver_invitation_email(scope.user, tournament, touched)}}
+    end
+  end
+
+  defp resend_allowed?(%Collaborator{updated_at: nil}), do: true
+
+  defp resend_allowed?(%Collaborator{updated_at: at}),
+    do: DateTime.diff(DateTime.utc_now(), at, :second) >= @resend_cooldown_seconds
+
+  defp ensure_roster_owner(%Scope{} = scope, %Tournament{} = tournament) do
+    if tournament.user_id == scope.user.id,
+      do: ensure_writable(tournament),
+      else: {:error, :not_owner}
+  end
+
+  @doc """
   Lets a collaborator remove *themselves* from a shared tournament - the
   self-service counterpart to `remove_collaborator/3`, which is owner-only
   (an owner can't "leave" their own tournament; they delete it instead).
@@ -911,6 +991,11 @@ defmodule PairingsEngine.Tournaments do
   tournament (`ensure_writable/1`) and any change to a `locked_fields/1`
   member (`ensure_unlocked/3`) - unless that field is named in the
   `:unlock` option, see `ensure_unlocked/3`.
+
+  `round_dates_order: :refuse` also refuses round dates that run backwards
+  (`Tournament.validate_round_dates_order/1`). The Dates page asks for it;
+  an import or merge does not, because a file's schedule is what the file
+  says, and refusing it would refuse the whole file over one typo.
   """
   def update_tournament(%Tournament{} = tournament, attrs, opts \\ []) do
     with :ok <- ensure_writable(tournament),
@@ -919,6 +1004,12 @@ defmodule PairingsEngine.Tournaments do
       |> Tournament.changeset(attrs)
       |> Tournament.validate_no_team_keizer()
       |> validate_round_one_absentees_switch(tournament)
+      |> validate_type_unchanged_after_pairing(tournament)
+      |> then(fn cs ->
+        if opts[:round_dates_order] == :refuse,
+          do: Tournament.validate_round_dates_order(cs),
+          else: cs
+      end)
       |> follow_round_robin_shape(tournament)
       |> record_soft_position_change(tournament)
       |> stamp_compliance_loss(fn ->
@@ -989,6 +1080,24 @@ defmodule PairingsEngine.Tournaments do
         :round_one_absentees_late,
         "cannot change once round 1 is paired",
         validation: :round_one_paired
+      )
+    else
+      changeset
+    end
+  end
+
+  # The format (Swiss / round robin / individual / team) is the shape every
+  # stored round was built in. Once round 1 is paired there is no sensible
+  # way to reinterpret those rounds as another kind of event, so - unlike
+  # the pairing-system lock - there is no Unlock: start a new tournament.
+  # Saving the same type again is no change and passes.
+  defp validate_type_unchanged_after_pairing(changeset, tournament) do
+    if Ecto.Changeset.get_change(changeset, :type) != nil and round_one_paired?(tournament.id) do
+      Ecto.Changeset.add_error(
+        changeset,
+        :type,
+        "cannot change once round 1 is paired",
+        validation: :type_after_pairing
       )
     else
       changeset
@@ -2670,25 +2779,44 @@ defmodule PairingsEngine.Tournaments do
   end
 
   @doc """
-  The plain-English refusal for a write path that answers with a string
-  rather than an atom - the pairing entry points, whose `{:error, message}`
-  the UI renders as-is. `action` completes "…before %{action}.", e.g.
-  `"pairing"` or `"unpairing"`.
+  The refusal for a write path that answers with a string rather than an
+  atom - the pairing entry points, whose `{:error, message}` the UI renders
+  as-is - in the current Gettext locale. `action` completes
+  "…before %{action}.": one of the core's own English verbs (`"pairing"`,
+  `"unpairing"`, `"importing results"`, `"swapping rounds"`), translated
+  here, or a phrase the web layer already translated, passed through.
   """
-  @spec refusal_message(:archived | :handed_off, String.t()) :: String.t()
+  @spec refusal_message(:archived | :handed_off | :local_mode, String.t()) :: String.t()
   def refusal_message(:archived, action),
-    do: "This tournament is archived - unarchive it before #{action}."
+    do:
+      gettext("This tournament is archived - unarchive it before %{action}.",
+        action: refusal_action(action)
+      )
 
   def refusal_message(:handed_off, action),
-    do: "This tournament has been handed off - take it back before #{action}."
+    do:
+      gettext("This tournament has been handed off - take it back before %{action}.",
+        action: refusal_action(action)
+      )
 
   # Not a failure to work around - on a desktop copy phones reach `/m` only
   # through the network listener the arbiter switches on, and until then a
   # code would lead nowhere. See `Mobile.ensure_reachable/0`.
   def refusal_message(:local_mode, action),
     do:
-      "Phones cannot reach this computer yet - switch on " <>
-        "\"Let phones on this network connect\" in Phone QR before #{action}."
+      gettext(
+        "Phones cannot reach this computer yet - switch on \"Let phones on this network connect\" in Phone QR before %{action}.",
+        action: refusal_action(action)
+      )
+
+  # The verbs the core passes, in their own context: "pairing" alone is
+  # also a button label elsewhere, and the two read differently in Dutch.
+  # Anything else came from the web layer, already in the reader's language.
+  defp refusal_action("pairing"), do: pgettext("refusal", "pairing")
+  defp refusal_action("unpairing"), do: pgettext("refusal", "unpairing")
+  defp refusal_action("importing results"), do: pgettext("refusal", "importing results")
+  defp refusal_action("swapping rounds"), do: pgettext("refusal", "swapping rounds")
+  defp refusal_action(action), do: action
 
   def change_tournament(%Tournament{} = tournament, attrs \\ %{}) do
     Tournament.changeset(tournament, attrs)

@@ -59,6 +59,12 @@ groepen: **Opzet** (Toernooi, Groep, Opties, Puntentelling, Data, Ruimtes, Categ
 Extra punten, Verboden paringen), **Publiceren** (OpenResults, Live borden) en
 **Rapporteren** (FIDE, Exporteren, Over).
 
+Een pagina met een knop **Bewaren** onthoudt wat je getypt hebt. Verlaat je ze
+met wijzigingen die niet bewaard zijn - een link, het menu, het tabblad sluiten -
+dan vraagt ze het eerst; na bewaren valt die vraag weg. Bedieningen die
+meteen bewaren, zoals de rol van een medewerker, tellen niet als onbewaarde
+wijzigingen.
+
 ### Gewone en geavanceerde instellingen {#common-and-advanced-settings}
 
 Elke pagina toont eerst wat bijna elk toernooi instelt. De rest wacht achter
@@ -118,8 +124,20 @@ erin, voor de rest.
 **Algemeen.** Naam (verplicht), speelzaal, stad, federatie, organisator, en
 (geavanceerd) het clubnummer van de organisator. **Toernooiformaat** is het type: Zwitsers
 (individueel), Rondetoernooi (individueel), Zwitsers (teams), Rondetoernooi
-(teams). **Aantal rondes** kan worden gewijzigd tot de eerste ronde is gepaard
-(bij een rondetoernooi volgt het aantal uit de spelers en de cycli).
+(teams). Zodra ronde 1 gepaard is, ligt het formaat vast, met een zin die dat
+zegt en zonder *Ontgrendelen*: de gespeelde rondes zijn ervoor gemaakt, en voor
+een ander formaat begin je een nieuw toernooi. **Aantal rondes** kan worden
+gewijzigd tot de eerste ronde is gepaard (bij een rondetoernooi volgt het aantal
+uit de spelers en de cycli).
+
+**Organisator.** Deze pagina beheert de organisator: de naam en zijn FIDE-ID,
+gekozen uit de FIDE-lijst zoals bij een functionaris (typ een naam of een ID en
+kies het resultaat). Zonder lijst op de computer, of als niemand overeenkomt,
+kun je een ID uit het ID-vak overnemen zoals ingetypt; het wordt dan gemarkeerd
+als *niet gecontroleerd*. Wijzig je de naam zonder opnieuw te kiezen, dan
+waarschuwt de pagina dat de FIDE-ID bij de oude naam hoort, en bewaren wist hem
+in plaats van hem op iemand anders te plakken. De pagina Functionarissen &
+normen toont de organisator, met een link terug naar hier.
 
 **Tiebreaks.** Beschreven in [Rangschikking en tiebreaks](08-standings-and-tiebreaks.md).
 Met *Geavanceerde instellingen tonen* bevat deze kaart ook *Hoe een ongerate
@@ -142,7 +160,10 @@ en de paringsnummers veranderen er nooit door. Beslaan de rondedata meer dan 30
 dagen en staat het vinkje uit, dan zegt de kaart dat.
 
 **Delen / Team.** De eigenaar kan andere arbiters uitnodigen via hun
-e-mailadres (zie [Accounts, delen en overdracht](16-accounts-and-handoff.md)).
+e-mailadres, de rol van een medewerker wijzigen (Bewerker of Arbiter) met de
+keuzelijst naast de naam, en **Uitnodiging opnieuw sturen** naar wie nog niet
+aanvaard heeft (hoogstens een keer per minuut; zie [Accounts, delen en
+overdracht](16-accounts-and-handoff.md)).
 
 **Logo** (geavanceerd tot er een logo is). Een PNG-, JPEG-, GIF- of WebP-afbeelding van maximaal 2 MB, die bij het
 toernooi wordt bewaard en op de documenten wordt afgedrukt.
@@ -391,6 +412,11 @@ de wensen, en de pagina zegt dat.
 **Punten** voor een winst (standaard 1), een remise (½) en een verlies (0), en de
 waarde van de **door de paring toegekende bye** (standaard: een winst).
 
+Buiten de FIDE-modus kun je ze na ronde 1 nog wijzigen, om een fout recht te
+zetten. Zodra er rondes gepaard zijn, toont een gewijzigde waarde een
+waarschuwing voor je bewaart: nieuwe punten herrekenen elke al gespeelde ronde,
+en de stand, de tiebreaks en alles wat gepubliceerd is, schuiven mee.
+
 > [!FIDE] Puntentelling
 > In de FIDE-modus kunnen deze niet worden gewijzigd na ronde 1, en een waarde
 > waarbij een remise of de bye meer waard is dan een winst, markeert het toernooi
@@ -438,6 +464,11 @@ Eén datum voor elke ronde:
 De data worden gebruikt op de afgedrukte lijsten, het TRF-rapport (record 132),
 de resultaatformulieren van de matches en de uitslagensite. De begin- en einddatum
 van het toernooi worden daaruit afgeleid.
+
+De data moeten de rondes volgen: een ronde met een datum voor een eerdere ronde
+wordt geweigerd, met beide rondes erbij. Twee rondes mogen dezelfde datum hebben
+(de dubbele ronde op zaterdag), en een lege datum staat niet in de verkeerde
+volgorde.
 
 ## Pagina Ruimtes {#rooms-page}
 
@@ -503,14 +534,19 @@ dat je eerst moet bewaren. Bewaren antwoordt *Bewaard.* naast de knop.
 
 ## Pagina Functionarissen & normen {#officials-and-norms-page}
 
-**Functionarissen.** De hoofdarbiter, de organisator, de persoon die
+**Functionarissen.** De hoofdarbiter, de persoon die
 verantwoordelijk is voor de paringen, twee gerangschikte hulparbiters en zoveel
 andere arbiters als het evenement had (*+ Arbiter toevoegen*), de e-mailadressen
 van de hoofdarbiter en de organisator, het IT4-evenementtype en de link naar de
 paringswebpagina, en vier bijzondere opmerkingen voor het IT3. Typ een naam of
 een FIDE-ID en kies de juiste speler: elke functionaris heeft een FIDE-ID nodig,
 en bewaren met een functionaris zonder ID wordt geweigerd, want FIDE stuurt zo'n
-rapport terug. De formulieren IT3, FA1, IA1 en IT4 op de pagina Normen worden
+rapport terug. Zonder FIDE-lijst op de computer, of als niemand overeenkomt, typ
+je de ID in het ID-vak en druk je op *... gebruiken zoals ingetypt (niet
+gecontroleerd)*: de formulieren gebruiken hem zoals elke andere, en de pagina
+markeert hem als *niet gecontroleerd* tot je de functionaris uit een lijst kiest.
+De organisator staat hier alleen ter inzage; je stelt hem in op de pagina
+Toernooi. De formulieren IT3, FA1, IA1 en IT4 op de pagina Normen worden
 hiermee ingevuld ([Categorieën en normen](11-categories-and-norms.md)).
 
 **Titelnormen.** *Type evenement voor titelnormen* zegt de normbeoordeling als
@@ -544,7 +580,7 @@ mee. Als de regel geldt, heeft niemands norm de federatiemix nodig.
 ## Vergrendelingen {#locks}
 
 Nadat de eerste ronde is gepaard, zijn sommige instellingen vergrendeld omdat ze
-bepalen wat al is gebeurd: het paringssysteem en de engine, de matchformaten, de
+bepalen wat al is gebeurd: het toernooiformaat (zonder *Ontgrendelen*), het paringssysteem en de engine, de matchformaten, de
 paring per categorie, de puntentelling van afwezigheden, de beginkleur en (bij
 teamevenementen) het aantal borden per match en de opstellingsregels. In de
 FIDE-modus is de lijst langer; zie [FIDE-modus](02-fide-mode.md).

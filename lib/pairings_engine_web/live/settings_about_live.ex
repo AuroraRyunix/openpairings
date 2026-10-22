@@ -124,10 +124,15 @@ defmodule PairingsEngineWeb.SettingsAboutLive do
   # Round robin and Keizer name their engine inside the system label
   # already ("Round robin (Berger)"). Swiss does not, because there the
   # engine is a choice - so say which one this tournament is actually on.
+  # The words are the page's own, so they arrive in the reader's language;
+  # `Tournament.pairing_system_label/1` stays English for the print footer
+  # and the API, which have their own reasons.
   defp engine_line(%{pairing_system: "swiss"} = tournament) do
-    Tournament.pairing_system_label("swiss") <>
-      " (" <> Tournament.engine_name(tournament) <> ")"
+    gettext("Swiss - FIDE Dutch (%{engine})", engine: Tournament.engine_name(tournament))
   end
+
+  defp engine_line(%{pairing_system: "round_robin"}), do: gettext("Round robin (Berger)")
+  defp engine_line(%{pairing_system: "keizer"}), do: gettext("Keizer")
 
   defp engine_line(tournament),
     do: Tournament.pairing_system_label(tournament.pairing_system)

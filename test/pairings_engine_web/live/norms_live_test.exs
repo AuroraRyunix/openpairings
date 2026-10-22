@@ -107,7 +107,8 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     {:ok, tournament} =
       Tournaments.create_tournament(scope, %{"name" => "Organizer Combo LV", "type" => "swiss"})
 
-    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings/norms")
+    # Settings > Tournament owns the organizer now; Officials only shows it.
+    {:ok, lv, html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
     refute html =~ "Organizer FIDE ID"
     assert has_element?(lv, "input[name='tournament[organizer]']")
@@ -125,7 +126,7 @@ defmodule PairingsEngineWeb.NormsLiveTest do
     |> element(~s(button[phx-click="arbiter_pick"][phx-value-fide-id="300100"]))
     |> render_click()
 
-    lv |> form("#officials-form") |> render_submit()
+    lv |> form("#tournament-settings-form") |> render_submit()
 
     updated = Tournaments.get_tournament!(tournament.id)
     assert updated.organizer == "Burssens, Jorian"

@@ -49,9 +49,39 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
        # Whether a round sat out pays points in what the form shows right
        # now - the late-entry toggle only means something then. Follows the
        # points box as it is typed (the "preview" event), not only the save.
-       abs_points_on?: abs_points_on?(tournament.abs_value)
+       abs_points_on?: abs_points_on?(tournament.abs_value),
+       # Whether the points typed differ from the saved ones while rounds
+       # exist to be re-scored - see `points_changed?/2`.
+       points_changed?: false,
+       round_one_paired?: Tournaments.round_one_paired?(tournament.id)
      )
      |> assign_abs_scoring_lock()}
+  end
+
+  # The points that re-score every round already played the moment they
+  # are saved. Not locked - a club that got its 3-1-0 wrong in round 1 must
+  # be able to fix it - but not silent either.
+  @points_fields ~w(points_win points_draw points_loss bye_value team_match_points_win
+    team_match_points_draw team_match_points_loss)
+
+  defp points_changed?(tournament, params) do
+    Enum.any?(@points_fields, fn field ->
+      case Map.fetch(params, field) do
+        {:ok, typed} ->
+          not same_points?(Map.get(tournament, String.to_existing_atom(field)), typed)
+
+        :error ->
+          false
+      end
+    end)
+  end
+
+  defp same_points?(saved, typed) do
+    case Float.parse(String.trim(to_string(typed))) do
+      {number, ""} -> is_number(saved) and number == saved * 1.0
+      # Half-typed or blank: the save will say what is wrong with it.
+      _ -> true
+    end
   end
 
   # The advanced half of this page that is not at its defaults: the points
@@ -150,7 +180,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
            tournament: tournament,
            stale: false,
            vur_checked: tournament.absent_counts_as_vur,
-           abs_points_on?: abs_points_on?(tournament.abs_value)
+           abs_points_on?: abs_points_on?(tournament.abs_value),
+           round_one_paired?: Tournaments.round_one_paired?(tournament.id)
          )
          |> assign_abs_scoring_lock()}
     end
@@ -195,8 +226,20 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
 
   # Only follows the absence points box, for the late-entry toggle beside
   # it. A locked (disabled) box is not sent, and then the saved value holds.
-  def handle_event("preview", %{"tournament" => %{"abs_value" => value}}, socket) do
-    {:noreply, assign(socket, abs_points_on?: abs_points_on?(value), note: nil)}
+  # And follows the points boxes, for the re-scoring warning.
+  def handle_event("preview", %{"tournament" => params}, socket) do
+    abs_on? =
+      case Map.fetch(params, "abs_value") do
+        {:ok, value} -> abs_points_on?(value)
+        :error -> socket.assigns.abs_points_on?
+      end
+
+    {:noreply,
+     assign(socket,
+       abs_points_on?: abs_on?,
+       points_changed?: points_changed?(socket.assigns.tournament, params),
+       note: nil
+     )}
   end
 
   def handle_event("preview", _params, socket), do: {:noreply, socket}
@@ -238,6 +281,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
            tournament: tournament,
            vur_checked: tournament.absent_counts_as_vur,
            abs_points_on?: abs_points_on?(tournament.abs_value),
+           points_changed?: false,
+           round_one_paired?: Tournaments.round_one_paired?(tournament.id),
            note: gettext("Saved."),
            error: nil,
            dirty: false,
@@ -270,6 +315,19 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
         "Standings and tiebreaks are computed live from these values on every read, not baked into a stored row. Changing them doesn't just apply going forward - every already-recorded absence, in every already-paired round, is instantly rescored under the new values, and published standings can move."
       )
 
+  attr :show, :boolean, required: true
+  attr :id, :string, default: "points-change-warning"
+
+  defp points_change_warning(assigns) do
+    ~H"""
+    <div :if={@show} id={@id} class="setting-warning" role="note">
+      <strong>{gettext("Rounds are already paired.")}</strong> {gettext(
+        "Saving new points re-scores every round already played, not just the ones to come: standings, tie-breaks and anything already published move with it. Fine for fixing a mistake; not something to try mid-event to see what happens."
+      )}
+    </div>
+    """
+  end
+
   @impl true
   def render(assigns) do
     ~H"""
@@ -284,6 +342,7 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:scoring}
@@ -352,6 +411,8 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 />
               </.setting_field>
             </.setting_group>
+
+            <.points_change_warning show={@round_one_paired? and @points_changed?} />
           </div>
 
           <div :if={PairingsEngine.Tournaments.Tournament.team?(@tournament)} class="card">
@@ -403,6 +464,11 @@ defmodule PairingsEngineWeb.SettingsScoringLive do
                 />
               </.setting_field>
             </.setting_group>
+
+            <.points_change_warning
+              id="match-points-change-warning"
+              show={@round_one_paired? and @points_changed?}
+            />
 
             <div
               :if={PairingsEngine.Tournaments.Tournament.team_swiss?(@tournament)}

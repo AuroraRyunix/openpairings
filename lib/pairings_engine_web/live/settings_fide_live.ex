@@ -30,7 +30,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
      |> assign(
        tournament: tournament,
        ignored_bye_preferences: PairingsEngine.Pairing.ignored_bye_preferences(tournament),
-       page_title: "#{tournament.name} · " <> gettext("Settings"),
+       page_title: "#{tournament.name} · " <> gettext("Settings") <> " · " <> gettext("FIDE"),
        rows: tournament.fide_id_ranges || [],
        may_load_lists?: Authz.may_administer?(socket.assigns.current_scope.user),
        note: nil,
@@ -381,6 +381,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:fide}
@@ -675,7 +676,7 @@ defmodule PairingsEngineWeb.SettingsFideLive do
           <div class="tset-adv" id="rating-checks">
             <h3 style="margin-bottom: 4px">{gettext("Consistency checks")}</h3>
 
-            <form id="rating-checks-form" phx-change="set_rating_checks">
+            <form id="rating-checks-form" phx-change="set_rating_checks" data-unsaved-ignore>
               <input type="hidden" name="enabled" value="false" />
               <label style="display: flex; gap: 8px; align-items: center">
                 <input

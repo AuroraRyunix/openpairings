@@ -17,10 +17,12 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
   import PairingsEngineWeb.SettingsSupport
   import PairingsEngineWeb.Components.Explain, only: [explain: 1]
+  import PairingsEngineWeb.Components.ArbiterCombo
 
   alias PairingsEngine.{Audit, PeriodRatings, Tournaments, Tiebreaks}
   alias PairingsEngine.Authz
   alias PairingsEngine.Tournaments.Tournament
+  alias PairingsEngineWeb.Live.ArbiterCombo
   alias PairingsEngineWeb.UploadGuard
 
   # 4th tuple element marks a field as mandatory setup data (see
@@ -35,7 +37,6 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
     {"venue", gettext_noop("Venue"), "text", false},
     {"city", gettext_noop("City"), "text", false},
     {"federation", gettext_noop("Federation"), "text", false},
-    {"organizer", gettext_noop("Organizer"), "text", false},
     {"organizer_club_number", gettext_noop("Organizer club nr / logo"), "text", false}
   ]
 
@@ -68,6 +69,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        page_title: "#{tournament.name} · " <> gettext("Settings"),
        tiebreaks: tournament.tiebreaks,
        fide_locked: Tournaments.fide_locked_fields(tournament),
+       type_locked?: Tournaments.round_one_paired?(tournament.id),
        note: nil,
        error: nil,
        dirty: false,
@@ -80,6 +82,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
        pending_logo_upload?: false
      )
      |> assign_collaborators()
+     |> assign_organizer(tournament)
      |> allow_upload(:logo,
        auto_upload: true,
        accept: ~w(.png .jpg .jpeg .gif .webp),
@@ -121,9 +124,11 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
            long_event_preview: nil,
            tiebreaks: tournament.tiebreaks,
            fide_locked: Tournaments.fide_locked_fields(tournament),
+           type_locked?: Tournaments.round_one_paired?(tournament.id),
            stale: false
          )
-         |> assign_collaborators()}
+         |> assign_collaborators()
+         |> assign_organizer(tournament)}
     end
   end
 
@@ -181,17 +186,22 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         else: Map.put(params, "tiebreaks", socket.assigns.tiebreaks)
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
+    {params, cleared} = organizer_params(params, base, socket.assigns.organizer_id_name)
 
     case Tournaments.update_tournament(base, params) do
       {:ok, tournament} ->
         log_settings_change(socket, base, tournament)
 
         {:noreply,
-         assign(socket,
+         socket
+         |> assign_organizer(tournament)
+         |> assign(organizer_id_cleared: cleared)
+         |> assign(
            tournament: tournament,
            long_event_preview: nil,
            tiebreaks: tournament.tiebreaks,
            fide_locked: Tournaments.fide_locked_fields(tournament),
+           type_locked?: Tournaments.round_one_paired?(tournament.id),
            note: gettext("Saved."),
            error: nil,
            dirty: false,
@@ -202,6 +212,82 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
         {:noreply, assign(socket, error: error_text(changeset), note: nil)}
     end
   end
+
+  ## ---------- Organizer (name + FIDE ID) ----------
+
+  # This page owns the organizer: the Officials page only shows it. Same
+  # combobox as the officials there - see `PairingsEngineWeb.Live.ArbiterCombo`.
+  # Only the organizer's boxes live on this page, so any other role is
+  # somebody else's event and ignored.
+  def handle_event("arbiter_search", params, socket) do
+    case ArbiterCombo.target_role_and_field(params) do
+      {"organizer", field} ->
+        query = ArbiterCombo.target_value(params)
+
+        typed =
+          case get_in(params, ["tournament", "organizer"]) do
+            name when is_binary(name) -> name
+            _ -> socket.assigns.organizer_typed
+          end
+
+        {:noreply,
+         assign(socket,
+           arbiter_search: ArbiterCombo.search("organizer", field, query),
+           organizer_typed: typed,
+           organizer_id_cleared: nil
+         )}
+
+      _ ->
+        {:noreply, socket}
+    end
+  end
+
+  def handle_event("arbiter_pick", %{"role" => "organizer", "fide-id" => fide_id}, socket) do
+    case ArbiterCombo.picked_player(fide_id) do
+      nil ->
+        {:noreply, socket}
+
+      fp ->
+        officials =
+          (socket.assigns.tournament.officials || %{})
+          |> Map.put("organizer_id", to_string(fp.fide_id))
+          |> Map.delete("organizer_id_unverified")
+
+        {:noreply,
+         assign(socket,
+           tournament: %{socket.assigns.tournament | organizer: fp.name, officials: officials},
+           organizer_id_name: fp.name,
+           organizer_typed: fp.name,
+           arbiter_search: nil
+         )}
+    end
+  end
+
+  def handle_event("arbiter_pick", _params, socket), do: {:noreply, socket}
+
+  # No FIDE list here, or nobody in it: the number is taken as typed and
+  # flagged unverified, for the name typed beside it.
+  def handle_event("arbiter_use_typed", %{"role" => "organizer", "fide-id" => fide_id}, socket) do
+    if ArbiterCombo.valid_typed_id?(fide_id) do
+      name = socket.assigns.organizer_typed
+
+      officials =
+        (socket.assigns.tournament.officials || %{})
+        |> Map.put("organizer_id", fide_id)
+        |> Map.put("organizer_id_unverified", "true")
+
+      {:noreply,
+       assign(socket,
+         tournament: %{socket.assigns.tournament | organizer: name, officials: officials},
+         organizer_id_name: name,
+         arbiter_search: nil
+       )}
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("arbiter_use_typed", _params, socket), do: {:noreply, socket}
 
   ## ---------- Share / Team (collaborators) - owner-only ----------
 
@@ -295,6 +381,85 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, error_text(reason))}
+    end
+  end
+
+  def handle_event(
+        "change_collaborator_role",
+        %{"collaborator_id" => id, "role" => role},
+        socket
+      ) do
+    case Tournaments.change_collaborator_role(
+           socket.assigns.current_scope,
+           socket.assigns.tournament,
+           id,
+           role
+         ) do
+      {:ok, collaborator} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "collaborator.role_changed",
+          %{email: collaborator.email, role: collaborator.role}
+        )
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           gettext("%{email} is now %{role}.",
+             email: collaborator.email,
+             role: collaborator_role_label(collaborator.role)
+           )
+         )
+         |> assign_collaborators()}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, collaborator_error_text(reason))
+         |> assign_collaborators()}
+    end
+  end
+
+  def handle_event("resend_invitation", %{"id" => id}, socket) do
+    case Tournaments.resend_invitation(
+           socket.assigns.current_scope,
+           socket.assigns.tournament,
+           id
+         ) do
+      {:ok, %{mail_status: :sent} = collaborator} ->
+        Audit.log(
+          socket.assigns.tournament.id,
+          socket.assigns.current_scope,
+          "collaborator.invitation_resent",
+          %{email: collaborator.email}
+        )
+
+        {:noreply,
+         socket
+         |> put_flash(
+           :info,
+           gettext("Invitation sent to %{email} again.", email: collaborator.email)
+         )
+         |> assign_collaborators()}
+
+      {:ok, collaborator} ->
+        {:noreply,
+         socket
+         |> put_flash(
+           :error,
+           gettext("The e-mail could not be sent - share this link instead: %{link}",
+             link: url(~p"/invites/#{collaborator.invite_token}")
+           )
+         )
+         |> assign_collaborators()}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> put_flash(:error, collaborator_error_text(reason))
+         |> assign_collaborators()}
     end
   end
 
@@ -398,6 +563,88 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
   end
 
   ## ---------- helpers ----------
+
+  # `organizer_id_name` is the name the stored FIDE ID was picked (or typed)
+  # for; `organizer_typed` is what the name box says now. When the two part
+  # ways the id belongs to somebody else, and the page says so before the
+  # save clears it.
+  defp assign_organizer(socket, tournament) do
+    assign(socket,
+      arbiter_search: nil,
+      organizer_id_name: tournament.organizer || "",
+      organizer_typed: tournament.organizer || "",
+      organizer_id_cleared: Map.get(socket.assigns, :organizer_id_cleared)
+    )
+  end
+
+  defp organizer_id(tournament), do: Map.get(tournament.officials || %{}, "organizer_id", "")
+
+  defp organizer_unverified?(tournament),
+    do: Map.get(tournament.officials || %{}, "organizer_id_unverified") == "true"
+
+  defp same_name?(a, b), do: String.trim(to_string(a)) == String.trim(to_string(b))
+
+  defp organizer_id_stale?(assigns) do
+    organizer_id(assigns.tournament) not in ["", nil] and
+      not same_name?(assigns.organizer_typed, assigns.organizer_id_name)
+  end
+
+  # The organizer's two `officials` keys travel on their own; the rest of
+  # `officials` (the Officials page's) is the row's, since a plain `:map`
+  # field is saved whole. A name changed without re-picking drops the id
+  # that belonged to the old one - returned as `cleared`, the old name, so
+  # the page can say what happened.
+  defp organizer_params(params, base, id_name) do
+    submitted = Map.get(params, "officials", %{})
+    id = Map.get(submitted, "organizer_id", "")
+    name = Map.get(params, "organizer")
+
+    {id, unverified, cleared} =
+      cond do
+        not is_binary(name) -> {organizer_id(base), organizer_unverified?(base), nil}
+        id in ["", nil] -> {"", false, nil}
+        not same_name?(name, id_name) -> {"", false, id_name}
+        true -> {id, Map.get(submitted, "organizer_id_unverified") == "true", nil}
+      end
+
+    officials =
+      (base.officials || %{})
+      |> Map.drop(["organizer_id", "organizer_id_unverified"])
+      |> then(fn o -> if id in ["", nil], do: o, else: Map.put(o, "organizer_id", id) end)
+      |> then(fn o ->
+        if unverified, do: Map.put(o, "organizer_id_unverified", "true"), else: o
+      end)
+
+    params =
+      if officials == (base.officials || %{}),
+        do: Map.delete(params, "officials"),
+        else: Map.put(params, "officials", officials)
+
+    {params, cleared}
+  end
+
+  # `Tournament.type_label/1` is English for the exports; this select is not.
+  defp type_label("swiss"), do: gettext("Swiss (individual)")
+  defp type_label("roundrobin"), do: gettext("Round robin (individual)")
+  defp type_label("team-swiss"), do: gettext("Swiss (teams)")
+  defp type_label("team-roundrobin"), do: gettext("Round robin (teams)")
+  defp type_label(other), do: Tournament.type_label(other)
+
+  defp collaborator_role_label("arbiter"), do: gettext("Arbiter")
+  defp collaborator_role_label(_editor), do: gettext("Editor")
+
+  defp collaborator_error_text(:not_found),
+    do: gettext("That collaborator is no longer on this tournament.")
+
+  defp collaborator_error_text(:bad_role), do: gettext("Pick editor or arbiter.")
+
+  defp collaborator_error_text(:already_accepted),
+    do: gettext("That invitation was already accepted - there is nothing to send.")
+
+  defp collaborator_error_text(:resent_recently),
+    do: gettext("That invitation went out less than a minute ago. Give the post a moment.")
+
+  defp collaborator_error_text(reason), do: error_text(reason)
 
   defp swap(list, index, delta) do
     target = index + delta
@@ -504,6 +751,7 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:tournament}
@@ -533,17 +781,60 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                 />
               </.setting_field>
 
+              <div id="organizer-field" class="set-field" style="grid-column: 1 / -1">
+                <.arbiter_combo
+                  role="organizer"
+                  label={gettext("Organizer")}
+                  name_field="tournament[organizer]"
+                  name_value={@tournament.organizer}
+                  id_field="tournament[officials][organizer_id]"
+                  id_value={organizer_id(@tournament)}
+                  unverified_field="tournament[officials][organizer_id_unverified]"
+                  unverified={organizer_unverified?(@tournament)}
+                  search={@arbiter_search}
+                />
+                <p
+                  :if={organizer_id_stale?(assigns)}
+                  id="organizer-id-stale-note"
+                  class="setting-warning"
+                  role="note"
+                >
+                  {gettext(
+                    "FIDE ID %{id} belongs to %{name}. Pick the new name from the list, or saving clears the ID rather than pinning it on somebody else.",
+                    id: organizer_id(@tournament),
+                    name: @organizer_id_name
+                  )}
+                </p>
+                <p
+                  :if={@organizer_id_cleared}
+                  id="organizer-id-cleared-note"
+                  class="hint"
+                  role="status"
+                >
+                  {gettext(
+                    "The organizer's FIDE ID was cleared: it belonged to %{name}. Pick the organizer from the list to set a new one.",
+                    name: @organizer_id_cleared
+                  )}
+                </p>
+              </div>
+
               <.setting_field label={gettext("Tournament format")}>
-                <select name="tournament[type]">
+                <select id="tournament-type" name="tournament[type]" disabled={@type_locked?}>
                   <option
                     :for={type <- Tournament.types()}
                     value={type}
                     selected={@tournament.type == type}
                   >
-                    {Tournament.type_label(type)}
+                    {type_label(type)}
                   </option>
                 </select>
               </.setting_field>
+
+              <p :if={@type_locked?} id="type-locked-note" class="hint" style="margin: 0">
+                {gettext(
+                  "The format is fixed now that round 1 is paired: the rounds already played were made for it. For another format, start a new tournament."
+                )}
+              </p>
 
               <.setting_field label={gettext("Number of rounds")} required>
                 <input
@@ -985,9 +1276,28 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
                   </td>
 
                   <td>
-                    <span class="badge muted" id={"collaborator-role-#{c.id}"}>
-                      {if c.role == "arbiter", do: gettext("Arbiter"), else: gettext("Editor")}
-                    </span>
+                    <form
+                      id={"collaborator-role-form-#{c.id}"}
+                      phx-change="change_collaborator_role"
+                      data-unsaved-ignore
+                      style="display: inline"
+                    >
+                      <input type="hidden" name="collaborator_id" value={c.id} />
+                      <select
+                        id={"collaborator-role-#{c.id}"}
+                        name="role"
+                        class="pe-select"
+                        style="width: auto"
+                        aria-label={gettext("Role of %{email}", email: c.email)}
+                      >
+                        <option value="editor" selected={c.role != "arbiter"}>
+                          {gettext("Editor")}
+                        </option>
+                        <option value="arbiter" selected={c.role == "arbiter"}>
+                          {gettext("Arbiter")}
+                        </option>
+                      </select>
+                    </form>
                     <span class={["badge", c.status != "accepted" && "muted"]}>
                       {if c.status == "accepted",
                         do: gettext("active"),
@@ -997,6 +1307,18 @@ defmodule PairingsEngineWeb.SettingsTournamentLive do
 
                   <td style="text-align: right">
                     <button
+                      :if={c.status != "accepted"}
+                      type="button"
+                      id={"resend-invitation-#{c.id}"}
+                      class="pe-btn"
+                      phx-click="resend_invitation"
+                      phx-value-id={c.id}
+                      phx-disable-with={gettext("Sending…")}
+                    >
+                      {gettext("Resend invitation")}
+                    </button>
+                    <button
+                      type="button"
                       class="pe-btn danger-link"
                       phx-click="remove_collaborator"
                       phx-value-id={c.id}

@@ -53,6 +53,7 @@ Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_we
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:348,C49B3A
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:356,6FE4E90
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:364,1A8F14A
+Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/settings_tournament_live.ex:529,25053B8
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tools_norms_live.ex:296,5A91744
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2570,EA212F
 Traversal.FileModule: Directory Traversal in `File.read!`,lib/pairings_engine_web/live/tournaments_live.ex:2605,3098428

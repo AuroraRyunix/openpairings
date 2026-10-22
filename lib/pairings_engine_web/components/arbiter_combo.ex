@@ -66,6 +66,13 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
   attr :search, :any, default: nil
   attr :hint, :string, default: nil
 
+  attr :unverified_field, :string,
+    default: nil,
+    doc:
+      "where the \"typed by hand\" flag is submitted; nil on a page that only takes looked-up ids"
+
+  attr :unverified, :boolean, default: false
+
   def arbiter_combo(assigns) do
     ~H"""
     <%!-- Two boxes under one visible label, each named for itself: the
@@ -75,6 +82,14 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
     <div class="field arbiter-combo" id={"arbiter-combo-#{@role}"}>
       <span class="arbiter-combo-label">
         {@label}<span :if={@required} style="color: var(--danger)" aria-hidden="true">*</span>
+        <span
+          :if={@unverified}
+          id={"arbiter-combo-#{@role}-unverified"}
+          class="badge muted"
+          title={gettext("Typed by hand, not found in a FIDE list on this machine.")}
+        >
+          {gettext("unverified")}
+        </span>
       </span>
       <div class="arbiter-combo-row">
         <div class="search-wrap arbiter-combo-name">
@@ -119,6 +134,13 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             value={@id_value}
           />
           <input
+            :if={@unverified_field}
+            type="hidden"
+            id={"arbiter-combo-#{@role}-unverified-flag"}
+            name={@unverified_field}
+            value={if @unverified, do: "true", else: ""}
+          />
+          <input
             type="text"
             id={"arbiter-combo-#{@role}-id-search"}
             inputmode="numeric"
@@ -136,6 +158,18 @@ defmodule PairingsEngineWeb.Components.ArbiterCombo do
             role={@role}
             empty={ArbiterCombo.empty_reason(@search, @role, :id)}
           />
+          <button
+            :if={@unverified_field && ArbiterCombo.typed_id(@search, @role)}
+            type="button"
+            id={"arbiter-combo-#{@role}-use-typed"}
+            class="pe-btn tonal"
+            style="margin-top: 4px"
+            phx-click="arbiter_use_typed"
+            phx-value-role={@role}
+            phx-value-fide-id={ArbiterCombo.typed_id(@search, @role)}
+          >
+            {gettext("Use %{id} as typed (unverified)", id: ArbiterCombo.typed_id(@search, @role))}
+          </button>
         </div>
       </div>
     </div>

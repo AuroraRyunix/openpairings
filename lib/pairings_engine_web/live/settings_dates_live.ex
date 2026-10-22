@@ -149,7 +149,9 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
 
     base = Tournaments.get_tournament!(socket.assigns.tournament.id)
 
-    case Tournaments.update_tournament(base, %{"round_dates" => dates}) do
+    case Tournaments.update_tournament(base, %{"round_dates" => dates},
+           round_dates_order: :refuse
+         ) do
       {:ok, tournament} ->
         log_settings_change(socket, base, tournament)
 
@@ -220,6 +222,7 @@ defmodule PairingsEngineWeb.SettingsDatesLive do
       active="settings"
     >
       <.settings_page
+        guard
         tournament={@tournament}
         current_scope={@current_scope}
         active={:dates}

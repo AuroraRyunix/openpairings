@@ -13,6 +13,7 @@ defmodule PairingsEngineWeb.SharingTest do
   use PairingsEngineWeb.ConnCase, async: false
 
   import Phoenix.LiveViewTest
+  import Ecto.Query, only: [from: 2]
 
   alias PairingsEngine.{AccountsFixtures, Accounts, Repo, Tournaments}
   alias PairingsEngine.Accounts.User
@@ -433,7 +434,9 @@ defmodule PairingsEngineWeb.SharingTest do
 
       {:ok, lv, _html} = live(conn, ~p"/t/#{tournament.id}/settings")
 
-      lv |> element(~s(button[phx-value-id="#{invite.id}"])) |> render_click()
+      lv
+      |> element(~s(button[phx-click="remove_collaborator"][phx-value-id="#{invite.id}"]))
+      |> render_click()
 
       # Same self-broadcast race as the "enter a pairing result" test above
       # - remove_collaborator/3 broadcasts on the tournament topic that this
@@ -516,7 +519,87 @@ defmodule PairingsEngineWeb.SharingTest do
       assert [%{email: "ref@example.com", role: "arbiter"} = c] =
                Tournaments.list_collaborators(t)
 
-      assert has_element?(lv, "#collaborator-role-#{c.id}", "Arbiter")
+      assert has_element?(lv, "#collaborator-role-#{c.id} option[selected]", "Arbiter")
+    end
+  end
+
+  describe "changing a collaborator and re-sending an invitation" do
+    setup %{scope: scope} do
+      previous = Application.get_env(:pairings_engine, :local_mode)
+      Application.put_env(:pairings_engine, :local_mode, false)
+
+      on_exit(fn ->
+        if is_nil(previous),
+          do: Application.delete_env(:pairings_engine, :local_mode),
+          else: Application.put_env(:pairings_engine, :local_mode, previous)
+      end)
+
+      Application.put_env(:swoosh, :shared_test_process, self())
+      on_exit(fn -> Application.delete_env(:swoosh, :shared_test_process) end)
+
+      %{tournament: t} = fixture(scope)
+      {:ok, c} = Tournaments.add_collaborator(scope, t, "helper@example.com")
+      %{tournament: t, collaborator: c}
+    end
+
+    test "the role select changes the role and says so", %{
+      conn: conn,
+      tournament: t,
+      collaborator: c
+    } do
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+
+      lv
+      |> form("#collaborator-role-form-#{c.id}", %{"role" => "arbiter"})
+      |> render_change()
+
+      assert [%{role: "arbiter"}] = Tournaments.list_collaborators(t)
+      assert has_element?(lv, "#flash-info", "helper@example.com")
+      assert has_element?(lv, "#collaborator-role-#{c.id} option[selected]", "Arbiter")
+    end
+
+    test "Resend mails the pending invitation again, once a minute at most",
+         %{conn: conn, tournament: t, collaborator: c} do
+      # The invitation that `add_collaborator/4` sent (the test adapter may
+      # report it to this process more than once: self and shared process).
+      assert_received {:email, _}
+      flush_emails()
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+
+      # Just sent: the cooldown refuses, and no e-mail leaves.
+      lv |> element("#resend-invitation-#{c.id}") |> render_click()
+      assert has_element?(lv, "#flash-error", "less than a minute ago")
+      refute_received {:email, _}
+
+      Repo.update_all(
+        from(x in PairingsEngine.Tournaments.Collaborator, where: x.id == ^c.id),
+        set: [updated_at: DateTime.add(DateTime.utc_now(:second), -120, :second)]
+      )
+
+      lv |> element("#resend-invitation-#{c.id}") |> render_click()
+      assert has_element?(lv, "#flash-info", "helper@example.com")
+      assert_received {:email, %{to: [{_, "helper@example.com"}]}}
+    end
+
+    defp flush_emails do
+      receive do
+        {:email, _} -> flush_emails()
+      after
+        0 -> :ok
+      end
+    end
+
+    test "an accepted collaborator has no Resend button", %{
+      conn: conn,
+      tournament: t,
+      collaborator: c
+    } do
+      Repo.update!(Ecto.Changeset.change(c, status: "accepted", invite_token: nil))
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/settings")
+
+      refute has_element?(lv, "#resend-invitation-#{c.id}")
+      assert has_element?(lv, "#collaborator-role-#{c.id}")
     end
   end
 end

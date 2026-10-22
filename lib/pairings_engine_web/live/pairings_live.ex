@@ -1482,7 +1482,7 @@ defmodule PairingsEngineWeb.PairingsLive do
          put_flash(
            socket,
            :error,
-           Tournaments.refusal_message(reason, gettext("enrolling a phone"))
+           Tournaments.refusal_message(reason, pgettext("refusal", "enrolling a phone"))
          )}
 
       {:error, %Ecto.Changeset{} = changeset} ->
@@ -1511,7 +1511,7 @@ defmodule PairingsEngineWeb.PairingsLive do
           put_flash(
             socket,
             :error,
-            Tournaments.refusal_message(reason, gettext("revoking a phone code"))
+            Tournaments.refusal_message(reason, pgettext("refusal", "revoking a phone code"))
           )
 
         {:error, _} ->

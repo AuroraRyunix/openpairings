@@ -1592,6 +1592,61 @@ defmodule PairingsEngine.Tournaments.Tournament do
   defp blank_round_date(date), do: String.trim(date)
 
   @doc """
+  Refuses round dates that run backwards: round 5 dated before round 4.
+  Blanks are skipped (an unknown date is not out of order), and two rounds
+  may share a date (the Saturday double round). The error sits on
+  `:round_dates` with `validation: :round_dates_order` and the two rounds
+  involved in its options, `round` (the early one) and `previous`.
+
+  Only judges dates the caller actually sent: a save elsewhere that merely
+  pads the list to a new round count must not be refused over a schedule
+  somebody imported years ago and nobody has looked at since.
+  """
+  def validate_round_dates_order(changeset) do
+    sent? = Map.has_key?(changeset.params || %{}, "round_dates")
+
+    with true <- sent?,
+         dates when is_list(dates) <- get_change(changeset, :round_dates),
+         {round, previous} <- first_backwards_date(dates) do
+      add_error(changeset, :round_dates, "round %{round} is dated before round %{previous}",
+        validation: :round_dates_order,
+        round: round,
+        previous: previous
+      )
+    else
+      _ -> changeset
+    end
+  end
+
+  # `{round, previous}` for the first round dated before the latest date
+  # seen in an earlier round, or nil when the schedule runs forwards.
+  defp first_backwards_date(dates) do
+    dates
+    |> Enum.with_index(1)
+    |> Enum.reduce_while(nil, fn {text, round}, latest ->
+      case Date.from_iso8601(to_string(text)) do
+        {:ok, date} ->
+          case latest do
+            {prev_date, prev_round} ->
+              if Date.compare(date, prev_date) == :lt,
+                do: {:halt, {:backwards, round, prev_round}},
+                else: {:cont, {date, round}}
+
+            nil ->
+              {:cont, {date, round}}
+          end
+
+        _blank_or_garbage ->
+          {:cont, latest}
+      end
+    end)
+    |> case do
+      {:backwards, round, previous} -> {round, previous}
+      _ -> nil
+    end
+  end
+
+  @doc """
   Pads (with `""`) or truncates `dates` to exactly `count` entries - the
   same one-date-per-round shape `round_dates_complete?/1` requires. Shared
   by the changeset (`pad_round_dates_to_rounds_count/1`, below, so it fires

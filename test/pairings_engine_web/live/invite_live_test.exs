@@ -59,6 +59,28 @@ defmodule PairingsEngineWeb.InviteLiveTest do
       assert Tournaments.get_authorized_tournament(invitee_scope, tournament.id) != nil
     end
 
+    test "an accepted link is single-use: opening it again leads nowhere, not to the tournament",
+         %{scope: owner_scope} do
+      tournament = fixture(owner_scope)
+      invitee = lightweight_user()
+      {:ok, invite} = Tournaments.add_collaborator(owner_scope, tournament, invitee.email)
+      token = invite.invite_token
+
+      invitee_conn = Phoenix.ConnTest.build_conn() |> log_in_user(invitee)
+      {:ok, lv, _html} = live(invitee_conn, ~p"/invites/#{token}")
+      {:error, {:live_redirect, _}} = lv |> element("button", "Accept") |> render_click()
+
+      assert Tournaments.find_invitation_by_token(token) == nil
+
+      {:ok, again, html} = live(invitee_conn, ~p"/invites/#{token}")
+
+      assert has_element?(again, "#invite-not-found")
+      assert has_element?(again, "#invite-used-or-invalid")
+      refute html =~ tournament.name
+      refute has_element?(again, "button", "Accept")
+      refute has_element?(again, ~s(a[href="/t/#{tournament.id}/players"]))
+    end
+
     test "declining removes the invitation and redirects home", %{scope: owner_scope} do
       tournament = fixture(owner_scope)
       invitee = lightweight_user()
