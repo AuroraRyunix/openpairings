@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/tournaments-response.schema.json",
+  "title": "GET /tournaments response",
+  "description": "Every tournament the account works in, with its role.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tournaments"
+  ],
+  "properties": {
+    "tournaments": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/definitions/tournament_line"
+      }
+    }
+  }
+}

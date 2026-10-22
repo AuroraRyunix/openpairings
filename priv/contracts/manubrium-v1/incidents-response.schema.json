@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/incidents-response.schema.json",
+  "title": "GET /tournaments/:id/incidents response",
+  "description": "The desk's incident list (optionally ?round=n), photos left out.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "incidents"
+  ],
+  "properties": {
+    "incidents": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/definitions/incident"
+      }
+    }
+  }
+}

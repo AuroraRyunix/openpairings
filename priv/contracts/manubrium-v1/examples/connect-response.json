@@ -1,0 +1,18 @@
+{
+  "device": {
+    "id": 2,
+    "name": "iPhone of the chief arbiter",
+    "platform": "ios"
+  },
+  "server": {
+    "api": 1,
+    "desktop": false,
+    "name": "OpenPairings",
+    "version": "0.101.3"
+  },
+  "token": "mnb_2PxtkOJBqY04LHPepGlj6bcZaOsfkjUJhfk3I074XV4",
+  "user": {
+    "email": "user-576460752303379327@example.com",
+    "name": null
+  }
+}

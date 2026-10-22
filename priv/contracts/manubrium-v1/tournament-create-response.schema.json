@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/tournament-create-response.schema.json",
+  "title": "POST /tournaments response (201)",
+  "description": "The new tournament as a line of the list (not the full tournament: fetch GET /tournaments/:id for that).",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "tournament"
+  ],
+  "properties": {
+    "tournament": {
+      "$ref": "common.schema.json#/definitions/tournament_line"
+    }
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "incident": {
+    "black": "Player 3",
+    "board": 1,
+    "by": "Manubrium: Test phone",
+    "has_photo": true,
+    "id": 1,
+    "kind": "clock",
+    "note": "Flag fell on White's clock",
+    "occurred_at": "2026-10-22T06:27:49Z",
+    "round": 1,
+    "white": "Player 1"
+  }
+}

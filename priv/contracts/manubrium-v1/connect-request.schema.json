@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/connect-request.schema.json",
+  "title": "POST /connect request",
+  "description": "Trades a one-time connect code (from the account page's QR code) for this phone's device token. No bearer token on this request.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "secret"
+  ],
+  "properties": {
+    "secret": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "description": "What the phone calls itself."
+    },
+    "platform": {
+      "type": "string"
+    }
+  }
+}

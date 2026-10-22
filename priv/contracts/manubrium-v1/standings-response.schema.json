@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/standings-response.schema.json",
+  "title": "GET /tournaments/:id/standings response",
+  "description": "The standings, with the tie-breaks the tournament applies.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "standings"
+  ],
+  "properties": {
+    "standings": {
+      "$ref": "common.schema.json#/definitions/standings"
+    }
+  }
+}

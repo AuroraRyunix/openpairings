@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/sync-request.schema.json",
+  "title": "POST /tournaments/:id/sync request",
+  "description": "The app's offline queue: at most 25 entries (413 too_many). Never names an enrollment; the server fills in the device's own. Every entry needs `pairing`: one without is refused per entry as `no_board` (there is no round-level incident).",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "entries"
+  ],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "maxItems": 25,
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "cid",
+              "kind",
+              "round",
+              "pairing",
+              "result",
+              "expected"
+            ],
+            "properties": {
+              "cid": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9-]{8,64}$",
+                "description": "The client id that makes a resend harmless."
+              },
+              "kind": {
+                "const": "result"
+              },
+              "round": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pairing": {
+                "$ref": "common.schema.json#/definitions/id"
+              },
+              "board": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "white": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "black": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "result": {
+                "type": "string",
+                "description": "One of the round's `results` codes."
+              },
+              "expected": {
+                "$ref": "common.schema.json#/definitions/expected"
+              }
+            }
+          },
+          {
+            "type": "object",
+            "additionalProperties": true,
+            "required": [
+              "cid",
+              "kind",
+              "round",
+              "pairing",
+              "type",
+              "note"
+            ],
+            "properties": {
+              "cid": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9-]{8,64}$"
+              },
+              "kind": {
+                "const": "incident"
+              },
+              "round": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "pairing": {
+                "$ref": "common.schema.json#/definitions/id"
+              },
+              "board": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "type": {
+                "type": "string",
+                "description": "An incident kind (see common incident.kind)."
+              },
+              "note": {
+                "type": "string"
+              },
+              "at": {
+                "description": "When it happened, as the phone saw it. A time the server finds implausible (in the future, say) is replaced by the time it arrived.",
+                "type": "string"
+              },
+              "photo": {
+                "type": "string",
+                "description": "A JPEG, base64, no data: prefix; at most 2 MB decoded."
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

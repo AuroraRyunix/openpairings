@@ -1,0 +1,24 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/box-request.schema.json",
+  "title": "POST /box request",
+  "description": "What the box says about itself. `boards` maps a tournament id (as a string) to the number of boards the box gave it. Names longer than 80/40 characters are cut, not refused.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [],
+  "properties": {
+    "name": {
+      "type": "string"
+    },
+    "version": {
+      "type": "string"
+    },
+    "boards": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "integer",
+        "minimum": 0
+      }
+    }
+  }
+}

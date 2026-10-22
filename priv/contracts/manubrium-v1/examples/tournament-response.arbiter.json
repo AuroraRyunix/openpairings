@@ -1,0 +1,71 @@
+{
+  "tournament": {
+    "archived": false,
+    "bye_kinds": [
+      {
+        "id": "absent",
+        "label": "Absent",
+        "points": 0.0
+      }
+    ],
+    "can": [
+      "results",
+      "incidents"
+    ],
+    "handed_off": false,
+    "id": 2,
+    "name": "Contract Open 31682",
+    "next_round": null,
+    "openresults_url": null,
+    "paired_rounds": 1,
+    "pairing_system": "swiss",
+    "read_only": false,
+    "role": "arbiter",
+    "rounds": [
+      {
+        "missing_results": 1,
+        "number": 1,
+        "publish_level": 0
+      }
+    ],
+    "rounds_count": 3,
+    "settings": {
+      "ask_bye_type": false,
+      "bye_value": 1.0,
+      "chief_arbiter": null,
+      "city": "Ghent",
+      "deputy_arbiter": null,
+      "end_date": "2026-11-15",
+      "federation": null,
+      "fide_rated": false,
+      "points": {
+        "draw": 0.5,
+        "loss": 0.0,
+        "win": 1.0
+      },
+      "postponed_games": false,
+      "publish_mode": "manual",
+      "round_dates": [
+        "2026-11-01",
+        "2026-11-08",
+        "2026-11-15"
+      ],
+      "rounds_count": 3,
+      "shared_places": false,
+      "start_date": "2026-11-01",
+      "tiebreaks": [
+        "BHC1",
+        "BH",
+        "SB",
+        "DE",
+        "WIN",
+        "PS"
+      ],
+      "time_control": null,
+      "type": "swiss",
+      "venue": null
+    },
+    "status": "running",
+    "team": false
+  }
+}

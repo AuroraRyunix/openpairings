@@ -1,0 +1,96 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/tournament-options-response.schema.json",
+  "title": "GET /tournament-options response",
+  "description": "What the New tournament screen offers.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "systems",
+    "player_sources",
+    "defaults"
+  ],
+  "properties": {
+    "systems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "common.schema.json#/definitions/pairing_system"
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "player_sources": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "label"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "fide",
+              "bel"
+            ]
+          },
+          "label": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system",
+        "rounds_count",
+        "time_control",
+        "city",
+        "venue",
+        "federation",
+        "rated"
+      ],
+      "properties": {
+        "system": {
+          "$ref": "common.schema.json#/definitions/pairing_system"
+        },
+        "rounds_count": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "time_control": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "city": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "venue": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "federation": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "rated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

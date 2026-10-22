@@ -1,0 +1,14 @@
+{
+  "tournament": {
+    "name": "Autumn Open",
+    "start_date": "2026-11-07",
+    "end_date": "2026-11-08",
+    "city": "Ghent",
+    "venue": "Town Hall",
+    "system": "swiss",
+    "rounds_count": 5,
+    "time_control": "90 min + 30 s/move",
+    "federation": "BEL",
+    "rated": false
+  }
+}

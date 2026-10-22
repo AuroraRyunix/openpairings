@@ -1,0 +1,18 @@
+{
+  "game": "9b1d6c0e4f7a4a1e8d2c5b6a7f809112",
+  "white": 501,
+  "black": 502,
+  "seq": 63,
+  "status": "finished",
+  "moves": [
+    "e4",
+    "e5",
+    "Qh5",
+    "Nc6",
+    "Bc4",
+    "Nf6",
+    "Qxf7#"
+  ],
+  "result": "1-0",
+  "replace": true
+}

@@ -1,0 +1,46 @@
+{
+  "games": [
+    {
+      "game": "9b1d6c0e4f7a4a1e8d2c5b6a7f809112",
+      "white": 501,
+      "black": 502,
+      "seq": 4294967337,
+      "status": "live",
+      "moves": [
+        "e4",
+        "e5",
+        "Nf3",
+        "Nc6",
+        "Bb5"
+      ],
+      "move_clocks": [
+        5398000,
+        5391000,
+        5380000,
+        null,
+        5371000
+      ],
+      "white_ms": 5371000,
+      "black_ms": 5340000,
+      "running": "black",
+      "result": null,
+      "reconstructed": 0,
+      "guessed": 0,
+      "rewritten": 0,
+      "pgn": "[Event \"Summer Open\"]\n[Round \"3\"]\n\n1. e4 e5 2. Nf3 Nc6 3. Bb5 *\n"
+    },
+    {
+      "game": "77aa0c1e5b7d2a44c6109b1d6c0e4f7a",
+      "white": 503,
+      "black": 504,
+      "seq": 8589934593,
+      "status": "waiting",
+      "moves": [],
+      "move_clocks": [],
+      "result": null,
+      "reconstructed": 0,
+      "guessed": 0,
+      "rewritten": 0
+    }
+  ]
+}

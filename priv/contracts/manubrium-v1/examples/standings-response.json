@@ -1,0 +1,124 @@
+{
+  "standings": {
+    "rounds_paired": 1,
+    "rows": [
+      {
+        "player": {
+          "id": 4,
+          "name": "Player 4",
+          "rating": 2000,
+          "title": null
+        },
+        "points": 1.0,
+        "rank": "1",
+        "tiebreaks": {
+          "BH": 0.0,
+          "BHC1": 0.0,
+          "DE": 0.0,
+          "PS": 0.0,
+          "SB": 0.0,
+          "WIN": 0.0
+        }
+      },
+      {
+        "player": {
+          "id": 5,
+          "name": "Player 5",
+          "rating": 1950,
+          "title": null
+        },
+        "points": 1.0,
+        "rank": "2",
+        "tiebreaks": {
+          "BH": 0.0,
+          "BHC1": 0.0,
+          "DE": 0.0,
+          "PS": 0.0,
+          "SB": 0.0,
+          "WIN": 0.0
+        }
+      },
+      {
+        "player": {
+          "id": 1,
+          "name": "Player 1",
+          "rating": 2150,
+          "title": null
+        },
+        "points": 0.0,
+        "rank": "3",
+        "tiebreaks": {
+          "BH": 0.0,
+          "BHC1": 0.0,
+          "DE": 0.0,
+          "PS": 0.0,
+          "SB": 0.0,
+          "WIN": 0.0
+        }
+      },
+      {
+        "player": {
+          "id": 2,
+          "name": "Player 2",
+          "rating": 2100,
+          "title": null
+        },
+        "points": 0.0,
+        "rank": "4",
+        "tiebreaks": {
+          "BH": 0.0,
+          "BHC1": 0.0,
+          "DE": 0.0,
+          "PS": 0.0,
+          "SB": 0.0,
+          "WIN": 0.0
+        }
+      },
+      {
+        "player": {
+          "id": 3,
+          "name": "Player 3",
+          "rating": 2050,
+          "title": null
+        },
+        "points": 0.0,
+        "rank": "5",
+        "tiebreaks": {
+          "BH": 0.0,
+          "BHC1": 0.0,
+          "DE": 0.0,
+          "PS": 0.0,
+          "SB": 0.0,
+          "WIN": 0.0
+        }
+      }
+    ],
+    "tiebreaks": [
+      {
+        "code": "BHC1",
+        "name": "Buchholz Cut-1"
+      },
+      {
+        "code": "BH",
+        "name": "Buchholz"
+      },
+      {
+        "code": "SB",
+        "name": "Sonneborn-Berger"
+      },
+      {
+        "code": "DE",
+        "name": "Direct encounter"
+      },
+      {
+        "code": "WIN",
+        "name": "Number of wins"
+      },
+      {
+        "code": "PS",
+        "name": "Progressive score"
+      }
+    ],
+    "tiebreaks_through": 0
+  }
+}

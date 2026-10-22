@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/board-link-create-request.schema.json",
+  "title": "POST /tournaments/:id/board-links request",
+  "description": "A new code for this tournament. `link.label` names it (at most 80 characters kept); `where: \"lan\"` asks a desktop copy for a code for a box on its network (409 lan_unusable when the listener cannot take one). Both optional; {} is a plain code.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [],
+  "properties": {
+    "link": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [],
+      "properties": {
+        "label": {
+          "type": "string"
+        }
+      }
+    },
+    "where": {
+      "type": "string",
+      "enum": [
+        "lan"
+      ]
+    }
+  }
+}

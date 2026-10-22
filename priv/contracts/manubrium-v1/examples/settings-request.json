@@ -1,0 +1,7 @@
+{
+  "settings": {
+    "time_control": "90 min + 30 s/move",
+    "chief_arbiter": "IA Example",
+    "shared_places": true
+  }
+}

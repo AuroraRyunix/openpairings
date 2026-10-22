@@ -1,0 +1,25 @@
+{
+  "entries": [
+    {
+      "cid": "6f1c2a7e-0b9d-4e55-9a3c-2d8f1e0a4b11",
+      "kind": "result",
+      "round": 1,
+      "pairing": 101,
+      "board": 1,
+      "white": 11,
+      "black": 12,
+      "result": "1-0",
+      "expected": ""
+    },
+    {
+      "cid": "0d4e8b3a-5c21-4f7a-8e19-7b6a2c9d3e44",
+      "kind": "incident",
+      "round": 1,
+      "pairing": 101,
+      "board": 1,
+      "type": "clock",
+      "note": "Flag fell on White's clock",
+      "at": "2026-11-07T14:32:05Z"
+    }
+  ]
+}

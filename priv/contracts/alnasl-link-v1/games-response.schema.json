@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/games-response.schema.json",
+  "title": "POST /tournaments/:id/games response",
+  "description": "For `{games: [...]}`: 200 with one answer per game, in order. For a single game: its answer (an error is then the whole request's status, see error.schema.json).",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "results"
+      ],
+      "properties": {
+        "status": {
+          "const": "ok"
+        },
+        "results": {
+          "type": "array",
+          "items": {
+            "$ref": "common.schema.json#/definitions/game_answer"
+          }
+        }
+      }
+    },
+    {
+      "$ref": "common.schema.json#/definitions/game_answer"
+    }
+  ]
+}

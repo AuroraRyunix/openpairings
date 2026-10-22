@@ -1,0 +1,160 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/edit-request.schema.json",
+  "title": "POST /rounds/:n/edits request",
+  "description": "One hand edit to a paired round. Ids are player ids (a, b, player) or pairing ids (pairing). 409 needs_acknowledgement with confirm/summary/warnings: ask, then send again with `acknowledged`.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "edit"
+  ],
+  "properties": {
+    "edit": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "a",
+            "b"
+          ],
+          "properties": {
+            "kind": {
+              "const": "swap"
+            },
+            "a": {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            "b": {
+              "$ref": "common.schema.json#/definitions/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "player"
+          ],
+          "properties": {
+            "kind": {
+              "const": "vacate"
+            },
+            "player": {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            "bye_type": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "pairing"
+          ],
+          "properties": {
+            "kind": {
+              "const": "bye"
+            },
+            "pairing": {
+              "$ref": "common.schema.json#/definitions/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "pairing",
+            "player"
+          ],
+          "properties": {
+            "kind": {
+              "const": "fill"
+            },
+            "pairing": {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            "player": {
+              "$ref": "common.schema.json#/definitions/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "a",
+            "b"
+          ],
+          "properties": {
+            "kind": {
+              "const": "pool_pair"
+            },
+            "a": {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            "b": {
+              "$ref": "common.schema.json#/definitions/id"
+            },
+            "board": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "$ref": "common.schema.json#/definitions/id"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "player"
+          ],
+          "properties": {
+            "kind": {
+              "const": "pool_bye"
+            },
+            "player": {
+              "$ref": "common.schema.json#/definitions/id"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": true,
+          "required": [
+            "kind",
+            "pairing"
+          ],
+          "properties": {
+            "kind": {
+              "const": "delete"
+            },
+            "pairing": {
+              "$ref": "common.schema.json#/definitions/id"
+            }
+          }
+        }
+      ]
+    },
+    "acknowledged": {
+      "$ref": "common.schema.json#/definitions/acknowledged"
+    }
+  }
+}

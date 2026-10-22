@@ -117,7 +117,9 @@ defmodule PairingsEngine.BoardLink do
 
   @doc """
   Makes a connect code for `tournament`. `{:ok, link, secret}` - the secret
-  is in the caller's hands and nowhere else from here on.
+  is in the caller's hands and nowhere else from here on. `label:` is a
+  name for the code, given by whoever made it (the Manubrium app asks for
+  one); it is shown instead of the box's own name, at most 80 characters.
   """
   @spec create_link(Scope.t(), Tournament.t(), keyword()) ::
           {:ok, Link.t(), String.t()} | {:error, atom()}
@@ -125,7 +127,12 @@ defmodule PairingsEngine.BoardLink do
     with {:ok, tournament} <- editable(scope, tournament),
          :ok <- room(from(l in Link, where: l.tournament_id == ^tournament.id)) do
       {link, secret} =
-        insert_link(scope, @tournament_prefix, [tournament_id: tournament.id] ++ reach(opts))
+        insert_link(
+          scope,
+          @tournament_prefix,
+          [tournament_id: tournament.id, label: clip(Keyword.get(opts, :label), 80)] ++
+            reach(opts)
+        )
 
       Audit.log(
         tournament.id,

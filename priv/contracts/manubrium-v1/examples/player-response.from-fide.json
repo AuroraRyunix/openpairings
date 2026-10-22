@@ -1,0 +1,22 @@
+{
+  "player": {
+    "absent": false,
+    "absent_rounds": [],
+    "birth_year": 1990,
+    "byes": [],
+    "club": null,
+    "federation": "BEL",
+    "fide_id": 4000001,
+    "fide_rating": 2105,
+    "id": 6,
+    "name": "Zylvester, Anna",
+    "national_rating": 0,
+    "pairing_number": null,
+    "present": true,
+    "rating": 2105,
+    "sex": "w",
+    "start_round": 2,
+    "status": "active",
+    "title": "WFM"
+  }
+}

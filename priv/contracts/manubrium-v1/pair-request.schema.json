@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/pair-request.schema.json",
+  "title": "POST /tournaments/:id/rounds request",
+  "description": "Pairs the next round. `acknowledged`: the next_round.warnings ids with confirm: true the arbiter accepted.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [],
+  "properties": {
+    "acknowledged": {
+      "$ref": "common.schema.json#/definitions/acknowledged"
+    }
+  }
+}

@@ -127,8 +127,9 @@ delen zoals je wilt. Met live borden in de zaal toont elk bord in de ronde wat
 het kastje zag (bezig of klaar, het aantal zetten, de uitslag van het bord) en
 markeert het dat als het verschilt van de ingevoerde uitslag. Het kastje voert
 nooit een uitslag in; jij doet dat. De organisator en bewerkers kunnen de codes
-van de kastjes bekijken, een nieuwe maken - de volledige code wordt één keer
-getoond, om in het kastje te scannen of te typen - en er een intrekken, zoals
+van de kastjes bekijken, een nieuwe maken - met een naam naar keuze, die de
+lijst dan toont; de volledige code wordt één keer getoond, om in het kastje te
+scannen of te typen - en er een intrekken, zoals
 op de instellingenpagina **Borden**.
 
 ## De paringen met de hand wijzigen {#hand-edits}

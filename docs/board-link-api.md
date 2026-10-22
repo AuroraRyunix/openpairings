@@ -10,6 +10,21 @@ reported rather than worked around.
 Implemented by `PairingsEngineWeb.BoardLinkController` and
 `PairingsEngine.BoardLink`. API version 1.
 
+## The machine-readable contract
+
+The same contract as JSON Schema (draft-07): `priv/contracts/alnasl-link-v1/`
+in this repository - a schema for every request and answer of the API
+root and of `POST /grant`, examples recorded from the real controller, and an
+`index.json` listing every file. Its raw files are at
+`https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/`.
+`test/pairings_engine_web/contracts/alnasl_link_contract_test.exs` checks the
+controller's answers against it, sends every request example, and checks
+that the report statuses are the three the Manubrium contract shows the
+arbiter. A change to this API changes the schemas and examples in the same
+pull request; a breaking one is a new `alnasl-link-v2` beside v1. A box
+(Alnasl) vendors a copy and checks it for drift daily. Where this document
+and the schemas disagree, one of them is wrong, as above.
+
 ## The shape of it
 
 ```

@@ -1,0 +1,31 @@
+{
+  "defaults": {
+    "city": null,
+    "federation": null,
+    "rated": false,
+    "rounds_count": 9,
+    "system": "swiss",
+    "time_control": null,
+    "venue": null
+  },
+  "player_sources": [
+    {
+      "id": "fide",
+      "label": "FIDE rating list"
+    }
+  ],
+  "systems": [
+    {
+      "id": "swiss",
+      "label": "Swiss - FIDE Dutch"
+    },
+    {
+      "id": "round_robin",
+      "label": "Round robin (Berger)"
+    },
+    {
+      "id": "keizer",
+      "label": "Keizer"
+    }
+  ]
+}

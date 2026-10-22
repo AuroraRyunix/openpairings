@@ -1,0 +1,56 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/tournament-create-request.schema.json",
+  "title": "POST /tournaments request",
+  "description": "A new individual tournament owned by this account. Dates YYYY-MM-DD (422 bad_date otherwise); `system` one of the options' systems.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "tournament"
+  ],
+  "properties": {
+    "tournament": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "start_date": {
+          "$ref": "common.schema.json#/definitions/date_or_null"
+        },
+        "end_date": {
+          "$ref": "common.schema.json#/definitions/date_or_null"
+        },
+        "city": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "venue": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "system": {
+          "type": "string"
+        },
+        "rounds_count": {
+          "type": [
+            "integer",
+            "string",
+            "null"
+          ]
+        },
+        "time_control": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "federation": {
+          "$ref": "common.schema.json#/definitions/text_or_null"
+        },
+        "rated": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

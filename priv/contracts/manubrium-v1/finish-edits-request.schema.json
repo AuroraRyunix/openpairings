@@ -1,0 +1,14 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/finish-edits-request.schema.json",
+  "title": "POST /rounds/:n/edits/finish request",
+  "description": "Finishes a round's hand edits under the pairing checker. `mpa_pibe` acknowledges boards the checker would not pair.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [],
+  "properties": {
+    "acknowledged": {
+      "$ref": "common.schema.json#/definitions/acknowledged"
+    }
+  }
+}

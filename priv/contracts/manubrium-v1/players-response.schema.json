@@ -1,0 +1,19 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/players-response.schema.json",
+  "title": "GET /tournaments/:id/players response",
+  "description": "Every player, as the player list and editor read them.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "players"
+  ],
+  "properties": {
+    "players": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/definitions/player"
+      }
+    }
+  }
+}

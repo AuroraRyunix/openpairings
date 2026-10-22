@@ -1,0 +1,105 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/alnasl-link-v1/link-response.schema.json",
+  "title": "GET /link response",
+  "description": "What the code gives access to: the request to poll, with If-None-Match (304, no body, when unchanged). Every request carries Authorization: Bearer <secret>; X-Board-Box and X-Board-Box-Version are optional.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "api",
+    "server",
+    "poll_seconds",
+    "kind",
+    "group",
+    "tournaments"
+  ],
+  "properties": {
+    "api": {
+      "const": 1
+    },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "const": "OpenPairings"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "poll_seconds": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "tournament",
+        "group",
+        "account"
+      ]
+    },
+    "group": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string"
+            }
+          }
+        }
+      ]
+    },
+    "tournaments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "name",
+          "label",
+          "state",
+          "version"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "name": {
+            "type": "string"
+          },
+          "label": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The short label inside a group, else null."
+          },
+          "state": {
+            "$ref": "common.schema.json#/definitions/tournament_state"
+          },
+          "version": {
+            "type": "string",
+            "description": "Opaque; changes whenever GET /tournaments/:id would answer differently."
+          }
+        }
+      }
+    }
+  }
+}

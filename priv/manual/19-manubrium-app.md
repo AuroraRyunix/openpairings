@@ -124,8 +124,9 @@ share however you like. With live boards in the hall, each board in the
 round shows what the box saw (playing or finished, the number of moves, the
 board's result) and marks it when that differs from the entered result. The
 box never enters a result; you do. The organiser and editors can list the
-boxes' codes, make a new one - the full code is shown once, to scan or type
-into the box - and withdraw one, as on the **Boards** settings page.
+boxes' codes, make a new one - with a name of your choosing, which the list
+then shows; the full code is shown once, to scan or type into the box - and
+withdraw one, as on the **Boards** settings page.
 
 ## Changing the pairings by hand {#hand-edits}
 

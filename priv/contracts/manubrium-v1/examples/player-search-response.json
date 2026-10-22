@@ -1,0 +1,18 @@
+{
+  "results": [
+    {
+      "already_in": false,
+      "birth_year": 1990,
+      "club": null,
+      "federation": "BEL",
+      "fide_id": 4000001,
+      "fide_rating": 2105,
+      "name": "Zylvester, Anna",
+      "national_id": null,
+      "national_rating": null,
+      "sex": "w",
+      "source": "fide",
+      "title": "WFM"
+    }
+  ]
+}

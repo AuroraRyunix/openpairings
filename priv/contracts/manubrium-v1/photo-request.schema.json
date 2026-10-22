@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/photo-request.schema.json",
+  "title": "POST /incidents/:iid/photo request",
+  "description": "A photo for an incident already logged: a JPEG, base64. 409 photo_exists, 413 photo_too_large, 415 not_a_photo.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "photo"
+  ],
+  "properties": {
+    "photo": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

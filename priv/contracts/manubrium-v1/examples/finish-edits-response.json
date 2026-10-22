@@ -1,0 +1,84 @@
+{
+  "pibe": "MPA @ Round 1: 1-3 4-2 => 1-2 4-3",
+  "round": {
+    "boards": [
+      {
+        "black": {
+          "id": 3,
+          "name": "Player 3",
+          "rating": 2050,
+          "score": 0.0,
+          "title": null
+        },
+        "board": 1,
+        "board_report": null,
+        "bye": false,
+        "clearable": false,
+        "empty": false,
+        "id": 1,
+        "label": "1",
+        "phone": null,
+        "result": "",
+        "vacant": false,
+        "white": {
+          "id": 4,
+          "name": "Player 4",
+          "rating": 2000,
+          "score": 0.0,
+          "title": null
+        }
+      },
+      {
+        "black": {
+          "id": 2,
+          "name": "Player 2",
+          "rating": 2100,
+          "score": 0.0,
+          "title": null
+        },
+        "board": 2,
+        "board_report": null,
+        "bye": false,
+        "clearable": false,
+        "empty": false,
+        "id": 2,
+        "label": "2",
+        "phone": null,
+        "result": "",
+        "vacant": false,
+        "white": {
+          "id": 1,
+          "name": "Player 1",
+          "rating": 2150,
+          "score": 0.0,
+          "title": null
+        }
+      }
+    ],
+    "byes": [],
+    "hand_edits": {
+      "open": false,
+      "pibe": "MPA @ Round 1: 1-3 4-2 => 1-2 4-3"
+    },
+    "latest": true,
+    "number": 1,
+    "pool": [],
+    "publish_level": 0,
+    "results": [
+      "1-0",
+      "1/2-1/2",
+      "0-1",
+      "1/2-0",
+      "0-1/2",
+      "1-0FF",
+      "0-1FF",
+      "0-0FF",
+      "0-0",
+      "1-0U",
+      "0-1U",
+      "1/2-1/2U",
+      "*W",
+      "*B"
+    ]
+  }
+}

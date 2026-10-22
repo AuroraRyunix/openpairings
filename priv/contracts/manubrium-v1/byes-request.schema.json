@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/byes-request.schema.json",
+  "title": "PUT /tournaments/:id/players/:pid/byes request",
+  "description": "The requested byes for the rounds not paired yet, replacing what was asked for those rounds. Each round of the tournament once; a paired round is 422 round_paired, a kind the tournament does not offer 422 unknown_bye_kind.",
+  "type": "object",
+  "additionalProperties": true,
+  "required": [
+    "byes"
+  ],
+  "properties": {
+    "byes": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/definitions/bye"
+      }
+    },
+    "acknowledged": {
+      "$ref": "common.schema.json#/definitions/acknowledged"
+    }
+  }
+}

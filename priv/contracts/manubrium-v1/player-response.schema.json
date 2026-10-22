@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/manubrium-v1/player-response.schema.json",
+  "title": "A player",
+  "description": "POST /players (201), PATCH /players/:pid and PUT /players/:pid/byes all answer this.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "player"
+  ],
+  "properties": {
+    "player": {
+      "$ref": "common.schema.json#/definitions/player"
+    }
+  }
+}
