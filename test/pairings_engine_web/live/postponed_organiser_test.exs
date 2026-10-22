@@ -103,7 +103,7 @@ defmodule PairingsEngineWeb.PostponedOrganiserTest do
 
       assert has_element?(
                lv,
-               "#print-postponed-unplayed-game-#{game.id}[href='/t/#{t.id}/pairings?round=1']"
+               "#print-postponed-unplayed-game-#{game.id}[href^='/t/#{t.id}/pairings?round=1']"
              )
 
       assert has_element?(lv, "#print-postponed-notices")

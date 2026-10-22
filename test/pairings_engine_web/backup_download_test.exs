@@ -125,18 +125,21 @@ defmodule PairingsEngineWeb.BackupDownloadTest do
           ] do
         conn = conn |> admin_conn() |> get("/backups/#{attempt}")
 
-        assert conn.status in [400, 403, 404],
+        assert conn.status in [302, 400, 403, 404],
                "#{attempt} answered #{conn.status}"
+
+        if conn.status == 302, do: assert(redirected_to(conn) == ~p"/fide")
 
         refute conn.resp_body =~ "root:"
         refute conn.resp_body =~ "defmodule"
       end
     end
 
-    test "a name that is not a backup on this machine is a 404", %{conn: conn} do
+    test "a name that is not a backup on this machine goes back with a sentence", %{conn: conn} do
       conn = conn |> admin_conn() |> get(~p"/backups/openpairings-2020-01-01T00-00-00Z.opbak")
 
-      assert conn.status == 404
+      assert redirected_to(conn) == ~p"/fide"
+      assert Phoenix.Flash.get(conn.assigns.flash, :error) =~ "no longer exists"
     end
 
     test "and the served file is the one recorded, not one built from the URL", %{

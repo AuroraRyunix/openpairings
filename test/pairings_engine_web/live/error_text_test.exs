@@ -71,7 +71,9 @@ defmodule PairingsEngineWeb.ErrorTextTest do
   end
 
   test "an unknown atom still degrades to something readable rather than raising" do
-    assert SettingsSupport.error_text(:some_future_reason) == "some future reason"
+    # The atom goes to the log; the reader gets a sentence, not a variable name.
+    assert SettingsSupport.error_text(:some_future_reason) ==
+             "That did not work. Nothing was changed."
   end
 
   test "a binary passes straight through, and a changeset is still formatted" do
@@ -82,6 +84,6 @@ defmodule PairingsEngineWeb.ErrorTextTest do
       |> Ecto.Changeset.cast(%{}, [:name])
       |> Ecto.Changeset.validate_required([:name])
 
-    assert SettingsSupport.error_text(changeset) =~ "name"
+    assert SettingsSupport.error_text(changeset) =~ "Name"
   end
 end
