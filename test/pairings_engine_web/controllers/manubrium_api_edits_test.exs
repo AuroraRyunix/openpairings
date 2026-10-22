@@ -563,6 +563,81 @@ defmodule PairingsEngineWeb.ManubriumApiEditsTest do
     end
   end
 
+  ## ---------- discarding hand edits ----------
+
+  describe "discarding hand edits" do
+    defp discard(conn, token, t),
+      do: conn |> phone(token) |> post(@api <> "/tournaments/#{t.id}/rounds/1/edits/discard", %{})
+
+    test "puts the boards back and says so in the audit trail", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = paired(owner)
+      [b1, b2] = games(t)
+      before = Enum.map(games(t), &{&1.white_player_id, &1.black_player_id})
+
+      body =
+        conn
+        |> edit(
+          token,
+          t,
+          %{"kind" => "swap", "a" => b1.white_player_id, "b" => b2.white_player_id},
+          [
+            "pairing_rules"
+          ]
+        )
+        |> json_response(200)
+
+      assert body["round"]["hand_edits"]["discardable"]
+
+      body = conn |> discard(token, t) |> json_response(200)
+      refute body["round"]["hand_edits"]["open"]
+      assert Enum.map(games(t), &{&1.white_player_id, &1.black_player_id}) == before
+
+      assert Enum.any?(
+               Audit.list_for_tournament(t.id),
+               &(&1.action == "pairing.mpa_discarded" and &1.details["via"] == "mobile")
+             )
+    end
+
+    test "not once a result is in, and not with nothing open", %{
+      conn: conn,
+      owner: owner,
+      token: token
+    } do
+      t = paired(owner)
+      [b1, b2] = games(t)
+
+      assert %{"error" => "no_hand_edits"} = conn |> discard(token, t) |> json_response(409)
+
+      conn
+      |> edit(
+        token,
+        t,
+        %{"kind" => "swap", "a" => b1.white_player_id, "b" => b2.white_player_id},
+        [
+          "pairing_rules"
+        ]
+      )
+      |> json_response(200)
+
+      [g | _] = games(t)
+      {:ok, _} = Tournaments.update_pairing_result(g, "1-0")
+
+      assert %{"error" => "has_results"} = conn |> discard(token, t) |> json_response(409)
+      assert Tournaments.get_round(t.id, 1).mpa_session
+    end
+
+    test "is the desk's: an arbiter is refused", %{conn: conn, owner: owner} do
+      t = paired(owner)
+      arbiter = token(enlist(owner, t, "arbiter"))
+
+      assert %{"error" => "arbiter_role"} = conn |> discard(arbiter, t) |> json_response(403)
+    end
+  end
+
   ## ---------- incident photos ----------
 
   describe "incident photos" do

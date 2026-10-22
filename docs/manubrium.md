@@ -412,7 +412,7 @@ the hall pages already call:
 | player search, adding from a list | `PlayerLookup.search/3`, `fide_values/4`, `bel_values/2`, then `DeskActions.create_player/3` | the Players page's add form |
 | late entry, player edits, check-in, requested byes | `DeskActions.create_player/3`, `update_player/5` | the Players page |
 | hall boxes' codes | `BoardLink.list_links/1`, `create_link/3`, `revoke_link/3`, `BoardLinkAddress.connect_code/2` | the Boards settings page |
-| hand edits | `DeskActions.hand_edit/5`, `finish_hand_edits/4` | the Pairings page's swap, absent, bye, fill, pool and delete, and its "Finish hand edits" |
+| hand edits | `DeskActions.hand_edit/5`, `finish_hand_edits/4`, `discard_hand_edits/4` | the Pairings page's swap, absent, bye, fill, pool and delete, its "Finish hand edits" and "Discard hand edits" |
 | mid-event settings | `DeskActions.update_settings/3` (`Tournaments.update_tournament/2`, locks included) | the Settings pages |
 | a Lite phone's result | `Mobile.PhoneResults.confirm/5`, `reject/5` | the hall's clear, for the rejection |
 | an incident's photo afterwards | `Incidents.attach_photo/4` (`check_photo/1`) | Lite's photo in the queue |
@@ -455,6 +455,20 @@ need `mpa_pibe` acknowledged (the `409` carries the checker's verdict as
 `checker: {checked, line, missing, added, warnings}`), and the line is
 recorded as the round's MPA PIBE. Team events stay at the desk
 (`409 desk_only`): their boards count for matches.
+
+`POST /rounds/:n/edits/discard` is "Discard hand edits"
+(`DeskActions.discard_hand_edits/4`, the Pairings page's button): the
+round goes back to the boards and byes it had when its hand edits began
+(`ManualPairing.restore_record/1`, taken before the first edit), and the
+session closes without a check. Only while `hand_edits.discardable` is true:
+a session open that remembers where it began, and nothing in the round
+decided. Refusals: `409 no_hand_edits` (none open), `409 no_way_back` (the
+session began on a round that already had results: the restore point at
+the desk is the way back), `409 has_results` (a result came in since), `409
+stale` (a remembered player is gone), `409 desk_only` for team events.
+There is no one-step undo: the way back is to where the hand edits began,
+the desk's own and only one. Audited as `pairing.mpa_discarded` with
+`via: "mobile"`.
 
 ### A Lite phone's result
 

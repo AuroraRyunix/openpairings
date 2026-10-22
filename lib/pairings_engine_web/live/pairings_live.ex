@@ -1244,14 +1244,13 @@ defmodule PairingsEngineWeb.PairingsLive do
   end
 
   # "Discard hand edits": the round goes back to the boards the session
-  # started from, while nothing in it is decided (`ManualPairing.discard/1`).
+  # started from, while nothing in it is decided
+  # (`DeskActions.discard_hand_edits/4`, which the phones' route calls too).
   def handle_event("mpa_discard", _params, socket) do
     %{tournament: t, round: round, current_scope: scope} = socket.assigns
 
-    case round && ManualPairing.discard(round) do
+    case round && DeskActions.discard_hand_edits(t, scope, round) do
       {:ok, _round} ->
-        Audit.log(t.id, scope, "pairing.mpa_discarded", %{round: round.number})
-
         {:noreply,
          socket
          |> assign(error: nil, mpa_dialog: nil)

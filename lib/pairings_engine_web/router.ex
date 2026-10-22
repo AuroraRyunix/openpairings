@@ -424,6 +424,7 @@ defmodule PairingsEngineWeb.Router do
     # Hand edits to a paired round, and finishing them.
     post "/tournaments/:id/rounds/:number/edits", RoundEditController, :edit
     post "/tournaments/:id/rounds/:number/edits/finish", RoundEditController, :finish
+    post "/tournaments/:id/rounds/:number/edits/discard", RoundEditController, :discard
 
     patch "/tournaments/:id/settings", SettingsController, :update
 

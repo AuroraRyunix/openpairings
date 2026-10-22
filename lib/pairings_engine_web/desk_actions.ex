@@ -864,6 +864,23 @@ defmodule PairingsEngineWeb.DeskActions do
   end
 
   @doc """
+  "Discard hand edits": `round` back as its open hand edits found it,
+  boards and byes, and the session closed (`ManualPairing.discard/2`),
+  audited as `pairing.mpa_discarded` with `extra` merged into the details.
+  The Pairings page's button and the phones' route both come here.
+
+  `{:ok, round}` or `{:error, reason}`: what `ManualPairing.discard/2`
+  refuses (`:no_session`, `:no_way_back`, `:has_results`, `:stale`,
+  `:archived`, `:handed_off`).
+  """
+  def discard_hand_edits(%Tournament{} = t, scope, %Round{} = round, extra \\ %{}) do
+    with {:ok, round} <- ManualPairing.discard(round) do
+      Audit.log(t.id, scope, "pairing.mpa_discarded", Map.merge(%{round: round.number}, extra))
+      {:ok, round}
+    end
+  end
+
+  @doc """
   Finishes the hand edits of `round` (pairings preloaded) the way the
   Pairings page's "Finish hand edits" does: the pairing checker judges the
   round (`ManualPairing.assess/2`); boards that are not the checker's are
