@@ -30,7 +30,7 @@ defmodule PairingsEngineWeb.Layouts do
     "categories" => "categories-and-norms",
     "audit" => "categories-and-norms",
     "history" => "categories-and-norms",
-    "fide" => "players-and-ratings",
+    "fide" => "accounts-and-handoff",
     "tools" => "categories-and-norms",
     "features" => "getting-started",
     "norms" => "categories-and-norms",
