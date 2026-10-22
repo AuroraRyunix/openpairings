@@ -34,7 +34,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
   # docs/translations-audit-2026-09-12.md, finding 14).
   @shared ~w(is in was per extra via gratis bye byes rating ratings logo link token label
              computer guid swar trf json csv fide id elo keizer support deputy helper pibe
-             chess960 chess rnbqkbnr javafo ainalrami live incident team teams)
+             chess960 chess rnbqkbnr bbqnnrkr javafo ainalrami live incident team teams)
 
   # Representative details for every described action, in the shape they
   # come back from the JSON column: string keys. The first entry of each list

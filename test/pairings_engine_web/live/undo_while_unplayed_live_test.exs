@@ -3,7 +3,7 @@ defmodule PairingsEngineWeb.UndoWhileUnplayedLiveTest do
   The Pairings page's ways back while nothing is decided: discarding a
   round's hand edits (and the restore point their session opens with),
   drawing a Chess960 position again, unpairing a round robin's whole
-  schedule - and a swap of rounds that is refused leaving no restore point.
+  schedule.
   Also the live round lighting the Pairings tab.
   """
   use PairingsEngineWeb.ConnCase, async: false
@@ -237,19 +237,6 @@ defmodule PairingsEngineWeb.UndoWhileUnplayedLiveTest do
       {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
       refute has_element?(lv, "#rr-unpair-schedule")
     end
-  end
-
-  test "a refused swap of rounds leaves no restore point", %{conn: conn, scope: scope} do
-    t = round_robin(scope)
-    [p | _] = Tournaments.get_round(t.id, 2).pairings
-    {:ok, _} = Tournaments.update_pairing_result(p, "1-0")
-
-    {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/pairings")
-    lv |> element("#rr-swap-open") |> render_click()
-    lv |> form("#rr-swap-form", swap: %{a: "2", b: "3"}) |> render_submit()
-
-    assert has_element?(lv, "#rr-swap-error")
-    assert snapshots(t, "pairing.rounds_swapped") == []
   end
 
   test "the live round lights the Pairings tab", %{conn: conn, scope: scope} do

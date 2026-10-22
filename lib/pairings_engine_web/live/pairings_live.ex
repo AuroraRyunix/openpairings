@@ -1249,7 +1249,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     %{tournament: t, round: round, current_scope: scope} = socket.assigns
 
     case round && ManualPairing.discard(round) do
-      :ok ->
+      {:ok, _round} ->
         Audit.log(t.id, scope, "pairing.mpa_discarded", %{round: round.number})
 
         {:noreply,
@@ -7069,7 +7069,7 @@ defmodule PairingsEngineWeb.PairingsLive do
               )
             }
           >
-            {gettext("Draw again")}
+            {gettext("Draw position again")}
           </button>
 
           <%!-- Stays out of More: until it is drawn nobody can set up a

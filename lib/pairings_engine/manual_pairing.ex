@@ -193,13 +193,46 @@ defmodule PairingsEngine.ManualPairing do
   @doc """
   Puts `round` back as its open session found it - boards and bye rows -
   and closes the session without touching the round's MPA PIBE (whatever
-  an earlier session recorded stands). `:ok`, or `{:error, reason}`:
-  `:no_session` when none is open, `:no_way_back` for a session that
-  remembers nothing to go back to, `:has_results` once something in the
-  round is decided, `:stale` when a remembered player is no longer the
-  tournament's.
+  an earlier session recorded stands).
+
+  The one way back from a round's hand edits, for every caller: the
+  Pairings page's "Discard hand edits" and anything else that wants an
+  undo (a phone, say) call this and log the audit row themselves
+  (`pairing.mpa_discarded`, with the round number) - the scope that did it
+  is theirs to know, not this module's.
+
+  Takes the round, or the tournament and a round number; the round is read
+  again from the database either way, so a stale struct cannot discard a
+  session that has since closed or moved on. `{:ok, round}` with the round
+  as it now stands, or `{:error, reason}`: `:no_round` when there is no
+  such round, `:no_session` when none is open, `:no_way_back` for a
+  session that remembers nothing to go back to, `:has_results` once
+  something in the round is decided, `:stale` when a remembered player is
+  no longer the tournament's, and `Tournaments.ensure_writable/1`'s
+  refusals (`:archived`, ...).
   """
-  def discard(%Round{} = round) do
+  @spec discard(%Round{} | %Tournament{}, pos_integer() | nil) ::
+          {:ok, %Round{}} | {:error, atom()}
+  def discard(round_or_tournament, round_number \\ nil)
+
+  def discard(%Tournament{} = tournament, round_number) when is_integer(round_number) do
+    case Repo.one(
+           from r in Round,
+             where: r.tournament_id == ^tournament.id and r.number == ^round_number
+         ) do
+      nil -> {:error, :no_round}
+      round -> do_discard(round)
+    end
+  end
+
+  def discard(%Round{id: id}, nil) do
+    case Repo.get(Round, id) do
+      nil -> {:error, :no_round}
+      round -> do_discard(round)
+    end
+  end
+
+  defp do_discard(%Round{} = round) do
     with :ok <- Tournaments.ensure_writable(round.tournament_id),
          {:ok, record} <- remembered(round),
          :ok <- no_results(round),
@@ -242,7 +275,7 @@ defmodule PairingsEngine.ManualPairing do
       Tournaments.invalidate_manual_ranking(round.tournament_id)
       Tournaments.broadcast_tournament_change(round.tournament_id, :rounds)
       Tournaments.refresh_status!(round.tournament_id)
-      :ok
+      {:ok, Repo.get!(Round, round.id)}
     end
   end
 
