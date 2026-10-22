@@ -21,8 +21,6 @@ Tournaments, **New tournament**.
 | Rate of play | A list of the usual time controls for the chosen format, or *none*. |
 | Format | Standard, Rapid or Blitz. It decides which time controls are offered, which FIDE rating the players' ratings are refreshed from, and the report type. |
 
-![The New tournament form with name, pairing system, rounds, place, start date and rate of play](screenshots/03-new-tournament-form.png "The New tournament form")
-
 The form starts with your defaults (Account page, *New tournaments*: system,
 rounds, format, rate of play, place, organiser, publishing mode). The
 tournament is created in FIDE mode ([FIDE mode](02-fide-mode.md)).
@@ -229,8 +227,6 @@ settings show only for a Swiss, the round robin ones only for a round robin.
 built into the program and follows C.04.3 as it stands from 1 February 2026.
 There is nothing to choose or install; the page names it. The engine is given
 a TRF file built and checked by the program.
-
-![The Options settings page with the pairing system, Swiss engine and tournament rating](screenshots/03-settings-options.png "Settings, Options")
 
 **Tournament rating.** The rating that ranks the players, and so gives them
 their pairing numbers, and that the rating-based tie-breaks read. The choices

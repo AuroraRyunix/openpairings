@@ -49,8 +49,6 @@ Two switches on the page:
 > separate tournament, which is a departure from FIDE mode
 > ([FIDE mode](02-fide-mode.md)).
 
-![The Categories settings page with category rules, prizes and the two switches](screenshots/11-categories-settings.png "Category rules and switches")
-
 ## Norms and FIDE forms
 
 **Advanced**, **Norms** produces the official FIDE forms as Excel files, filled
@@ -79,8 +77,6 @@ submit to FIDE* while something required is missing, and names it.
   FA1 or IA1. Duplicate players across tournaments are detected.
 
 The forms use the FIDE house style for names (given name, SURNAME in capitals).
-
-![The Norms page with the IT3, FA1/IA1 and IT4 forms and the Not ready to submit to FIDE banner](screenshots/11-norms-forms.png "Advanced, Norms")
 
 The page also judges, per player, whether the event amounts to a title norm
 (FIDE B.01). One rule concerns round robins only: games against an **unrated

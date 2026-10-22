@@ -9,8 +9,6 @@ The page header says *Standings after round N*. Players still level after
 every tie-break are ordered by rating and name, or share a place, as the
 setting *Players still level share a place* (Settings, Tournament, advanced) says (see below).
 
-![The Standings page of a Swiss tournament with the tie-break columns](screenshots/08-standings-swiss.png "Standings after round 5")
-
 - The **Category** filter above the table shows one category at a time
   ([Categories and norms](11-categories-and-norms.md)).
 - The column *Rds* (rounds present) and the extra-points columns appear

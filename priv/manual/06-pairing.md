@@ -12,8 +12,6 @@ the button that pairs it. The table has one row per board: the board number,
 the White player, the result, the Black player. A player with a bye is a
 board with *bye* and no Black player.
 
-![The Pairings page with round 3 paired: round buttons, the board table and the round's buttons](screenshots/06-pairings-round-paired.png "A paired round on the Pairings page")
-
 Above the table, the round bar has one button that stands out, and which one
 depends on where the round stands. Beside it are the two or three things that
 matter at that moment:
@@ -444,8 +442,6 @@ Every edit first shows a confirmation with the boards before and after,
 which you accept or cancel (<kbd>Escape</kbd> cancels). While an edit is half-made, a
 banner says so. A result that is on a board that you change is cleared; the
 confirmation says so. Every edit is written to the audit trail.
-
-![The confirmation of a hand edit, showing the boards before and after](screenshots/06-hand-edit-confirmation.png "Confirming a swap")
 
 ### Rule warnings while editing
 

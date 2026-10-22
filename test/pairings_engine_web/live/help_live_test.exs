@@ -57,20 +57,11 @@ defmodule PairingsEngineWeb.HelpLiveTest do
       assert has_element?(lv, "#manual-chapter nav.manual-breadcrumb a[href='/help']")
     end
 
-    test "a screenshot not taken yet shows its placeholder with the file name" do
-      {chapter, figure} =
-        Enum.find(Manual.figures(), fn {_c, f} -> not f.present? end) ||
-          flunk("every screenshot exists; nothing left to check the placeholder with")
+    test "the chapters carry no screenshot placeholders" do
+      assert Manual.figures() == []
 
-      {:ok, lv, _html} = live(build_conn(), ~p"/help/#{chapter.slug}")
-
-      assert has_element?(
-               lv,
-               "figure##{figure.id}.is-missing .manual-figure-placeholder",
-               figure.file
-             )
-
-      assert has_element?(lv, "figure##{figure.id} figcaption", figure.number)
+      {:ok, lv, _html} = live(build_conn(), ~p"/help/pairing")
+      refute has_element?(lv, "#manual-chapter-body .manual-figure-placeholder")
     end
 
     test "an unknown chapter goes back to the contents" do

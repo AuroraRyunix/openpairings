@@ -55,7 +55,7 @@ clublijst. De eerste rij van het CSV-bestand benoemt de kolommen: `id`, `name` e
 `rating` zijn verplicht; `federation`, `title`, `birth_year` en `fide_id` zijn
 optioneel. Het scheidingsteken kan een komma, puntkomma of tab zijn, en een rating
 die leeg is of 0 is, betekent ongerate. *Bestand controleren* toont wat er is
-gevonden; *Lijst laden* slaat het op, en er wordt niets geladen tenzij elke rij
+gevonden; *Lijst laden* bewaart het, en er wordt niets geladen tenzij elke rij
 geldig is. Een lijst met dezelfde naam wordt vervangen. Op een server laadt alleen
 een beheerder lijsten. De lijsten worden door elk toernooi op de machine gedeeld,
 verschijnen wanneer een speler wordt toegevoegd, en kunnen in de
@@ -129,8 +129,6 @@ Hoe het rooster werkt (dubbelklikken om te bewerken, rechtsklikken voor de
 Spelerskaart, de cel **Pr.**, het toetsenbord) staat achter de
 informatieknop naast het aantal spelers. Hij is dicht tot je erop drukt.
 
-![De pagina Spelers met het spelersrooster en de knoppen erboven](screenshots/04-players-grid.png "De pagina Spelers")
-
 ### Een speler toevoegen {#adding-a-player}
 
 Druk op **Speler toevoegen**. Het formulier biedt eerst een zoekvak aan:
@@ -147,17 +145,15 @@ Druk op **Speler toevoegen**. Het formulier biedt eerst een zoekvak aan:
   leeg veld toegevoegd, om zo nodig zelf in te vullen.
 - Of vul de gegevens onder het zoekvak met de hand in.
 
-![Het formulier Speler toevoegen met het zoekvak en de zoekresultaten](screenshots/04-add-player-form.png "Een speler toevoegen")
-
 De velden van het formulier: volledige naam (verplicht), titel, FIDE-rating,
 nationaal ID, nationale rating, federatie, geboortejaar, geslacht (M of F), club, en verder naar
 beneden de vaste tabel, de extra punten, categoriekoppelingen, inschrijfstatus
 (*Niet betaald*, *Betaald*, *Gratis*), *Speelt mee vanaf ronde*, en de
 aanwezigheidsinstellingen ([Byes en afwezigheid](05-byes-and-absences.md)). Een
 speler met een FIDE-ID die al in het toernooi zit, wordt geweigerd. Een speler
-toevoegen zonder gekozen geslacht slaat niet meteen op: het formulier zegt dat
+toevoegen zonder gekozen geslacht wordt niet meteen bewaard: het formulier zegt dat
 FIDE-rapporten en damesprijzen het nodig hebben en biedt **Geslacht kiezen**
-(terug naar de knoppen M en F; Escape doet hetzelfde) of **Toch opslaan**.
+(terug naar de knoppen M en F; Escape doet hetzelfde) of **Toch bewaren**.
 Een speler bewerken, importeren en de opzoekingen vragen er nooit naar. De
 **FIDE-opzoeking** van het inschrijfformulier (en, met het Belgische pakket, de
 **KBSB-opzoeking**) zoekt de speler opnieuw op in de lokale lijst. Als de lijst iets

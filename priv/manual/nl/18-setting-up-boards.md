@@ -362,7 +362,7 @@ ronde en eigen uitslagenpagina.
 | De kolom **Bord zag** is leeg nadat je een ronde opnieuw paarde | De partijen van de oude paringen zijn samen met die paringen verwijderd. | Niets: het kastje begint de nieuwe partijen. De oude staan nog op het kastje. |
 | *Er antwoordt iets op dat adres, maar niet als de bordkoppeling van OpenPairings* | Een aanmeldpagina van het zaalnetwerk, of een ander programma op die poort. | Meld je aan op het zaalnetwerk, of controleer het adres. |
 | *… het is niet gepubliceerd op een uitslagensite, dus de zetten gaan alleen naar OpenPairings* | Het toernooi staat niet op de uitslagensite. | Publiceer het (stap 1). Het adres en de toestemming komen daarna vanzelf. |
-| *… het staat op een uitslagensite, maar in OpenPairings is geen relaissleutel opgeslagen* | OpenPairings heeft de toestemming van het kastje (nog) niet van de uitslagensite gekregen. Meestal is dat een kwestie van seconden; anders is de uitslagensite niet bereikbaar, zei ze nee, of is ze een oudere versie. | Open Instellingen, Live borden, kaart **De uitslagensite**: die zegt welke. *Toestemming wordt … opgehaald…*: wacht, het wordt vanzelf opnieuw geprobeerd. *Nog niet … : reden*: lees de reden, dan **Opnieuw proberen**. *Oudere versie*: zie de volgende rij. |
+| *… het staat op een uitslagensite, maar in OpenPairings is geen relaissleutel bewaard* | OpenPairings heeft de toestemming van het kastje (nog) niet van de uitslagensite gekregen. Meestal is dat een kwestie van seconden; anders is de uitslagensite niet bereikbaar, zei ze nee, of is ze een oudere versie. | Open Instellingen, Live borden, kaart **De uitslagensite**: die zegt welke. *Toestemming wordt … opgehaald…*: wacht, het wordt vanzelf opnieuw geprobeerd. *Nog niet … : reden*: lees de reden, dan **Opnieuw proberen**. *Oudere versie*: zie de volgende rij. |
 | De kaart zegt *het is een oudere versie die dit niet zelf kan* en toont een veld **Relaissleutel** | De uitslagensite is van voor ze de toestemming kon uitgeven. | Vraag de beheerder van die site om een relaissleutel voor het toernooi en plak ze in het veld. Zie [Relaissleutels](17-live-boards.md#relay-keys). |
 | De kaart zegt *Zet het toernooi eerst op de uitslagensite* | Het toernooi staat nog niet op de uitslagensite. | Publiceer het (stap 1). |
 | *Dat lijkt niet op een relaissleutel: 16 tot 200 tekens, zonder spaties.* | Alleen bij een oudere uitslagensite: de geplakte sleutel is afgebroken of heeft spaties. | Plak hem opnieuw. |
@@ -380,8 +380,8 @@ ronde en eigen uitslagenpagina.
 
 ## Beperkingen van nu {#limits-today}
 
-- **Ploegentoernooien** staan op het kastje als losse borden, doorgenummerd
-  door de ronde, niet gegroepeerd per wedstrijd en zonder de ploegnamen.
+- **Teamtoernooien** staan op het kastje als losse borden, doorgenummerd
+  door de ronde, niet gegroepeerd per wedstrijd en zonder de teamnamen.
 - **Alleen de eerste partij van een bord in een ronde verlaat het kastje.** Een
   tweede partij op hetzelfde bord (een nieuwe partij na een onderbreking) blijft
   op het kastje en in zijn PGN; de uitslagensite, Lichess en OpenPairings kennen

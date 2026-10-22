@@ -4,7 +4,7 @@ Elk afdrukbaar document opent in een nieuw browsertabblad als gewone pagina die 
 printdialoog van de browser start.
 
 > [!TIP]
-> Omdat het een gewone pagina is, kun je die ook als PDF opslaan via de printdialoog.
+> Omdat het een gewone pagina is, kun je die ook als PDF bewaren via de printdialoog.
 > Het tabblad kan worden gesloten zonder het programma te verstoren.
 
 ## Waar je afdrukt {#where-to-print-from}
@@ -16,8 +16,6 @@ waarbij ze horen: de pagina Paringen heeft **Paringen afdrukken** terwijl een ro
 gespeeld wordt en de rest in **Meer**, onder *Afdrukken*; de pagina Spelers
 heeft **Spelerslijst afdrukken** en, in **Meer**, **Plaatskaartjes afdrukken**, de pagina Stand heeft
 **Afdrukken**, en de lijst met uitgestelde partijen heeft de briefjes.
-
-![Het tabblad Afdrukken met de documenten van een toernooi](screenshots/09-print-tab.png "Het tabblad Afdrukken")
 
 Een toernooilogo (Instellingen, Toernooi, *Logo*, geavanceerd tot er een is) wordt op de documenten afgedrukt.
 Documenten van een toernooi waarin nog een uitgestelde partij open staat, of waarin
@@ -101,13 +99,13 @@ weggelaten als er geen ronde is gepaard.
 ## De documenten van een teamtoernooi {#the-documents-of-a-team-tournament}
 
 Teamparingen (een tabel per match met de borden, kleuren, ratings en het resultaat),
-de teamstand, de **teamkruistabel** (rondetoernooi: ploeg tegen ploeg met de
+de teamstand, de **teamkruistabel** (rondetoernooi: team tegen team met de
 partijpunten; Zwitsers: tegenstander, kleur van bord 1, matchscore en lopende
 matchpunten per ronde), **matchresultaatbladen** (één A4-pagina per match met beide
 opstellingen, resultaatvakjes, de matchscore en handtekeningregels voor beide
 captains en de arbiter), **teamlijsten** en **bordprijzen** (per bordnummer, de
 spelers gerangschikt op percentage, punten en prestatie, met een optioneel minimum
-aantal partijen). Zie [Ploegen](13-teams.md).
+aantal partijen). Zie [Teams](13-teams.md).
 
 ## Accreditatiebadges {#accreditation-badges}
 

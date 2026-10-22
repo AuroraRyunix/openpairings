@@ -10,8 +10,6 @@ cannot disturb a pairing session.
 Publishing is optional and off by default. Nothing is sent until you switch it
 on for a tournament.
 
-![The OpenResults settings page with the On the results site choice, Spectators see and Automatically](screenshots/14-openresults-settings.png "Settings, OpenResults")
-
 ## Connecting a results site
 
 **Connections** (top bar on the Tournaments page), section *Public results
