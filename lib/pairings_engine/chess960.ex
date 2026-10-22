@@ -10,9 +10,11 @@ defmodule PairingsEngine.Chess960 do
 
   The draw is uniform over the 960 and uses the operating system's random
   source (`:crypto`), with rejection so no position is likelier than another.
-  A round's position is drawn once: it is part of the round, printed with
-  its pairings, and drawing again until one pleases is what a draw must not
-  allow.
+  A round's position is part of the round, printed with its pairings.
+  It can be drawn again (`redraw_for_round/3`) only while the round has no
+  results - a wrong round drawn for, a draw before the boards were set -
+  and every draw is in the audit trail, so drawing until one pleases is at
+  least drawing in front of witnesses.
   """
 
   import Ecto.Query
@@ -120,6 +122,46 @@ defmodule PairingsEngine.Chess960 do
 
         _ ->
           {:error, :already_drawn}
+      end
+    end
+  end
+
+  @doc """
+  Draws round `round_number`'s position again, replacing the one it has.
+
+  Only while nothing in the round is decided
+  (`Tournaments.results_recorded?/2`): once a game has a result, the
+  position it was played from is history. `{:ok, round, previous}` with the
+  position it replaced, or `{:error, :not_enabled | :no_round | :not_drawn
+  | :has_results | :archived | ...}`.
+  """
+  def redraw_for_round(%Tournament{} = tournament, round_number, draw_fun \\ &draw/0) do
+    with :ok <- Tournaments.ensure_writable(tournament),
+         :ok <- if(tournament.chess960, do: :ok, else: {:error, :not_enabled}),
+         {:ok, round} <- fetch_round(tournament, round_number) do
+      cond do
+        is_nil(round.chess960_position) ->
+          {:error, :not_drawn}
+
+        Tournaments.results_recorded?(tournament.id, round_number) ->
+          {:error, :has_results}
+
+        true ->
+          # Guarded on the position it read: two tabs redrawing at once get
+          # one redraw, not two quietly stacked.
+          case Repo.update_all(
+                 from(r in Round,
+                   where: r.id == ^round.id and r.chess960_position == ^round.chess960_position
+                 ),
+                 set: [chess960_position: draw_fun.()]
+               ) do
+            {1, _} ->
+              Tournaments.broadcast_tournament_change(tournament.id, :pairings)
+              {:ok, Repo.get!(Round, round.id), round.chess960_position}
+
+            _ ->
+              {:error, :already_drawn}
+          end
       end
     end
   end

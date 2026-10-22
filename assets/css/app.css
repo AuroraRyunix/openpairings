@@ -4132,6 +4132,8 @@ a.pending-chip:hover {
   margin: 10px 0;
 }
 .mpa-banner > span { flex: 1 1 320px; }
+/* Discard and Finish, side by side; they wrap together, not apart. */
+.mpa-banner-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 /* The pairing checker's boards beside the arbiter's, when finishing hand
    edits; one column on a phone. */
 .mpa-compare {

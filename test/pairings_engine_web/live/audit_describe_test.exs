@@ -390,6 +390,8 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
       %{"round" => 4, "changed" => 3}
     ],
     "pairing.chess960_drawn" => [%{"round" => 2, "position" => 518}],
+    "pairing.chess960_redrawn" => [%{"round" => 2, "position" => 518, "previous" => 0}],
+    "pairing.schedule_unpaired" => [%{"rounds" => 7}, %{"rounds" => 1}],
     "pairing.rounds_swapped" => [%{"rounds" => [4, 5], "table_rounds" => [5, 4]}, %{}],
     "standings.lots_drawn" => [%{"players" => 3}, %{"players" => 1}],
     "pairing.results_imported" => [
@@ -414,6 +416,7 @@ defmodule PairingsEngineWeb.AuditDescribeTest do
     "pairing.seat_filled" => [%{"round" => 3, "summary" => "Chris Maes joins board 7"}],
     "pairing.pool_paired" => [%{"round" => 3, "summary" => "Chris Maes  vs  Dirk Jacobs"}],
     "pairing.mpa_started" => [%{"round" => 3, "implicit" => true}, %{"round" => 3}],
+    "pairing.mpa_discarded" => [%{"round" => 3}],
     "pairing.mpa_finished" => [
       %{"round" => 3, "pibe" => "MPA @ Round 3: 1-4 2-3 => 1-3 2-4"},
       %{"round" => 3, "pibe" => nil}

@@ -62,16 +62,7 @@ defmodule PairingsEngine.RoundSwap do
   """
   @spec swap(Tournament.t(), integer(), integer()) :: {:ok, Tournament.t()} | {:error, String.t()}
   def swap(%Tournament{} = tournament, a, b) when is_integer(a) and is_integer(b) do
-    paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
-
-    with :ok <- writable(tournament),
-         :ok <- shape(tournament),
-         :ok <- numbers(tournament, paired, a, b),
-         round_a = Tournaments.get_round(tournament.id, a),
-         round_b = Tournaments.get_round(tournament.id, b),
-         :ok <- both_or_neither(round_a, round_b, a, b),
-         :ok <- result_free(tournament, round_a, b),
-         :ok <- result_free(tournament, round_b, a) do
+    with {:ok, round_a, round_b} <- checked_rounds(tournament, a, b) do
       Repo.transaction(fn ->
         if round_a && round_b, do: move_content(tournament, round_a, round_b)
         swap_announcements(tournament.id, a, b)
@@ -89,6 +80,32 @@ defmodule PairingsEngine.RoundSwap do
         {:error, _} ->
           {:error, gettext("The rounds could not be swapped.")}
       end
+    end
+  end
+
+  @doc """
+  Whether rounds `a` and `b` of `tournament` may be swapped, without
+  swapping them: `:ok`, or `{:error, message}` exactly as `swap/3` would
+  refuse. The Pairings page asks first and takes its restore point after,
+  so a refused swap no longer leaves a restore point of nothing behind.
+  """
+  @spec check(Tournament.t(), integer(), integer()) :: :ok | {:error, String.t()}
+  def check(%Tournament{} = tournament, a, b) when is_integer(a) and is_integer(b) do
+    with {:ok, _round_a, _round_b} <- checked_rounds(tournament, a, b), do: :ok
+  end
+
+  defp checked_rounds(tournament, a, b) do
+    paired = PairingsEngine.Pairing.paired_rounds_count(tournament.id)
+
+    with :ok <- writable(tournament),
+         :ok <- shape(tournament),
+         :ok <- numbers(tournament, paired, a, b),
+         round_a = Tournaments.get_round(tournament.id, a),
+         round_b = Tournaments.get_round(tournament.id, b),
+         :ok <- both_or_neither(round_a, round_b, a, b),
+         :ok <- result_free(tournament, round_a, b),
+         :ok <- result_free(tournament, round_b, a) do
+      {:ok, round_a, round_b}
     end
   end
 

@@ -455,6 +455,14 @@ defmodule PairingsEngineWeb.PairingsLive do
         # A round whose next round is over: a result found wrong now is
         # corrected for the rating report only (C.04.2:4.3, VCL4THP Q192).
         rating_fix_open?: round != nil and n < Tournaments.last_played_round(t.id),
+        # Anything decided in this round: the undo buttons that throw a
+        # round's boards or position away (discard hand edits, draw the
+        # Chess960 position again) are offered only while there is not.
+        round_results?: round != nil and Tournaments.results_recorded?(t.id, n),
+        mpa_discardable?: round != nil and ManualPairing.discardable?(round),
+        # And in the whole schedule, for "Unpair the whole schedule".
+        schedule_results?:
+          t.pairing_system == "round_robin" and paired > 0 and Tournaments.results_recorded?(t.id),
         next_pairable: paired + 1,
         setup_complete: setup_complete,
         missing_setup: missing_setup,
@@ -913,6 +921,49 @@ defmodule PairingsEngineWeb.PairingsLive do
     end
   end
 
+  # A second draw, while the round has no results - the arbiter's decision,
+  # with the position it replaced in the audit row.
+  def handle_event("redraw_chess960", _params, socket) do
+    %{tournament: t, round_number: round_number, current_scope: scope} = socket.assigns
+
+    case PairingsEngine.Chess960.redraw_for_round(t, round_number) do
+      {:ok, round, previous} ->
+        Audit.log(t.id, scope, "pairing.chess960_redrawn", %{
+          round: round_number,
+          position: round.chess960_position,
+          previous: previous
+        })
+
+        {:noreply,
+         socket
+         |> assign(error: nil)
+         |> refresh()
+         |> put_flash(
+           :info,
+           gettext("Chess960 position for round %{n} drawn again: %{position}.",
+             n: round_number,
+             position: PairingsEngine.Chess960.label(round)
+           )
+         )}
+
+      {:error, :has_results} ->
+        {:noreply,
+         assign(socket,
+           error:
+             gettext(
+               "Round %{n} already has results, so its Chess960 position can no longer be drawn again.",
+               n: round_number
+             )
+         )}
+
+      {:error, reason} when reason in [:already_drawn, :not_drawn] ->
+        {:noreply, refresh(socket)}
+
+      {:error, reason} ->
+        {:noreply, assign(socket, error: error_text(reason))}
+    end
+  end
+
   # The three answers to the pairing-number question (`tpn_gate/2`, the
   # dialog): renumber and pair, pair as it is, or neither. Only while the
   # dialog is open - the events carry nothing, the socket holds the round.
@@ -1002,11 +1053,18 @@ defmodule PairingsEngineWeb.PairingsLive do
 
     with {a_n, ""} <- Integer.parse(String.trim(a)),
          {b_n, ""} <- Integer.parse(String.trim(b)) do
-      Snapshots.capture(t, "pairing.rounds_swapped", socket.assigns.current_scope,
-        summary: "Before swapping rounds #{a_n} and #{b_n}"
-      )
+      # Asked before the restore point, not after: a refused swap used to
+      # leave a restore point of a moment nothing happened in.
+      result =
+        with :ok <- RoundSwap.check(t, a_n, b_n) do
+          Snapshots.capture(t, "pairing.rounds_swapped", socket.assigns.current_scope,
+            summary: "Before swapping rounds #{a_n} and #{b_n}"
+          )
 
-      case RoundSwap.swap(t, a_n, b_n) do
+          RoundSwap.swap(t, a_n, b_n)
+        end
+
+      case result do
         {:ok, updated} ->
           Audit.log(
             t.id,
@@ -1033,6 +1091,54 @@ defmodule PairingsEngineWeb.PairingsLive do
          assign(socket,
            rr_swap: %{a: a, b: b, error: gettext("Enter two round numbers.")}
          )}
+    end
+  end
+
+  # A round robin's whole schedule, unpaired in one go while nothing in it
+  # is decided (`RoundRobin.unpair_schedule/1`). Asked first, restore point
+  # second, so a refusal does not leave a restore point of nothing.
+  def handle_event("rr_unpair_schedule", _params, socket) do
+    %{tournament: t, current_scope: scope} = socket.assigns
+
+    result =
+      with :ok <- RoundRobin.check_unpair_schedule(t) do
+        Snapshots.capture(t, "pairing.round_deleted", scope,
+          summary: "Before unpairing the whole round-robin schedule"
+        )
+
+        RoundRobin.unpair_schedule(t)
+      end
+
+    case result do
+      {:ok, count} ->
+        Audit.log(t.id, scope, "pairing.schedule_unpaired", %{rounds: count})
+
+        {:noreply,
+         socket
+         |> assign(error: nil, round_number: 1)
+         |> refresh()
+         |> put_flash(
+           :info,
+           ngettext(
+             "The schedule's %{count} round was unpaired. A restore point was saved.",
+             "The schedule's %{count} rounds were unpaired. A restore point was saved.",
+             count
+           )
+         )}
+
+      {:error, :has_results} ->
+        {:noreply,
+         socket
+         |> refresh()
+         |> assign(
+           error:
+             gettext(
+               "The schedule already has results, so it can only be unpaired round by round, from the last."
+             )
+         )}
+
+      {:error, reason} ->
+        {:noreply, socket |> refresh() |> assign(error: error_text(reason))}
     end
   end
 
@@ -1108,7 +1214,10 @@ defmodule PairingsEngineWeb.PairingsLive do
   def handle_event("mpa_start", _params, socket) do
     case socket.assigns.round do
       %{} = round when is_nil(socket.assigns.tournament.archived_at) ->
-        case ManualPairing.start(round) do
+        %{tournament: t, current_scope: scope} = socket.assigns
+        record = DeskActions.before_hand_edits(t, scope, round)
+
+        case ManualPairing.start(round, nil, record) do
           {:ok, true} ->
             Audit.log(
               socket.assigns.tournament.id,
@@ -1131,6 +1240,57 @@ defmodule PairingsEngineWeb.PairingsLive do
 
       _ ->
         {:noreply, socket}
+    end
+  end
+
+  # "Discard hand edits": the round goes back to the boards the session
+  # started from, while nothing in it is decided (`ManualPairing.discard/1`).
+  def handle_event("mpa_discard", _params, socket) do
+    %{tournament: t, round: round, current_scope: scope} = socket.assigns
+
+    case round && ManualPairing.discard(round) do
+      :ok ->
+        Audit.log(t.id, scope, "pairing.mpa_discarded", %{round: round.number})
+
+        {:noreply,
+         socket
+         |> assign(error: nil, mpa_dialog: nil)
+         |> refresh()
+         |> put_flash(
+           :info,
+           gettext("Hand edits to round %{n} discarded: the boards are back as they were.",
+             n: round.number
+           )
+         )}
+
+      {:error, :has_results} ->
+        {:noreply,
+         socket
+         |> refresh()
+         |> assign(
+           error:
+             gettext(
+               "Round %{n} already has results, so its hand edits can no longer be discarded. Change the boards by hand, or go back to the restore point (Advanced, History).",
+               n: round.number
+             )
+         )}
+
+      {:error, reason} when reason in [:no_way_back, :stale] ->
+        {:noreply,
+         socket
+         |> refresh()
+         |> assign(
+           error:
+             gettext(
+               "These hand edits remember no boards to go back to. Go back to the restore point instead (Advanced, History)."
+             )
+         )}
+
+      {:error, reason} when reason in [:archived, :handed_off] ->
+        {:noreply, assign(socket, error: error_text(reason))}
+
+      _ ->
+        {:noreply, refresh(socket)}
     end
   end
 
@@ -3042,6 +3202,14 @@ defmodule PairingsEngineWeb.PairingsLive do
   defp apply_confirmed(socket, confirm, round, t) do
     ack = if confirm[:sent], do: [acknowledged: [:sent_round_changed]], else: []
 
+    # The first hand edit opens the session (below), so the restore point
+    # and the record "Discard hand edits" goes back to are taken now, while
+    # the round is still without it. A full-point bye opens nothing.
+    opening =
+      if confirm.kind in [:pool_fpb, :pool_fpb_withdraw],
+        do: :open,
+        else: DeskActions.before_hand_edits(t, socket.assigns.current_scope, round)
+
     result =
       case confirm do
         %{kind: :swap, a_id: a, b_id: b} ->
@@ -3088,8 +3256,7 @@ defmodule PairingsEngineWeb.PairingsLive do
         # The first hand edit of a round opens its manual pairing
         # alteration, from the boards as they were before it (Q65). A
         # full-point bye moves nobody on or off a board, so it does not.
-        if confirm.kind not in [:pool_fpb, :pool_fpb_withdraw],
-          do: implicit_mpa_start(socket, round)
+        implicit_mpa_start(socket, round, opening)
 
         Audit.log(
           t.id,
@@ -3630,9 +3797,11 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   ## ---------- Manual pairing alteration: helpers ----------
 
-  defp implicit_mpa_start(socket, %{} = round) do
+  defp implicit_mpa_start(_socket, _round, :open), do: :ok
+
+  defp implicit_mpa_start(socket, %{} = round, record) do
     if not ManualPairing.open?(round) do
-      case ManualPairing.start(round, ManualPairing.boards(round)) do
+      case ManualPairing.start(round, ManualPairing.boards(round), record) do
         {:ok, true} ->
           Audit.log(
             socket.assigns.tournament.id,
@@ -3649,7 +3818,7 @@ defmodule PairingsEngineWeb.PairingsLive do
     :ok
   end
 
-  defp implicit_mpa_start(_socket, _round), do: :ok
+  defp implicit_mpa_start(_socket, _round, _record), do: :ok
 
   # The board `pairing` becomes with `substitutions` (`{field, player_id}`)
   # applied, as `ManualPairing.warnings/4` takes it: `[{white, black}]`,
@@ -6486,7 +6655,12 @@ defmodule PairingsEngineWeb.PairingsLive do
         # schedule, so it is offered on any round; the rest needs this one
         # paired.
         more_swap?: RoundSwap.available?(t) and assigns.paired_rounds > 0 and open?,
-        more_edits?: round != nil and open?
+        more_edits?: round != nil and open?,
+        # "Unpair the whole schedule": a round robin with rounds paired and
+        # nothing in them decided.
+        more_unpair_schedule?:
+          t.pairing_system == "round_robin" and assigns.paired_rounds > 0 and open? and
+            not assigns.schedule_results?
       )
 
     ~H"""
@@ -6860,7 +7034,8 @@ defmodule PairingsEngineWeb.PairingsLive do
                 like its neighbours, and the note it may carry wraps onto a
                 line of its own below them (see `.pe-level-note`). --%>
           <%!-- Chess960: the round's drawn starting position (VCL4THP Q222),
-                or the button that draws it. Drawn once. --%>
+                or the button that draws it. Drawn again only while the round
+                has no results. --%>
           <%!-- Hover or click the badge for the starting position as a board. --%>
           <details
             :if={@round != nil && @tournament.chess960 && @round.chess960_position != nil}
@@ -6876,6 +7051,27 @@ defmodule PairingsEngineWeb.PairingsLive do
             </div>
           </details>
 
+          <%!-- A second draw, while nothing in the round is decided. --%>
+          <button
+            :if={
+              @round != nil && @tournament.chess960 && @round.chess960_position != nil &&
+                !@round_results? && !@tournament.archived_at
+            }
+            id="redraw-chess960"
+            type="button"
+            class="pe-btn"
+            phx-click="redraw_chess960"
+            data-confirm={
+              gettext(
+                "Draw the Chess960 position for round %{n} again? Position %{position} is replaced by a new draw, and the audit trail records both.",
+                n: @round_number,
+                position: PairingsEngine.Chess960.label(@round)
+              )
+            }
+          >
+            {gettext("Draw again")}
+          </button>
+
           <%!-- Stays out of More: until it is drawn nobody can set up a
                 board, so it is the round's business while it is missing. --%>
           <button
@@ -6888,7 +7084,8 @@ defmodule PairingsEngineWeb.PairingsLive do
             class="pe-btn"
             phx-click="draw_chess960"
             data-confirm={
-              gettext("Draw the Chess960 position for round %{n} now? It cannot be drawn again.",
+              gettext(
+                "Draw the Chess960 position for round %{n} now? It can be drawn again only while the round has no results.",
                 n: @round_number
               )
             }
@@ -7331,9 +7528,10 @@ defmodule PairingsEngineWeb.PairingsLive do
 
               <%!-- Unpairing deletes results: last, apart, red, and it still
                     asks. --%>
-              <%= if @round != nil && @round_number == @paired_rounds && !@tournament.archived_at do %>
+              <%= if ((@round != nil && @round_number == @paired_rounds) || @more_unpair_schedule?) && !@tournament.archived_at do %>
                 <hr /> <span class="pe-dropdown-label is-danger">{gettext("Danger zone")}</span>
                 <button
+                  :if={@round != nil && @round_number == @paired_rounds}
                   type="button"
                   role="menuitem"
                   id={"unpair-round-#{@round_number}"}
@@ -7344,6 +7542,26 @@ defmodule PairingsEngineWeb.PairingsLive do
                   }
                 >
                   {gettext("Unpair round")}
+                </button>
+
+                <%!-- A round robin's schedule, all of it, while nothing in it
+                      is decided: one click instead of one per round. --%>
+                <button
+                  :if={@more_unpair_schedule?}
+                  type="button"
+                  role="menuitem"
+                  id="rr-unpair-schedule"
+                  class="is-danger"
+                  phx-click="rr_unpair_schedule"
+                  data-confirm={
+                    ngettext(
+                      "Unpair the whole schedule? Its %{count} paired round is deleted, with every board and bye in it. The players' pairing numbers stay. A restore point is saved first (Advanced, History).",
+                      "Unpair the whole schedule? All %{count} paired rounds are deleted, with every board and bye in them. The players' pairing numbers stay. A restore point is saved first (Advanced, History).",
+                      @paired_rounds
+                    )
+                  }
+                >
+                  {gettext("Unpair the whole schedule")}
                 </button>
               <% end %>
             </div>
@@ -7477,15 +7695,35 @@ defmodule PairingsEngineWeb.PairingsLive do
           </span>
         </span>
 
-        <button
-          :if={!@tournament.archived_at}
-          id="mpa-end"
-          type="button"
-          class="pe-btn primary"
-          phx-click="mpa_end"
-        >
-          {gettext("Finish hand edits")}
-        </button>
+        <div class="mpa-banner-actions">
+          <%!-- Back to the boards the session started from, while nothing
+                in the round is decided. --%>
+          <button
+            :if={!@tournament.archived_at && @mpa_discardable?}
+            id="mpa-discard"
+            type="button"
+            class="pe-btn"
+            phx-click="mpa_discard"
+            data-confirm={
+              gettext(
+                "Discard the hand edits to round %{n}? The boards and the not-playing list go back to how they were when the hand edits started, and the hand edits end without a check.",
+                n: @round_number
+              )
+            }
+          >
+            {gettext("Discard hand edits")}
+          </button>
+
+          <button
+            :if={!@tournament.archived_at}
+            id="mpa-end"
+            type="button"
+            class="pe-btn primary"
+            phx-click="mpa_end"
+          >
+            {gettext("Finish hand edits")}
+          </button>
+        </div>
       </div>
 
       <p
