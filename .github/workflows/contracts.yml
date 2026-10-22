@@ -1,0 +1,48 @@
+name: Contracts
+
+# Is the vendored copy of every contract this app consumes
+# (priv/contracts/vendor/contracts.json) still byte-identical to its
+# provider's? On every push and pull request, and daily: the provider can
+# change its half on a day this repository has no commits at all. Red means
+# `mix contracts.sync`, then the tests. It needs the network, which is why it
+# is here and not in `mix test`.
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  schedule:
+    - cron: '17 5 * * *' # daily, 05:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Vendored contracts match providers
+    runs-on: ubuntu-24.04
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+    - name: Set up Elixir
+      uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
+      with:
+        elixir-version: '1.20'
+        otp-version: '29.0'
+
+    - name: Restore dependencies and build cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          deps
+          _build
+        key: ${{ runner.os }}-contracts-mix-${{ hashFiles('mix.lock') }}
+        restore-keys: ${{ runner.os }}-contracts-mix-
+
+    - name: Install dependencies
+      run: mix deps.get --check-locked
+
+    - name: Check vendored contracts
+      run: mix contracts.check

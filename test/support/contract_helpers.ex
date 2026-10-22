@@ -17,21 +17,31 @@ defmodule PairingsEngineWeb.ContractHelpers do
   import ExUnit.Assertions
 
   @root Path.expand("../../priv/contracts", __DIR__)
-  @remote "https://raw.githubusercontent.com/teapot-chess/openpairings/main/priv/contracts/"
+  @remote "https://raw.githubusercontent.com/teapot-chess/"
 
-  @doc "The directory of contract `name` (e.g. `\"manubrium-v1\"`)."
+  @doc """
+  The directory of contract `name`: one this repository provides
+  (`"manubrium-v1"`), or a vendored one (`"vendor/openresults/publish-v1"`).
+  """
   def dir(name), do: Path.join(@root, name)
 
   @doc """
-  The `ex_json_schema` resolver: a contract's own address, read from disk.
-  Anything else raises - a schema that wants the network is a broken schema.
+  The `ex_json_schema` resolver: a contract's own address, read from disk -
+  OpenPairings' own contracts from `priv/contracts`, another repository's from
+  its vendored copy under `priv/contracts/vendor/<repo>`. Anything else
+  raises - a schema that wants the network is a broken schema.
   """
-  def resolve_remote(@remote <> rest) do
-    path = Path.join(@root, rest)
+  def resolve_remote(@remote <> rest = url) do
+    path =
+      case String.split(rest, "/main/priv/contracts/", parts: 2) do
+        ["openpairings", file] -> Path.join(@root, file)
+        [repo, file] -> Path.join([@root, "vendor", String.downcase(repo), file])
+        _ -> raise("contract schemas resolve locally only; refusing to fetch #{url}")
+      end
 
     if File.regular?(path),
       do: read_json!(path),
-      else: raise("contract schema #{rest} is referenced but not in priv/contracts")
+      else: raise("contract schema #{url} is referenced but not in priv/contracts")
   end
 
   def resolve_remote(url),
@@ -91,7 +101,8 @@ defmodule PairingsEngineWeb.ContractHelpers do
   @doc """
   Every example of contract `name`, as `{example file, schema file, data}`.
   `examples/<message>.json` and `examples/<message>.<variant>.json` belong
-  to `<message>.schema.json`.
+  to `<message>.schema.json` - the longest such message that has a schema,
+  since a provider may put dots in its message names (`snapshot.request`).
   """
   def examples(name) do
     name
@@ -100,9 +111,19 @@ defmodule PairingsEngineWeb.ContractHelpers do
     |> Path.wildcard()
     |> Enum.sort()
     |> Enum.map(fn path ->
-      message = path |> Path.basename(".json") |> String.split(".") |> hd()
-      {"examples/" <> Path.basename(path), message <> ".schema.json", read_json!(path)}
+      {"examples/" <> Path.basename(path), schema_of(name, Path.basename(path, ".json")),
+       read_json!(path)}
     end)
+  end
+
+  @doc "The schema file an example (by its name without `.json`) belongs to."
+  def schema_of(name, example) do
+    parts = String.split(example, ".")
+
+    candidates =
+      for n <- length(parts)..1//-1, do: Enum.join(Enum.take(parts, n), ".") <> ".schema.json"
+
+    Enum.find(candidates, List.last(candidates), &File.regular?(Path.join(dir(name), &1)))
   end
 
   @doc "One example's data, by its file name under `examples/`."
@@ -124,7 +145,7 @@ defmodule PairingsEngineWeb.ContractHelpers do
   @doc "Fails unless `index.json` names the contract and lists exactly its files."
   def assert_index!(name) do
     index = name |> dir() |> Path.join("index.json") |> read_json!()
-    [contract, "v" <> version] = String.split(name, ~r/-(?=v\d+$)/)
+    [contract, "v" <> version] = name |> Path.basename() |> String.split(~r/-(?=v\d+$)/)
 
     assert index["contract"] == contract
     assert index["version"] == String.to_integer(version)
@@ -137,8 +158,7 @@ defmodule PairingsEngineWeb.ContractHelpers do
   `CONTRACTS_WRITE_EXAMPLES=1`, writes it as that example.
   """
   def record_example(name, example, data) do
-    message = example |> String.split(".") |> hd()
-    json = assert_valid!(name, message <> ".schema.json", data)
+    json = assert_valid!(name, schema_of(name, example), data)
 
     if System.get_env("CONTRACTS_WRITE_EXAMPLES") == "1" do
       path = name |> dir() |> Path.join("examples/#{example}.json")

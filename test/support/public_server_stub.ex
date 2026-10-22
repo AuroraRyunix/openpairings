@@ -33,6 +33,19 @@ defmodule PairingsEngine.PublicServerStub do
   end
 
   @doc """
+  What the stub answers `method path` with when nothing overrides it, as
+  `{status, decoded body}` - for the contract test.
+  """
+  def default_answer(method, path, body \\ "") do
+    conn =
+      Plug.Test.conn(method, path, body)
+      |> assign(:raw_body, body)
+      |> default()
+
+    {conn.status, Jason.decode!(conn.resp_body)}
+  end
+
+  @doc """
   Installs the stub. `answers` maps `{method, path}` to a function of the
   conn that sends the answer; everything else gets the contract's success.
   The request body has already been read by then, and is in
@@ -73,12 +86,31 @@ defmodule PairingsEngine.PublicServerStub do
   defp default(%{method: "POST", request_path: "/api/tournaments"} = conn),
     do: json(conn, 201, %{"slug" => mint_slug()})
 
-  defp default(%{method: "POST", request_path: "/api/snapshots"} = conn),
-    do: json(conn, 200, %{"ok" => true})
+  # The success answers are the shapes OpenResults' vendored contract
+  # (`priv/contracts/vendor/openresults/publish-v1`) gives them, and
+  # `PairingsEngine.OpenResultsPublishContractTest` holds this stub to it: a
+  # fake that answers what the real server never would is a test of the fake.
+  defp default(%{method: "POST", request_path: "/api/snapshots"} = conn) do
+    slug =
+      case Jason.decode(conn.assigns.raw_body) do
+        {:ok, %{"tournament" => %{"slug" => slug}}} when is_binary(slug) -> slug
+        _ -> "unknown"
+      end
 
-  defp default(%{method: "DELETE"} = conn), do: json(conn, 200, %{"ok" => true})
+    json(conn, 200, %{"status" => "ok", "slug" => slug, "received_at" => now()})
+  end
 
-  defp default(conn), do: json(conn, 404, %{"error" => "not_found"})
+  defp default(%{method: "DELETE", request_path: "/api/tournaments/" <> slug} = conn) do
+    json(conn, 200, %{
+      "status" => "deleted",
+      "slug" => URI.decode(slug),
+      "deleted" => %{"snapshots" => 1, "registrations" => 0, "key" => 1}
+    })
+  end
+
+  defp default(conn), do: json(conn, 404, %{"error" => "not_found", "detail" => "Not found."})
+
+  defp now, do: DateTime.utc_now() |> DateTime.to_iso8601()
 
   # 9 random bytes, base64url - the shape the contract promises.
   defp mint_slug, do: :crypto.strong_rand_bytes(9) |> Base.url_encode64(padding: false)
