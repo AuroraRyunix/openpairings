@@ -99,3 +99,130 @@ msgstr "moet na het openingstijdstip liggen"
 
 msgid "must be a whole number of players, at least 1"
 msgstr "moet een geheel aantal spelers zijn, minstens 1"
+
+## From the app's own changesets (lib/pairings_engine/**) - not extractable, added by hand
+msgid "Baku acceleration cannot be combined with extra points in the pairing (extra points in acceleration mode, or counted in handicap mode)"
+msgstr "Baku-acceleratie kan niet gecombineerd worden met extra punten in de paring (extra punten in acceleratiemodus, of meegeteld in handicapmodus)"
+
+msgid "Keizer cannot pair team against team. Choose Swiss or Round robin for a team tournament."
+msgstr "Keizer kan geen ploeg tegen ploeg paren. Kies Zwitsers of Rondetoernooi voor een ploegentoernooi."
+
+msgid "cannot be changed after round 4 has been paired (FIDE C.04.2.B.3)"
+msgstr "kan niet meer gewijzigd worden nadat ronde 4 gepaard is (FIDE C.04.2.B.3)"
+
+msgid "cannot change once round 1 is paired"
+msgstr "kan niet meer wijzigen zodra ronde 1 gepaard is"
+
+msgid "choose at least two players"
+msgstr "kies minstens twee spelers"
+
+msgid "colours must be written as #RRGGBB"
+msgstr "kleuren moeten geschreven worden als #RRGGBB"
+
+msgid "did not change"
+msgstr "is niet veranderd"
+
+msgid "does not match password"
+msgstr "komt niet overeen met het wachtwoord"
+
+msgid "each range needs a FIDE tournament ID and from_round <= to_round (both >= 1)"
+msgstr "elk bereik heeft een FIDE-toernooi-ID nodig en from_round <= to_round (allebei >= 1)"
+
+msgid "is not a list of round ratings"
+msgstr "is geen lijst van ratings per ronde"
+
+msgid "match format is not yet supported together with more than one cycle (rr_cycles > 1)"
+msgstr "het matchformaat wordt nog niet ondersteund samen met meer dan één cyclus (rr_cycles > 1)"
+
+msgid "match format requires an even number of rounds (each match is 2 rounds)"
+msgstr "het matchformaat vraagt een even aantal ronden (elke match telt 2 ronden)"
+
+msgid "must be a comma-separated list of \"rating:bonus\" pairs, e.g. \"1400:1, 1600:0.5\""
+msgstr "moet een met komma's gescheiden lijst van paren \"rating:bonus\" zijn, bv. \"1400:1, 1600:0.5\""
+
+msgid "must be a different player than player A"
+msgstr "moet een andere speler zijn dan speler A"
+
+msgid "must be a list of ranges"
+msgstr "moet een lijst van bereiken zijn"
+
+msgid "must be a map of category name to prize count"
+msgstr "moet een overzicht zijn van categorienaam naar aantal prijzen"
+
+msgid "must be a team in this tournament"
+msgstr "moet een ploeg van dit toernooi zijn"
+
+msgid "must be a three-letter FIDE federation code"
+msgstr "moet een FIDE-federatiecode van drie letters zijn"
+
+msgid "must be a three-letter currency code, like EUR"
+msgstr "moet een muntcode van drie letters zijn, zoals EUR"
+
+msgid "must be a valid email address"
+msgstr "moet een geldig e-mailadres zijn"
+
+msgid "must be an amount like 12 or 12.50"
+msgstr "moet een bedrag zijn zoals 12 of 12,50"
+
+msgid "must be digits only"
+msgstr "mag enkel cijfers bevatten"
+
+msgid "must be greater than or equal to board_from"
+msgstr "moet groter dan of gelijk aan board_from zijn"
+
+msgid "must be round numbers or ranges, e.g. \"3,5\" or \"2-4\""
+msgstr "moeten rondenummers of bereiken zijn, bv. \"3,5\" of \"2-4\""
+
+msgid "must have the @ sign and no spaces"
+msgstr "moet een @-teken hebben en geen spaties"
+
+msgid "must not be before the first round"
+msgstr "mag niet voor de eerste ronde liggen"
+
+msgid "must not contain control characters"
+msgstr "mag geen stuurtekens bevatten"
+
+msgid "must not contain quotes, slashes or control characters"
+msgstr "mag geen aanhalingstekens, schuine strepen of stuurtekens bevatten"
+
+msgid "must stay 2: round %{round} was paired with the first cycle's last two rounds reversed, which only a double round robin does"
+msgstr "moet 2 blijven: ronde %{round} werd gepaard met de laatste twee ronden van de eerste cyclus omgedraaid, wat enkel een dubbel rondetoernooi doet"
+
+msgid "needs the rounds, e.g. \"3,5\" or \"2-4\""
+msgstr "heeft de ronden nodig, bv. \"3,5\" of \"2-4\""
+
+msgid "pairing by category is not yet supported together with Baku acceleration"
+msgstr "paren per categorie wordt nog niet ondersteund samen met Baku-acceleratie"
+
+msgid "pairing by category is not yet supported together with match format"
+msgstr "paren per categorie wordt nog niet ondersteund samen met het matchformaat"
+
+msgid "pairing by category requires categories to be enabled first"
+msgstr "paren per categorie vraagt dat eerst categorieën ingeschakeld worden"
+
+msgid "say how many rounds"
+msgstr "zeg hoeveel ronden"
+
+msgid "say which rounds"
+msgstr "zeg welke ronden"
+
+msgid "this pair is already forbidden"
+msgstr "dit paar is al verboden"
+
+msgid "use round:rating pairs from round 2 on, such as 5:1850, 9:1872"
+msgstr "gebruik paren ronde:rating vanaf ronde 2, zoals 5:1850, 9:1872"
+
+msgid "would end the schedule after round %{count}, but %{paired} rounds are already paired"
+msgid_plural "would end the schedule after round %{count}, but %{paired} rounds are already paired"
+msgstr[0] "zou het schema eindigen na ronde %{count}, maar %{paired} ronden zijn al gepaard"
+msgstr[1] "zou het schema eindigen na ronde %{count}, maar %{paired} ronden zijn al gepaard"
+
+msgid "would end the schedule after round %{count}, but a round up to there was swapped with one after it; swap them back first"
+msgid_plural "would end the schedule after round %{count}, but a round up to there was swapped with one after it; swap them back first"
+msgstr[0] "zou het schema eindigen na ronde %{count}, maar een ronde tot daar werd omgewisseld met een erna; wissel ze eerst terug"
+msgstr[1] "zou het schema eindigen na ronde %{count}, maar een ronde tot daar werd omgewisseld met een erna; wissel ze eerst terug"
+
+msgid "would need %{count} rounds, above the %{max}-round maximum"
+msgid_plural "would need %{count} rounds, above the %{max}-round maximum"
+msgstr[0] "zou %{count} ronde nodig hebben, boven het maximum van %{max} ronden"
+msgstr[1] "zou %{count} ronden nodig hebben, boven het maximum van %{max} ronden"
