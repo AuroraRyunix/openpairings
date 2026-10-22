@@ -1245,7 +1245,8 @@ defmodule PairingsEngineWeb.PairingsLive do
 
   # "Discard hand edits": the round goes back to the boards the session
   # started from, while nothing in it is decided
-  # (`DeskActions.discard_hand_edits/4`, which the phones' route calls too).
+  # (`DeskActions.discard_hand_edits/4`, which the phones' route calls too:
+  # the restore and its audit row are written in one place, not two).
   def handle_event("mpa_discard", _params, socket) do
     %{tournament: t, round: round, current_scope: scope} = socket.assigns
 
