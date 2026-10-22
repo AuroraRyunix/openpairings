@@ -610,7 +610,7 @@ defmodule PairingsEngine.RegistrationsTest do
       [registration] = Registrations.pending(t.id)
       assert {:error, message} = Registrations.accept(registration)
       assert is_binary(message)
-      assert message =~ "name"
+      assert message =~ ~r/name/i
 
       # Still pending: a failed accept must not silently consume the entry.
       assert [_still_here] = Registrations.pending(t.id)

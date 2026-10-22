@@ -257,4 +257,28 @@ defmodule PairingsEngineWeb.RegistrationQueueLiveTest do
       assert {t.registration_opens_at, t.registration_max_players} == {nil, nil}
     end
   end
+
+  describe "after a decision" do
+    test "Discard points to the Entries page, where it can be put back", %{
+      conn: conn,
+      scope: scope
+    } do
+      t = tournament(scope)
+      registration = pending!(t, lotte())
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      lv |> element("#discard-registration-#{registration.id}") |> render_click()
+
+      assert has_element?(lv, "#queue-restore-link", "Put it back on the Entries page")
+    end
+
+    test "the entries card stays while something has been decided", %{conn: conn, scope: scope} do
+      t = tournament(scope, open: false)
+      registration = pending!(t, lotte())
+      {:ok, _} = Registrations.discard(registration)
+
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/players")
+      assert has_element?(lv, "#review-entries-link")
+    end
+  end
 end

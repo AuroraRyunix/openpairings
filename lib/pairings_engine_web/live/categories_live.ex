@@ -17,7 +17,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
      socket
      |> assign(
        tournament: tournament,
-       page_title: "#{tournament.name} · Categories",
+       page_title: "#{tournament.name} · " <> gettext("Categories"),
+       rules_note: nil,
+       form_nonce: 0,
        category_error: nil,
        assign_note: nil,
        toggle_error: nil,
@@ -120,16 +122,32 @@ defmodule PairingsEngineWeb.CategoriesLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
         {:noreply,
          socket
-         |> assign(tournament: tournament)
-         |> assign_pair_by_category_lock()
-         |> assign_rules_editor()}
+         |> merge_rules_editor(tournament)
+         |> assign_pair_by_category_lock()}
     end
+  end
+
+  # Another change to the tournament must not wipe what is being typed into
+  # the rules table: the rows of categories that are still there keep their
+  # draft, and only a category that came or went adds or drops a row.
+  defp merge_rules_editor(socket, tournament) do
+    old = socket.assigns.tournament.categories || []
+    kept = old |> Enum.zip(socket.assigns.rules_draft) |> Map.new()
+    fresh = tournament |> build_rules_draft() |> then(&Enum.zip(tournament.categories, &1))
+
+    draft = Enum.map(fresh, fn {name, row} -> Map.get(kept, name, row) end)
+
+    assign(socket,
+      tournament: tournament,
+      rules_draft: draft,
+      tournament_year: CategoryRules.tournament_year(tournament)
+    )
   end
 
   ## ---------- On/off switches - instant, no separate "Save" step ----------
@@ -314,7 +332,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
                 {:noreply,
                  socket
-                 |> assign(tournament: tournament, category_error: nil)
+                 |> assign(
+                   tournament: tournament,
+                   category_error: nil,
+                   rules_note: nil,
+                   form_nonce: socket.assigns.form_nonce + 1
+                 )
                  |> assign_rules_editor()}
 
               {:error, changeset} ->
@@ -358,7 +381,11 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
         {:noreply,
          socket
-         |> assign(tournament: tournament, category_error: nil, assign_note: nil)
+         |> put_flash(
+           :info,
+           gettext("Removed category %{name}. Its rule and prize count went with it.", name: name)
+         )
+         |> assign(tournament: tournament, category_error: nil, assign_note: nil, rules_note: nil)
          |> assign_rules_editor()}
 
       {:error, reason} ->
@@ -374,7 +401,10 @@ defmodule PairingsEngineWeb.CategoriesLive do
   # draft value rather than being reset to blank.
   def handle_event("rules_change", %{"rule" => rule_params}, socket) do
     {:noreply,
-     assign(socket, rules_draft: merge_rules_draft(socket.assigns.rules_draft, rule_params))}
+     assign(socket,
+       rules_draft: merge_rules_draft(socket.assigns.rules_draft, rule_params),
+       rules_note: nil
+     )}
   end
 
   def handle_event("rules_change", _params, socket), do: {:noreply, socket}
@@ -399,7 +429,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
             {:noreply,
              socket
-             |> assign(tournament: updated, category_error: nil, assign_note: nil)
+             |> assign(
+               tournament: updated,
+               category_error: nil,
+               assign_note: nil,
+               rules_note: gettext("Rules saved.")
+             )
              |> assign_rules_editor()}
 
           {:error, reason} ->
@@ -462,7 +497,11 @@ defmodule PairingsEngineWeb.CategoriesLive do
       "category.auto_assigned",
       socket.assigns.current_scope,
       summary:
-        "Before assigning categories to #{count} #{if count == 1, do: "player", else: "players"}"
+        ngettext(
+          "Before assigning categories to %{count} player",
+          "Before assigning categories to %{count} players",
+          count
+        )
     )
 
     case Tournaments.auto_assign_categories(socket.assigns.tournament) do
@@ -529,8 +568,25 @@ defmodule PairingsEngineWeb.CategoriesLive do
     with {:ok, rule} <- put_int_field(%{}, fields, "rating_from"),
          {:ok, rule} <- put_int_field(rule, fields, "rating_below"),
          {:ok, rule} <- put_int_field(rule, fields, "age_from"),
-         {:ok, rule} <- put_int_field(rule, fields, "age_below") do
+         {:ok, rule} <- put_int_field(rule, fields, "age_below"),
+         :ok <- check_range(rule, "rating_from", "rating_below"),
+         :ok <- check_range(rule, "age_from", "age_below") do
       {:ok, maybe_put_women(rule, fields)}
+    end
+  end
+
+  # "From" at or above "below" matches nobody, whatever the numbers are.
+  defp check_range(rule, from, below) do
+    case {Map.get(rule, from), Map.get(rule, below)} do
+      {f, b} when is_integer(f) and is_integer(b) and f >= b ->
+        {:error,
+         gettext("%{from} must be lower than %{below}, or nobody matches.",
+           from: field_label(from),
+           below: field_label(below)
+         )}
+
+      _ ->
+        :ok
     end
   end
 
@@ -689,14 +745,16 @@ defmodule PairingsEngineWeb.CategoriesLive do
           <div class="set-field solo">
             <span class="set-label">{gettext("Status")}</span>
             <div class="actions" style="margin-top: 6px; align-items: center; gap: 10px">
-              <span>{if @tournament.categories_enabled, do: "On", else: "Off"}</span>
+              <span>{if @tournament.categories_enabled, do: gettext("On"), else: gettext("Off")}</span>
               <button
                 type="button"
                 class="pe-btn"
                 phx-click="toggle_categories_enabled"
                 disabled={@categories_off_locked?}
               >
-                {if @tournament.categories_enabled, do: "Turn off", else: "Turn on"}
+                {if @tournament.categories_enabled,
+                  do: gettext("Turn off"),
+                  else: gettext("Turn on")}
               </button>
             </div>
 
@@ -724,7 +782,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
             </p>
 
             <div class="actions" style="align-items: center; gap: 10px">
-              <span>{if @tournament.pair_by_category, do: "On", else: "Off"}</span>
+              <span>{if @tournament.pair_by_category, do: gettext("On"), else: gettext("Off")}</span>
               <div class="locked-wrap locked-wrap-inline">
                 <button
                   type="button"
@@ -732,7 +790,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
                   phx-click="toggle_pair_by_category"
                   disabled={@pair_by_category_locked?}
                 >
-                  {if @tournament.pair_by_category, do: "Turn off", else: "Turn on"}
+                  {if @tournament.pair_by_category,
+                    do: gettext("Turn off"),
+                    else: gettext("Turn on")}
                 </button>
                 <.locked_overlay field={:pair_by_category} locked?={@pair_by_category_locked?} />
               </div>
@@ -807,23 +867,53 @@ defmodule PairingsEngineWeb.CategoriesLive do
             <form id="add-category-form" phx-submit="add_category">
               <.setting_group>
                 <.setting_field label={gettext("New category name")}>
-                  <input type="text" name="name" value="" placeholder={gettext("e.g. U1800 or 45+")} />
+                  <input
+                    type="text"
+                    id={"new-category-name-#{@form_nonce}"}
+                    name="name"
+                    value=""
+                    placeholder={gettext("e.g. U1800 or 45+")}
+                  />
                 </.setting_field>
 
                 <.setting_field label={gettext("Rating from")}>
-                  <input type="number" name="rating_from" value="" min="1" />
+                  <input
+                    type="number"
+                    id={"new-category-rating_from-#{@form_nonce}"}
+                    name="rating_from"
+                    value=""
+                    min="1"
+                  />
                 </.setting_field>
 
                 <.setting_field label={gettext("Rating below")}>
-                  <input type="number" name="rating_below" value="" min="1" />
+                  <input
+                    type="number"
+                    id={"new-category-rating_below-#{@form_nonce}"}
+                    name="rating_below"
+                    value=""
+                    min="1"
+                  />
                 </.setting_field>
 
                 <.setting_field label={gettext("Age from")}>
-                  <input type="number" name="age_from" value="" min="1" />
+                  <input
+                    type="number"
+                    id={"new-category-age_from-#{@form_nonce}"}
+                    name="age_from"
+                    value=""
+                    min="1"
+                  />
                 </.setting_field>
 
                 <.setting_field label={gettext("Under age")}>
-                  <input type="number" name="age_below" value="" min="1" />
+                  <input
+                    type="number"
+                    id={"new-category-age_below-#{@form_nonce}"}
+                    name="age_below"
+                    value=""
+                    min="1"
+                  />
                 </.setting_field>
               </.setting_group>
 
@@ -836,7 +926,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
               <p :if={@category_error} class="error-note">{@category_error}</p>
 
               <div class="actions">
-                <button type="submit" class="pe-btn primary">Add</button>
+                <button type="submit" class="pe-btn primary">{gettext("Add")}</button>
               </div>
             </form>
 
@@ -950,6 +1040,12 @@ defmodule PairingsEngineWeb.CategoriesLive do
                           class="pe-btn danger-link"
                           phx-click="remove_category"
                           phx-value-name={c}
+                          data-confirm={
+                            gettext(
+                              "Remove category %{name}? Its rule and prize count go with it. Players keep the category on file, so adding the name back brings it back.",
+                              name: c
+                            )
+                          }
                         >
                           {gettext("Remove")}
                         </button>
@@ -958,8 +1054,9 @@ defmodule PairingsEngineWeb.CategoriesLive do
                   </tbody>
                 </table>
 
-                <div class="actions" style="margin-top: 10px">
+                <div class="actions" style="margin-top: 10px; align-items: center; gap: 10px">
                   <button type="submit" class="pe-btn primary">{gettext("Save rules")}</button>
+                  <span :if={@rules_note} id="rules-saved-note" class="ok-note">{@rules_note}</span>
                 </div>
               </form>
             </div>
@@ -973,9 +1070,23 @@ defmodule PairingsEngineWeb.CategoriesLive do
               class="actions"
               style="margin-top: 16px"
             >
-              <button type="button" class="pe-btn primary" phx-click="assign_categories">
+              <button
+                type="button"
+                id="assign-categories-button"
+                class="pe-btn primary"
+                phx-click="assign_categories"
+                disabled={rules_dirty?(@tournament, @rules_draft)}
+              >
                 {gettext("Assign categories")}
               </button>
+              <span
+                :if={rules_dirty?(@tournament, @rules_draft)}
+                id="assign-save-first"
+                class="hint"
+                style="align-self: center"
+              >
+                {gettext("Save the rules first.")}
+              </span>
               <span :if={@assign_note} class="ok-note" style="align-self: center">{@assign_note}</span>
             </div>
 
@@ -1023,7 +1134,7 @@ defmodule PairingsEngineWeb.CategoriesLive do
 
                       <th>{gettext("From")}</th>
 
-                      <th>To</th>
+                      <th>{gettext("To")}</th>
 
                       <th>{gettext("Pairing pool")}</th>
                     </tr>
@@ -1074,6 +1185,10 @@ defmodule PairingsEngineWeb.CategoriesLive do
       gettext(
         "The per-category split is baked into every board number and bye the round already produced. Changing this now doesn't renumber what's already on the board - it changes how the NEXT round is built, so boards from before and after the change follow different numbering rules within the same tournament."
       )
+
+  # The table on screen differs from what is saved: Assign categories works
+  # from the saved rules, so it waits for Save.
+  defp rules_dirty?(tournament, draft), do: draft != build_rules_draft(tournament)
 
   defp empty_dash(""), do: "-"
   defp empty_dash(value), do: value

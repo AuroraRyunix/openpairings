@@ -58,71 +58,89 @@ defmodule PairingsEngineWeb.PlayersLive do
   # tournament's own configured tiebreak order). Fourth element of every
   # 4-tuple is the header tooltip shown via `title=`.
   @columns_before_tiebreaks [
-    {"cl", "Cl", true, "Current standings rank (classement)"},
-    {"aff", "Aff.", false, "Federation affiliation (blank = affiliated, N = not affiliated)"},
+    {"cl", gettext_noop("Cl"), true, gettext_noop("Current standings rank (classement)")},
+    {"aff", gettext_noop("Aff."), false,
+     gettext_noop("Federation affiliation (blank = affiliated, N = not affiliated)")},
     # SWAR's presence notation - see `cell/2`'s "pr" clause. Not a `num`
     # column: the value is a marker plus a comma-separated list, so
     # right-aligning it as a number would be wrong.
-    {"pr", "Pr.", false,
-     "Presence. F = forfeit, A = absent all event, A(1,2,3) = sitting out those " <>
-       "rounds AND absent for the round being paired now, a(1,2,3) = sat out those " <>
-       "rounds but available again"},
-    {"paid", "Paid", false, "Registration fee status (P = paid, N = not paid, G = gratis)"},
-    {"nr", "Nr", true, "Pairing number (starting number), frozen once the first round is paired"},
-    {"rnk", "Rnk", true,
-     "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (tournament rating, then FIDE title, then the tie order set under Settings - Options) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"},
-    {"cat", "Cat", false,
-     "Prize categories (SWAR CATEGORIES) - every category this player is in, from the ones " <>
-       "defined for this tournament on the Categories settings page, assigned by hand or by " <>
-       "the \"Assign categories\" button's threshold rules. Click to sort by pairing " <>
-       "category; right-click for one category at a time"},
-    {"birth_year", "Birth", true, "Year of birth"},
-    {"sex", "Sex", false, "Player's sex (M/F)"},
-    {"federation", "Country", false, "Federation / country code (e.g. BEL)"},
-    {"national_id", "Id Nat", true, "National federation ID number"},
-    {"fide_id", "Id FIDE", true, "FIDE ID number"},
-    {"national_rating", "Elo Nat", true, "National federation rating"},
-    {"fide_rating", "Elo FIDE", true, "FIDE (international) rating"},
-    {"elo_used", "Elo used", true,
-     "The tournament rating: the one that gives the pairing numbers and that the rating-based tiebreaks read, by the method set under Settings - Options (by default the FIDE rating, the national one for a player without)"},
-    {"title", "Title", false, "Chess title (GM, IM, FM, WGM, etc.)"},
-    {"club", "Club", false, "Chess club"},
-    {"games", "Ga", true, "Games played"},
+    {"pr", gettext_noop("Pr."), false,
+     gettext_noop(
+       "Presence. F = forfeit, A = absent all event, A(1,2,3) = sitting out those rounds AND absent for the round being paired now, a(1,2,3) = sat out those rounds but available again"
+     )},
+    {"paid", gettext_noop("Paid"), false,
+     gettext_noop("Registration fee status (P = paid, N = not paid, G = gratis)")},
+    {"nr", gettext_noop("Nr"), true,
+     gettext_noop("Pairing number (starting number), frozen once the first round is paired")},
+    {"rnk", gettext_noop("Rnk"), true,
+     gettext_noop(
+       "Live rating-based seed: the pairing-number position this player would get if starting numbers were assigned fresh right now (tournament rating, then FIDE title, then the tie order set under Settings - Options) - recomputed on every view, so it can drift from the frozen Nr after a rating correction or a late addition"
+     )},
+    {"cat", gettext_noop("Cat"), false,
+     gettext_noop(
+       "Prize categories (SWAR CATEGORIES) - every category this player is in, from the ones defined for this tournament on the Categories settings page, assigned by hand or by the \"Assign categories\" button's threshold rules. Click to sort by pairing category; right-click for one category at a time"
+     )},
+    {"birth_year", gettext_noop("Birth"), true, gettext_noop("Year of birth")},
+    {"sex", gettext_noop("Sex"), false, gettext_noop("Player's sex (M/F)")},
+    {"federation", gettext_noop("Country"), false,
+     gettext_noop("Federation / country code (e.g. BEL)")},
+    {"national_id", gettext_noop("Id Nat"), true, gettext_noop("National federation ID number")},
+    {"fide_id", gettext_noop("Id FIDE"), true, gettext_noop("FIDE ID number")},
+    {"national_rating", gettext_noop("Elo Nat"), true,
+     gettext_noop("National federation rating")},
+    {"fide_rating", gettext_noop("Elo FIDE"), true, gettext_noop("FIDE (international) rating")},
+    {"elo_used", gettext_noop("Elo used"), true,
+     gettext_noop(
+       "The tournament rating: the one that gives the pairing numbers and that the rating-based tiebreaks read, by the method set under Settings - Options (by default the FIDE rating, the national one for a player without)"
+     )},
+    {"title", gettext_noop("Title"), false, gettext_noop("Chess title (GM, IM, FM, WGM, etc.)")},
+    {"club", gettext_noop("Club"), false, gettext_noop("Chess club")},
+    {"games", gettext_noop("Ga"), true, gettext_noop("Games played")},
     # Attendance, not games: the two differ by the byes and forfeits a club
     # prize for "here every round" turns on. See
     # `PairingsEngine.Standings.rounds_played/1` for exactly what counts.
     # Ticking it here also puts it on the Standings table and the printed
     # standings - the column preferences are shared.
-    {"rds", "Rds", true,
-     "Rounds the player was there for: games played (any result), a bye given because " <>
-       "the field was odd, and a win by forfeit. A bye they asked for in advance, an " <>
-       "absence and a loss by forfeit do not count"},
-    {"pts", "Pts", true, "Points (game score, excluding extra points)"},
-    {"status", "Status", false, "Player status (active, withdrawn, etc.)"},
-    {"fixed_board", "Table", true,
-     "Fixed table number - this player's games always print/display at this board, regardless of normal board order"},
-    {"perf", "Perf", true,
-     "Performance rating: average opponent rating adjusted for wins/losses"},
-    {"we", "We", true, "Expected score from rating (FIDE table)"},
-    {"wmwe", "W-We", true, "Actual score minus expected score (W - We)"}
+    {"rds", gettext_noop("Rds"), true,
+     gettext_noop(
+       "Rounds the player was there for: games played (any result), a bye given because the field was odd, and a win by forfeit. A bye they asked for in advance, an absence and a loss by forfeit do not count"
+     )},
+    {"pts", gettext_noop("Pts"), true,
+     gettext_noop("Points (game score, excluding extra points)")},
+    {"status", gettext_noop("Status"), false,
+     gettext_noop("Player status (active, withdrawn, etc.)")},
+    {"fixed_board", gettext_noop("Table"), true,
+     gettext_noop(
+       "Fixed table number - this player's games always print/display at this board, regardless of normal board order"
+     )},
+    {"perf", gettext_noop("Perf"), true,
+     gettext_noop("Performance rating: average opponent rating adjusted for wins/losses")},
+    {"we", gettext_noop("We"), true, gettext_noop("Expected score from rating (FIDE table)")},
+    {"wmwe", gettext_noop("W-We"), true,
+     gettext_noop("Actual score minus expected score (W - We)")}
   ]
 
   # Tiebreak columns - order among themselves is tournament-dependent (see
   # `tiebreak_columns/1`), this is just the fallback order for any tiebreak
   # NOT in the tournament's configured `tiebreaks` list.
   @tiebreak_columns [
-    {"buch", "Buch", true, "Buchholz tiebreak (sum of opponents' scores)"},
-    {"bc1", "B C1", true,
-     "Buchholz cut-1 tiebreak (Buchholz with the lowest-scoring opponent dropped)"},
-    {"sb", "S.B.", true, "Sonneborn-Berger tiebreak"},
-    {"prog", "Prog.", true, "Progressive/cumulative score (running total after each round)"},
-    {"diren", "DirEn", true,
-     "Direct encounter tiebreak: points scored against opponents tied on the same score (only decisive once the whole tied group has played each other)"}
+    {"buch", gettext_noop("Buch"), true,
+     gettext_noop("Buchholz tiebreak (sum of opponents' scores)")},
+    {"bc1", gettext_noop("B C1"), true,
+     gettext_noop("Buchholz cut-1 tiebreak (Buchholz with the lowest-scoring opponent dropped)")},
+    {"sb", gettext_noop("S.B."), true, gettext_noop("Sonneborn-Berger tiebreak")},
+    {"prog", gettext_noop("Prog."), true,
+     gettext_noop("Progressive/cumulative score (running total after each round)")},
+    {"diren", gettext_noop("DirEn"), true,
+     gettext_noop(
+       "Direct encounter tiebreak: points scored against opponents tied on the same score (only decisive once the whole tied group has played each other)"
+     )}
   ]
 
   @columns_after_tiebreaks [
-    {"xtpts", "XtPts", true, "Extra points (administrative bonus points added by the organizer)"},
-    {"ptot", "P.Tot.", true, "Total points including extra points"}
+    {"xtpts", gettext_noop("XtPts"), true,
+     gettext_noop("Extra points (administrative bonus points added by the organizer)")},
+    {"ptot", gettext_noop("P.Tot."), true, gettext_noop("Total points including extra points")}
   ]
 
   @default_visible ~w(title birth_year federation fide_id fide_rating national_rating club) ++
@@ -145,7 +163,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        tournament: tournament,
        round_marker: PairingsEngineWeb.RoundChangeNotice.marker(tournament.id),
        rating_sequence: RatingLists.sequence(tournament),
-       page_title: "#{tournament.name} · Players",
+       page_title: "#{tournament.name} · " <> gettext("Players"),
        adding: false,
        error: nil,
        query: "",
@@ -163,6 +181,10 @@ defmodule PairingsEngineWeb.PlayersLive do
        edit_form: %{},
        edit_error: nil,
        edit_fide_conflicts: nil,
+       # The form as it was before a FIDE lookup staged conflicts, so that
+       # Reject can put it back.
+       edit_pre_lookup: nil,
+       add_note: nil,
        edit_sent_rounds: [],
        edit_half_rounds: [],
        # `[{round, type, above_limits?}]`: the bye type each round sat out ahead of its
@@ -265,13 +287,14 @@ defmodule PairingsEngineWeb.PlayersLive do
       nil ->
         {:noreply,
          socket
-         |> put_flash(:error, "This tournament was deleted.")
+         |> put_flash(:error, gettext("This tournament was deleted."))
          |> push_navigate(to: ~p"/")}
 
       tournament ->
         marker = PairingsEngineWeb.RoundChangeNotice.marker(tournament.id)
         notice = PairingsEngineWeb.RoundChangeNotice.notice(socket.assigns.round_marker, marker)
         socket = if(notice, do: put_flash(socket, :info, notice), else: socket)
+        socket = close_edit_if_gone(socket, tournament)
 
         {:noreply,
          socket
@@ -390,18 +413,45 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp postponed_name(nil), do: "?"
   defp postponed_name(player), do: player.name
 
+  # The player in the edit dialog was removed in another window: close the
+  # dialog and say so, rather than letting Save fail on a row that is gone.
+  defp close_edit_if_gone(%{assigns: %{editing_player: %Player{} = editing}} = socket, tournament) do
+    if Tournaments.get_player(tournament.id, editing.id) do
+      socket
+    else
+      socket
+      |> assign(
+        editing_player: nil,
+        edit_form: %{},
+        edit_error: nil,
+        edit_fide_conflicts: nil,
+        edit_pre_lookup: nil,
+        edit_sent_rounds: [],
+        edit_half_rounds: [],
+        edit_bye_types: []
+      )
+      |> put_flash(:error, gettext("%{name} was removed in another window.", name: editing.name))
+    end
+  end
+
+  defp close_edit_if_gone(socket, _tournament), do: socket
+
   defp assign_players(socket) do
     tournament = socket.assigns.tournament
 
-    entries =
+    all_entries =
       tournament
       |> Standings.grid_standings()
       |> build_grid(tournament)
+
+    entries =
+      all_entries
       |> filter_by_category(socket.assigns[:cat_filter])
       |> sort_entries(socket.assigns[:sort_col], socket.assigns[:sort_dir])
 
     socket
     |> assign(:players, entries)
+    |> assign(:player_total, length(all_entries))
     |> assign(
       :starting_numbers_editable?,
       StartingNumbers.editable?(tournament) and Tournaments.ensure_writable(tournament) == :ok
@@ -756,8 +806,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup before adding players - missing: " <>
-           missing_setup_summary(socket.assigns.missing_setup)
+         setup_missing_text(socket.assigns.missing_setup)
        )}
     end
   end
@@ -767,6 +816,7 @@ defmodule PairingsEngineWeb.PlayersLive do
      assign(socket,
        adding: false,
        error: nil,
+       add_note: nil,
        form_values: %{},
        confirm_sex: false,
        query: "",
@@ -1016,8 +1066,7 @@ defmodule PairingsEngineWeb.PlayersLive do
        put_flash(
          socket,
          :error,
-         "Finish the tournament setup before adding players - missing: " <>
-           missing_setup_summary(socket.assigns.missing_setup)
+         setup_missing_text(socket.assigns.missing_setup)
        )}
     else
       # A new player with no sex is asked about once (Escape or "Choose sex"
@@ -1040,9 +1089,19 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("delete", %{"id" => id}, socket) do
     case Tournaments.get_player(socket.assigns.tournament.id, id) do
       nil ->
-        {:noreply, socket}
+        {:noreply, player_gone(socket)}
 
       player ->
+        # Removing a player who has games empties their seat in them, which
+        # changes the opponents' results: a restore point first.
+        if player_has_games?(socket, player) do
+          capture_bulk(
+            socket,
+            "player.deleted",
+            gettext("Before removing %{name}", name: player.name)
+          )
+        end
+
         case Tournaments.delete_player(player) do
           {:ok, _} ->
             Audit.log(
@@ -1076,7 +1135,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     case Tournaments.get_player(socket.assigns.tournament.id, id) do
       nil ->
-        {:noreply, socket}
+        {:noreply, player_gone(socket)}
 
       player ->
         case Tournaments.update_player(player, %{"absent" => absent?}) do
@@ -1113,6 +1172,15 @@ defmodule PairingsEngineWeb.PlayersLive do
     absent? = value in ["true", true]
     tournament_id = socket.assigns.tournament.id
 
+    capture_bulk(
+      socket,
+      "player.bulk_absent_set",
+      if(absent?,
+        do: gettext("Before marking everyone absent"),
+        else: gettext("Before marking everyone present")
+      )
+    )
+
     case Tournaments.set_all_players_absent(tournament_id, absent?) do
       {:ok, players} ->
         Audit.log(
@@ -1122,7 +1190,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           %{absent: absent?, player_count: length(players)}
         )
 
-        {:noreply, assign_players(socket)}
+        {:noreply, socket |> bulk_flash(length(players)) |> assign_players()}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, error_text(reason))}
@@ -1147,7 +1215,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("set_paid", %{"id" => id, "value" => value}, socket) do
     case Tournaments.get_player(socket.assigns.tournament.id, id) do
       nil ->
-        {:noreply, socket}
+        {:noreply, player_gone(socket)}
 
       player ->
         case Tournaments.update_player(player, %{"paid" => value}) do
@@ -1194,7 +1262,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     case Tournaments.get_player(tournament.id, id) do
       nil ->
-        {:noreply, socket}
+        {:noreply, player_gone(socket)}
 
       player ->
         case Tournaments.toggle_player_category(tournament, player, name, value == "true") do
@@ -1236,8 +1304,8 @@ defmodule PairingsEngineWeb.PlayersLive do
       socket,
       "player.bulk_category_set",
       if(add?,
-        do: "Before adding category #{name} to everyone",
-        else: "Before removing category #{name} from everyone"
+        do: gettext("Before adding category %{name} to everyone", name: name),
+        else: gettext("Before removing category %{name} from everyone", name: name)
       )
     )
 
@@ -1250,7 +1318,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           %{category: name, added: add?, player_count: length(players)}
         )
 
-        {:noreply, assign_players(socket)}
+        {:noreply, socket |> bulk_flash(length(players)) |> assign_players()}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, error_text(reason))}
@@ -1273,6 +1341,12 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("set_all_paid", %{"value" => value}, socket) do
     tournament_id = socket.assigns.tournament.id
 
+    capture_bulk(
+      socket,
+      "player.bulk_paid_set",
+      gettext("Before setting everyone's payment status")
+    )
+
     case Tournaments.set_all_players_paid(tournament_id, value) do
       {:ok, players} ->
         Audit.log(
@@ -1282,7 +1356,7 @@ defmodule PairingsEngineWeb.PlayersLive do
           %{paid: value, player_count: length(players)}
         )
 
-        {:noreply, assign_players(socket)}
+        {:noreply, socket |> bulk_flash(length(players)) |> assign_players()}
 
       {:error, reason} ->
         {:noreply, put_flash(socket, :error, error_text(reason))}
@@ -1351,7 +1425,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     capture_bulk(
       socket,
       "player.starting_numbers_set",
-      "Before drawing lots for the starting numbers"
+      gettext("Before drawing lots for the starting numbers")
     )
 
     starting_numbers_result(
@@ -1365,7 +1439,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     capture_bulk(
       socket,
       "player.starting_numbers_set",
-      "Before re-seeding the starting numbers by rating"
+      gettext("Before re-seeding the starting numbers by rating")
     )
 
     starting_numbers_result(
@@ -1379,7 +1453,7 @@ defmodule PairingsEngineWeb.PlayersLive do
     capture_bulk(
       socket,
       "player.starting_numbers_set",
-      "Before re-seeding the starting numbers by entry order"
+      gettext("Before re-seeding the starting numbers by entry order")
     )
 
     starting_numbers_result(
@@ -1508,7 +1582,11 @@ defmodule PairingsEngineWeb.PlayersLive do
         capture_bulk(
           socket,
           "player.ratings_refreshed",
-          "Before refreshing the ratings of #{distinct_players(proposals)} #{players_word(distinct_players(proposals))}"
+          ngettext(
+            "Before refreshing the ratings of %{count} player",
+            "Before refreshing the ratings of %{count} players",
+            distinct_players(proposals)
+          )
         )
 
     case RatingRefresh.apply(socket.assigns.tournament, proposals) do
@@ -1530,7 +1608,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         {:noreply, put_flash(socket, :error, error_text(:archived))}
 
       {:error, _reason} ->
-        {:noreply, put_flash(socket, :error, "Could not apply the rating refresh")}
+        {:noreply, put_flash(socket, :error, gettext("Could not apply the rating refresh"))}
     end
   end
 
@@ -1594,7 +1672,11 @@ defmodule PairingsEngineWeb.PlayersLive do
         capture_bulk(
           socket,
           "player.data_refreshed",
-          "Before updating the data of #{distinct_players(proposals)} #{players_word(distinct_players(proposals))}"
+          ngettext(
+            "Before updating the data of %{count} player",
+            "Before updating the data of %{count} players",
+            distinct_players(proposals)
+          )
         )
 
     case PlayerDataRefresh.apply(socket.assigns.tournament, proposals) do
@@ -1621,7 +1703,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   def handle_event("edit_player", %{"id" => id}, socket) do
     case Tournaments.get_player(socket.assigns.tournament.id, id) do
       nil ->
-        {:noreply, socket}
+        {:noreply, player_gone(socket)}
 
       player ->
         # A join round that is not set is shown as worked out, so the field
@@ -1680,6 +1762,7 @@ defmodule PairingsEngineWeb.PlayersLive do
      assign(socket,
        edit_form: params,
        edit_fide_conflicts: nil,
+       edit_pre_lookup: nil,
        edit_sent_rounds: Tournaments.sent_absence_rounds(socket.assigns.editing_player, params),
        edit_half_rounds:
          Tournaments.second_half_bye_rounds(socket.assigns.editing_player, params),
@@ -1718,12 +1801,22 @@ defmodule PairingsEngineWeb.PlayersLive do
 
       String.trim(typed_name) != "" ->
         case Fide.search(typed_name) do
-          [fp | _] -> apply_fide_match(socket, form, fp)
-          [] -> {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
+          [fp] ->
+            apply_fide_match(socket, form, fp)
+
+          [_, _ | _] ->
+            {:noreply,
+             assign(socket,
+               edit_error:
+                 gettext("Several FIDE players match this name; search by FIDE ID instead.")
+             )}
+
+          [] ->
+            {:noreply, assign(socket, edit_error: gettext("No matching FIDE player found"))}
         end
 
       true ->
-        {:noreply, assign(socket, edit_error: "Enter a FIDE ID or name first")}
+        {:noreply, assign(socket, edit_error: gettext("Enter a FIDE ID or name first"))}
     end
   end
 
@@ -1734,12 +1827,17 @@ defmodule PairingsEngineWeb.PlayersLive do
 
       conflicts ->
         merged = Map.merge(socket.assigns.edit_form, conflicts)
-        {:noreply, assign(socket, edit_form: merged, edit_fide_conflicts: nil)}
+
+        {:noreply,
+         assign(socket, edit_form: merged, edit_fide_conflicts: nil, edit_pre_lookup: nil)}
     end
   end
 
+  # Rejecting puts the form back as it was before the lookup, so the FIDE
+  # values that went in straight away (ID, title, rating) go out again.
   def handle_event("reject_fide_conflicts", _params, socket) do
-    {:noreply, assign(socket, edit_fide_conflicts: nil)}
+    form = socket.assigns.edit_pre_lookup || socket.assigns.edit_form
+    {:noreply, assign(socket, edit_form: form, edit_fide_conflicts: nil, edit_pre_lookup: nil)}
   end
 
   # KBSB counterpart of refresh_edit_fide/2: looked up by National ID only
@@ -1764,7 +1862,7 @@ defmodule PairingsEngineWeb.PlayersLive do
 
     cond do
       national_id == "" ->
-        {:noreply, assign(socket, edit_error: "Enter a National ID first")}
+        {:noreply, assign(socket, edit_error: gettext("Enter a National ID first"))}
 
       kp = Members.find_by_national_id(national_id) ->
         merged =
@@ -1797,7 +1895,7 @@ defmodule PairingsEngineWeb.PlayersLive do
         end
 
       true ->
-        {:noreply, assign(socket, edit_error: "No matching KBSB player found")}
+        {:noreply, assign(socket, edit_error: gettext("No matching KBSB player found"))}
     end
   end
 
@@ -1805,68 +1903,10 @@ defmodule PairingsEngineWeb.PlayersLive do
   # dialog's own tick, `player[sent_ack]`; `update_player/3` refuses
   # without it, whatever the page showed.
   def handle_event("save_player", %{"player" => params}, socket) do
-    before = socket.assigns.editing_player
-    form_params = params
-    params = keep_derived_start(params, socket.assigns.edit_derived_start)
-    params = expand_bye_choice(params, socket.assigns.tournament)
-    sent = Tournaments.sent_absence_rounds(before, params)
-
-    acknowledged =
-      List.flatten([
-        if(params["sent_ack"] == "true", do: [:sent_round_changed], else: []),
-        if(params["half_ack"] == "true", do: [:second_half_bye], else: [])
-      ])
-
-    # The write and its audit row: `DeskActions.update_player/5`, which the
-    # phone app's player changes go through too.
-    case DeskActions.update_player(
-           socket.assigns.tournament,
-           socket.assigns.current_scope,
-           before,
-           params,
-           acknowledged
-         ) do
-      {:ok, _player} ->
-        {:noreply,
-         socket
-         |> assign(
-           editing_player: nil,
-           edit_form: %{},
-           edit_error: nil,
-           edit_fide_conflicts: nil,
-           edit_half_rounds: [],
-           edit_bye_types: []
-         )
-         |> assign_players()}
-
-      {:error, {:needs_acknowledgement, [:second_half_bye]}} ->
-        {:noreply,
-         assign(socket,
-           edit_error: nil,
-           edit_form: form_params,
-           edit_half_rounds: Tournaments.second_half_bye_rounds(before, params),
-           edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
-         )}
-
-      {:error, {:needs_acknowledgement, _ids}} ->
-        {:noreply,
-         assign(socket,
-           edit_error:
-             gettext(
-               "Not saved: round %{rounds} was already sent to FIDE. Tick the box under the absences to change it anyway.",
-               rounds: Enum.join(sent, ", ")
-             ),
-           edit_form: form_params,
-           edit_sent_rounds: sent
-         )}
-
-      {:error, changeset} ->
-        {:noreply,
-         assign(socket,
-           edit_error: error_text(changeset),
-           edit_form: form_params,
-           edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
-         )}
+    case socket.assigns.editing_player &&
+           Tournaments.get_player(socket.assigns.tournament.id, socket.assigns.editing_player.id) do
+      %Player{} = fresh -> save_player(socket, fresh, params)
+      _ -> {:noreply, close_edit_if_gone(socket, socket.assigns.tournament)}
     end
   end
 
@@ -1917,7 +1957,7 @@ defmodule PairingsEngineWeb.PlayersLive do
   # which case it's staged in `edit_fide_conflicts` for the template's
   # confirm box instead.
   defp apply_fide_match(socket, _form, nil) do
-    {:noreply, assign(socket, edit_error: "No matching FIDE player found")}
+    {:noreply, assign(socket, edit_error: gettext("No matching FIDE player found"))}
   end
 
   defp apply_fide_match(socket, form, %FidePlayer{} = fp) do
@@ -1945,7 +1985,8 @@ defmodule PairingsEngineWeb.PlayersLive do
      assign(socket,
        edit_form: merged,
        edit_error: nil,
-       edit_fide_conflicts: if(conflicts == %{}, do: nil, else: conflicts)
+       edit_fide_conflicts: if(conflicts == %{}, do: nil, else: conflicts),
+       edit_pre_lookup: if(conflicts == %{}, do: nil, else: form)
      )}
   end
 
@@ -2011,11 +2052,16 @@ defmodule PairingsEngineWeb.PlayersLive do
            socket.assigns.current_scope,
            params
          ) do
-      {:ok, _player} ->
+      {:ok, player} ->
         {:noreply,
          socket
          |> assign(
            error: nil,
+           add_note:
+             gettext("Added %{name} (#%{n}).",
+               name: player.name,
+               n: player.pairing_number || "-"
+             ),
            form_values: %{},
            confirm_sex: false,
            add_start_round: Tournaments.next_start_round(socket.assigns.tournament.id)
@@ -2023,10 +2069,80 @@ defmodule PairingsEngineWeb.PlayersLive do
          |> assign_players()}
 
       {:error, :duplicate_fide_id} ->
-        {:noreply, assign(socket, error: "A player with this FIDE ID is already registered")}
+        {:noreply,
+         assign(socket,
+           add_note: nil,
+           error: gettext("A player with this FIDE ID is already registered")
+         )}
 
       {:error, changeset} ->
-        {:noreply, assign(socket, error: error_text(changeset), form_values: params)}
+        {:noreply,
+         assign(socket, add_note: nil, error: error_text(changeset), form_values: params)}
+    end
+  end
+
+  defp save_player(socket, before, params) do
+    form_params = params
+    params = keep_derived_start(params, socket.assigns.edit_derived_start)
+    params = expand_bye_choice(params, socket.assigns.tournament)
+    sent = Tournaments.sent_absence_rounds(before, params)
+
+    acknowledged =
+      List.flatten([
+        if(params["sent_ack"] == "true", do: [:sent_round_changed], else: []),
+        if(params["half_ack"] == "true", do: [:second_half_bye], else: [])
+      ])
+
+    # The write and its audit row: `DeskActions.update_player/5`, which the
+    # phone app's player changes go through too.
+    case DeskActions.update_player(
+           socket.assigns.tournament,
+           socket.assigns.current_scope,
+           before,
+           params,
+           acknowledged
+         ) do
+      {:ok, _player} ->
+        {:noreply,
+         socket
+         |> assign(
+           editing_player: nil,
+           edit_form: %{},
+           edit_error: nil,
+           edit_fide_conflicts: nil,
+           edit_half_rounds: [],
+           edit_bye_types: []
+         )
+         |> assign_players()}
+
+      {:error, {:needs_acknowledgement, [:second_half_bye]}} ->
+        {:noreply,
+         assign(socket,
+           edit_error: nil,
+           edit_form: form_params,
+           edit_half_rounds: Tournaments.second_half_bye_rounds(before, params),
+           edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
+         )}
+
+      {:error, {:needs_acknowledgement, _ids}} ->
+        {:noreply,
+         assign(socket,
+           edit_error:
+             gettext(
+               "Not saved: round %{rounds} was already sent to FIDE. Tick the box under the absences to change it anyway.",
+               rounds: Enum.join(sent, ", ")
+             ),
+           edit_form: form_params,
+           edit_sent_rounds: sent
+         )}
+
+      {:error, changeset} ->
+        {:noreply,
+         assign(socket,
+           edit_error: error_text(changeset),
+           edit_form: form_params,
+           edit_bye_types: bye_type_rows(socket.assigns.tournament, before, params)
+         )}
     end
   end
 
@@ -2559,8 +2675,21 @@ defmodule PairingsEngineWeb.PlayersLive do
   # render/1) additionally links each item to the Settings (sub-)page it
   # lives on.
   defp missing_setup_summary(missing) do
-    Enum.map_join(missing, "; ", fn {_field, message} -> message end)
+    Enum.map_join(missing, "; ", fn {field, message} -> missing_label(field, message) end)
   end
+
+  defp setup_missing_text(missing) do
+    gettext("Finish the tournament setup before adding players - missing: %{fields}",
+      fields: missing_setup_summary(missing)
+    )
+  end
+
+  # `Tournament.missing_setup_fields/1` words its fields in English.
+  defp missing_label(:name, _), do: gettext("Tournament name")
+  defp missing_label(:rounds_count, _), do: gettext("Number of rounds")
+  defp missing_label(:round_dates, _), do: gettext("Round dates (one per round)")
+  defp missing_label(:tiebreaks, _), do: gettext("Tie-break selection")
+  defp missing_label(_field, message), do: message
 
   # Full column list for `tournament`: the fixed sequence with the tiebreak
   # columns spliced in at the tournament's own configured order - any
@@ -2568,7 +2697,11 @@ defmodule PairingsEngineWeb.PlayersLive do
   # tiebreaks configured, i.e. `tiebreaks == []`) falls back to appearing
   # after the configured ones, in `@tiebreak_columns`'s fixed order.
   defp all_columns(tournament) do
-    @columns_before_tiebreaks ++ tiebreak_columns(tournament) ++ @columns_after_tiebreaks
+    (@columns_before_tiebreaks ++ tiebreak_columns(tournament) ++ @columns_after_tiebreaks)
+    |> Enum.map(fn {key, label, num, desc} ->
+      {key, Gettext.gettext(PairingsEngineWeb.Gettext, label), num,
+       Gettext.gettext(PairingsEngineWeb.Gettext, desc)}
+    end)
   end
 
   # Whether `key` is one `toggle_column` may actually act on - `all_columns/1`'s
@@ -3024,10 +3157,8 @@ defmodule PairingsEngineWeb.PlayersLive do
             disabled={!@setup_complete}
             title={
               if @setup_complete,
-                do: "Add player (Ctrl+I)",
-                else:
-                  "Finish the tournament setup first - missing: " <>
-                    missing_setup_summary(@missing_setup)
+                do: gettext("Add player (Ctrl+I)"),
+                else: setup_missing_text(@missing_setup)
             }
           >
             <.icon name="hero-user-plus-micro" class="pe-btn-icon" /> {gettext("Add player")}
@@ -3043,7 +3174,10 @@ defmodule PairingsEngineWeb.PlayersLive do
             re-renders this. The Registrations page has the fetch button, the
             decided entries and the longer explanation. --%>
       <section
-        :if={@queue != [] or (@tournament.registration_open and @tournament.publish_to_openresults)}
+        :if={
+          @queue != [] or (@tournament.registration_open and @tournament.publish_to_openresults) or
+            @queue_decided?
+        }
         id="registration-queue-card"
         class="card reg-queue-card"
         aria-labelledby="registration-queue-title"
@@ -3074,7 +3208,16 @@ defmodule PairingsEngineWeb.PlayersLive do
 
         <p :if={@queue_error} class="error-note" role="alert">{@queue_error}</p>
 
-        <p :if={@queue_note} class="ok-note">{@queue_note}</p>
+        <p :if={@queue_note} class="ok-note">
+          {@queue_note}
+          <.link
+            :if={@queue_note_restore}
+            id="queue-restore-link"
+            navigate={~p"/t/#{@tournament.id}/registrations"}
+          >
+            {gettext("Put it back on the Entries page")}
+          </.link>
+        </p>
         <RegistrationQueue.pending_list :if={@queue != []} queue={@queue} compact />
       </section>
 
@@ -3233,6 +3376,28 @@ defmodule PairingsEngineWeb.PlayersLive do
             </div>
           </div>
         </div>
+
+        <p :if={@add_note} id="add-player-note" class="ok-note" role="status">{@add_note}</p>
+
+        <p
+          :if={
+            String.length(String.trim(@query)) >= 2 and @results == [] and @kbsb_results == [] and
+              @custom_results == []
+          }
+          id="add-player-no-match"
+          class="hint"
+        >
+          {if PairingsEngine.Fide.player_count() == 0,
+            do: gettext("No FIDE list has been downloaded yet. Update it on the Connections page."),
+            else: gettext("No match. Fill in by hand below.")}
+          <.link
+            :if={PairingsEngine.Fide.player_count() == 0}
+            navigate={~p"/fide"}
+            id="add-player-connections-link"
+          >
+            {gettext("Connections")}
+          </.link>
+        </p>
 
         <p class="hint">{gettext("…or fill the details in by hand below.")}</p>
 
@@ -3427,9 +3592,7 @@ defmodule PairingsEngineWeb.PlayersLive do
             disabled={!@setup_complete}
             title={
               if !@setup_complete,
-                do:
-                  "Finish the tournament setup first - missing: " <>
-                    missing_setup_summary(@missing_setup)
+                do: setup_missing_text(@missing_setup)
             }
           >
             {gettext("Add player")}
@@ -3480,6 +3643,8 @@ defmodule PairingsEngineWeb.PlayersLive do
             aria-describedby="players-grid-keys"
             phx-hook="PlayerGrid"
             data-categories={Jason.encode!(@tournament.categories || [])}
+            data-menu-labels={Jason.encode!(menu_labels())}
+            data-player-total={@player_total}
             data-row-gone={
               gettext("%[name] is no longer in the grid; you are on the row that took its place.")
             }
@@ -3627,7 +3792,7 @@ defmodule PairingsEngineWeb.PlayersLive do
                     tabindex="-1"
                     phx-click="delete"
                     phx-value-id={p.player.id}
-                    data-confirm={"Remove #{p.player.name} from the tournament?"}
+                    data-confirm={remove_confirm(p)}
                   >
                     {gettext("Remove")}
                   </button>
@@ -3753,6 +3918,69 @@ defmodule PairingsEngineWeb.PlayersLive do
 
   defp tpn_round(socket), do: Standings.rounds_paired(socket.assigns.tournament.id)
 
+  defp bulk_flash(socket, count) do
+    put_flash(
+      socket,
+      :info,
+      ngettext("%{count} player updated", "%{count} players updated", count)
+    )
+  end
+
+  defp remove_confirm(%{games: [_ | _] = games, player: player}) do
+    gettext(
+      "%{name} has played %{n} games. Removing them empties their seat in those games and changes opponents' results. To stop pairing them, withdraw them instead (edit dialog).",
+      name: player.name,
+      n: length(games)
+    )
+  end
+
+  defp remove_confirm(%{player: player}),
+    do: gettext("Remove %{name} from the tournament?", name: player.name)
+
+  # The words of the grid's right-click menus, English -> this language; the
+  # `PlayerGrid` hook fills in the names (`{name}`) itself.
+  defp menu_labels do
+    %{
+      "Absent" => gettext("Absent"),
+      "Present" => gettext("Present"),
+      "All Absent" => gettext("All Absent"),
+      "All Present" => gettext("All Present"),
+      "Paid" => gettext("Paid"),
+      "Not paid" => gettext("Not paid"),
+      "Gratis" => gettext("Gratis"),
+      "All Paid" => gettext("All Paid"),
+      "All Not paid" => gettext("All Not paid"),
+      "All Gratis" => gettext("All Gratis"),
+      "Remove {name}" => gettext("Remove %{name}", name: "{name}"),
+      "Add {name}" => gettext("Add %{name}", name: "{name}"),
+      "Group by {name}" => gettext("Group by %{name}", name: "{name}"),
+      "Show only {name}" => gettext("Show only %{name}", name: "{name}"),
+      "Add {name} to everyone" => gettext("Add %{name} to everyone", name: "{name}"),
+      "Remove {name} from everyone" => gettext("Remove %{name} from everyone", name: "{name}"),
+      "Show all rows" => gettext("Show all rows"),
+      "Sort by pairing category" => gettext("Sort by pairing category"),
+      "Apply \"{action}\" to all {count} players? A restore point is kept." =>
+        gettext("Apply \"%{action}\" to all %{count} players? A restore point is kept.",
+          action: "{action}",
+          count: "{count}"
+        )
+    }
+  end
+
+  defp player_has_games?(socket, player) do
+    Enum.any?(socket.assigns.players, fn entry ->
+      entry.player.id == player.id and entry.games != []
+    end)
+  end
+
+  # A row id that no longer exists (removed in another window, a stale tab):
+  # say so and show the roster as it is now.
+  defp player_gone(socket) do
+    socket
+    |> put_flash(:error, gettext("That player is no longer in this tournament."))
+    |> assign_players()
+  end
+
   # A restore point ahead of a bulk change: one click rewrites many players,
   # and the audit trail's per-field diff does not scale to "all of them".
   # Fire-and-forget, like every other call site - see `PairingsEngine.Snapshots`.
@@ -3769,14 +3997,11 @@ defmodule PairingsEngineWeb.PlayersLive do
   # is two of them; the restore point's label counts people.
   defp distinct_players(proposals), do: proposals |> Enum.uniq_by(& &1.player.id) |> length()
 
-  defp players_word(1), do: "player"
-  defp players_word(_), do: "players"
-
   defp apply_regeneration(socket, changes) do
     capture_bulk(
       socket,
       "player.pairing_numbers_changed",
-      "Before re-seeding the pairing numbers"
+      gettext("Before re-seeding the pairing numbers")
     )
 
     tpn_result(
@@ -3911,27 +4136,29 @@ defmodule PairingsEngineWeb.PlayersLive do
             </strong>
           </p>
 
-          <table class="pe-table">
-            <thead>
-              <tr>
-                <th>{gettext("Player")}</th>
+          <div class="card-table-wrap">
+            <table class="pe-table">
+              <thead>
+                <tr>
+                  <th>{gettext("Player")}</th>
 
-                <th class="num">{gettext("Old")}</th>
+                  <th class="num">{gettext("Old")}</th>
 
-                <th class="num">{gettext("New")}</th>
-              </tr>
-            </thead>
+                  <th class="num">{gettext("New")}</th>
+                </tr>
+              </thead>
 
-            <tbody>
-              <tr :for={{player, old, new} <- @changes}>
-                <td>{player.name}</td>
+              <tbody>
+                <tr :for={{player, old, new} <- @changes}>
+                  <td>{player.name}</td>
 
-                <td class="num">{old || "-"}</td>
+                  <td class="num">{old || "-"}</td>
 
-                <td class="num"><strong>{new}</strong></td>
-              </tr>
-            </tbody>
-          </table>
+                  <td class="num"><strong>{new}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
           <div class="actions">
             <button
@@ -4542,10 +4769,10 @@ defmodule PairingsEngineWeb.PlayersLive do
     """
   end
 
-  defp field_label(:fide_rating), do: "FIDE rating"
+  defp field_label(:fide_rating), do: gettext("FIDE rating")
   defp field_label(:period_rating), do: gettext("Later FIDE rating")
-  defp field_label(:national_rating), do: "National rating"
-  defp field_label(:title), do: "Title"
+  defp field_label(:national_rating), do: gettext("National rating")
+  defp field_label(:title), do: gettext("Title")
   defp field_label(:club), do: gettext("Club")
   defp field_label(:club_number), do: gettext("Club number")
   defp field_label(:name), do: gettext("Name")
@@ -4622,9 +4849,9 @@ defmodule PairingsEngineWeb.PlayersLive do
   defp rating_or_dash(0), do: "-"
   defp rating_or_dash(rating), do: rating
 
-  defp fide_conflict_label("name"), do: "Name"
-  defp fide_conflict_label("sex"), do: "Sex"
-  defp fide_conflict_label("birth_year"), do: "Birth year"
+  defp fide_conflict_label("name"), do: gettext("Name")
+  defp fide_conflict_label("sex"), do: gettext("Sex")
+  defp fide_conflict_label("birth_year"), do: gettext("Birth year")
   defp fide_conflict_label(key), do: key
 
   defp fide_conflict_display("sex", "m"), do: "M"
@@ -4729,7 +4956,6 @@ defmodule PairingsEngineWeb.PlayersLive do
         class="modal-card"
         phx-submit="save_player"
         phx-change="edit_form_change"
-        phx-click-away="close_edit"
         role="dialog"
         aria-modal="true"
         aria-labelledby="player-edit-title"

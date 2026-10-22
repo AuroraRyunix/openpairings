@@ -305,4 +305,27 @@ defmodule PairingsEngineWeb.TeamsLiveTest do
       assert {t.team_match_points_win, t.team_match_points_draw} == {3.0, 1.0}
     end
   end
+
+  describe "UX gaps" do
+    test "the add-team form is empty again after a team is added", %{conn: conn, scope: scope} do
+      t = team_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/teams")
+
+      assert has_element?(lv, "#create-team-name-0")
+
+      lv |> form("#create-team-form", team: %{name: "Rooks"}) |> render_submit()
+
+      assert has_element?(lv, "#create-team-name-1")
+      refute has_element?(lv, "#create-team-name-0")
+      refute has_element?(lv, "#create-team-form input[value=Rooks]")
+    end
+
+    test "a team that is gone answers instead of doing nothing", %{conn: conn, scope: scope} do
+      t = team_tournament(scope)
+      {:ok, lv, _html} = live(conn, ~p"/t/#{t.id}/teams")
+
+      html = render_click(lv, "delete_team", %{"team_id" => "999999"})
+      assert html =~ "That team or player is not in this tournament."
+    end
+  end
 end

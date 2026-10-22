@@ -106,21 +106,22 @@ const CELL_MENUS = {
     // Several names per player, so the menu survives a pick - see the item
     // click handler in openCellMenu.
     multi: true,
-    items: (categories, tags) =>
+    // Labels go through `t`, the page's own translations (see menuText).
+    items: (categories, tags, t) =>
       categories.map((c) =>
         tags.includes(c)
-          ? [`Remove ${c}`, {name: c, value: "false"}]
-          : [`Add ${c}`, {name: c, value: "true"}]
+          ? [t("Remove {name}", {name: c}), {name: c, value: "false"}]
+          : [t("Add {name}", {name: c}), {name: c, value: "true"}]
       ),
-    bulkItems: (categories) => [
+    bulkItems: (categories, t) => [
       ...categories.flatMap((c) => [
-        [`Group by ${c}`, {sort: "cat:" + c}],
-        [`Show only ${c}`, {filter: c}],
-        [`Add ${c} to everyone`, {name: c, value: "true"}],
-        [`Remove ${c} from everyone`, {name: c, value: "false"}],
+        [t("Group by {name}", {name: c}), {sort: "cat:" + c}],
+        [t("Show only {name}", {name: c}), {filter: c}],
+        [t("Add {name} to everyone", {name: c}), {name: c, value: "true"}],
+        [t("Remove {name} from everyone", {name: c}), {name: c, value: "false"}],
       ]),
-      ["Show all rows", {filter: ""}],
-      ["Sort by pairing category", {sort: "cat"}],
+      [t("Show all rows"), {filter: ""}],
+      [t("Sort by pairing category"), {sort: "cat"}],
     ],
   },
 }
@@ -464,11 +465,12 @@ const PlayerGrid = {
     if (!menu) return
 
     const bulk = playerId === null
+    const t = (key, vars) => this.menuText(key, vars)
     const items = menu.dynamic
       ? this.dynamicCellMenuItems(menu, col, bulk, playerId)
       : bulk
-        ? menu.bulkItems
-        : menu.items
+        ? menu.bulkItems.map(([label, value]) => [t(label), value])
+        : menu.items.map(([label, value]) => [t(label), value])
 
     // Nothing to offer - a tournament with no categories defined yet. An
     // empty popup is a bare box that appears and goes again on the next
@@ -508,6 +510,19 @@ const PlayerGrid = {
       btn.setAttribute("role", "menuitem")
       btn.textContent = label
       btn.addEventListener("click", () => {
+        // One click on a bulk item rewrites every player, so it asks first
+        // (a sort or a filter only changes what is shown, so it does not).
+        if (bulk && !(typeof value === "object" && isViewChange(value))) {
+          const ask = t("Apply \"{action}\" to all {count} players? A restore point is kept.", {
+            action: label,
+            count: this.el.dataset.playerTotal || "",
+          })
+          if (!window.confirm(ask)) {
+            this.closeCellMenu()
+            return
+          }
+        }
+
         // A dynamic entry's value is already the whole payload (it names
         // which category, and whether this is a sort, a filter or a write);
         // a static one is a bare value the server reads as `value`.
@@ -582,12 +597,24 @@ const PlayerGrid = {
   dynamicCellMenuItems(menu, col, bulk, playerId) {
     const categories = readJsonAttr(this.el, "categories")
     if (!categories.length) return []
-    if (bulk) return menu.bulkItems(categories)
+    if (bulk) return menu.bulkItems(categories, (k, v) => this.menuText(k, v))
 
     const cell = this.el.querySelector(
       `tr[data-player-id="${playerId}"] td[data-col="${col}"]`
     )
-    return menu.items(categories, readJsonAttr(cell, "tags"))
+    return menu.items(categories, readJsonAttr(cell, "tags"), (k, v) => this.menuText(k, v))
+  },
+
+  // The menu's words, in the page's language: the server renders a map from
+  // each English label to its translation into `data-menu-labels`, and a
+  // label with no entry is shown as written. `{name}` and friends are
+  // filled in here because the names belong to the tournament.
+  menuText(key, vars = {}) {
+    let labels = {}
+    try { labels = JSON.parse(this.el.dataset.menuLabels || "{}") } catch {}
+    let text = labels[key] || key
+    for (const [name, value] of Object.entries(vars)) text = text.split(`{${name}}`).join(value)
+    return text
   },
 
   // `refocus` when the keyboard closed it: back to the header that opened it,
