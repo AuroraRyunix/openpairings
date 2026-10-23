@@ -165,14 +165,7 @@ defmodule PairingsEngine.TeamRounds do
     by_number = Map.new(teams, &{&1.pairing_number, &1})
     boards = tournament.team_boards
     optional? = Tournament.team_lineups_optional?(tournament)
-
-    # A team out of the round as a team fields nobody.
-    lineups =
-      Map.new(teams, fn team ->
-        if Tournaments.team_in_round?(team, number),
-          do: {team.id, lineup(Tournaments.team_roster(tournament.id, team.id), number, boards)},
-          else: {team.id, []}
-      end)
+    lineups = lineups(tournament, teams, number)
 
     Repo.transaction(fn ->
       # Numbered in team-number order across the whole field, so the numbers
@@ -205,18 +198,7 @@ defmodule PairingsEngine.TeamRounds do
         team_a = Map.fetch!(by_number, a)
         team_b = Map.fetch!(by_number, b)
 
-        out = teams_out(team_a, team_b, number)
-
-        # Neither team plays: both are out of the round as teams, or - with
-        # required line-ups - neither can field a single player. Neither
-        # turned up, so it is a double forfeit (both lose the match), not the
-        # drawn 0-0 a match without boards would otherwise score. With
-        # optional line-ups its boards are `0-0FF`; with required ones it
-        # has none.
-        nobody? =
-          out == :both or
-            (not optional? and Map.fetch!(lineups, team_a.id) == [] and
-               Map.fetch!(lineups, team_b.id) == [])
+        {nobody?, seats} = plan_match(lineups, team_a, team_b, number, boards, optional?)
 
         match =
           Repo.insert!(%Match{
@@ -227,9 +209,7 @@ defmodule PairingsEngine.TeamRounds do
             double_forfeit: nobody?
           })
 
-        Map.fetch!(lineups, team_a.id)
-        |> match_boards(Map.fetch!(lineups, team_b.id), boards, optional: optional?, out: out)
-        |> Enum.each(fn {k, white, black, result} ->
+        Enum.each(seats, fn {k, white, black, result} ->
           Repo.insert!(%Pairing{
             round_id: round.id,
             match_id: match.id,
@@ -256,6 +236,83 @@ defmodule PairingsEngine.TeamRounds do
       Tournaments.freeze_round_display_boards!(round.id)
       round
     end)
+  end
+
+  @doc """
+  Round `number` as `create_round/4` would seat it from `entries`, without
+  writing it: one map per match in the order written - `%{number:, team_a:,
+  team_b:, double_forfeit:, boards: [{board_in_match, white, black,
+  result}]}`, `team_b` nil and no boards for a bye. The line-ups are the
+  rosters as they stand now, so a round printed ahead of its pairing shows
+  who would sit down if it were paired this minute (players are left
+  unnumbered: pairing numbers them).
+  """
+  def planned_matches(%Tournament{} = tournament, teams, entries, number) do
+    by_number = Map.new(teams, &{&1.pairing_number, &1})
+    boards = tournament.team_boards
+    optional? = Tournament.team_lineups_optional?(tournament)
+    lineups = lineups(tournament, teams, number)
+    played = Enum.filter(entries, &match?({:pairing, _, _}, &1))
+
+    games =
+      played
+      |> Enum.with_index(1)
+      |> Enum.map(fn {{:pairing, a, b}, match_no} ->
+        team_a = Map.fetch!(by_number, a)
+        team_b = Map.fetch!(by_number, b)
+        {nobody?, seats} = plan_match(lineups, team_a, team_b, number, boards, optional?)
+
+        %{
+          number: match_no,
+          team_a: team_a,
+          team_b: team_b,
+          double_forfeit: nobody?,
+          boards: seats
+        }
+      end)
+
+    byes =
+      entries
+      |> Enum.filter(&match?({:bye, _}, &1))
+      |> Enum.with_index(length(played) + 1)
+      |> Enum.map(fn {{:bye, n}, match_no} ->
+        %{
+          number: match_no,
+          team_a: Map.fetch!(by_number, n),
+          team_b: nil,
+          double_forfeit: false,
+          boards: []
+        }
+      end)
+
+    games ++ byes
+  end
+
+  # A team out of the round as a team fields nobody.
+  defp lineups(tournament, teams, number) do
+    boards = tournament.team_boards
+
+    Map.new(teams, fn team ->
+      if Tournaments.team_in_round?(team, number),
+        do: {team.id, lineup(Tournaments.team_roster(tournament.id, team.id), number, boards)},
+        else: {team.id, []}
+    end)
+  end
+
+  # One match's seats, `{double_forfeit?, [{k, white, black, result}]}`.
+  #
+  # Neither team plays: both are out of the round as teams, or - with
+  # required line-ups - neither can field a single player. Neither turned
+  # up, so it is a double forfeit (both lose the match), not the drawn 0-0 a
+  # match without boards would otherwise score. With optional line-ups its
+  # boards are `0-0FF`; with required ones it has none.
+  defp plan_match(lineups, team_a, team_b, number, boards, optional?) do
+    out = teams_out(team_a, team_b, number)
+    lineup_a = Map.fetch!(lineups, team_a.id)
+    lineup_b = Map.fetch!(lineups, team_b.id)
+    nobody? = out == :both or (not optional? and lineup_a == [] and lineup_b == [])
+
+    {nobody?, match_boards(lineup_a, lineup_b, boards, optional: optional?, out: out)}
   end
 
   @doc """

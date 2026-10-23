@@ -227,7 +227,7 @@ defmodule PairingsEngineWeb.PrintController do
   # tournament's own `categories` (compared as a string, never turned into an
   # atom); anything else, including no parameter, means "all players" and the
   # document renders exactly as it always did.
-  defp print_category(tournament, params) do
+  def print_category(tournament, params) do
     case params["category"] do
       name when is_binary(name) and name != "" ->
         if name in (tournament.categories || []), do: name
@@ -242,9 +242,9 @@ defmodule PairingsEngineWeb.PrintController do
   # for "U1800" has to agree with the pool the engine paired. Otherwise a
   # player is in a category when it is one of their tags - the rule the
   # per-category standings tables use (`Categories.in_category?/2`).
-  defp in_print_category?(_tournament, nil, _category), do: false
+  def in_print_category?(_tournament, nil, _category), do: false
 
-  defp in_print_category?(tournament, player, category) do
+  def in_print_category?(tournament, player, category) do
     if Map.get(tournament, :pair_by_category) == true do
       Categories.pairing_category(tournament, player) == category
     else
@@ -252,9 +252,9 @@ defmodule PairingsEngineWeb.PrintController do
     end
   end
 
-  defp filter_players(players, _tournament, nil), do: players
+  def filter_players(players, _tournament, nil), do: players
 
-  defp filter_players(players, tournament, category),
+  def filter_players(players, tournament, category),
     do: Enum.filter(players, &in_print_category?(tournament, &1, category))
 
   defp filter_entries(entries, _tournament, nil), do: entries
@@ -265,9 +265,9 @@ defmodule PairingsEngineWeb.PrintController do
   # A board stays when either of its players is in the category (both are,
   # when the tournament pairs by category). A bye row counts through its one
   # player. Board numbers are never touched.
-  defp filter_pairings(pairings, _tournament, nil), do: pairings
+  def filter_pairings(pairings, _tournament, nil), do: pairings
 
-  defp filter_pairings(pairings, tournament, category) do
+  def filter_pairings(pairings, tournament, category) do
     Enum.filter(pairings, fn p ->
       in_print_category?(tournament, p.white_player, category) or
         in_print_category?(tournament, p.black_player, category)
@@ -597,41 +597,27 @@ defmodule PairingsEngineWeb.PrintController do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     category = print_category(tournament, params)
 
+    # Pairing-number order once there are numbers (a round robin's table
+    # order), the roster's order otherwise.
     players =
-      tournament.id |> Tournaments.list_players() |> filter_players(tournament, category)
+      tournament.id
+      |> Tournaments.list_players()
+      |> filter_players(tournament, category)
+      |> Enum.sort_by(&{is_nil(&1.pairing_number), &1.pairing_number})
 
-    round_rows =
-      Enum.map_join(1..tournament.rounds_count, "", fn n ->
-        "<tr><td class=\"num\">#{n}</td><td></td><td></td><td></td><td></td></tr>"
-      end)
-
-    cards =
-      players
-      |> Enum.with_index(1)
-      |> Enum.map_join("", fn {p, i} ->
-        meta =
-          [
-            if(p.fide_rating > 0, do: "FIDE #{p.fide_rating}"),
-            if(p.national_rating > 0, do: "Nat. #{p.national_rating}"),
-            if(p.federation != "", do: esc(p.federation)),
-            if(p.club != "", do: esc(p.club))
-          ]
-          |> Enum.reject(&is_nil/1)
-          |> Enum.join(" · ")
-
-        "<div class=\"player-card\"><h2>#{i}. #{esc(p.title)} #{esc(p.name)}</h2>" <>
-          "<p class=\"meta\">#{meta}</p>" <>
-          "<table><thead><tr><th class=\"num\">Rd</th><th>#{gettext("Opponent")}</th>" <>
-          "<th>#{gettext("Colour")}</th><th>#{gettext("Result")}</th>" <>
-          "<th>#{gettext("Score")}</th></tr></thead><tbody>#{round_rows}</tbody></table></div>"
-      end)
+    # Filled in from the schedule (`SchedulePrintController.cards_html/3`):
+    # every round of a round robin, the paired rounds of a Swiss with the
+    # rest left to fill in. `?blank=1` is the empty grid it used to be.
+    cards = PairingsEngineWeb.SchedulePrintController.cards_html(tournament, players, params)
 
     print_page(
       conn,
       tournament,
       tournament.name,
       with_category(gettext("Player cards"), category),
-      tournament_info_html(tournament) <> cards
+      tournament_info_html(tournament) <>
+        PairingsEngineWeb.SchedulePrintController.cards_note(tournament, params) <> cards,
+      PairingsEngineWeb.SchedulePrintController.schedule_css()
     )
   end
 
@@ -641,21 +627,37 @@ defmodule PairingsEngineWeb.PrintController do
   N°/Rnk/Nat/Tit/Opponent/N-Elo/Pts/Res/Cl/Flt table the "Players Card"
   right-click popup on the Players page shows, for one player only.
   """
-  def player_card(conn, %{"id" => id, "player_id" => player_id}) do
+  def player_card(conn, %{"id" => id, "player_id" => player_id} = params) do
     tournament = Tournaments.get_authorized_tournament!(conn.assigns.current_scope, id)
     by_id = tournament |> Standings.grid_standings() |> Map.new(&{&1.player.id, &1})
 
     with {parsed_id, ""} <- Integer.parse(player_id),
          %{} = entry <- Map.get(by_id, parsed_id) do
-      rows = PlayerCard.rows(entry, by_id, tournament)
-      totals = PlayerCard.totals(rows, entry)
+      body =
+        if PairingsEngine.PrintSchedule.round_robin?(tournament) do
+          # A round robin's card is its whole schedule: every round with its
+          # date, opponent, colour and - once played - result and running
+          # score, the rounds not paired yet from the table.
+          "<p class=\"card-header-line\">#{esc(PlayerCard.header(entry))}</p>" <>
+            PairingsEngineWeb.SchedulePrintController.cards_note(tournament, params) <>
+            PairingsEngineWeb.SchedulePrintController.cards_html(
+              tournament,
+              [entry.player],
+              params
+            )
+        else
+          rows = PlayerCard.rows(entry, by_id, tournament)
+          totals = PlayerCard.totals(rows, entry)
+          player_card_body(entry, rows, totals, tournament)
+        end
 
       print_page(
         conn,
         tournament,
         entry.player.name,
         gettext("Players Card"),
-        tournament_info_html(tournament) <> player_card_body(entry, rows, totals, tournament)
+        tournament_info_html(tournament) <> body,
+        PairingsEngineWeb.SchedulePrintController.schedule_css()
       )
     else
       _ -> print_error(conn, 404, tournament, gettext("Player not found"))
@@ -2222,9 +2224,9 @@ defmodule PairingsEngineWeb.PrintController do
       "</div>"
   end
 
-  defp result_card_name(nil), do: ""
+  def result_card_name(nil), do: ""
 
-  defp result_card_name(player),
+  def result_card_name(player),
     do: "#{if player.title != "", do: "#{player.title} "}#{player.name}"
 
   defp result_card_sub(nil, _tournament), do: ""
@@ -2362,17 +2364,17 @@ defmodule PairingsEngineWeb.PrintController do
   # right for one of the six methods and a number the pairing never looked at
   # for the other five. `fields` (a place card's field map) carries the
   # method too, because a card has no tournament in hand.
-  defp player_rating(player, %{rating_method: method}),
+  def player_rating(player, %{rating_method: method}),
     do: PairingsEngine.Tournaments.Player.rating(player, method)
 
   # The column over that rating: "Elo" where the FIDE rating leads, as every
   # sheet always said; otherwise a name for what is actually printed.
-  defp rating_header(%{rating_method: method}) when method in ["FIDE", "FIDON", nil], do: "Elo"
+  def rating_header(%{rating_method: method}) when method in ["FIDE", "FIDON", nil], do: "Elo"
 
-  defp rating_header(%{rating_method: method}) when method in ["NRO", "NIDOF"],
+  def rating_header(%{rating_method: method}) when method in ["NRO", "NIDOF"],
     do: gettext("Nat.")
 
-  defp rating_header(_tournament), do: gettext("Rtg")
+  def rating_header(_tournament), do: gettext("Rtg")
 
   # `pairing_list/2`'s name cell: the player's name plus their score
   # coming INTO this round, in brackets - "Alice (2.5)". `nil` (the empty
@@ -2391,12 +2393,12 @@ defmodule PairingsEngineWeb.PrintController do
 
   defp format_score(v), do: v
 
-  defp display_result(""), do: ""
-  defp display_result("1/2-1/2"), do: "½-½"
-  defp display_result("1/2-0"), do: "½-0"
-  defp display_result("0-1/2"), do: "0-½"
-  defp display_result("bye"), do: "bye"
-  defp display_result(result), do: result
+  def display_result(""), do: ""
+  def display_result("1/2-1/2"), do: "½-½"
+  def display_result("1/2-0"), do: "½-0"
+  def display_result("0-1/2"), do: "0-½"
+  def display_result("bye"), do: "bye"
+  def display_result(result), do: result
 
   # The credit line on every printed document, mirroring
   # `PairingsEngineWeb.SettingsAboutLive`'s own "About" tab wording (same

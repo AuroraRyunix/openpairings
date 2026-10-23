@@ -34,7 +34,8 @@ de methoden met de hoogste rating of een met de hand ingetypte rating.
 | Document | Wat het is |
 | --- | --- |
 | **Spelerslijst** | Alle ingeschreven spelers: titel, naam, ratings, federatie, club. |
-| **Spelerskaarten** | Eén kaart per speler met elke ronde van het toernooi erop, om over het bord in te vullen. |
+| **Spelerskaarten** | Eén kaart per speler met elke ronde van het toernooi: datum, bord, kleur, tegenstander, uitslag en tussenstand. Bij een rondetoernooi is de kaart voor elke ronde ingevuld, ook voor de rondes die nog niet gepaard zijn; bij een Zwitsers toernooi zijn de gespeelde rondes ingevuld en vul je de rest zelf in. Vink *leeg, om met de hand in te vullen* aan voor lege kaarten. De *Spelerskaart* van de pagina Spelers drukt bij een rondetoernooi dezelfde kaart af voor één speler. |
+| **Schema (alle rondes)** | Alleen bij een rondetoernooi: elke ronde met haar datum en borden, beide spelers met hun paringsnummer en rating, en de byes - ook de rondes die nog niet gepaard zijn (zie verder). Vinkjes: *met uitslagen* (uit geeft een leeg schema voor aan de muur) en *met data van uitgestelde partijen* (een uitgestelde partij toont *uitgesteld naar* de afgesproken datum en de locatie in plaats van haar `*`). |
 | **Paringenlijst** | De borden van een ronde, om op de locatie op te hangen. De pagina Paringen biedt ook *Paringen, met rubriek afwezigen*, die de spelers die niet spelen toevoegt, met de waarde van de ronde voor elk. Een speler met een vaste tafel is gemarkeerd, bijvoorbeeld `5 (table 5)`. |
 | **Alfabetische paringenlijst** | "Waar zit ik": de spelers gesorteerd op naam, om je bord te vinden. |
 | **Stand** | De rangschikking met de punten en de tiebreaks. |
@@ -60,6 +61,27 @@ klein paginatje met de reden en een link terug naar de pagina Afdrukken, in
 hetzelfde tabblad. De afdruk van de stand
 neemt op dezelfde manier een ronde (`?round=N`) en toont dan de stand zoals die was
 na die ronde.
+
+### Het schema van een rondetoernooi {#the-schedule-of-a-round-robin}
+
+De rondes van een rondetoernooi liggen vast in de Bergertabel, dus het schema en
+de spelerskaarten drukken elke ronde af, ook de rondes die nog niet gepaard zijn.
+Die rondes worden berekend door dezelfde code die ze paart, dus wat op papier
+staat, is wat *Paren* zal geven - met twee voorbehouden, die de afdruk boven de
+rondes vermeldt:
+
+- **Voor ronde 1 gepaard is** is het hele schema voorlopig. De tabel ligt vast bij
+  de eerste paring; tot dan verandert ze met elke nieuwe inschrijving,
+  terugtrekking of nieuwe startnummers.
+- **Daarna** staat bij een ronde die nog niet gepaard is *nog niet gepaard*. Ze
+  verandert alleen als je rondes wisselt, een ronde met de hand paart of de cycli
+  of de categorieën wijzigt. Bij een team-rondetoernooi zijn de opstellingen van
+  die rondes de teamlijsten zoals ze nu zijn: een afwezigheid of een reservespeler
+  verandert wie aan het bord zit, nooit welke teams tegen elkaar spelen.
+
+De data zijn de rondedata uit Instellingen, *Data*. Een dubbel rondetoernooi
+drukt beide cycli af. In het adres zetten `?results=0` en `?postponed=0` de twee
+vinkjes uit, en de spelerskaarten nemen `?blank=1`.
 
 ### Eén categorie afdrukken {#one-category-only}
 
@@ -106,6 +128,15 @@ opstellingen, resultaatvakjes, de matchscore en handtekeningregels voor beide
 captains en de arbiter), **teamlijsten** en **bordprijzen** (per bordnummer, de
 spelers gerangschikt op percentage, punten en prestatie, met een optioneel minimum
 aantal partijen). Zie [Teams](13-teams.md).
+
+Een team-rondetoernooi heeft ook zijn **schema (alle rondes)**: elke ronde met
+haar datum en matchen, en per match de borden met beide spelers, de kleuren en,
+met *met uitslagen*, de uitslagen en de matchscore; vink *met de opstellingen per
+bord* uit voor alleen de matchen. **Teamschema's** drukt één blad per team af:
+per ronde de tegenstander, de datum, de kleur van het team aan bord 1, de
+matchscore en de lopende matchpunten. De kaart van een speler toont per ronde het
+team waartegen het team van de speler speelt, het bord, de kleur, de tegenstander
+en de uitslag.
 
 ## Accreditatiebadges {#accreditation-badges}
 

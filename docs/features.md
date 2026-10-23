@@ -301,6 +301,14 @@ preview's fixed boards with a name-card list - all per-round where it
 makes sense, all reachable from the page they belong to. Tournaments can
 carry a logo (stored in the database, shown on printed documents).
 
+A round robin also prints its **whole schedule** (`/print/schedule`): every
+round with its date, the rounds not paired yet worked out by the very
+functions that will pair them, with or without results and agreed dates of
+postponed games. The **player cards** come filled in from it (date, board,
+colour, opponent, result, running score; Swiss: the played rounds), or blank.
+A team round robin has the same schedule with its matches board by board
+(`/print/team-schedule`) and one schedule sheet per team (`/print/team-cards`).
+
 **Accreditation badges** (`/badges`, signed in) - A6 badges, front and back,
 two to an A4 sheet: name, photo, title, federation, FIDE ID, a coloured role
 banner, up to 12 numbered rooms, logos and a QR code. An event linked to a
