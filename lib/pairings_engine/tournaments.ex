@@ -4370,6 +4370,20 @@ defmodule PairingsEngine.Tournaments do
     tournament
   end
 
+  @doc """
+  The teams in the order the first draw will number them, without writing
+  anything: the seeding by rating `auto_seed_teams/1` would write first when
+  nobody ordered them by hand, the Teams page's order otherwise.
+  """
+  def planned_team_order(%Tournament{} = tournament) do
+    fresh = Repo.get(Tournament, tournament.id) || tournament
+
+    if Tournament.team?(fresh) and not fresh.teams_ordered_by_hand and
+         not teams_frozen?(fresh.id),
+       do: teams_by_rating(fresh),
+       else: list_teams(fresh.id)
+  end
+
   defp teams_by_rating(tournament) do
     tournament.id
     |> list_teams()

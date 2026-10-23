@@ -3,6 +3,17 @@ defmodule PairingsEngineWeb.PrintLive do
 
   alias PairingsEngine.Tournaments
 
+  # The ticks beside the schedule and the player cards, each one a query
+  # parameter of the document's link (`SchedulePrintController`). The
+  # documents print everything there is unless told otherwise, so only a
+  # tick moved off its default reaches the link.
+  @default_options %{
+    "schedule_results" => true,
+    "schedule_postponed" => true,
+    "schedule_boards" => true,
+    "cards_blank" => false
+  }
+
   @impl true
   def mount(%{"id" => id}, _session, socket) do
     tournament = Tournaments.get_authorized_tournament!(socket.assigns.current_scope, id)
@@ -21,7 +32,8 @@ defmodule PairingsEngineWeb.PrintLive do
        # game is still to be played are provisional: the page says so
        # before anything is printed, with a link to each game.
        postponed_open: PairingsEngine.PostponedGames.open_games(tournament),
-       category: nil
+       category: nil,
+       options: @default_options
      )}
   end
 
@@ -75,6 +87,50 @@ defmodule PairingsEngineWeb.PrintLive do
     {:noreply, push_patch(socket, to: to)}
   end
 
+  def handle_event("toggle_option", %{"key" => key}, socket) do
+    options = socket.assigns.options
+
+    {:noreply,
+     if(Map.has_key?(options, key),
+       do: assign(socket, :options, Map.update!(options, key, &(not &1))),
+       else: socket
+     )}
+  end
+
+  # The query a document's ticks add to its link: `results=0`,
+  # `postponed=0`, `boards=0` for a schedule with that part left off,
+  # `blank=1` for empty player cards.
+  defp with_options(nil, _keys, _options), do: nil
+
+  defp with_options(href, keys, options) do
+    query =
+      Enum.flat_map(keys, fn key ->
+        value = Map.fetch!(options, key)
+
+        if value == Map.fetch!(@default_options, key),
+          do: [],
+          else: [{option_param(key), if(value, do: "1", else: "0")}]
+      end)
+
+    case query do
+      [] ->
+        href
+
+      query ->
+        href <> if(String.contains?(href, "?"), do: "&", else: "?") <> URI.encode_query(query)
+    end
+  end
+
+  defp option_param("schedule_results"), do: "results"
+  defp option_param("schedule_postponed"), do: "postponed"
+  defp option_param("schedule_boards"), do: "boards"
+  defp option_param("cards_blank"), do: "blank"
+
+  defp option_label("schedule_results"), do: gettext("with results")
+  defp option_label("schedule_postponed"), do: gettext("with postponed dates")
+  defp option_label("schedule_boards"), do: gettext("with board line-ups")
+  defp option_label("cards_blank"), do: gettext("blank, to fill in by hand")
+
   # Appends `category=<name>` to a document link that supports filtering,
   # URL-encoded. "All players" and the unavailable (nil) links stay as they are.
   defp with_category(nil, _category), do: nil
@@ -85,16 +141,40 @@ defmodule PairingsEngineWeb.PrintLive do
     href <> sep <> URI.encode_query([{"category", category}])
   end
 
-  defp documents(tournament, postponed_open, category) do
+  defp documents(tournament, postponed_open, category, options) do
     rounds_paired = PairingsEngine.Standings.rounds_paired(tournament.id)
     latest = max(rounds_paired, 1)
 
-    team_documents(tournament, rounds_paired, latest) ++
-      Enum.map(
-        individual_documents(tournament, rounds_paired, latest),
-        &%{&1 | href: with_category(&1.href, category)}
-      ) ++
-      postponed_documents(tournament, postponed_open)
+    (team_documents(tournament, rounds_paired, latest) ++
+       Enum.map(
+         individual_documents(tournament, rounds_paired, latest),
+         &%{&1 | href: with_category(&1.href, category)}
+       ) ++
+       postponed_documents(tournament, postponed_open))
+    |> Enum.map(&%{&1 | href: with_options(&1.href, Map.get(&1, :options, []), options)})
+  end
+
+  # The whole schedule, every round paired or not, for a tournament whose
+  # rounds are fixed in advance: a round robin. Swiss has no schedule to
+  # print until it is played, which is what the pairing list is for.
+  defp schedule_document(tournament) do
+    if PairingsEngine.PrintSchedule.round_robin?(tournament) and
+         not PairingsEngine.Tournaments.Tournament.team_round_robin?(tournament) do
+      [
+        %{
+          id: "print-doc-schedule",
+          name: gettext("Schedule (all rounds)"),
+          desc:
+            gettext(
+              "Every round of the round robin with its date and boards, including the rounds not paired yet, as the Berger table will pair them."
+            ),
+          href: ~p"/t/#{tournament.id}/print/schedule",
+          options: ["schedule_results", "schedule_postponed"]
+        }
+      ]
+    else
+      []
+    end
   end
 
   # The notice each player of a postponed game gets: round, board, opponent,
@@ -120,53 +200,87 @@ defmodule PairingsEngineWeb.PrintLive do
   # slips, score sheets and the player list are still per board and per player.
   defp team_documents(tournament, rounds_paired, latest) do
     if PairingsEngine.Tournaments.Tournament.paired_as_teams?(tournament) do
+      team_schedule_documents(tournament) ++
+        [
+          %{
+            name: gettext("Team pairings (latest round)"),
+            desc: gettext("Each match, team against team, with its board lines."),
+            href:
+              if(rounds_paired > 0,
+                do: ~p"/t/#{tournament.id}/print/team-pairings?round=#{latest}"
+              )
+          },
+          %{
+            name: gettext("Team standings"),
+            desc: gettext("Teams ranked by match points, with the team tie-breaks."),
+            href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/team-standings")
+          },
+          %{
+            id: "print-team-crosstable",
+            name: gettext("Team cross table"),
+            desc:
+              gettext(
+                "Round robin: team against team with the game points of each match. Swiss: per round the opponent, the colour of board 1, the match score and the running match points."
+              ),
+            href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/team-crosstable")
+          },
+          %{
+            id: "print-team-match-sheets",
+            name: gettext("Match result sheets (latest round)"),
+            desc:
+              gettext(
+                "One A4 sheet per match: both line-ups with colours and ratings, result boxes, the match score, captain and arbiter signatures."
+              ),
+            href:
+              if(rounds_paired > 0,
+                do: ~p"/t/#{tournament.id}/print/team-match-sheets?round=#{latest}"
+              )
+          },
+          %{
+            id: "print-team-rosters",
+            name: gettext("Team rosters"),
+            desc: gettext("Each team's board order with ratings, FIDE IDs and federations."),
+            href: ~p"/t/#{tournament.id}/print/team-rosters"
+          },
+          %{
+            id: "print-board-prizes",
+            name: gettext("Board prizes"),
+            desc:
+              gettext(
+                "Per board number, the players ranked by percentage, points and performance."
+              ),
+            href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/board-prizes")
+          }
+        ]
+    else
+      []
+    end
+  end
+
+  # A team round robin's schedule: every round's matches, and one sheet per
+  # team with its own rounds.
+  defp team_schedule_documents(tournament) do
+    if PairingsEngine.Tournaments.Tournament.team_round_robin?(tournament) do
       [
         %{
-          name: gettext("Team pairings (latest round)"),
-          desc: gettext("Each match, team against team, with its board lines."),
-          href:
-            if(rounds_paired > 0,
-              do: ~p"/t/#{tournament.id}/print/team-pairings?round=#{latest}"
-            )
-        },
-        %{
-          name: gettext("Team standings"),
-          desc: gettext("Teams ranked by match points, with the team tie-breaks."),
-          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/team-standings")
-        },
-        %{
-          id: "print-team-crosstable",
-          name: gettext("Team cross table"),
+          id: "print-doc-team-schedule",
+          name: gettext("Schedule (all rounds)"),
           desc:
             gettext(
-              "Round robin: team against team with the game points of each match. Swiss: per round the opponent, the colour of board 1, the match score and the running match points."
+              "Every round with its date and matches, board by board, including the rounds not paired yet, as the Berger table will pair them."
             ),
-          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/team-crosstable")
+          href: ~p"/t/#{tournament.id}/print/team-schedule",
+          options: ["schedule_results", "schedule_postponed", "schedule_boards"]
         },
         %{
-          id: "print-team-match-sheets",
-          name: gettext("Match result sheets (latest round)"),
+          id: "print-doc-team-cards",
+          name: gettext("Team schedules"),
           desc:
             gettext(
-              "One A4 sheet per match: both line-ups with colours and ratings, result boxes, the match score, captain and arbiter signatures."
+              "One schedule per team: opponent, date, colour on board 1, match score and match points, round by round."
             ),
-          href:
-            if(rounds_paired > 0,
-              do: ~p"/t/#{tournament.id}/print/team-match-sheets?round=#{latest}"
-            )
-        },
-        %{
-          id: "print-team-rosters",
-          name: gettext("Team rosters"),
-          desc: gettext("Each team's board order with ratings, FIDE IDs and federations."),
-          href: ~p"/t/#{tournament.id}/print/team-rosters"
-        },
-        %{
-          id: "print-board-prizes",
-          name: gettext("Board prizes"),
-          desc:
-            gettext("Per board number, the players ranked by percentage, points and performance."),
-          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/board-prizes")
+          href: ~p"/t/#{tournament.id}/print/team-cards",
+          options: ["schedule_results"]
         }
       ]
     else
@@ -185,66 +299,83 @@ defmodule PairingsEngineWeb.PrintLive do
       %{
         id: "print-doc-cards",
         name: gettext("Player cards"),
-        desc: gettext("One card per player with their round-by-round schedule to fill in."),
-        href: ~p"/t/#{tournament.id}/print/cards"
-      },
-      %{
-        id: "print-doc-pairings",
-        name: gettext("Pairing list (latest round)"),
-        desc: gettext("Board-by-board pairings for posting at the venue."),
-        href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings?round=#{latest}")
-      },
-      %{
-        id: "print-doc-standings",
-        name: gettext("Standings"),
-        desc: gettext("Current ranking with points and tiebreaks."),
-        href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/standings")
-      },
-      %{
-        id: "print-doc-results",
-        name: gettext("Result cards (latest round)"),
-        desc: gettext("One slip per board to record the result over the board."),
-        href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/results?round=#{latest}")
-      },
-      %{
-        id: "print-doc-pairings-alpha",
-        name: gettext("Alphabetical pairing list"),
-        desc: gettext("\"Where do I sit\" list, sorted by player name."),
-        href:
-          if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings-alpha?round=#{latest}")
-      },
-      %{
-        id: "print-doc-scoresheets",
-        name: gettext("Score sheets"),
-        desc: gettext("Pre-filled per board: names, ratings, move columns, signatures."),
-        href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/scoresheets?round=#{latest}")
-      },
-      %{
-        id: "print-doc-crosstable",
-        name: gettext("Cross table"),
-        desc: gettext("Full results grid of the tournament."),
-        href: ~p"/t/#{tournament.id}/print/crosstable"
-      },
-      %{
-        id: "print-doc-placecards",
-        name: gettext("Place cards"),
-        desc: gettext("A folded name card per player, to stand at their seat."),
-        href: ~p"/t/#{tournament.id}/print/placecards"
-      },
-      %{
-        id: "print-doc-next-round-preview",
-        name: gettext("Next round preview"),
         desc:
-          gettext(
-            "The next round's boards that are already certain. Work it out on the Pairings page first; until then there is nothing to print."
+          if(PairingsEngine.PrintSchedule.round_robin?(tournament),
+            do:
+              gettext(
+                "One card per player with every round: date, opponent, colour, result and running score."
+              ),
+            else:
+              gettext(
+                "One card per player, round by round: the rounds played filled in, the rest to fill in."
+              )
           ),
-        disabled_reason: gettext("Work out the preview on the Pairings page first"),
-        href:
-          if(next_round_preview_ready?(tournament),
-            do: ~p"/t/#{tournament.id}/print/next-round-preview"
-          )
+        href: ~p"/t/#{tournament.id}/print/cards",
+        options: ["cards_blank"]
       }
-    ]
+    ] ++
+      schedule_document(tournament) ++
+      [
+        %{
+          id: "print-doc-pairings",
+          name: gettext("Pairing list (latest round)"),
+          desc: gettext("Board-by-board pairings for posting at the venue."),
+          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/pairings?round=#{latest}")
+        },
+        %{
+          id: "print-doc-standings",
+          name: gettext("Standings"),
+          desc: gettext("Current ranking with points and tiebreaks."),
+          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/standings")
+        },
+        %{
+          id: "print-doc-results",
+          name: gettext("Result cards (latest round)"),
+          desc: gettext("One slip per board to record the result over the board."),
+          href: if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/results?round=#{latest}")
+        },
+        %{
+          id: "print-doc-pairings-alpha",
+          name: gettext("Alphabetical pairing list"),
+          desc: gettext("\"Where do I sit\" list, sorted by player name."),
+          href:
+            if(rounds_paired > 0,
+              do: ~p"/t/#{tournament.id}/print/pairings-alpha?round=#{latest}"
+            )
+        },
+        %{
+          id: "print-doc-scoresheets",
+          name: gettext("Score sheets"),
+          desc: gettext("Pre-filled per board: names, ratings, move columns, signatures."),
+          href:
+            if(rounds_paired > 0, do: ~p"/t/#{tournament.id}/print/scoresheets?round=#{latest}")
+        },
+        %{
+          id: "print-doc-crosstable",
+          name: gettext("Cross table"),
+          desc: gettext("Full results grid of the tournament."),
+          href: ~p"/t/#{tournament.id}/print/crosstable"
+        },
+        %{
+          id: "print-doc-placecards",
+          name: gettext("Place cards"),
+          desc: gettext("A folded name card per player, to stand at their seat."),
+          href: ~p"/t/#{tournament.id}/print/placecards"
+        },
+        %{
+          id: "print-doc-next-round-preview",
+          name: gettext("Next round preview"),
+          desc:
+            gettext(
+              "The next round's boards that are already certain. Work it out on the Pairings page first; until then there is nothing to print."
+            ),
+          disabled_reason: gettext("Work out the preview on the Pairings page first"),
+          href:
+            if(next_round_preview_ready?(tournament),
+              do: ~p"/t/#{tournament.id}/print/next-round-preview"
+            )
+        }
+      ]
   end
 
   # The controller refuses (409) a preview the Pairings page has not worked
@@ -319,10 +450,34 @@ defmodule PairingsEngineWeb.PrintLive do
           </thead>
 
           <tbody>
-            <tr :for={doc <- documents(@tournament, @postponed_open, @category)} id={doc[:id]}>
+            <tr
+              :for={doc <- documents(@tournament, @postponed_open, @category, @options)}
+              id={doc[:id]}
+            >
               <td><strong>{doc.name}</strong></td>
 
-              <td class="hint">{doc.desc}</td>
+              <td class="hint">
+                {doc.desc}
+                <span
+                  :if={doc[:options] not in [nil, []]}
+                  class="mt-1 flex flex-wrap gap-x-4 gap-y-1"
+                  id={"#{doc[:id]}-options"}
+                >
+                  <label
+                    :for={key <- doc[:options]}
+                    class="inline-flex cursor-pointer items-center gap-1.5"
+                  >
+                    <input
+                      type="checkbox"
+                      id={"#{doc[:id]}-#{key}"}
+                      checked={@options[key]}
+                      phx-click="toggle_option"
+                      phx-value-key={key}
+                    />
+                    {option_label(key)}
+                  </label>
+                </span>
+              </td>
 
               <td style="text-align: right">
                 <a :if={doc.href} class="pe-btn primary" href={doc.href} target="_blank">{gettext(

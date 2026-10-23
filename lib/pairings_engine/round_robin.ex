@@ -759,10 +759,33 @@ defmodule PairingsEngine.RoundRobin do
   ## ---------- the pairing run ----------
 
   defp do_pair(tournament, frozen, next_number) do
+    with {:ok, matches} <- planned_matches(tournament, frozen, next_number) do
+      result = create_round(tournament, matches, next_number)
+
+      case result do
+        {:ok, _round} -> Tournaments.broadcast_tournament_change(tournament.id, :rounds)
+        _ -> :ok
+      end
+
+      result
+    end
+  end
+
+  @doc """
+  What pairing round `number` over `frozen` (the players holding numbers,
+  `schedule_field/1`) produces, as `{:pairing, white, black}` and
+  `{:bye, player}` with the players themselves, table after table - or the
+  refusal pairing it would answer. Writes nothing. The one place a round's
+  matches are decided: the real pairing writes exactly this
+  (`create_round/3` via `board_layout/2`) and the printed schedule
+  (`PairingsEngine.RoundRobinSchedule`) prints exactly this, so a round
+  printed before it is paired has no second opinion to disagree with.
+  """
+  def planned_matches(tournament, frozen, number) do
     scheduled =
       tournament
       |> schedule_groups(frozen)
-      |> Enum.map(&{&1, group_schedule(tournament, length(&1), next_number)})
+      |> Enum.map(&{&1, group_schedule(tournament, length(&1), number)})
 
     case Enum.find(scheduled, &match?({_group, {:ok, _}}, &1)) do
       nil ->
@@ -773,14 +796,87 @@ defmodule PairingsEngine.RoundRobin do
         end
 
       _some ->
-        result = create_round(tournament, scheduled_matches(scheduled), next_number)
+        {:ok, scheduled_matches(scheduled)}
+    end
+  end
 
-        case result do
-          {:ok, _round} -> Tournaments.broadcast_tournament_change(tournament.id, :rounds)
-          _ -> :ok
-        end
+  @doc """
+  The boards `matches` (`planned_matches/3`) are written as: `%{boards:
+  [{board, white, black_or_nil, result}], byes: [player]}`. Games take
+  boards 1..n in the order given, each with the forfeit an absent player
+  is recorded with at the moment of pairing; a SWAR round robin's free
+  round is a bye board after them; every other bye is a zero-point bye
+  row, not a board. Pure.
+  """
+  def board_layout(tournament, matches) do
+    games =
+      matches
+      |> Enum.filter(&match?({:pairing, _, _}, &1))
+      |> Enum.with_index(1)
+      |> Enum.map(fn {{:pairing, white, black}, board} ->
+        {board, white, black, forfeit_result(white, black)}
+      end)
 
-        result
+    # A round robin continued from a SWAR file keeps SWAR's free round: a
+    # bye board worth `bye_value`, which the import set to the full point
+    # SWAR forces on every round robin (`SwarImport.scoring_attrs/1`) - the
+    # same shape as the free rounds already imported, so one tournament
+    # does not score its first rounds' byes at a point and the rest at
+    # nothing.
+    {swar_byes, byes} =
+      matches
+      |> Enum.filter(&match?({:bye, _}, &1))
+      |> Enum.split_with(fn _bye -> swar_bye?(tournament) end)
+
+    bye_boards =
+      swar_byes
+      |> Enum.with_index(length(games) + 1)
+      |> Enum.map(fn {{:bye, player}, board} -> {board, player, nil, "bye"} end)
+
+    %{boards: games ++ bye_boards, byes: Enum.map(byes, fn {:bye, player} -> player end)}
+  end
+
+  @doc """
+  The players the next pairing schedules, in pairing-number order: the
+  frozen field once round 1 is paired, and before that the field as
+  pairing round 1 would number it now (`Pairing.planned_pairing_numbers/2`
+  over the active players, after any numbers already on the roster) -
+  worked out in memory, nothing written. `ensure_frozen/1` followed by
+  `frozen_players/1`, minus the writing.
+  """
+  def schedule_field(%Tournament{} = tournament) do
+    numbered = frozen_players(tournament.id)
+
+    if schedule_frozen?(tournament) do
+      numbered
+    else
+      new_numbers =
+        tournament
+        |> Engine.planned_pairing_numbers(Engine.active_players(tournament.id))
+        |> Map.new(fn {player, number} -> {player.id, %{player | pairing_number: number}} end)
+
+      numbered
+      |> Enum.reject(&Map.has_key?(new_numbers, &1.id))
+      |> Enum.concat(Map.values(new_numbers))
+      |> Enum.sort_by(& &1.pairing_number)
+    end
+  end
+
+  @doc """
+  Whether the schedule is fixed: round 1 has been paired, so the numbers
+  are frozen and nobody joins or leaves the table any more.
+  """
+  def schedule_frozen?(%Tournament{} = tournament),
+    do: Engine.paired_rounds_count(tournament.id) > 0 and already_frozen?(tournament.id)
+
+  @doc """
+  How many rounds the schedule over `field` (`schedule_field/1`) has - what
+  pairing corrects `rounds_count` to. 0 with fewer than two players.
+  """
+  def scheduled_rounds(%Tournament{} = tournament, field) do
+    case tournament |> schedule_groups(field) |> Enum.map(&length/1) |> Enum.max(fn -> 0 end) do
+      size when size >= 2 -> rounds_needed(size, tournament)
+      _ -> 0
     end
   end
 
@@ -930,47 +1026,22 @@ defmodule PairingsEngine.RoundRobin do
           publish_due_at: Tournaments.due_publish_at(published_at)
         })
 
-      matches
-      |> Enum.filter(&match?({:pairing, _, _}, &1))
-      |> Enum.with_index(1)
-      |> Enum.each(fn {{:pairing, white, black}, board} ->
+      # `board_layout/2` decides the boards; this only writes them, so the
+      # printed schedule and the paired round cannot number them apart.
+      layout = board_layout(tournament, matches)
+
+      Enum.each(layout.boards, fn {board, white, black, result} ->
         Repo.insert!(%Pairing{
           round_id: round.id,
           board: board,
           white_player_id: white.id,
-          black_player_id: black.id,
-          result: forfeit_result(white, black)
-        })
-      end)
-
-      {swar_byes, byes} =
-        matches
-        |> Enum.filter(&match?({:bye, _}, &1))
-        |> Enum.split_with(fn _bye -> swar_bye?(tournament) end)
-
-      # A round robin continued from a SWAR file keeps SWAR's free round: a
-      # bye board worth `bye_value`, which the import set to the full point
-      # SWAR forces on every round robin (`SwarImport.scoring_attrs/1`) - the
-      # same shape as the free rounds already imported, so one tournament
-      # does not score its first rounds' byes at a point and the rest at
-      # nothing.
-      pairings_count = Enum.count(matches, &match?({:pairing, _, _}, &1))
-
-      swar_byes
-      |> Enum.with_index(pairings_count + 1)
-      |> Enum.each(fn {{:bye, player}, board} ->
-        Repo.insert!(%Pairing{
-          round_id: round.id,
-          board: board,
-          white_player_id: player.id,
-          black_player_id: nil,
-          result: "bye"
+          black_player_id: black && black.id,
+          result: result
         })
       end)
 
       bye_rows =
-        byes
-        |> Enum.map(fn {:bye, player} ->
+        Enum.map(layout.byes, fn player ->
           %{
             tournament_id: tournament.id,
             player_id: player.id,

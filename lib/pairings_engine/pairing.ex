@@ -1201,6 +1201,18 @@ defmodule PairingsEngine.Pairing do
 
   defp seed_newcomers_before_round_one(_tournament, _next_number, active), do: active
 
+  @doc """
+  The numbers `ensure_pairing_numbers/2` would hand out to `players` right
+  now, as `[{player, number}]` for every player whose number is new or
+  moves - without writing any of them. The round robin's printed schedule
+  (`PairingsEngine.RoundRobinSchedule`) numbers a field not yet frozen with
+  it, so the table on paper is the one round 1 will pair.
+  """
+  def planned_pairing_numbers(tournament, players) do
+    {numbers, _group_a_last} = new_pairing_numbers(tournament, current_pairing_numbers(players))
+    numbers
+  end
+
   # The numbers `ensure_pairing_numbers/2` would hand out, as
   # `{[{player, number}], baku_group_a_last}` - every player whose number is
   # new or moves, and Group A's line after the move - without writing them:

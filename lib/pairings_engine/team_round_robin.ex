@@ -165,31 +165,104 @@ defmodule PairingsEngine.TeamRoundRobin do
         {:error, {:all_rounds_paired, tournament.rounds_count}}
 
       true ->
-        # The table round this played round holds, after any swaps
-        # (`PairingsEngine.RoundSwap`).
-        table = RoundRobin.table_round_number(tournament, next_number)
-
-        schedule =
-          cond do
-            match?({:rounds, _}, size) ->
-              {:rounds, rounds} = size
-              {:ok, listed_round(Enum.at(rounds, table - 1, []), teams)}
-
-            tournament.rr_match_format ->
-              RoundRobin.match_schedule(size, table)
-
-            true ->
-              RoundRobin.schedule(size, tournament.rr_cycles, table)
-          end
-
-        with {:ok, entries} <- schedule,
-             entries = fill_vacancies(entries, teams),
+        with {:ok, entries} <- planned_entries(tournament, teams, size, next_number),
              {:ok, round} <-
-               TeamRounds.create_round(tournament, teams, order(entries), next_number) do
+               TeamRounds.create_round(tournament, teams, entries, next_number) do
           record_table_departure(tournament, teams, size, next_number)
           Tournaments.broadcast_tournament_change(tournament.id, :rounds)
           {:ok, round}
         end
+    end
+  end
+
+  @doc """
+  The matches pairing round `number` writes, in the order it writes them:
+  `{:pairing, team_a_number, team_b_number}` (team A White on board 1) and
+  `{:bye, team_number}`, or the refusal. `teams` and `size` are what
+  `schedule_field/1` gives. Writes nothing; the real pairing and the printed
+  schedule (`PairingsEngine.RoundRobinSchedule`) both take their matches
+  from here.
+  """
+  def planned_entries(tournament, teams, size, number) do
+    # The table round this played round holds, after any swaps
+    # (`PairingsEngine.RoundSwap`).
+    table = RoundRobin.table_round_number(tournament, number)
+
+    schedule =
+      cond do
+        match?({:rounds, _}, size) ->
+          {:rounds, rounds} = size
+          {:ok, listed_round(Enum.at(rounds, table - 1, []), teams)}
+
+        tournament.rr_match_format ->
+          RoundRobin.match_schedule(size, table)
+
+        true ->
+          RoundRobin.schedule(size, tournament.rr_cycles, table)
+      end
+
+    with {:ok, entries} <- schedule do
+      {:ok, entries |> fill_vacancies(teams) |> order()}
+    end
+  end
+
+  @doc """
+  The teams the next pairing schedules, numbered, and the table they play:
+  `{:ok, teams, size, rounds}` where `size` is the Berger table's size (or
+  a plugin's listed rounds, `{:rounds, list}`) and `rounds` the number of
+  rounds it has; `{:error, reason}` when pairing would refuse. Once the
+  teams are numbered this is what pairing reads; before that it is the
+  numbering pairing round 1 would hand out now - the plugin's, or the
+  Teams page's order after the seeding by rating - in memory only.
+  """
+  def schedule_field(%Tournament{} = tournament) do
+    plan = Plugins.team_schedule(tournament)
+
+    teams =
+      cond do
+        Tournaments.teams_frozen?(tournament.id) ->
+          {:ok, TeamRounds.numbered_teams(tournament.id)}
+
+        is_map(plan) ->
+          all = Tournaments.list_teams(tournament.id)
+
+          if Enum.all?(all, &Map.has_key?(plan.numbers, &1.id)),
+            do:
+              {:ok,
+               all
+               |> Enum.map(&%{&1 | pairing_number: Map.fetch!(plan.numbers, &1.id)})
+               |> Enum.sort_by(& &1.pairing_number)},
+            else:
+              {:error,
+               "A plugin sets this tournament's team numbers, and not every team has one."}
+
+        true ->
+          {:ok,
+           tournament
+           |> Tournaments.planned_team_order()
+           |> Enum.with_index(1)
+           |> Enum.map(fn {team, n} -> %{team | pairing_number: n} end)}
+      end
+
+    with {:ok, teams} <- teams do
+      size = table_size(teams, plan)
+
+      cond do
+        length(teams) < 2 ->
+          {:error, "At least two teams are needed"}
+
+        match?(%{rounds: [_ | _]}, plan) ->
+          {:ok, teams, {:rounds, plan.rounds}, length(plan.rounds)}
+
+        is_nil(size) ->
+          {:error, "The team numbers have gaps, which only a plugin's schedule can pair."}
+
+        tournament.rr_match_format ->
+          {:ok, teams, size, RoundRobin.match_total_rounds(size)}
+
+        true ->
+          {:ok, teams, size, RoundRobin.total_rounds(size, tournament.rr_cycles)}
+      end
     end
   end
 

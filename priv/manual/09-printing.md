@@ -34,7 +34,8 @@ for the highest-of or typed-by-hand methods.
 | Document | What it is |
 | --- | --- |
 | **Player list** | All registered players: title, name, ratings, federation, club. |
-| **Player cards** | One card per player with every round of the tournament listed, to fill in over the board. |
+| **Player cards** | One card per player with every round of the tournament: date, board, colour, opponent, result and running score. A round robin's card is filled in for every round, the rounds not paired yet included; a Swiss card has the rounds played filled in and the rest left to fill in. Tick *blank, to fill in by hand* for empty cards. The Players page's *Players Card* of a round robin prints the same card for one player. |
+| **Schedule (all rounds)** | Round robin only: every round with its date and boards, both players with their pairing numbers and ratings, and the byes - the rounds not paired yet included (see below). Ticks: *with results* (off prints a blank schedule for the wall) and *with postponed dates* (a postponed game shows *postponed to* the agreed date and the venue instead of its `*`). |
 | **Pairing list** | The boards of a round, to post at the venue. The Pairings page also offers *Pairings, with absentees section*, which adds the players who are not playing, with the value of the round for each. A player with a fixed table is marked, for example `5 (table 5)`. |
 | **Alphabetical pairing list** | "Where do I sit": the players sorted by name, to find your board. |
 | **Standings** | The ranking with the points and the tie-breaks. |
@@ -59,6 +60,26 @@ next-round preview that has not been worked out) opens as a small page with the
 reason and a link back to the Print page, in the same tab. The standings print takes a
 round in the same way (`?round=N`) and then shows the standings as they stood
 after that round.
+
+### The schedule of a round robin
+
+A round robin's rounds are fixed by its Berger table, so the schedule and the
+player cards print every round, also the ones not paired yet. Those rounds are
+worked out by the same code that pairs them, so what is on paper is what *Pair*
+will give - with two provisos, which the printout states above the rounds:
+
+- **Before round 1 is paired** the whole schedule is provisional. The table is
+  fixed by the first pairing; until then a new entry, a withdrawal or new
+  starting numbers change it.
+- **After that** a round not paired yet is marked *not paired yet*. It changes
+  only if you swap rounds, pair a round by hand or change the cycles or the
+  categories. In a team round robin the line-ups of those rounds are the rosters
+  as they stand now: an absence or a reserve changes who sits down, never which
+  teams meet.
+
+The dates are the round dates from Settings, *Dates*. A double round robin
+prints both cycles. In the address `?results=0` and `?postponed=0` turn the two
+ticks off, and the player cards take `?blank=1`.
 
 ### One category only
 
@@ -105,6 +126,14 @@ line-ups, result boxes, the match score and signature lines for both
 captains and the arbiter), **team rosters** and **board prizes** (per board
 number, the players ranked by percentage, points and performance, with an
 optional minimum number of games). See [Teams](13-teams.md).
+
+A team round robin also has its **schedule (all rounds)**: every round with
+its date and matches, and per match the boards with both players, the colours
+and, with *with results*, the results and the match score; untick *with board
+line-ups* for the matches alone. **Team schedules** prints one sheet per team:
+per round the opponent, the date, the team's colour on board 1, the match score
+and the running match points. A player's card shows per round the team the
+player's team meets, the board, the colour, the opponent and the result.
 
 ## Accreditation badges
 
